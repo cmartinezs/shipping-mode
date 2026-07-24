@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { validateManifest } from "../verify-corte-1.2.mjs";
+import { findDuplicateJsonKeys, validateManifest } from "../verify-corte-1.2.mjs";
 
 const base = () => ({
   id: "test",
@@ -22,6 +22,8 @@ const errors = (manifest) => validateManifest(manifest, "test");
 const has = (manifest, text) => errors(manifest).some((error) => error.includes(text));
 
 assert.equal(validateManifest(base(), "test", { structureOnly: true }).length, 0, "structure-planned-valid");
+assert.deepEqual(findDuplicateJsonKeys('{"adr":null,"adr":"docs/adr/ADR-0001.md"}'), ["adr"], "duplicate-top-level-key-invalid");
+assert.deepEqual(findDuplicateJsonKeys('{"nested":{"value":1,"value":2}}'), ["nested.value"], "duplicate-nested-key-invalid");
 for (const [field, label] of [["evidence", "passed-with-empty-evidence-invalid"], ["fixtures", "passed-with-empty-fixtures-invalid"], ["tests", "passed-with-empty-tests-invalid"]]) {
   const manifest = base(); manifest.status = "PASSED"; manifest.pass_criteria[0].status = "PASSED";
   manifest[field] = ["ok"];
@@ -60,4 +62,4 @@ complete.status = "PASSED"; complete.pass_criteria[0].status = "PASSED";
 complete.evidence = ["evidence"]; complete.fixtures = ["fixture"]; complete.tests = ["test"];
 complete.adr = "docs/adr/ADR-0001.md"; complete.decision = "passed"; complete.result = "verified";
 assert.deepEqual(errors(complete), [], "complete-passed-valid");
-console.log("Corte -1.2 verifier tests: 12 passed");
+console.log("Corte -1.2 verifier tests: 14 passed");

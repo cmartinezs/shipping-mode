@@ -9,7 +9,6 @@
   "reusable_or_disposable": "reusable",
   "inputs": ["runtime bundle", "platform fixtures"],
   "fault_model": ["Node absent", "Node 18", "PATH collision", "spaces and Unicode"],
-  "adr": null,
   "critical": true,
   "waivable": false,
   "pass_criteria": [

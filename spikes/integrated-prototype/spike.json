@@ -9,7 +9,6 @@
   "reusable_or_disposable": "reusable",
   "inputs": ["all previous spike outputs", "integrated fixtures"],
   "fault_model": ["direct-write bypass", "missing audit event", "stale ChangeSet"],
-  "adr": null,
   "critical": true,
   "waivable": false,
   "pass_criteria": [

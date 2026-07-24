@@ -9,7 +9,6 @@
   "reusable_or_disposable": "reusable",
   "inputs": ["worktree fixtures", "aggregate fixtures"],
   "fault_model": ["silent overwrite", "data loss", "stale index"],
-  "adr": null,
   "critical": true,
   "waivable": false,
   "pass_criteria": [

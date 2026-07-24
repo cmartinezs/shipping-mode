@@ -9,7 +9,6 @@
   "reusable_or_disposable": "reusable",
   "inputs": ["fault injection fixtures", "operation manifests"],
   "fault_model": ["partial apply", "recording failure", "external command failure"],
-  "adr": null,
   "critical": true,
   "waivable": false,
   "pass_criteria": [

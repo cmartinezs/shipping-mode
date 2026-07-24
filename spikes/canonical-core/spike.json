@@ -9,7 +9,6 @@
   "reusable_or_disposable": "reusable",
   "inputs": ["RFC 8785 fixtures", "UUIDv7 fixtures", "DSL fixtures"],
   "fault_model": ["hash drift", "path escape", "ambiguous DSL"],
-  "adr": null,
   "critical": true,
   "waivable": false,
   "pass_criteria": [

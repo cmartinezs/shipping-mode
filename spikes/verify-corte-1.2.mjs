@@ -16,6 +16,70 @@ export const requiredSpikes = [
 const allowedStates = new Set(["PLANNED", "IN_PROGRESS", "PASSED", "FAILED", "INCONCLUSIVE", "DECISION_ACCEPTED_WITH_LIMITATIONS"]);
 const allowedCriterionStates = new Set(["PENDING", "PASSED", "FAILED", "NOT_APPLICABLE"]);
 
+function skipWhitespace(text, index) {
+  while (/\s/.test(text[index] || "")) index += 1;
+  return index;
+}
+
+function readJsonString(text, index) {
+  if (text[index] !== '"') throw new Error(`expected JSON string at ${index}`);
+  let value = "";
+  for (let cursor = index + 1; cursor < text.length; cursor += 1) {
+    if (text[cursor] === "\\") {
+      value += text[cursor] + text[cursor + 1];
+      cursor += 1;
+    } else if (text[cursor] === '"') {
+      return [value, cursor + 1];
+    } else {
+      value += text[cursor];
+    }
+  }
+  throw new Error("unterminated JSON string");
+}
+
+function scanJsonValue(text, index, duplicates, objectPath) {
+  index = skipWhitespace(text, index);
+  if (text[index] === "{") {
+    const keys = new Set();
+    let cursor = skipWhitespace(text, index + 1);
+    if (text[cursor] === "}") return cursor + 1;
+    while (cursor < text.length) {
+      const [key, afterKey] = readJsonString(text, cursor);
+      cursor = skipWhitespace(text, afterKey);
+      if (text[cursor] !== ":") throw new Error(`expected colon at ${cursor}`);
+      if (keys.has(key)) duplicates.push([...objectPath, key].join("."));
+      keys.add(key);
+      cursor = scanJsonValue(text, cursor + 1, duplicates, [...objectPath, key]);
+      cursor = skipWhitespace(text, cursor);
+      if (text[cursor] === "}") return cursor + 1;
+      if (text[cursor] !== ",") throw new Error(`expected comma at ${cursor}`);
+      cursor = skipWhitespace(text, cursor + 1);
+    }
+  }
+  if (text[index] === "[") {
+    let cursor = skipWhitespace(text, index + 1);
+    if (text[cursor] === "]") return cursor + 1;
+    let item = 0;
+    while (cursor < text.length) {
+      cursor = scanJsonValue(text, cursor, duplicates, [...objectPath, String(item)]);
+      cursor = skipWhitespace(text, cursor);
+      if (text[cursor] === "]") return cursor + 1;
+      if (text[cursor] !== ",") throw new Error(`expected comma at ${cursor}`);
+      cursor = skipWhitespace(text, cursor + 1);
+      item += 1;
+    }
+  }
+  if (text[index] === '"') return readJsonString(text, index)[1];
+  const end = text.slice(index).search(/[\s,}\]]/);
+  return end === -1 ? text.length : index + end;
+}
+
+export function findDuplicateJsonKeys(text) {
+  const duplicates = [];
+  scanJsonValue(text, 0, duplicates, []);
+  return duplicates;
+}
+
 function hasValue(value) {
   return value !== null && value !== undefined && value !== "";
 }
@@ -89,7 +153,9 @@ export async function verify({ structureOnly = false } = {}) {
   const errors = [];
   for (const spikeId of requiredSpikes) {
     try {
-      const manifest = JSON.parse(await fs.readFile(path.join(root, spikeId, "spike.json"), "utf8"));
+      const source = await fs.readFile(path.join(root, spikeId, "spike.json"), "utf8");
+      for (const duplicate of findDuplicateJsonKeys(source)) errors.push(`${spikeId}: duplicate JSON key ${duplicate}`);
+      const manifest = JSON.parse(source);
       errors.push(...validateManifest(manifest, spikeId, { structureOnly }));
     } catch (error) {
       errors.push(`${spikeId}: ${error.code === "ENOENT" ? "spike.json is missing" : error.message}`);
