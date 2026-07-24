@@ -177,13 +177,13 @@ La ausencia de una fuente no implica inventarla. `init`/`config` deben registrar
 | Public/data contracts | Diseno actual + extension | OpenAPI, AsyncAPI, protobuf, GraphQL schemas, JSON Schema, DB migrations | Detectar interfaces publicas, compatibilidad y riesgos persistentes |
 | Delivery/CI/deployment | Extension | `.github/workflows/**`, `.gitlab-ci.yml`, `Jenkinsfile`, `azure-pipelines.yml`, Terraform, Helm, Kubernetes, Pulumi | Descubrir la definicion real de build/test/package/deploy y targets |
 | Ownership | Extension | `CODEOWNERS`, ownership docs | Inferir owner candidato de scopes y areas afectadas |
-| Decision sources | Extension derivada de GradeOps | `adr/`, `docs/adr/`, `docs/decisions/`, `docs/99-decisions/` | Resolver decisiones durables, trade-offs y constraints que pueden superseder documentacion mas antigua |
-| Developer guides | Extension derivada de GradeOps | `docs/developer-guide/`, repository maps, API/DB/security/testing/deployment guides | Explicar como se trabaja realmente en este repositorio y como ejecutar cambios seguros |
-| Engineering standards | Extension derivada de GradeOps | best practices, coding standards, AI-assisted development guides, checklists | Reglas generales adoptadas por el equipo, distintas de la arquitectura o guia de un modulo concreto |
-| Repository map | Extension derivada de GradeOps | repository map, module map, package map | Fuente explicita de boundaries, stacks, package roots, dependencias y artefactos significativos |
-| Evidence contracts | Extension derivada de GradeOps | evidence docs, release proof, compliance/performance/deployment evidence | Definir que prueba hace falta para considerar un cambio, release o ambiente realmente validado |
-| Design system | Extension derivada de GradeOps | `design-system/`, tokens, components, foundations, UI kits, component prompts | Fuente canonica para work packages UI, semantica visual, estados y reglas de interaccion |
-| Prompt sources | Extension derivada de GradeOps | `prompts/`, `*.prompt.md`, `*.prompt.yml`, `*.st` | Contratos versionados de prompts para proyectos AI; evita prompts inline o no trazables |
+| Decision sources | Extension | `adr/`, `docs/adr/`, `docs/decisions/`, `docs/99-decisions/` | Resolver decisiones durables, trade-offs y constraints que pueden superseder documentacion mas antigua |
+| Developer guides | Extension | `docs/developer-guide/`, repository maps, API/DB/security/testing/deployment guides | Explicar como se trabaja realmente en este repositorio y como ejecutar cambios seguros |
+| Engineering standards | Extension | best practices, coding standards, AI-assisted development guides, checklists | Reglas generales adoptadas por el equipo, distintas de la arquitectura o guia de un modulo concreto |
+| Repository map | Extension | repository map, module map, package map | Fuente explicita de boundaries, stacks, package roots, dependencias y artefactos significativos |
+| Evidence contracts | Extension | evidence docs, release proof, compliance/performance/deployment evidence | Definir que prueba hace falta para considerar un cambio, release o ambiente realmente validado |
+| Design system | Extension | `design-system/`, tokens, components, foundations, UI kits, component prompts | Fuente canonica para work packages UI, semantica visual, estados y reglas de interaccion |
+| Prompt sources | Extension | `prompts/`, `*.prompt.md`, `*.prompt.yml`, `*.st` | Contratos versionados de prompts para proyectos AI; evita prompts inline o no trazables |
 | Custom automation | Diseno actual | `scripts/`, `tools/`, `bin/`, generators propios | Reutilizar automatizacion existente por contrato estable |
 
 `Diseno actual` significa que la categoria ya estaba exigida o explicitamente detectable en este flujo. `Extension` formaliza artefactos adicionales necesarios para que discovery, guides, gates y autonomia puedan apoyarse en las fuentes reales del repositorio.
@@ -327,6 +327,19 @@ Una auditoria de vigencia puede considerar, segun aplique:
 - decisiones aceptadas que cambien la interpretacion de documentos anteriores.
 
 Un cambio de contenido, rol, autoridad, disponibilidad o evidencia de vigencia puede marcar una guide aprobada como `stale`, no solo un cambio de bytes.
+
+### Estrategias transversales como concerns y gates
+
+Cuando el host documente estrategias transversales —por ejemplo seguridad, observabilidad, testing, UI/design system, accesibilidad, i18n, privacidad o compliance— Shipping Mode debe proponerlas como `concerns` y/o `gates` aplicables por impacto, no convertirlas automaticamente en releases tecnicas separadas.
+
+```text
+host strategy / standard
+    -> concern candidate
+        -> gate/profile rules
+            -> work packages/tasks affected
+```
+
+La documentacion host define la intencion y condiciones de aplicacion; `.planning/concerns/**`, `.planning/gates/**` y `.planning/gate-profiles/**` son la proyeccion operacional de Shipping Mode. Deben conservar provenance hacia las fuentes que originaron cada regla.
 
 ### Claims de ambiente y evidencia
 
