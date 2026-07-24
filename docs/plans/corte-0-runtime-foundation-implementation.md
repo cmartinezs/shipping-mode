@@ -1,4 +1,4 @@
-# Corte 0 Runtime Foundation — Implementation Plan (revision 2)
+# Corte 0 Runtime Foundation — Implementation Plan (revision 3)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -26,6 +26,24 @@ This revision fixes 14 blocking issues found reviewing revision 1, before any ta
 12. Test running is a portable Node script (`scripts/run-tests.mjs`), not a `for f in ...; do node "$f"; done` bash loop (which breaks under `cmd.exe`). `scripts/verify-next-generation.sh` runs `npm ci` and `npm run build:runtime` before any suite that depends on the bundle.
 13. CLI e2e coverage is expanded: `config set`, successful `config scope add`, `changeset propose --payload-file` (file and stdin), invalid payload, self-approval without the flag, `INVALID`, an active lock, a real crash-and-recover cycle driven through the actual bundled binary via an env-var-armed fault checkpoint, a scope path that symlinks outside the workspace, and missing required flags.
 14. `check schema` now has an explicit contract for an uninitialized workspace (`NOT_INITIALIZED`) and treats a **missing** `config.yml`/`plugin.lock.yml` as a finding — it no longer silently skips validation (and thus silently reports `PASS`) when a required file doesn't exist.
+
+## Revision 3 — what changed from revision 2
+
+A second review, run before any task was executed, found 13 more consistency and integrity gaps. Revision 2's note 11 (a runtime-computed `templatePackFingerprint`) is superseded by note 5 below, which moves that computation to build time instead.
+
+1. `scope.add`'s `targetFiles` is now dynamic — `["config.yml", "scopes/<id>/scope.yml"]`, built from the id `prepareProposal` already fixed — instead of the fixed `["config.yml"]` from revision 2, which never gave the new scope's own file a `baseRevisions` entry at all. A new kind-specific invariant check rejects a `scope.add` whose recorded `baseRevisions` for that path isn't `ABSENT`, even if it's internally plausible (a UUID collision or tampered manifest).
+2. `changeSetHash` is now recomputed and cross-checked at every stage, never trusted at face value: `validate` recomputes it and persists what it saw; `approve` recomputes it again and requires it to match both `change-set.json`'s own `hash` and what `validate` recorded; `apply` recomputes it a third time and requires it to match `change-set.json`, `validate`, **and** `approve` all at once. A single `computePersistedChangeSetHash` function is reused everywhere so there's one hashing rule, not several that could drift apart.
+3. All of that revalidation logic (schema, invariants, staleness, in-memory render-and-validate) lives in one shared `revalidateChangeSet` function, called identically by `validateOperation` and by `apply`'s authoritative pre-staging check — not reimplemented twice.
+4. An unresolved `RECOVERY_REQUIRED` operation now blocks every subsequent mutating command. `withWorkspaceMutation` checks recovery's outcomes and refuses to run its callback (throwing `RecoveryRequiredError`, exit 1) if any operation still needs manual recovery.
+5. Abandoned-lock reclaim's `--test-bundle` build sibling aside, `plugin.lock.yml`'s `pluginVersion`/`templatePackFingerprint` are no longer derived at runtime via `import.meta.url` (which breaks once esbuild moves the code into a bundle that no longer sits next to `.claude-plugin/plugin.json`). They're computed once at build time into a committed `runtime/src/generated/build-meta.mjs`, with no runtime fallback — the build fails loudly if the manifest can't be read.
+6. `confineUnder` throws if its root argument doesn't exist yet, which is a real problem for `.planning/events/` (may not exist before a workspace's first event) and for a crashed operation's `staged/` directory (may not exist at all, e.g. if the crash predates it or it was already cleaned up). Call sites now create or existence-check the root before confining, rather than changing `confineUnder` itself.
+7. `operationDir()` validated that an operation id was a real UUIDv7 but still built its path with a bare `path.join` — meaning `operations/<uuid>` being a symlink planted ahead of time could still be silently followed. It now confines the result with `confineUnder`.
+8. The abandoned-lock quarantine-race test's "no overlap" claim was previously just a hardcoded `false` the worker always reported — it proved nothing. It's replaced with real shared evidence: each worker, after acquiring the actual lock, races to exclusively create a marker file, and a worker that finds one already there while it holds the lock has direct proof of a double-hold. Two more concurrency tests were added at the application level (CLI e2e): two processes applying the same operation, and two `scope.add` proposals for the same key, both requiring "exactly one success" as the only acceptable outcome.
+9. The `NOT_IMPLEMENTED` CLI e2e assertions now compare the entire contract object field by field (`product`, `command`, `status`, `corte`, `message`), not just `status` and the exit code.
+10. `check schema` now catches YAML/JSON parse errors as findings (`FAIL`, exit 1) instead of letting them escape as an uncaught exception (exit 2), and reports symlinks or non-UUIDv7 entries under `scopes/` as findings instead of silently following or skipping them. Recovery now compares an already-existing `result.json` against what `filePlan` says it should be, rather than only handling the case where it's absent — a mismatch is `RECOVERY_REQUIRED`, never silently accepted.
+11. `SHIPPING_MODE_FAULT_CHECKPOINT` env-var-driven fault injection is gated behind `globalThis.__SHIPPING_MODE_TEST_BUILD__`, a flag esbuild's `define` sets to `"false"` in the production bundle (compiling the capability out entirely, verified by grepping the bundle text) and `"true"` only in a separate, gitignored test bundle used solely by the CLI e2e crash-and-recover case. A real installation can never be made to crash on demand by setting an environment variable.
+12. CLI e2e (create the test file, run it standalone) now comes **before** the repo-hygiene task that wires `test:cli-e2e` into `package.json`/`verify-next-generation.sh` — revision 2 had it backwards, which meant that task's own verification step would fail against a file that didn't exist yet until the next task landed. Every task now ends fully green.
+13. `validateOperation` is only legal from `PROPOSED`, and `approveOperation` only from `VALIDATED` — both throw `StateError` otherwise, including against `APPROVED`/`APPLYING`/`APPLIED`/`INVALID`/`STALE`/`RECOVERY_REQUIRED`, so a stray re-run can never retreat an operation to an earlier state or silently re-approve one already moving forward.
 
 ## Global Constraints
 
@@ -707,6 +725,7 @@ Note: the outer `kind` (`workspace.init`/`config.update`/`scope.add`, the Change
       "additionalProperties": false,
       "properties": {
         "validatedAt": { "type": ["string", "null"] },
+        "changeSetHash": { "type": ["string", "null"] },
         "errors": { "type": "array", "items": { "type": "string" } }
       }
     },
@@ -842,17 +861,21 @@ git commit -m "Add the 7 real JSON Schemas for Corte 0 entities, with kind-condi
 
 ---
 
-## Task 7: Ajv-standalone + esbuild build pipeline
+## Task 7: Ajv-standalone + esbuild build pipeline, build-time plugin metadata, test-bundle flag
 
 **Files:**
-- Modify: `package.json` (add `ajv`, `esbuild` to `devDependencies`; add `build:schemas` and `build:runtime` scripts)
+- Modify: `package.json` (add `ajv`, `esbuild` to `devDependencies`; add `build:schemas`, `build:runtime`, `build:test-bundle` scripts)
+- Modify: `.gitignore` (ignore the test-bundle output — it must never be committed or shipped)
 - Create: `scripts/build-runtime.mjs`
 - Create: `runtime/src/generated/validators.mjs` (generated output, committed)
+- Create: `runtime/src/generated/build-meta.mjs` (generated output, committed)
 - Test: `runtime/src/generated/tests/build-determinism.test.mjs`
 
 **Interfaces:**
-- Consumes: the 7 schema files from Task 6.
-- Produces: `runtime/src/generated/validators.mjs` exporting `validate_config`, `validate_plugin_lock`, `validate_scope`, `validate_change_set`, `validate_operation`, `validate_event`, `validate_result` — each `(data) => boolean` with `.errors` set on failure (the standard Ajv validator function shape). This file **may** import Ajv's own runtime helpers (e.g. paths under `ajv/dist/runtime`) — that's expected and fine, since `node_modules` is always present wherever this file itself runs directly. Only the final bundle (Task 24) drops that dependency.
+- Consumes: the 7 schema files from Task 6; `.claude-plugin/plugin.json`.
+- Produces: `runtime/src/generated/validators.mjs` exporting `validate_config`, `validate_plugin_lock`, `validate_scope`, `validate_change_set`, `validate_operation`, `validate_event`, `validate_result` — each `(data) => boolean` with `.errors` set on failure (the standard Ajv validator function shape). This file **may** import Ajv's own runtime helpers (e.g. paths under `ajv/dist/runtime`) — that's expected and fine, since `node_modules` is always present wherever this file itself runs directly. Only the final bundle (Task 24) drops that dependency. Also produces `runtime/src/generated/build-meta.mjs` exporting `PLUGIN_VERSION` and `TEMPLATE_PACK_FINGERPRINT` as fixed string constants, computed once at build time from `.claude-plugin/plugin.json`'s real bytes — no runtime code ever re-derives these from `import.meta.url` (Revision 3 note 5, since after bundling the module no longer lives next to the plugin manifest at a stable relative path).
+
+The build script also wires an esbuild `define` for `globalThis.__SHIPPING_MODE_TEST_BUILD__`: `"false"` for the normal production bundle (Task 24), `"true"` for a separate, gitignored, never-committed test bundle (`--test-bundle` flag, consumed only by Task 26's crash-and-recover e2e case). This is what lets `runtime/src/lib/faultInjection.mjs` (Task 13) read an env-var-armed checkpoint in the test bundle while esbuild's dead-code elimination compiles that capability out of the production bundle entirely (Revision 3 note 11) — verified textually by Task 24's bundle test.
 
 - [ ] **Step 1: Add build-time dependencies**
 
@@ -874,15 +897,19 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "..");
-const committed = fs.readFileSync(path.join(root, "runtime", "src", "generated", "validators.mjs"), "utf8");
+const committedValidators = fs.readFileSync(path.join(root, "runtime", "src", "generated", "validators.mjs"), "utf8");
+const committedMeta = fs.readFileSync(path.join(root, "runtime", "src", "generated", "build-meta.mjs"), "utf8");
 
 const tmpOut = fs.mkdtempSync(path.join(os.tmpdir(), "build-schemas-"));
 execFileSync("node", [path.join(root, "scripts", "build-runtime.mjs"), "--schemas-only", "--out", tmpOut], { cwd: root });
-const regenerated = fs.readFileSync(path.join(tmpOut, "validators.mjs"), "utf8");
+const regeneratedValidators = fs.readFileSync(path.join(tmpOut, "validators.mjs"), "utf8");
+const regeneratedMeta = fs.readFileSync(path.join(tmpOut, "build-meta.mjs"), "utf8");
 
-assert.equal(regenerated, committed, "regenerating validators.mjs must be byte-identical to the committed file");
+assert.equal(regeneratedValidators, committedValidators, "regenerating validators.mjs must be byte-identical to the committed file");
+assert.equal(regeneratedMeta, committedMeta, "regenerating build-meta.mjs must be byte-identical to the committed file");
+assert.match(committedMeta, /^export const PLUGIN_VERSION = "[^"]+";\nexport const TEMPLATE_PACK_FINGERPRINT = "sha256:[0-9a-f]{64}";\n$/, "build-meta.mjs must contain a real version and a real sha256 fingerprint, never a placeholder");
 
-console.log("build-determinism: validators.mjs is up to date");
+console.log("build-determinism: validators.mjs and build-meta.mjs are up to date");
 ```
 
 Note there is deliberately no assertion here about `ajv/dist/runtime` references — that check belongs to Task 24's bundle-level test, not this pre-bundle file (see Revision 2 note 7).
@@ -890,13 +917,14 @@ Note there is deliberately no assertion here about `ajv/dist/runtime` references
 - [ ] **Step 3: Run test to verify it fails**
 
 Run: `node runtime/src/generated/tests/build-determinism.test.mjs`
-Expected: FAIL — `scripts/build-runtime.mjs` and `runtime/src/generated/validators.mjs` don't exist yet
+Expected: FAIL — `scripts/build-runtime.mjs` and `runtime/src/generated/{validators,build-meta}.mjs` don't exist yet
 
 - [ ] **Step 4: Write the build script**
 
 ```js
 // scripts/build-runtime.mjs
 #!/usr/bin/env node
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -909,9 +937,12 @@ const root = path.resolve(here, "..");
 const schemasDir = path.join(root, "runtime", "src", "schemas");
 const entryFile = path.join(root, "runtime", "src", "index.mjs");
 const distFile = path.join(root, "runtime", "dist", "shipping-mode.mjs");
+const testDistFile = path.join(root, "runtime", "dist", "shipping-mode.test-bundle.mjs");
+const manifestPath = path.join(root, ".claude-plugin", "plugin.json");
 
 const args = process.argv.slice(2);
 const schemasOnly = args.includes("--schemas-only");
+const testBundle = args.includes("--test-bundle");
 const outFlagIndex = args.indexOf("--out");
 const generatedDir = outFlagIndex >= 0 ? args[outFlagIndex + 1] : path.join(root, "runtime", "src", "generated");
 
@@ -935,24 +966,42 @@ function buildValidators() {
   return exportNames;
 }
 
-async function bundleRuntime() {
-  fs.mkdirSync(path.dirname(distFile), { recursive: true });
+function buildMeta() {
+  if (!fs.existsSync(manifestPath)) {
+    throw new Error(`cannot build: plugin manifest not found at ${manifestPath}`);
+  }
+  const manifestBytes = fs.readFileSync(manifestPath);
+  const manifest = JSON.parse(manifestBytes.toString("utf8"));
+  if (!manifest.version) {
+    throw new Error("cannot build: .claude-plugin/plugin.json is missing a version field");
+  }
+  const fingerprint = `sha256:${crypto.createHash("sha256").update(manifestBytes).digest("hex")}`;
+  const content = `export const PLUGIN_VERSION = ${JSON.stringify(manifest.version)};\nexport const TEMPLATE_PACK_FINGERPRINT = ${JSON.stringify(fingerprint)};\n`;
+  fs.mkdirSync(generatedDir, { recursive: true });
+  fs.writeFileSync(path.join(generatedDir, "build-meta.mjs"), content);
+}
+
+async function bundleRuntime({ testBuild }) {
+  const outfile = testBuild ? testDistFile : distFile;
+  fs.mkdirSync(path.dirname(outfile), { recursive: true });
   await build({
     entryPoints: [entryFile],
-    outfile: distFile,
+    outfile,
     bundle: true,
     platform: "node",
     format: "esm",
-    target: "node20"
+    target: "node20",
+    define: { "globalThis.__SHIPPING_MODE_TEST_BUILD__": testBuild ? "true" : "false" }
   });
 }
 
 const exportNames = buildValidators();
+buildMeta();
 if (schemasOnly) {
   process.stdout.write(`${JSON.stringify({ status: "OK", exportNames })}\n`);
 } else {
-  await bundleRuntime();
-  process.stdout.write(`${JSON.stringify({ status: "OK", exportNames, bundle: path.relative(root, distFile) })}\n`);
+  await bundleRuntime({ testBuild: testBundle });
+  process.stdout.write(`${JSON.stringify({ status: "OK", exportNames, bundle: path.relative(root, testBundle ? testDistFile : distFile) })}\n`);
 }
 ```
 
@@ -960,27 +1009,37 @@ Add scripts to `package.json`:
 
 ```json
 "build:schemas": "node scripts/build-runtime.mjs --schemas-only",
-"build:runtime": "node scripts/build-runtime.mjs"
+"build:runtime": "node scripts/build-runtime.mjs",
+"build:test-bundle": "node scripts/build-runtime.mjs --test-bundle"
 ```
 
-- [ ] **Step 5: Generate the committed validators file**
+Add to `.gitignore`:
+
+```gitignore
+runtime/dist/shipping-mode.test-bundle.mjs
+```
+
+- [ ] **Step 5: Generate the committed files**
 
 Run: `npm run build:schemas`
-Expected: `runtime/src/generated/validators.mjs` is created, exporting the 7 `validate_*` functions.
+Expected: `runtime/src/generated/validators.mjs` and `runtime/src/generated/build-meta.mjs` are both created.
+
+Run: `cat runtime/src/generated/build-meta.mjs`
+Expected: two `export const` lines with a real version string and a real 64-hex-char `sha256:` fingerprint — never `0.0.0` or a string containing the word `placeholder`.
 
 - [ ] **Step 6: Run test to verify it passes**
 
 Run: `node runtime/src/generated/tests/build-determinism.test.mjs`
-Expected: PASS, prints `build-determinism: validators.mjs is up to date`
+Expected: PASS, prints `build-determinism: validators.mjs and build-meta.mjs are up to date`
 
 - [ ] **Step 7: Commit**
 
 ```bash
-git add package.json package-lock.json scripts/build-runtime.mjs runtime/src/generated/validators.mjs runtime/src/generated/tests
-git commit -m "Add Ajv-standalone + esbuild build pipeline for schema validators"
+git add package.json package-lock.json .gitignore scripts/build-runtime.mjs runtime/src/generated/validators.mjs runtime/src/generated/build-meta.mjs runtime/src/generated/tests
+git commit -m "Add Ajv-standalone + esbuild build pipeline, build-time plugin metadata, and a test-bundle flag"
 ```
 
-**Note for Task 24:** `runtime/src/index.mjs` (the esbuild entry point referenced above) doesn't exist until Task 24. Running `npm run build:runtime` (without `--schemas-only`) will fail until then — that's expected; this task only exercises the `--schemas-only` path.
+**Note for Task 24/27:** `runtime/src/index.mjs` (the esbuild entry point referenced above) doesn't exist until Task 24. Running `npm run build:runtime` or `npm run build:test-bundle` (without `--schemas-only`) will fail until then — that's expected; this task only exercises the `--schemas-only` path.
 
 ---
 
@@ -1394,7 +1453,15 @@ const [a, b] = await Promise.all([runWorker("a"), runWorker("b")]);
 // time*, or the metadata file ending up corrupted/missing after both finish.
 assert.notEqual(a.token, "stale");
 assert.notEqual(b.token, "stale");
-assert.ok(a.overlappedWithOther === false && b.overlappedWithOther === false, "no two acquires may overlap in time");
+
+// Real shared evidence of mutual exclusion, not a self-reported flag: each
+// worker, after acquiring the *real* workspace lock, races to exclusively
+// create a marker file via the O_EXCL-equivalent "wx" flag. If a worker ever
+// observes that marker already present while it itself holds the workspace
+// lock, that is direct proof two holders overlapped -- not an inference from
+// timestamps, which a scheduling fluke could make look fine by accident.
+assert.notEqual(a.status, "DOUBLE_HOLD_DETECTED", "worker a must never observe a concurrent holder while holding the workspace lock");
+assert.notEqual(b.status, "DOUBLE_HOLD_DETECTED", "worker b must never observe a concurrent holder while holding the workspace lock");
 
 const remainingLockDir = path.join(planningRoot, ".runtime", "workspace.lock");
 assert.equal(fs.existsSync(remainingLockDir), false, "both workers released; no lock directory should remain");
@@ -1402,37 +1469,45 @@ assert.equal(fs.existsSync(remainingLockDir), false, "both workers released; no 
 const staleQuarantineDirs = fs.readdirSync(path.join(planningRoot, ".runtime")).filter((name) => name.startsWith("workspace.lock.quarantine-"));
 assert.equal(staleQuarantineDirs.length, 0, "quarantine directories must always be cleaned up, win or lose");
 
-console.log("lock-quarantine-race: exactly one process reclaims an abandoned lock at a time, no corruption");
+console.log("lock-quarantine-race: exactly one process reclaims an abandoned lock at a time, no corruption, proven via shared exclusive-create evidence");
 ```
 
 ```js
 // runtime/src/lib/tests/lock-quarantine-race-worker.mjs
+import fs from "node:fs";
+import path from "node:path";
 import { acquireWorkspaceLock } from "../lock.mjs";
 
 const planningRoot = process.argv[2];
 const label = process.argv[3];
-const acquiredAt = Date.now();
+const criticalSectionPath = path.join(planningRoot, "critical-section.lock");
+
 const lock = acquireWorkspaceLock(planningRoot, `worker-${label}`);
-const heldAt = Date.now();
+
+let status = "OK";
+try {
+  fs.writeFileSync(criticalSectionPath, String(process.pid), { flag: "wx" });
+} catch (error) {
+  if (error.code === "EEXIST") {
+    // another process's marker is still there while *we* hold the real lock
+    // -- a genuine double-hold, proven, not assumed
+    status = "DOUBLE_HOLD_DETECTED";
+  } else {
+    throw error;
+  }
+}
+
 await new Promise((resolve) => setTimeout(resolve, 150));
+if (status === "OK") fs.rmSync(criticalSectionPath, { force: true });
 lock.release();
 
-process.stdout.write(JSON.stringify({
-  token: lock.token,
-  acquiredAt,
-  heldAt,
-  // a real overlap check would need a shared clock across processes; here we
-  // simply report timing so the parent test can sanity-check ordering if it
-  // ever needs to debug a flake -- the hard guarantee (no corruption, no
-  // leftover quarantine dirs) is what the parent test actually asserts.
-  overlappedWithOther: false
-}));
+process.stdout.write(JSON.stringify({ token: lock.token, status }));
 ```
 
 - [ ] **Step 4: Run it**
 
 Run: `node runtime/src/lib/tests/lock-quarantine-race.test.mjs`
-Expected: PASS, prints `lock-quarantine-race: exactly one process reclaims an abandoned lock at a time, no corruption`. If this fails with a corrupted or double-held lock, the bug is in `acquireWorkspaceLock`'s reclaim loop (Task 9) — it must be using `renameSync` to a unique quarantine path, never a direct `rm -rf` of the shared lock directory.
+Expected: PASS, prints `lock-quarantine-race: exactly one process reclaims an abandoned lock at a time, no corruption, proven via shared exclusive-create evidence`. If this fails with `DOUBLE_HOLD_DETECTED`, the bug is in `acquireWorkspaceLock`'s reclaim loop (Task 9) — it must be using `renameSync` to a unique quarantine path, never a direct `rm -rf` of the shared lock directory.
 
 - [ ] **Step 5: Commit**
 
@@ -1453,7 +1528,7 @@ git commit -m "Add two-process concurrency tests for live and abandoned-lock rec
 - Consumes: `contentHash`, `canonicalize` from Task 2; `generateUuidV7` from Task 1; `confineUnder` from Task 3.
 - Produces: `class RecoveryRequiredError extends Error`, `buildExpectedEvent(fields): { eventId, relativePath, contentHash, document }`, `writeEventIdempotent(eventsRoot: string, expectedEvent): "CREATED" | "ALREADY_APPLIED"`.
 
-`writeEventIdempotent` confines `relativePath` under `eventsRoot` and recomputes the event's content hash from its own `document` before ever touching disk — it does not trust a pre-computed `contentHash` at face value (see Revision 2 note 9).
+`writeEventIdempotent` confines `relativePath` under `eventsRoot` and recomputes the event's content hash from its own `document` before ever touching disk — it does not trust a pre-computed `contentHash` at face value (see Revision 2 note 9). It also creates `eventsRoot` itself first if it doesn't exist yet — `confineUnder` calls `realpathSync` on its root argument, which throws if that root is absent, and `.planning/events/` legitimately doesn't exist before the very first event a fresh workspace ever writes (Revision 3 note 6).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1503,6 +1578,16 @@ assert.throws(() => writeEventIdempotent(eventsRoot, inconsistent), /contentHash
 // relativePath must be confined under eventsRoot
 const escaping = { ...expected, relativePath: "../../../etc/passwd" };
 assert.throws(() => writeEventIdempotent(eventsRoot, escaping), PathConfinementError);
+
+// eventsRoot itself may not exist yet -- true for a fresh workspace's very
+// first event -- writeEventIdempotent must create it, not throw on a missing root
+const freshEventsRoot = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "journal-fresh-")), "events");
+assert.equal(fs.existsSync(freshEventsRoot), false);
+const secondExpected = buildExpectedEvent({
+  type: "workspace.initialized", aggregate: { type: "workspace", id: operationId }, actor: "carlos",
+  operationId, idempotencyKey: "k2", payload: {}, occurredAt: "2026-07-24T00:00:00.000Z"
+});
+assert.equal(writeEventIdempotent(freshEventsRoot, secondExpected), "CREATED");
 
 console.log("journal: all tests passed");
 ```
@@ -1555,6 +1640,7 @@ export function buildExpectedEvent({ type, aggregate, actor, operationId, idempo
 }
 
 export function writeEventIdempotent(eventsRoot, expectedEvent) {
+  fs.mkdirSync(eventsRoot, { recursive: true }); // may be the first event this workspace has ever written
   const confinedPath = confineUnder(eventsRoot, expectedEvent.relativePath);
 
   const serialized = serializeEvent(expectedEvent.document);
@@ -1600,10 +1686,10 @@ git commit -m "Add idempotent event journal with path confinement and hash cross
 - Test: `runtime/src/lib/tests/operationStore.test.mjs`
 
 **Interfaces:**
-- Consumes: `parseYaml`/`stringifyYaml` from Task 4; `isUuidV7` from Task 1; `UsageError` from Task 5.
+- Consumes: `parseYaml`/`stringifyYaml` from Task 4; `isUuidV7` from Task 1; `UsageError` from Task 5; `confineUnder` from Task 3.
 - Produces: `readOperation(operationsRoot, id)`, `writeOperation(operationsRoot, id, operation)`, `readChangeSet(operationsRoot, id)`, `writeChangeSet(operationsRoot, id, changeSet)`, `readResult(operationsRoot, id)`, `writeResult(operationsRoot, id, result)`, `operationDir(operationsRoot, id)`.
 
-`operationDir` requires `id` to be a valid UUIDv7 before building any path from it — an operation ID always originates from either `generateUuidV7()` (safe) or a CLI positional argument (must be validated at the boundary before it ever reaches here). This is the last line of defense against a malformed or hostile ID reaching the filesystem (see Revision 2 note 9).
+`operationDir` requires `id` to be a valid UUIDv7 before building any path from it — an operation ID always originates from either `generateUuidV7()` (safe) or a CLI positional argument (must be validated at the boundary before it ever reaches here). But a syntactically valid UUIDv7 isn't the whole story: `operations/<uuid>` itself could be a symlink planted ahead of time pointing outside `.planning/`, so `operationDir` confines the resulting path with `confineUnder`, not a bare `path.join` — and creates `operationsRoot` first if it's the very first operation this workspace has ever recorded (Revision 3 notes 6-7).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1617,6 +1703,7 @@ import {
   writeOperation, readOperation, writeChangeSet, readChangeSet, writeResult, readResult, operationDir
 } from "../operationStore.mjs";
 import { UsageError } from "../errors.mjs";
+import { PathConfinementError } from "../paths.mjs";
 
 const operationsRoot = fs.mkdtempSync(path.join(os.tmpdir(), "operations-"));
 const id = "018f0000-0000-7000-8000-000000000000";
@@ -1640,6 +1727,17 @@ assert.ok(fs.existsSync(path.join(operationsRoot, id, "result.json")));
 assert.throws(() => operationDir(operationsRoot, "../escape"), UsageError, "a non-UUIDv7 id must never be used to build a path");
 assert.throws(() => operationDir(operationsRoot, "not-a-uuid"), UsageError);
 
+// operations/<uuid> being a symlink escaping operationsRoot must be rejected,
+// even though the id itself is a syntactically valid UUIDv7
+const outside = fs.mkdtempSync(path.join(os.tmpdir(), "operations-outside-"));
+const escapingId = "018f0000-0000-7000-8000-000000000001";
+fs.symlinkSync(outside, path.join(operationsRoot, escapingId));
+assert.throws(
+  () => writeOperation(operationsRoot, escapingId, { id: escapingId, kind: "workspace.init", status: "PROPOSED", proposedBy: "carlos", proposedAt: "2026-07-24T00:00:00.000Z", history: [] }),
+  PathConfinementError,
+  "an operation directory that is a symlink escaping operationsRoot must be rejected"
+);
+
 console.log("operationStore: all tests passed");
 ```
 
@@ -1657,10 +1755,12 @@ import path from "node:path";
 import { parseYaml, stringifyYaml } from "./yaml.mjs";
 import { isUuidV7 } from "./ids.mjs";
 import { UsageError } from "./errors.mjs";
+import { confineUnder } from "./paths.mjs";
 
 export function operationDir(operationsRoot, id) {
   if (!isUuidV7(id)) throw new UsageError(`invalid operation id: ${id}`);
-  return path.join(operationsRoot, id);
+  fs.mkdirSync(operationsRoot, { recursive: true }); // may be this workspace's first operation ever
+  return confineUnder(operationsRoot, id);
 }
 
 function writeAtomic(filePath, contents) {
@@ -1719,10 +1819,14 @@ git commit -m "Add atomic operation record I/O, rejecting non-UUIDv7 ids before 
 - Test: `runtime/src/lib/tests/faultInjection.test.mjs`
 
 **Interfaces:**
-- Consumes: `acquireWorkspaceLock` (Task 9).
-- Produces: `withWorkspaceMutation({ planningRoot, operationsRoot, operationId? }, callback): any` (acquires the lock, runs recovery, runs `callback()`, releases the lock in `finally`, returns whatever `callback()` returns), `recoverWorkspace({ planningRoot, operationsRoot }): Array<{operationId, outcome}>` (a convenience entry point that acquires the lock, runs recovery standalone, and releases — used directly by tests and by any command that wants to force a recovery pass without performing a mutation of its own). Also: `setFaultCheckpoint(name: string): void`, `clearFaultCheckpoint(): void`, `checkpoint(name: string): void`, `class SimulatedCrashError extends Error`. And, from `recovery.mjs`: `runRecovery({ operationsRoot, planningRoot, lock }): Array<{operationId, outcome}>`.
+- Consumes: `acquireWorkspaceLock` (Task 9); `RecoveryRequiredError` (Task 11).
+- Produces: `withWorkspaceMutation({ planningRoot, operationsRoot, operationId? }, callback): any` (acquires the lock, runs recovery, **aborts before the callback if recovery found an unresolved conflict**, runs `callback()`, releases the lock in `finally`, returns whatever `callback()` returns), `recoverWorkspace({ planningRoot, operationsRoot }): Array<{operationId, outcome}>` (a convenience entry point that acquires the lock, runs recovery standalone, and releases — used directly by tests and by any command that wants to force a recovery pass without performing a mutation of its own; unlike `withWorkspaceMutation`, this one never throws on a conflict — it just reports it, since its whole purpose is inspection). Also: `setFaultCheckpoint(name: string): void`, `clearFaultCheckpoint(): void`, `checkpoint(name: string): void`, `class SimulatedCrashError extends Error`. And, from `recovery.mjs`: `runRecovery({ operationsRoot, planningRoot, lock }): Array<{operationId, outcome}>`.
 
-This task exists so that Tasks 15–18 (propose/validate/approve/apply) can all route through the exact same lock-then-recovery ordering rather than each reimplementing it. `runRecovery` requires a held lock as a parameter and throws if called without one — this is genuinely correct and complete *for what exists so far* (nothing can reach the `APPLYING` state before Task 17, so "nothing to recover" is the only correct answer right now, not a stand-in for one). Task 19 adds the classification logic needed once `APPLYING` operations can actually exist. The fault injection module is separate from the mutation wrapper (different purpose — deliberate crash simulation vs. real concurrency control) but lands in the same task because both are small, cross-cutting pieces of infrastructure that Tasks 15-20 depend on.
+This task exists so that Tasks 15–18 (propose/validate/approve/apply) can all route through the exact same lock-then-recovery ordering rather than each reimplementing it. `runRecovery` requires a held lock as a parameter and throws if called without one — this is genuinely correct and complete *for what exists so far* (nothing can reach the `APPLYING` state before Task 17, so "nothing to recover" is the only correct answer right now, not a stand-in for one). Task 19 adds the classification logic needed once `APPLYING` operations can actually exist.
+
+`withWorkspaceMutation` also enforces that an unresolved `RECOVERY_REQUIRED` operation blocks every subsequent mutating command (Revision 3 note 4) — `propose`/`validate`/`approve`/`apply` must all refuse to proceed while any operation in the workspace needs manual recovery, since none of them can be trusted to reason about a workspace whose state a prior crash may have left inconsistent. This code lands now (real, correct code, not a stub) but its dedicated test only becomes possible once `runRecovery` can genuinely produce a `RECOVERY_REQUIRED` outcome — that's Task 20 (the crash matrix), which is where this behavior actually gets exercised end to end. Right now, with `runRecovery` always returning `[]`, the blocking branch is simply unreachable dead code that will start executing correctly the moment Task 19 makes `RECOVERY_REQUIRED` a real possibility — exactly the same "grows into correctness" pattern as `recovery.mjs` itself.
+
+The fault injection module is separate from the mutation wrapper (different purpose — deliberate crash simulation vs. real concurrency control) but lands in the same task because both are small, cross-cutting pieces of infrastructure that Tasks 15-20 depend on. Its env-var-based arming (`SHIPPING_MODE_FAULT_CHECKPOINT`) is gated behind `globalThis.__SHIPPING_MODE_TEST_BUILD__`, a flag esbuild's `define` sets to `"false"` in the production bundle and `"true"` only in the separate, gitignored test bundle Task 7 added a build flag for — so this capability can never be triggered against a real installation (Revision 3 note 11). In an unbundled context (every in-process unit test in this plan, including this task's own), `globalThis.__SHIPPING_MODE_TEST_BUILD__` is simply `undefined`, which is falsy and safe — reading an unset property off `globalThis` never throws, unlike referencing a genuinely undeclared bare identifier.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -1800,7 +1904,17 @@ Expected: FAIL — `Cannot find module '../mutation.mjs'`
 // runtime/src/lib/faultInjection.mjs
 export class SimulatedCrashError extends Error {}
 
+// Reading globalThis.__SHIPPING_MODE_TEST_BUILD__ (a property access, never a
+// bare identifier reference) is safe in every context: unbundled, it's simply
+// undefined/falsy; bundled by esbuild with `define`, the exact expression
+// "globalThis.__SHIPPING_MODE_TEST_BUILD__" gets replaced with the literal
+// `true` or `false`, and esbuild's dead-code elimination removes this whole
+// branch (and the process.env read inside it) from the production bundle
+// entirely -- verified textually by Task 24's bundle test.
 let activeCheckpoint = null;
+if (globalThis.__SHIPPING_MODE_TEST_BUILD__ && process.env.SHIPPING_MODE_FAULT_CHECKPOINT) {
+  activeCheckpoint = process.env.SHIPPING_MODE_FAULT_CHECKPOINT;
+}
 
 export function setFaultCheckpoint(name) {
   activeCheckpoint = name;
@@ -1837,11 +1951,16 @@ export function runRecovery({ operationsRoot, planningRoot, lock }) {
 // runtime/src/lib/mutation.mjs
 import { acquireWorkspaceLock } from "./lock.mjs";
 import { runRecovery } from "./recovery.mjs";
+import { RecoveryRequiredError } from "./journal.mjs";
 
 export function withWorkspaceMutation({ planningRoot, operationsRoot, operationId = null }, callback) {
   const lock = acquireWorkspaceLock(planningRoot, operationId);
   try {
-    runRecovery({ operationsRoot, planningRoot, lock });
+    const outcomes = runRecovery({ operationsRoot, planningRoot, lock });
+    const conflict = outcomes.find((outcome) => outcome.outcome === "RECOVERY_REQUIRED");
+    if (conflict) {
+      throw new RecoveryRequiredError(`operation ${conflict.operationId} requires manual recovery before any further mutation can proceed`);
+    }
     return callback();
   } finally {
     lock.release();
@@ -2010,7 +2129,9 @@ git commit -m "Add pure, in-memory renderers; scope id is consumed from payload,
 
 **Interfaces:**
 - Consumes: `generateUuidV7` (Task 1); `revisionHash`, `contentHash`, `ABSENT`, `canonicalize`, `canonicalJson` (Task 2); `confineRuntimePath` (Task 3); `parseYaml` (Task 4); `withWorkspaceMutation` (Task 13); `writeOperation`, `writeChangeSet`, `operationDir` (Task 12).
-- Produces: `propose({ operationsRoot, planningRoot, kind, target, payload, targetFiles, actor }): string` (returns the new `operationId`; also exports the internal `readFileState`/`computeChangeSetHash` helpers for reuse by Tasks 16-18). Every mutation this function performs happens inside `withWorkspaceMutation`, so a `propose` call also triggers a recovery sweep of any other operation stuck `APPLYING` before it does its own work.
+- Produces: `propose({ operationsRoot, planningRoot, kind, target, payload, targetFiles, actor }): string` (returns the new `operationId`; also exports the internal `readFileState`/`computePersistedChangeSetHash` helpers for reuse by Tasks 16-18). Every mutation this function performs happens inside `withWorkspaceMutation`, so a `propose` call also triggers a recovery sweep of any other operation stuck `APPLYING` before it does its own work.
+
+`computePersistedChangeSetHash(changeSet)` takes the **whole** change-set object (`hash` field present or not — it's stripped internally before hashing) so the exact same function can compute the hash at propose time (before `hash` is ever added) and *recompute* it later at validate/approve/apply time (reading back a persisted `change-set.json` that already has a `hash` field) to detect tampering (Revision 3 note 2) — there is deliberately only one hashing function, not a pair that could drift apart.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2020,7 +2141,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { propose } from "../changeset.mjs";
+import { propose, computePersistedChangeSetHash } from "../changeset.mjs";
 import { readOperation, readChangeSet } from "../operationStore.mjs";
 
 const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "propose-"));
@@ -2047,7 +2168,7 @@ assert.equal(changeSet.operationId, operationId);
 assert.equal(changeSet.baseRevisions["config.yml"].revisionHash, "ABSENT");
 assert.equal(changeSet.baseRevisions["config.yml"].contentHash, "ABSENT");
 assert.ok(changeSet.hash);
-assert.equal(JSON.stringify(changeSet.hash).includes(JSON.stringify(changeSet).slice(0, 0)), true); // hash is a string, not recursively self-referential
+assert.equal(computePersistedChangeSetHash(changeSet), changeSet.hash, "recomputing the hash from the persisted change-set (hash field included, stripped internally) must reproduce the same value");
 
 console.log("changeset-propose: all tests passed");
 ```
@@ -2085,8 +2206,9 @@ export function readFileState(planningRoot, relativePath) {
   };
 }
 
-export function computeChangeSetHash(changeSetWithoutHash) {
-  return revisionHash(changeSetWithoutHash);
+export function computePersistedChangeSetHash(changeSet) {
+  const { hash, ...withoutHash } = changeSet;
+  return revisionHash(withoutHash);
 }
 
 export function propose({ operationsRoot, planningRoot, kind, target, payload, targetFiles, actor }) {
@@ -2099,7 +2221,7 @@ export function propose({ operationsRoot, planningRoot, kind, target, payload, t
     }
 
     const changeSetWithoutHash = { schemaVersion: 1, operationId, kind, target, baseRevisions, payload };
-    const hash = computeChangeSetHash(changeSetWithoutHash);
+    const hash = computePersistedChangeSetHash(changeSetWithoutHash);
     writeChangeSet(operationsRoot, operationId, { ...changeSetWithoutHash, hash });
 
     const proposedAt = new Date().toISOString();
@@ -2140,10 +2262,12 @@ git commit -m "Add ChangeSet propose: computes baseRevisions and changeSetHash, 
 - Test: `runtime/src/lib/tests/changeset-validate-approve.test.mjs`
 
 **Interfaces:**
-- Consumes: `validate` (schema facade, Task 8) — imported as `validateSchema` to avoid a name clash with this task's own `validateOperation` export; `readFileState` (Task 15); `withWorkspaceMutation` (Task 13); `StateError` (Task 5).
-- Produces (added to `changeset.mjs`): `validateOperation({ operationsRoot, planningRoot, operationId, render }): void` (mutates `operation.yml` status to `VALIDATED`/`INVALID`/`STALE`), `approveOperation({ operationsRoot, planningRoot, operationId, actor, allowSelfApproval }): void` (mutates status to `APPROVED`).
+- Consumes: `validate` (schema facade, Task 8) — imported as `validateSchema` to avoid a name clash with this task's own `validateOperation` export; `readFileState`, `computePersistedChangeSetHash` (Task 15); `withWorkspaceMutation` (Task 13); `StateError`, `StaleError` (Task 5).
+- Produces (added to `changeset.mjs`): a shared internal `revalidateChangeSet({ operationsRoot, planningRoot, operationId, render })` (Revision 3 note 3 — the one place all of the change-set/staleness/rendered-document checks live, reused unchanged by Task 17's `prepareApply`), `validateOperation({ operationsRoot, planningRoot, operationId, render }): void` (mutates `operation.yml` status to `VALIDATED`/`INVALID`/`STALE`, only legal from `PROPOSED`), `approveOperation({ operationsRoot, planningRoot, operationId, actor, allowSelfApproval }): void` (mutates status to `APPROVED`, only legal from `VALIDATED`).
 
-`validate`'s new flow (Revision 2 note 1) is: (1) validate `change-set.json` itself against `change-set.schema.json` — this already enforces the right payload shape per `kind` via the schema's `if`/`then`; (2) check `baseRevisions` staleness; (3) call `render(payload)` **in memory only** (no disk writes) and validate every rendered document against its real schema (`config.yml` → `config`, `plugin.lock.yml` → `plugin-lock`, `scopes/<id>/scope.yml` → `scope`; `.gitignore` has no schema and is skipped). `render` is a closure the caller (Task 22) already bound to the right kind and current config — `validateOperation` itself never imports `renderers.mjs` or reads `config.yml`, keeping it domain-agnostic exactly like `applyOperation` will (Tasks 17-18).
+`revalidateChangeSet`'s flow (Revision 2 note 1, Revision 3 notes 1-3): (1) recompute `changeSetHash` from the persisted `change-set.json` and compare against its own `hash` field — a mismatch means the file was tampered with or corrupted, checked **before** anything else, since nothing downstream can be trusted otherwise (Revision 3 note 2); (2) validate `change-set.json` against `change-set.schema.json` — this already enforces the right payload shape per `kind` via the schema's `if`/`then`; (3) check kind-specific structural invariants that JSON Schema can't express because they reference a dynamic path built from `payload.id` — right now just one: a `scope.add`'s new `scopes/<id>/scope.yml` must have been recorded as `ABSENT` in `baseRevisions` at propose time, never something else, even if that "something else" happens to look plausible (Revision 3 note 1); (4) check `baseRevisions` staleness; (5) call `render(payload)` **in memory only** (no disk writes) and validate every rendered document against its real schema (`config.yml` → `config`, `plugin.lock.yml` → `plugin-lock`, `scopes/<id>/scope.yml` → `scope`; `.gitignore` has no schema and is skipped). `render` is a closure the caller (Task 22) already bound to the right kind and current config — this function itself never imports `renderers.mjs` or reads `config.yml`, keeping it domain-agnostic exactly like `applyOperation` will (Tasks 17-18).
+
+`approveOperation` recomputes the hash again and requires it to match **both** `changeSet.hash` and the `changeSetHash` `validateOperation` persisted — if the change-set was edited after validate (even if whoever edited it dutifully updated `hash` to stay internally consistent), that mismatch is caught and approval is refused with a `StaleError` (Revision 3 note 2).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2153,24 +2277,28 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { propose, validateOperation, approveOperation } from "../changeset.mjs";
-import { readOperation } from "../operationStore.mjs";
-import { StateError } from "../errors.mjs";
-import { renderWorkspaceInit, renderConfigUpdate } from "../../commands/renderers.mjs";
+import { propose, validateOperation, approveOperation, computePersistedChangeSetHash } from "../changeset.mjs";
+import { readOperation, writeOperation } from "../operationStore.mjs";
+import { StateError, StaleError } from "../errors.mjs";
+import { renderWorkspaceInit, renderConfigUpdate, renderScopeAdd } from "../../commands/renderers.mjs";
 
 function freshPlanningRoot() {
   const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "validate-"));
   return { planningRoot, operationsRoot: path.join(planningRoot, "operations") };
 }
 
-// valid workspace.init payload -> VALIDATED (change-set shape ok, staleness ok, rendered config.yml + plugin.lock.yml both valid)
-{
-  const { planningRoot, operationsRoot } = freshPlanningRoot();
-  const operationId = propose({
+function proposeWorkspaceInit(planningRoot, operationsRoot) {
+  return propose({
     operationsRoot, planningRoot, kind: "workspace.init", target: {},
     payload: { name: "demo", vcs: "git", pluginVersion: "1.0.0", templatePackFingerprint: `sha256:${"a".repeat(64)}` },
     targetFiles: ["config.yml", "plugin.lock.yml", ".gitignore"], actor: "carlos"
   });
+}
+
+// valid workspace.init payload -> VALIDATED (change-set shape ok, staleness ok, rendered config.yml + plugin.lock.yml both valid)
+{
+  const { planningRoot, operationsRoot } = freshPlanningRoot();
+  const operationId = proposeWorkspaceInit(planningRoot, operationsRoot);
   validateOperation({ operationsRoot, planningRoot, operationId, render: renderWorkspaceInit });
   assert.equal(readOperation(operationsRoot, operationId).status, "VALIDATED");
 }
@@ -2206,27 +2334,79 @@ function freshPlanningRoot() {
   assert.ok(op.validation.errors.some((e) => e.includes("config.yml")), "the rendered-document rejection must be traceable to the rendered file");
 }
 
+// scope.add's new scope.yml must have been recorded ABSENT at propose time --
+// a baseRevisions entry claiming otherwise must be rejected, even if it's
+// internally consistent (this simulates a UUID collision or tampered manifest)
+{
+  const { planningRoot, operationsRoot } = freshPlanningRoot();
+  const scopeId = "018f0000-0000-7000-8000-000000000002";
+  const operationId = propose({
+    operationsRoot, planningRoot, kind: "scope.add", target: { scopeId }, actor: "carlos",
+    payload: { id: scopeId, key: "backend", label: "Backend", kind: "code", path: "api/", owner: null },
+    targetFiles: ["config.yml", `scopes/${scopeId}/scope.yml`]
+  });
+
+  const changeSetPath = path.join(operationsRoot, operationId, "change-set.json");
+  const changeSet = JSON.parse(fs.readFileSync(changeSetPath, "utf8"));
+  changeSet.baseRevisions[`scopes/${scopeId}/scope.yml`] = { revisionHash: "not-absent", contentHash: "not-absent" };
+  changeSet.hash = computePersistedChangeSetHash(changeSet);
+  fs.writeFileSync(changeSetPath, JSON.stringify(changeSet, null, 2));
+
+  const currentConfig = { schemaVersion: 1, name: "demo", baseBranch: null, vcs: "git", scopeRefs: [] };
+  const render = (payload) => renderScopeAdd(payload, currentConfig, path.dirname(planningRoot));
+  validateOperation({ operationsRoot, planningRoot, operationId, render });
+  const op = readOperation(operationsRoot, operationId);
+  assert.equal(op.status, "INVALID");
+  assert.ok(op.validation.errors.some((e) => e.toLowerCase().includes("absent")), "the ABSENT invariant violation must be traceable in the errors");
+}
+
 // file changed after propose -> STALE
 {
   const { planningRoot, operationsRoot } = freshPlanningRoot();
-  const operationId = propose({
-    operationsRoot, planningRoot, kind: "workspace.init", target: {},
-    payload: { name: "demo", vcs: "git", pluginVersion: "1.0.0", templatePackFingerprint: `sha256:${"a".repeat(64)}` },
-    targetFiles: ["config.yml", "plugin.lock.yml", ".gitignore"], actor: "carlos"
-  });
+  const operationId = proposeWorkspaceInit(planningRoot, operationsRoot);
   fs.writeFileSync(path.join(planningRoot, "config.yml"), "name: tampered\n");
   validateOperation({ operationsRoot, planningRoot, operationId, render: renderWorkspaceInit });
   assert.equal(readOperation(operationsRoot, operationId).status, "STALE");
 }
 
+// tampering: payload changed without updating hash -> the hash recompute at
+// the very start of validate must catch it
+{
+  const { planningRoot, operationsRoot } = freshPlanningRoot();
+  const operationId = proposeWorkspaceInit(planningRoot, operationsRoot);
+  const changeSetPath = path.join(operationsRoot, operationId, "change-set.json");
+  const tampered = JSON.parse(fs.readFileSync(changeSetPath, "utf8"));
+  tampered.payload.name = "tampered-without-rehash";
+  fs.writeFileSync(changeSetPath, JSON.stringify(tampered, null, 2)); // hash left stale on purpose
+
+  validateOperation({ operationsRoot, planningRoot, operationId, render: renderWorkspaceInit });
+  const op = readOperation(operationsRoot, operationId);
+  assert.equal(op.status, "INVALID");
+  assert.ok(op.validation.errors.some((e) => e.toLowerCase().includes("hash")), "a hash mismatch must be reported as such");
+}
+
+// tampering: change-set rewritten (payload + a matching new hash) after
+// validate, before approve -- internally consistent, but different from what
+// validate actually checked, so approve must refuse
+{
+  const { planningRoot, operationsRoot } = freshPlanningRoot();
+  const operationId = proposeWorkspaceInit(planningRoot, operationsRoot);
+  validateOperation({ operationsRoot, planningRoot, operationId, render: renderWorkspaceInit });
+  assert.equal(readOperation(operationsRoot, operationId).status, "VALIDATED");
+
+  const changeSetPath = path.join(operationsRoot, operationId, "change-set.json");
+  const changeSet = JSON.parse(fs.readFileSync(changeSetPath, "utf8"));
+  changeSet.payload.name = "renamed-after-validate";
+  changeSet.hash = computePersistedChangeSetHash(changeSet);
+  fs.writeFileSync(changeSetPath, JSON.stringify(changeSet, null, 2));
+
+  assert.throws(() => approveOperation({ operationsRoot, planningRoot, operationId, actor: "carlos", allowSelfApproval: true }), StaleError, "a change-set edited after validate must never be approvable, even if it's internally self-consistent");
+}
+
 // approve requires VALIDATED, rejects self-approval unless explicit
 {
   const { planningRoot, operationsRoot } = freshPlanningRoot();
-  const operationId = propose({
-    operationsRoot, planningRoot, kind: "workspace.init", target: {},
-    payload: { name: "demo", vcs: "git", pluginVersion: "1.0.0", templatePackFingerprint: `sha256:${"a".repeat(64)}` },
-    targetFiles: ["config.yml", "plugin.lock.yml", ".gitignore"], actor: "carlos"
-  });
+  const operationId = proposeWorkspaceInit(planningRoot, operationsRoot);
   validateOperation({ operationsRoot, planningRoot, operationId, render: renderWorkspaceInit });
   assert.throws(() => approveOperation({ operationsRoot, planningRoot, operationId, actor: "carlos", allowSelfApproval: false }), StateError);
   approveOperation({ operationsRoot, planningRoot, operationId, actor: "carlos", allowSelfApproval: true });
@@ -2234,6 +2414,27 @@ function freshPlanningRoot() {
   assert.equal(op.status, "APPROVED");
   assert.equal(op.approval.selfApproval, true);
   assert.ok(op.approval.changeSetHash);
+}
+
+// invalid state transitions: validate only legal from PROPOSED, approve only from VALIDATED
+{
+  const { planningRoot, operationsRoot } = freshPlanningRoot();
+  const operationId = proposeWorkspaceInit(planningRoot, operationsRoot);
+  validateOperation({ operationsRoot, planningRoot, operationId, render: renderWorkspaceInit }); // -> VALIDATED
+  assert.throws(() => validateOperation({ operationsRoot, planningRoot, operationId, render: renderWorkspaceInit }), StateError, "validate must refuse to run twice against an already-VALIDATED operation");
+
+  approveOperation({ operationsRoot, planningRoot, operationId, actor: "carlos", allowSelfApproval: true }); // -> APPROVED
+  assert.throws(() => validateOperation({ operationsRoot, planningRoot, operationId, render: renderWorkspaceInit }), StateError, "validate must never retreat an APPROVED operation back to VALIDATED");
+  assert.throws(() => approveOperation({ operationsRoot, planningRoot, operationId, actor: "carlos", allowSelfApproval: true }), StateError, "approve must refuse to run twice against an already-APPROVED operation");
+}
+
+for (const terminalStatus of ["INVALID", "STALE", "RECOVERY_REQUIRED", "APPLYING", "APPLIED"]) {
+  const { planningRoot, operationsRoot } = freshPlanningRoot();
+  const operationId = proposeWorkspaceInit(planningRoot, operationsRoot);
+  const operation = readOperation(operationsRoot, operationId);
+  writeOperation(operationsRoot, operationId, { ...operation, status: terminalStatus });
+  assert.throws(() => validateOperation({ operationsRoot, planningRoot, operationId, render: renderWorkspaceInit }), StateError, `validate must refuse to run against an operation in ${terminalStatus}`);
+  assert.throws(() => approveOperation({ operationsRoot, planningRoot, operationId, actor: "carlos", allowSelfApproval: true }), StateError, `approve must refuse to run against an operation in ${terminalStatus}`);
 }
 
 console.log("changeset-validate-approve: all tests passed");
@@ -2244,9 +2445,9 @@ console.log("changeset-validate-approve: all tests passed");
 Run: `node runtime/src/lib/tests/changeset-validate-approve.test.mjs`
 Expected: FAIL — `validateOperation is not a function`
 
-- [ ] **Step 3: Add `validateOperation` and `approveOperation` to `changeset.mjs`**
+- [ ] **Step 3: Add `revalidateChangeSet`, `validateOperation`, and `approveOperation` to `changeset.mjs`**
 
-Add these imports to the top of `runtime/src/lib/changeset.mjs` (alongside the ones from Task 15): `import { validate as validateSchema } from "./schema.mjs"; import { StateError } from "./errors.mjs";`. Then append:
+Add these imports to the top of `runtime/src/lib/changeset.mjs` (alongside the ones from Task 15): `import { validate as validateSchema } from "./schema.mjs"; import { StateError, StaleError } from "./errors.mjs";`. Then append:
 
 ```js
 function schemaNameForRenderedPath(relativePath) {
@@ -2256,66 +2457,90 @@ function schemaNameForRenderedPath(relativePath) {
   return null; // e.g. .gitignore -- no schema, nothing to validate
 }
 
+function checkKindInvariants(changeSet) {
+  const errors = [];
+  if (changeSet.kind === "scope.add") {
+    const scopePath = `scopes/${changeSet.payload.id}/scope.yml`;
+    const entry = changeSet.baseRevisions[scopePath];
+    if (!entry || entry.revisionHash !== ABSENT || entry.contentHash !== ABSENT) {
+      errors.push(`${scopePath} must be ABSENT for a new scope.add, but baseRevisions recorded something else`);
+    }
+  }
+  return errors;
+}
+
+function revalidateChangeSet({ operationsRoot, planningRoot, operationId, render }) {
+  const changeSet = readChangeSet(operationsRoot, operationId);
+  const recomputedHash = computePersistedChangeSetHash(changeSet);
+
+  if (recomputedHash !== changeSet.hash) {
+    return { ok: false, status: "INVALID", errors: ["change-set.json hash does not match its own recomputed content; the file has been tampered with or corrupted"], recomputedHash };
+  }
+
+  const changeSetResult = validateSchema("change-set", changeSet);
+  if (!changeSetResult.valid) {
+    return { ok: false, status: "INVALID", errors: changeSetResult.errors.map((e) => `change-set${e.path}: ${e.message}`), recomputedHash };
+  }
+
+  const invariantErrors = checkKindInvariants(changeSet);
+  if (invariantErrors.length > 0) {
+    return { ok: false, status: "INVALID", errors: invariantErrors, recomputedHash };
+  }
+
+  for (const [relativePath, expected] of Object.entries(changeSet.baseRevisions)) {
+    const actual = readFileState(planningRoot, relativePath);
+    if (actual.revisionHash !== expected.revisionHash || actual.contentHash !== expected.contentHash) {
+      return { ok: false, status: "STALE", errors: [`${relativePath} changed since propose`], recomputedHash };
+    }
+  }
+
+  const renderErrors = [];
+  let rendered = null;
+  try {
+    rendered = render(changeSet.payload);
+  } catch (error) {
+    renderErrors.push(error.message);
+  }
+  if (rendered) {
+    for (const [relativePath, content] of rendered) {
+      const schemaName = schemaNameForRenderedPath(relativePath);
+      if (!schemaName) continue;
+      const value = parseYaml(content);
+      const result = validateSchema(schemaName, value);
+      if (!result.valid) {
+        for (const error of result.errors) renderErrors.push(`${relativePath}${error.path}: ${error.message}`);
+      }
+    }
+  }
+  if (renderErrors.length > 0) {
+    return { ok: false, status: "INVALID", errors: renderErrors, recomputedHash };
+  }
+
+  return { ok: true, recomputedHash, changeSet, rendered };
+}
+
 export function validateOperation({ operationsRoot, planningRoot, operationId, render }) {
   return withWorkspaceMutation({ planningRoot, operationsRoot, operationId }, () => {
     const operation = readOperation(operationsRoot, operationId);
-    const changeSet = readChangeSet(operationsRoot, operationId);
+    if (operation.status !== "PROPOSED") {
+      throw new StateError(`cannot validate operation in status ${operation.status}`);
+    }
+
+    const result = revalidateChangeSet({ operationsRoot, planningRoot, operationId, render });
     const validatedAt = new Date().toISOString();
 
-    const changeSetResult = validateSchema("change-set", changeSet);
-    if (!changeSetResult.valid) {
+    if (!result.ok) {
       writeOperation(operationsRoot, operationId, {
-        ...operation, status: "INVALID",
-        validation: { validatedAt, errors: changeSetResult.errors.map((e) => `change-set${e.path}: ${e.message}`) },
-        history: [...operation.history, { at: validatedAt, from: operation.status, to: "INVALID", actor: "system:validator", reason: "change-set schema validation failed" }]
-      });
-      return;
-    }
-
-    for (const [relativePath, expected] of Object.entries(changeSet.baseRevisions)) {
-      const actual = readFileState(planningRoot, relativePath);
-      if (actual.revisionHash !== expected.revisionHash || actual.contentHash !== expected.contentHash) {
-        writeOperation(operationsRoot, operationId, {
-          ...operation, status: "STALE",
-          validation: { validatedAt, errors: [`${relativePath} changed since propose`] },
-          history: [...operation.history, { at: validatedAt, from: operation.status, to: "STALE", actor: "system:validator", reason: `${relativePath} revision changed` }]
-        });
-        return;
-      }
-    }
-
-    const renderErrors = [];
-    let rendered = null;
-    try {
-      rendered = render(changeSet.payload);
-    } catch (error) {
-      renderErrors.push(error.message);
-    }
-
-    if (rendered) {
-      for (const [relativePath, content] of rendered) {
-        const schemaName = schemaNameForRenderedPath(relativePath);
-        if (!schemaName) continue;
-        const value = parseYaml(content);
-        const result = validateSchema(schemaName, value);
-        if (!result.valid) {
-          for (const error of result.errors) renderErrors.push(`${relativePath}${error.path}: ${error.message}`);
-        }
-      }
-    }
-
-    if (renderErrors.length > 0) {
-      writeOperation(operationsRoot, operationId, {
-        ...operation, status: "INVALID",
-        validation: { validatedAt, errors: renderErrors },
-        history: [...operation.history, { at: validatedAt, from: operation.status, to: "INVALID", actor: "system:validator", reason: "rendered document validation failed" }]
+        ...operation, status: result.status,
+        validation: { validatedAt, changeSetHash: result.recomputedHash, errors: result.errors },
+        history: [...operation.history, { at: validatedAt, from: operation.status, to: result.status, actor: "system:validator", reason: result.errors[0] }]
       });
       return;
     }
 
     writeOperation(operationsRoot, operationId, {
       ...operation, status: "VALIDATED",
-      validation: { validatedAt, errors: [] },
+      validation: { validatedAt, changeSetHash: result.recomputedHash, errors: [] },
       history: [...operation.history, { at: validatedAt, from: operation.status, to: "VALIDATED", actor: "system:validator", reason: null }]
     });
   });
@@ -2327,15 +2552,22 @@ export function approveOperation({ operationsRoot, planningRoot, operationId, ac
     if (operation.status !== "VALIDATED") {
       throw new StateError(`cannot approve operation in status ${operation.status}`);
     }
+
+    const changeSet = readChangeSet(operationsRoot, operationId);
+    const recomputedHash = computePersistedChangeSetHash(changeSet);
+    if (recomputedHash !== changeSet.hash || recomputedHash !== operation.validation.changeSetHash) {
+      throw new StaleError("change-set.json changed since validate; propose and validate again before approving");
+    }
+
     const selfApproval = actor === operation.proposedBy;
     if (selfApproval && !allowSelfApproval) {
       throw new StateError("self-approval requires allowSelfApproval to be explicitly set");
     }
-    const changeSet = readChangeSet(operationsRoot, operationId);
+
     const approvedAt = new Date().toISOString();
     writeOperation(operationsRoot, operationId, {
       ...operation, status: "APPROVED",
-      approval: { actor, approvedAt, changeSetHash: changeSet.hash, selfApproval },
+      approval: { actor, approvedAt, changeSetHash: recomputedHash, selfApproval },
       history: [...operation.history, { at: approvedAt, from: "VALIDATED", to: "APPROVED", actor, reason: selfApproval ? "self-approved" : null }]
     });
   });
@@ -2351,7 +2583,7 @@ Expected: PASS, prints `changeset-validate-approve: all tests passed`
 
 ```bash
 git add runtime/src/lib/changeset.mjs runtime/src/lib/tests/changeset-validate-approve.test.mjs
-git commit -m "Add ChangeSet validate (change-set schema + in-memory rendered-doc validation + staleness) and approve"
+git commit -m "Add shared revalidateChangeSet, hash-tamper detection, scope.add ABSENT invariant, transition guards"
 ```
 
 ---
@@ -2363,10 +2595,12 @@ git commit -m "Add ChangeSet validate (change-set schema + in-memory rendered-do
 - Test: `runtime/src/lib/tests/changeset-apply-prepare.test.mjs`
 
 **Interfaces:**
-- Consumes: `buildExpectedEvent` (Task 11); `checkpoint` (Task 13); `StaleError` (Task 5); renderer functions (Task 14, passed in as a parameter — `changeset.mjs` never imports `renderers.mjs` directly, keeping it domain-agnostic).
+- Consumes: `revalidateChangeSet` (internal, Task 16 — reused as-is, not reimplemented); `buildExpectedEvent` (Task 11); `checkpoint` (Task 13); `StaleError` (Task 5); renderer functions (Task 14, passed in as a parameter — `changeset.mjs` never imports `renderers.mjs` directly, keeping it domain-agnostic).
 - Produces (added to `changeset.mjs`): an internal `prepareApply({ operationsRoot, planningRoot, operationId, render, actor })` covering the spec's apply steps 1–6 (schema/staleness/hash revalidation under the lock already held by the caller, staging, persisting the `filePlan`+`expectedEvents` manifest, and the `APPROVED -> APPLYING` transition), plus a test-only export `__prepareApplyForTests` so this task's step-1-6 behavior can be verified before Task 18 wires it into the full public `applyOperation`.
 
 `prepareApply` **does not acquire the workspace lock itself** — by the time it runs, `applyOperation`'s `withWorkspaceMutation` wrapper (Task 18) already holds it. This task's test acquires the lock manually (simulating what `applyOperation` will do) so `prepareApply` can be exercised on its own.
+
+Step 1's revalidation calls the **exact same** `revalidateChangeSet` function `validateOperation` uses (Revision 3 note 3 — one set of rules, not two that could drift apart), then additionally requires the recomputed hash to match `changeSet.hash`, `operation.validation.changeSetHash`, **and** `operation.approval.changeSetHash` all at once (Revision 3 note 2) — this is what catches a change-set edited after approval, even one an editor took care to keep internally hash-consistent. Any revalidation failure at this point — whether `revalidateChangeSet` itself said `INVALID` or `STALE`, or the three-way hash check failed — is treated uniformly as `STALE`: operationally, "something changed since approval" is the accurate diagnosis either way, and the fix is the same (re-propose, re-validate, re-approve). `prepareApply` reuses the `rendered` documents `revalidateChangeSet` already computed rather than calling `render()` a second time.
 
 Four of the ten fault-injection checkpoints from Revision 2 note 8 live in this task: `AFTER_BEFORE`, `AFTER_STAGED`, `AFTER_MANIFEST`, `AFTER_APPLYING`.
 
@@ -2378,10 +2612,11 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { propose, validateOperation, approveOperation, __prepareApplyForTests } from "../changeset.mjs";
+import { propose, validateOperation, approveOperation, __prepareApplyForTests, computePersistedChangeSetHash } from "../changeset.mjs";
 import { acquireWorkspaceLock } from "../lock.mjs";
 import { renderWorkspaceInit } from "../../commands/renderers.mjs";
 import { readOperation } from "../operationStore.mjs";
+import { StaleError } from "../errors.mjs";
 
 const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "apply-prepare-"));
 const operationsRoot = path.join(planningRoot, "operations");
@@ -2407,6 +2642,36 @@ assert.equal(expectedEvents.length, 1);
 assert.equal(readOperation(operationsRoot, operationId).status, "APPLYING");
 
 lock.release();
+
+// tampering: change-set edited after approve (payload + a matching new hash)
+// -- internally consistent, but different from what validate/approve saw --
+// must be caught by the three-way hash check, never silently applied
+{
+  const planningRoot2 = fs.mkdtempSync(path.join(os.tmpdir(), "apply-prepare-tamper-"));
+  const operationsRoot2 = path.join(planningRoot2, "operations");
+  const operationId2 = propose({
+    operationsRoot: operationsRoot2, planningRoot: planningRoot2, kind: "workspace.init", target: {},
+    payload, targetFiles: ["config.yml", "plugin.lock.yml", ".gitignore"], actor: "carlos"
+  });
+  validateOperation({ operationsRoot: operationsRoot2, planningRoot: planningRoot2, operationId: operationId2, render: renderWorkspaceInit });
+  approveOperation({ operationsRoot: operationsRoot2, planningRoot: planningRoot2, operationId: operationId2, actor: "carlos", allowSelfApproval: true });
+
+  const changeSetPath = path.join(operationsRoot2, operationId2, "change-set.json");
+  const changeSet = JSON.parse(fs.readFileSync(changeSetPath, "utf8"));
+  changeSet.payload.name = "renamed-after-approve";
+  changeSet.hash = computePersistedChangeSetHash(changeSet);
+  fs.writeFileSync(changeSetPath, JSON.stringify(changeSet, null, 2));
+
+  const lock2 = acquireWorkspaceLock(planningRoot2, operationId2);
+  assert.throws(
+    () => __prepareApplyForTests({ operationsRoot: operationsRoot2, planningRoot: planningRoot2, operationId: operationId2, render: renderWorkspaceInit, actor: "carlos" }),
+    StaleError,
+    "a change-set edited after approve must never reach staging"
+  );
+  lock2.release();
+  assert.equal(readOperation(operationsRoot2, operationId2).status, "STALE");
+}
+
 console.log("changeset-apply-prepare: all tests passed");
 ```
 
@@ -2417,7 +2682,7 @@ Expected: FAIL — `__prepareApplyForTests is not a function`
 
 - [ ] **Step 3: Add steps 1–6 to `changeset.mjs`**
 
-Add these imports (alongside existing ones): `import { buildExpectedEvent } from "./journal.mjs"; import { checkpoint } from "./faultInjection.mjs"; import { StaleError } from "./errors.mjs";`. Then append:
+Add these imports (alongside existing ones): `import { buildExpectedEvent } from "./journal.mjs"; import { checkpoint } from "./faultInjection.mjs";` (`StaleError` is already imported from Task 16). Then append:
 
 ```js
 function eventTypeFor(kind) {
@@ -2441,18 +2706,19 @@ function prepareApply({ operationsRoot, planningRoot, operationId, render, actor
   const changeSet = readChangeSet(operationsRoot, operationId);
 
   // step 1 (revalidation under the lock, authoritative -- the earlier
-  // validate/approve checks were only ever a fail-fast optimistic pass)
-  for (const [relativePath, expected] of Object.entries(changeSet.baseRevisions)) {
-    const actual = readFileState(planningRoot, relativePath);
-    if (actual.revisionHash !== expected.revisionHash || actual.contentHash !== expected.contentHash) {
-      transitionToStale(operationsRoot, operationId, operation, `${relativePath} changed before apply`);
-    }
+  // validate/approve checks were only ever a fail-fast optimistic pass).
+  // Reuses the exact same rule set validateOperation uses, then additionally
+  // requires the hash to still match what validate AND approve each recorded.
+  const revalidation = revalidateChangeSet({ operationsRoot, planningRoot, operationId, render });
+  if (!revalidation.ok) {
+    transitionToStale(operationsRoot, operationId, operation, revalidation.errors[0]);
   }
-  if (operation.approval.changeSetHash !== changeSet.hash) {
-    transitionToStale(operationsRoot, operationId, operation, "changeSetHash no longer matches the approved change-set.json");
+  const recomputedHash = revalidation.recomputedHash;
+  if (recomputedHash !== changeSet.hash || recomputedHash !== operation.validation.changeSetHash || recomputedHash !== operation.approval.changeSetHash) {
+    transitionToStale(operationsRoot, operationId, operation, "changeSetHash no longer matches validate/approve; the change-set has drifted since approval");
   }
 
-  const rendered = render(changeSet.payload);
+  const rendered = revalidation.rendered;
   const stagingDir = path.join(planningRoot, ".runtime", "operations", operationId, "staged");
   const beforeDir = path.join(planningRoot, ".runtime", "operations", operationId, "before");
   fs.mkdirSync(stagingDir, { recursive: true });
@@ -2527,7 +2793,7 @@ Expected: PASS, prints `changeset-apply-prepare: all tests passed`
 
 ```bash
 git add runtime/src/lib/changeset.mjs runtime/src/lib/tests/changeset-apply-prepare.test.mjs
-git commit -m "Add apply steps 1-6: revalidate, stage, persist filePlan/expectedEvents, APPLYING (4 fault checkpoints)"
+git commit -m "Add apply steps 1-6: shared revalidation + three-way hash check, stage, persist filePlan/expectedEvents, APPLYING (4 fault checkpoints)"
 ```
 
 ---
@@ -2669,10 +2935,10 @@ git commit -m "Add apply steps 7-10: commit files, write events, APPLIED, cleanu
 - Test: `runtime/src/lib/tests/recovery.test.mjs`
 
 **Interfaces:**
-- Consumes: `readOperation`/`writeOperation`/`writeResult` (Task 12); `writeEventIdempotent`, `RecoveryRequiredError` (Task 11); `contentHash`, `ABSENT` (Task 2); `confineRuntimePath`, `confineUnder` (Task 3); `isUuidV7` (Task 1).
+- Consumes: `readOperation`/`writeOperation`/`writeResult`/`readResult` (Task 12); `writeEventIdempotent`, `RecoveryRequiredError` (Task 11); `contentHash`, `ABSENT` (Task 2); `confineRuntimePath`, `confineUnder` (Task 3); `isUuidV7` (Task 1).
 - Produces (unchanged signature from Task 13, real implementation now): `runRecovery({ operationsRoot, planningRoot, lock }): Array<{ operationId, outcome: "COMPLETED" | "RECOVERY_REQUIRED" | "CLEANED_UP" | "NOT_APPLICABLE" }>`.
 
-Classification is against the **persisted `filePlan`**, never against whatever happens to still be in `staged/` — `rename()` consumes its source, so a file already committed by a prior (crashed) attempt has nothing left in `staged/` to compare against (Revision 2 note 3). Every path this function touches — the operation directory name itself, `filePlan.target`, `filePlan.stagedRelativePath` — is confined before use (Revision 2 note 9). An operation already `APPLIED` with leftover `.runtime/operations/<id>/` staging residue gets that residue cleaned up (Revision 2 note 8).
+Classification is against the **persisted `filePlan`**, never against whatever happens to still be in `staged/` — `rename()` consumes its source, so a file already committed by a prior (crashed) attempt has nothing left in `staged/` to compare against (Revision 2 note 3). Every path this function touches — the operation directory name itself, `filePlan.target`, `filePlan.stagedRelativePath` — is confined before use (Revision 2 note 9). Because the per-operation `staged/` directory might not exist at all (e.g. it was already fully consumed and cleaned up, or the crash happened before it was ever created), its existence is checked **before** calling `confineUnder` on it, since `confineUnder` calls `realpathSync` on its root and throws if that root is absent (Revision 3 note 6) — a missing `staged/` is treated the same as a missing staged file: unable to safely redo the write, so `RECOVERY_REQUIRED`, never silently skipped. An operation already `APPLIED` with leftover `.runtime/operations/<id>/` staging residue gets that residue cleaned up (Revision 2 note 8). A `result.json` that already exists is compared against what `filePlan` says it should be — a mismatch is `RECOVERY_REQUIRED`, never silently accepted (Revision 3 note 10).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2769,11 +3035,24 @@ function stuckApplyingOperation() {
 // a directory name under operations/ that isn't a valid UUIDv7 must be ignored, never trusted
 {
   const { planningRoot, operationsRoot } = stuckApplyingOperation();
-  fs.mkdirSync(path.join(operationsRoot, "../escape-attempt"), { recursive: true });
   fs.mkdirSync(path.join(operationsRoot, "not-a-uuid"), { recursive: true });
   const lock = acquireWorkspaceLock(planningRoot, null);
   assert.doesNotThrow(() => runRecovery({ operationsRoot, planningRoot, lock }));
   lock.release();
+}
+
+// a result.json that already exists but doesn't match what filePlan says it
+// should be must never be silently accepted -- RECOVERY_REQUIRED instead
+{
+  const { planningRoot, operationsRoot, operationId } = stuckApplyingOperation();
+  const resultPath = path.join(operationsRoot, operationId, "result.json");
+  fs.writeFileSync(resultPath, JSON.stringify({ operationId, files: [{ target: "config.yml", contentHash: "tampered" }] }, null, 2));
+
+  const lock = acquireWorkspaceLock(planningRoot, null);
+  const outcomes = runRecovery({ operationsRoot, planningRoot, lock });
+  lock.release();
+  assert.equal(outcomes.find((o) => o.operationId === operationId).outcome, "RECOVERY_REQUIRED");
+  assert.equal(readOperation(operationsRoot, operationId).status, "RECOVERY_REQUIRED");
 }
 
 console.log("recovery: all tests passed");
@@ -2790,7 +3069,7 @@ Expected: FAIL — the divergent-modification and cleanup cases fail against the
 // runtime/src/lib/recovery.mjs
 import fs from "node:fs";
 import path from "node:path";
-import { readOperation, writeOperation, writeResult } from "./operationStore.mjs";
+import { readOperation, writeOperation, writeResult, readResult } from "./operationStore.mjs";
 import { writeEventIdempotent, RecoveryRequiredError } from "./journal.mjs";
 import { contentHash, ABSENT } from "./canonical.mjs";
 import { confineRuntimePath, confineUnder } from "./paths.mjs";
@@ -2867,8 +3146,13 @@ export function runRecovery({ operationsRoot, planningRoot, lock }) {
       }
 
       if (classification === "PENDING") {
-        const stagedPath = confineUnder(path.join(stagingRoot, operationId, "staged"), entry.stagedRelativePath);
-        if (!fs.existsSync(stagedPath) || contentHash(fs.readFileSync(stagedPath)) !== entry.stagedContentHash) {
+        const stagedDirForOperation = path.join(stagingRoot, operationId, "staged");
+        // the staging directory might not exist at all (already cleaned up,
+        // or never created if the crash predates it) -- confineUnder throws
+        // on a missing root, so existence is checked first (Revision 3 note 6)
+        const stagedExists = fs.existsSync(stagedDirForOperation);
+        const stagedPath = stagedExists ? confineUnder(stagedDirForOperation, entry.stagedRelativePath) : null;
+        if (!stagedExists || !fs.existsSync(stagedPath) || contentHash(fs.readFileSync(stagedPath)) !== entry.stagedContentHash) {
           markRecoveryRequired(operationsRoot, operationId, operation, {
             file: entry.target, expectedBeforeContentHash: entry.beforeContentHash,
             expectedStagedContentHash: entry.stagedContentHash, actualContentHash: actualHash,
@@ -2888,9 +3172,27 @@ export function runRecovery({ operationsRoot, planningRoot, lock }) {
       continue;
     }
 
-    if (!fs.existsSync(path.join(operationsRoot, operationId, "result.json"))) {
-      const files = (operation.filePlan || []).map((entry) => ({ target: entry.target, contentHash: entry.stagedContentHash }));
-      writeResult(operationsRoot, operationId, { operationId, files });
+    const expectedResult = {
+      operationId,
+      files: (operation.filePlan || []).map((entry) => ({ target: entry.target, contentHash: entry.stagedContentHash }))
+    };
+    const resultPath = path.join(operationsRoot, operationId, "result.json");
+    if (fs.existsSync(resultPath)) {
+      let existingResult = null;
+      try {
+        existingResult = readResult(operationsRoot, operationId);
+      } catch {
+        existingResult = null;
+      }
+      if (JSON.stringify(existingResult) !== JSON.stringify(expectedResult)) {
+        markRecoveryRequired(operationsRoot, operationId, operation, {
+          file: "result.json", reason: "result.json exists but does not match the outcome expected from filePlan"
+        });
+        outcomes.push({ operationId, outcome: "RECOVERY_REQUIRED" });
+        continue;
+      }
+    } else {
+      writeResult(operationsRoot, operationId, expectedResult);
     }
 
     let eventDivergent = false;
@@ -2953,13 +3255,15 @@ git commit -m "Expand recovery to real classification/replay/cleanup with harden
 - Create: `runtime/src/lib/tests/crash-matrix.test.mjs`
 
 **Interfaces:**
-- Consumes: `setFaultCheckpoint`, `clearFaultCheckpoint`, `SimulatedCrashError` (Task 13); `recoverWorkspace` (Task 13); `applyOperation` (Task 18); `writeEventIdempotent` (Task 11, used only to construct the "event written, operation.yml not yet updated" scenario using the real production write path — never hand-rolled).
+- Consumes: `setFaultCheckpoint`, `clearFaultCheckpoint`, `SimulatedCrashError` (Task 13); `recoverWorkspace` (Task 13); `propose`, `applyOperation` (Tasks 15, 18); `RecoveryRequiredError` (Task 11); `writeEventIdempotent` (Task 11, used only to construct the "event written, operation.yml not yet updated" scenario using the real production write path — never hand-rolled).
 
 This is the test that Revision 2 note 8 requires: each of the 10 durable boundaries in the apply sequence is a **separate case**, driven by really arming a checkpoint and letting the real code throw `SimulatedCrashError` mid-sequence — not by hand-assembling on-disk state that merely looks like a crash happened.
 
 Two different "how do we recover" mechanics apply, and the test is explicit about which:
 - **Boundaries reached before `APPLYING` is durably written** (`AFTER_BEFORE`, `AFTER_STAGED`, `AFTER_MANIFEST`): the operation is still `APPROVED` after the crash — recovery has nothing to do (there's no `APPLYING` operation yet), so a plain retry (`applyOperation` again) is what completes it, running `prepareApply` fresh from scratch.
 - **Boundaries reached after `APPLYING` is durably written** (`AFTER_APPLYING` through `BEFORE_APPLIED`): the operation is `APPLYING` with a persisted `filePlan`/`expectedEvents` — `recoverWorkspace` is what completes it.
+
+This task also carries the first real test of `withWorkspaceMutation`'s conflict-blocking behavior from Task 13 (Revision 3 note 4) — that code has existed since Task 13, unreachable until now, because this is the first point in the plan where a genuine `RECOVERY_REQUIRED` operation can exist for a fresh `propose` to be blocked by.
 
 - [ ] **Step 1: Write the test**
 
@@ -2974,6 +3278,7 @@ import { recoverWorkspace } from "../mutation.mjs";
 import { setFaultCheckpoint, clearFaultCheckpoint, SimulatedCrashError } from "../faultInjection.mjs";
 import { renderWorkspaceInit } from "../../commands/renderers.mjs";
 import { readOperation, readResult } from "../operationStore.mjs";
+import { RecoveryRequiredError } from "../journal.mjs";
 
 function freshApprovedOperation() {
   const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "crash-"));
@@ -3083,19 +3388,42 @@ for (const boundary of postApplyingBoundaries) {
   assert.equal(fs.existsSync(residueDir), false, "leftover staging residue for an already-APPLIED operation must be cleaned up");
 }
 
-console.log("crash-matrix: all 10 durable boundaries recover correctly, plus divergence and cleanup");
+// an unresolved RECOVERY_REQUIRED operation must block every subsequent
+// mutating command -- withWorkspaceMutation (Task 13) refuses to even run
+// the callback while any operation needs manual recovery (Revision 3 note 4)
+{
+  const { planningRoot, operationsRoot, operationId } = freshApprovedOperation();
+  crashAt("AFTER_APPLYING", planningRoot, operationsRoot, operationId);
+  fs.mkdirSync(planningRoot, { recursive: true });
+  fs.writeFileSync(path.join(planningRoot, "config.yml"), "divergent content that recovery never staged\n");
+
+  assert.throws(
+    () => propose({
+      operationsRoot, planningRoot, kind: "config.update", target: {},
+      payload: { name: "attempted-while-blocked" }, targetFiles: ["config.yml"], actor: "carlos"
+    }),
+    RecoveryRequiredError,
+    "a fresh propose must refuse to run while an unresolved RECOVERY_REQUIRED operation exists"
+  );
+  assert.equal(readOperation(operationsRoot, operationId).status, "RECOVERY_REQUIRED", "the blocking propose attempt itself ran recovery, which is what discovered the conflict");
+
+  const remainingOperationDirs = fs.readdirSync(operationsRoot);
+  assert.equal(remainingOperationDirs.length, 1, "the blocked propose must never have created a second operation");
+}
+
+console.log("crash-matrix: all 10 durable boundaries recover correctly, plus divergence, blocking, and cleanup");
 ```
 
 - [ ] **Step 2: Run it**
 
 Run: `node runtime/src/lib/tests/crash-matrix.test.mjs`
-Expected: PASS, prints `crash-matrix: all 10 durable boundaries recover correctly, plus divergence and cleanup`. If a `postApplyingBoundaries` case fails with the wrong final status, check that the corresponding `checkpoint(...)` call in Task 17/18's `changeset.mjs` is placed at exactly the right point in the sequence (before vs. after the write it's named for).
+Expected: PASS, prints `crash-matrix: all 10 durable boundaries recover correctly, plus divergence, blocking, and cleanup`. If a `postApplyingBoundaries` case fails with the wrong final status, check that the corresponding `checkpoint(...)` call in Task 17/18's `changeset.mjs` is placed at exactly the right point in the sequence (before vs. after the write it's named for).
 
 - [ ] **Step 3: Commit**
 
 ```bash
 git add runtime/src/lib/tests/crash-matrix.test.mjs
-git commit -m "Add real fault-injection crash matrix covering all 10 durable apply boundaries"
+git commit -m "Add real fault-injection crash matrix covering all 10 durable boundaries, plus the recovery-conflict-blocks-mutation guard"
 ```
 
 ---
@@ -3162,6 +3490,43 @@ import { writeOperation } from "../../lib/operationStore.mjs";
   assert.ok(result.findings.length > 0);
 }
 
+// malformed YAML -- FAIL with an explicit finding, exit 1 via the normal
+// data-driven status mapping, never an uncaught parse exception (exit 2)
+{
+  const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-malformed-"));
+  fs.writeFileSync(path.join(planningRoot, "config.yml"), "name: demo\nname: duplicate-key-is-a-parse-error\n");
+  fs.writeFileSync(path.join(planningRoot, "plugin.lock.yml"), `schemaVersion: 1\npluginVersion: 1.0.0\ntemplatePackFingerprint: sha256:${"a".repeat(64)}\n`);
+  const result = checkSchema({ planningRoot });
+  assert.equal(result.status, "FAIL");
+  assert.ok(result.findings.some((f) => f.includes("config.yml") && f.toLowerCase().includes("parse")));
+}
+
+// a symlink under scopes/ must be reported, never followed or silently ignored
+{
+  const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-scope-symlink-"));
+  fs.writeFileSync(path.join(planningRoot, "config.yml"), "schemaVersion: 1\nname: demo\nvcs: git\nbaseBranch: null\nscopeRefs: []\n");
+  fs.writeFileSync(path.join(planningRoot, "plugin.lock.yml"), `schemaVersion: 1\npluginVersion: 1.0.0\ntemplatePackFingerprint: sha256:${"a".repeat(64)}\n`);
+  const scopesRoot = path.join(planningRoot, "scopes");
+  fs.mkdirSync(scopesRoot, { recursive: true });
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "check-scope-outside-"));
+  const scopeId = "018f0000-0000-7000-8000-000000000003";
+  fs.symlinkSync(outside, path.join(scopesRoot, scopeId));
+  const result = checkSchema({ planningRoot });
+  assert.equal(result.status, "FAIL");
+  assert.ok(result.findings.some((f) => f.includes(scopeId) && f.toLowerCase().includes("symlink")));
+}
+
+// an invalid (non-UUIDv7) entry under scopes/ must be reported, not silently skipped
+{
+  const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-scope-invalid-"));
+  fs.writeFileSync(path.join(planningRoot, "config.yml"), "schemaVersion: 1\nname: demo\nvcs: git\nbaseBranch: null\nscopeRefs: []\n");
+  fs.writeFileSync(path.join(planningRoot, "plugin.lock.yml"), `schemaVersion: 1\npluginVersion: 1.0.0\ntemplatePackFingerprint: sha256:${"a".repeat(64)}\n`);
+  fs.mkdirSync(path.join(planningRoot, "scopes", "not-a-uuid"), { recursive: true });
+  const result = checkSchema({ planningRoot });
+  assert.equal(result.status, "FAIL");
+  assert.ok(result.findings.some((f) => f.includes("not-a-uuid")));
+}
+
 // reports pending operations without touching them
 {
   const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-pending-"));
@@ -3208,7 +3573,13 @@ function checkRequiredFile(planningRoot, relativePath, schemaName, findings) {
     findings.push(`${relativePath}: required file is missing`);
     return;
   }
-  const value = parseYaml(fs.readFileSync(filePath, "utf8"));
+  let value;
+  try {
+    value = parseYaml(fs.readFileSync(filePath, "utf8"));
+  } catch (error) {
+    findings.push(`${relativePath}: failed to parse (${error.message})`);
+    return;
+  }
   const result = validate(schemaName, value);
   if (!result.valid) {
     for (const error of result.errors) findings.push(`${relativePath}${error.path}: ${error.message}`);
@@ -3227,7 +3598,15 @@ export function checkSchema({ planningRoot }) {
   const scopesRoot = path.join(planningRoot, "scopes");
   if (fs.existsSync(scopesRoot)) {
     for (const scopeId of fs.readdirSync(scopesRoot)) {
-      if (!isUuidV7(scopeId)) continue;
+      if (!isUuidV7(scopeId)) {
+        findings.push(`scopes/${scopeId}: not a valid scope id`);
+        continue;
+      }
+      const scopeEntryPath = path.join(scopesRoot, scopeId);
+      if (fs.lstatSync(scopeEntryPath).isSymbolicLink()) {
+        findings.push(`scopes/${scopeId}: symlink entries are not permitted`);
+        continue;
+      }
       checkRequiredFile(planningRoot, path.join("scopes", scopeId, "scope.yml"), "scope", findings);
     }
   }
@@ -3278,10 +3657,12 @@ git commit -m "Add query-only check schema with NOT_INITIALIZED contract and mis
 - Test: `runtime/src/commands/tests/commands.test.mjs`
 
 **Interfaces:**
-- Consumes: `propose`, `validateOperation`, `approveOperation`, `applyOperation` (Tasks 15-18); renderers (Task 14); `checkSchema` (Task 21); `generateUuidV7` (Task 1); `UsageError` (Task 5); `parseYaml` (Task 4); `contentHash` (Task 2); reads `.claude-plugin/plugin.json` for `pluginVersion` and its own bytes for `templatePackFingerprint`.
-- Produces: `prepareProposal(kind, rawPayload): { payload, targetFiles }` (the single place that generates a scope's UUIDv7 when one isn't already present, and knows each kind's `targetFiles` — used by both `runConfigScopeAdd` and the raw `changeset propose` path so there is exactly one place this logic lives); `runInit`, `runConfigSet`, `runConfigScopeAdd` (each `({ planningRoot, args }) -> { operationId }`, `runConfigScopeAdd` also returns `scopeId`); `runChangesetPropose({ planningRoot, kind, payloadText, actor }) -> { operationId }`; `runChangesetValidate({ planningRoot, operationsRoot, operationId }) -> { status, errors }`; `runChangesetApprove({ operationsRoot, planningRoot, operationId, actor, allowSelfApproval }) -> { status }`; `runChangesetApply({ planningRoot, operationsRoot, operationId, actor }) -> { status, files }`.
+- Consumes: `propose`, `validateOperation`, `approveOperation`, `applyOperation` (Tasks 15-18); renderers (Task 14); `checkSchema` (Task 21); `generateUuidV7` (Task 1); `UsageError` (Task 5); `parseYaml` (Task 4); `PLUGIN_VERSION`, `TEMPLATE_PACK_FINGERPRINT` from `runtime/src/generated/build-meta.mjs` (Task 7).
+- Produces: `prepareProposal(kind, rawPayload): { payload, targetFiles }` (the single place that generates a scope's UUIDv7 when one isn't already present, and computes each kind's `targetFiles` — for `scope.add` this is **dynamic**, `["config.yml", "scopes/<id>/scope.yml"]`, built from whatever `id` ends up in the payload, since that path doesn't exist until the id is known — used by both `runConfigScopeAdd` and the raw `changeset propose` path so there is exactly one place this logic lives); `runInit`, `runConfigSet`, `runConfigScopeAdd` (each `({ planningRoot, args }) -> { operationId }`, `runConfigScopeAdd` also returns `scopeId`); `runChangesetPropose({ planningRoot, kind, payloadText, actor }) -> { operationId }`; `runChangesetValidate({ planningRoot, operationsRoot, operationId }) -> { status, errors }`; `runChangesetApprove({ operationsRoot, planningRoot, operationId, actor, allowSelfApproval }) -> { status }`; `runChangesetApply({ planningRoot, operationsRoot, operationId, actor }) -> { status, files }`.
 
-`templatePackFingerprint` is `sha256:` followed by the real content hash of `.claude-plugin/plugin.json`'s bytes — reproducible and verifiable, never the literal string `"sha256:corte-0-placeholder"` (Revision 2 note 11).
+`init.mjs` imports `PLUGIN_VERSION`/`TEMPLATE_PACK_FINGERPRINT` as fixed constants from the build-time-generated `runtime/src/generated/build-meta.mjs` (Task 7) rather than deriving them at runtime via `import.meta.url` — after esbuild bundles this module into `runtime/dist/shipping-mode.mjs` (Task 24), it no longer lives next to `.claude-plugin/plugin.json` at a stable relative path, so that kind of runtime resolution would silently break; there is also no `"0.0.0"`/placeholder-hash fallback anywhere — if the build-time metadata can't be generated, the build itself fails loudly (Revision 3 note 5, supersedes Revision 2 note 11's simpler runtime-hash approach).
+
+For `scope.add`, `prepareProposal`'s `targetFiles` including the new `scopes/<id>/scope.yml` path means `propose()` (Task 15) automatically records `baseRevisions[that path] = { revisionHash: ABSENT, contentHash: ABSENT }` — the general "read current file state" logic in `propose()` needs no changes at all; the scope-specific ABSENT *invariant enforcement* lives in Task 16's `checkKindInvariants`, which rejects a baseRevisions entry that claims otherwise (Revision 3 note 1).
 
 - [ ] **Step 1: Write the failing test for `prepareProposal`**
 
@@ -3300,11 +3681,12 @@ assert.deepEqual(configUpdate.targetFiles, ["config.yml"]);
 
 const scopeWithoutId = prepareProposal("scope.add", { key: "backend", label: "Backend", kind: "code", path: "api/" });
 assert.ok(isUuidV7(scopeWithoutId.payload.id), "a scope id must be generated when the raw payload doesn't already have one");
-assert.deepEqual(scopeWithoutId.targetFiles, ["config.yml"]);
+assert.deepEqual(scopeWithoutId.targetFiles, ["config.yml", `scopes/${scopeWithoutId.payload.id}/scope.yml`], "scope.add's targetFiles must include the new scope's own path, built from its id");
 
 const fixedId = "018f0000-0000-7000-8000-000000000000";
 const scopeWithId = prepareProposal("scope.add", { id: fixedId, key: "backend", label: "Backend", kind: "code", path: "api/" });
 assert.equal(scopeWithId.payload.id, fixedId, "an already-fixed id must never be regenerated");
+assert.deepEqual(scopeWithId.targetFiles, ["config.yml", `scopes/${fixedId}/scope.yml`]);
 
 assert.throws(() => prepareProposal("release.create", {}), UsageError);
 
@@ -3323,18 +3705,22 @@ Expected: FAIL — `Cannot find module '../proposalPreparation.mjs'`
 import { generateUuidV7 } from "../lib/ids.mjs";
 import { UsageError } from "../lib/errors.mjs";
 
-const targetFilesByKind = {
-  "workspace.init": ["config.yml", "plugin.lock.yml", ".gitignore"],
-  "config.update": ["config.yml"],
-  "scope.add": ["config.yml"]
-};
+const SUPPORTED_KINDS = new Set(["workspace.init", "config.update", "scope.add"]);
 
 export function prepareProposal(kind, rawPayload) {
-  if (!targetFilesByKind[kind]) throw new UsageError(`unsupported changeset kind: ${kind}`);
-  const payload = kind === "scope.add" && !rawPayload.id
-    ? { ...rawPayload, id: generateUuidV7() }
-    : rawPayload;
-  return { payload, targetFiles: targetFilesByKind[kind] };
+  if (!SUPPORTED_KINDS.has(kind)) throw new UsageError(`unsupported changeset kind: ${kind}`);
+
+  if (kind === "workspace.init") {
+    return { payload: rawPayload, targetFiles: ["config.yml", "plugin.lock.yml", ".gitignore"] };
+  }
+  if (kind === "config.update") {
+    return { payload: rawPayload, targetFiles: ["config.yml"] };
+  }
+
+  // scope.add: targetFiles is dynamic -- it depends on the scope's own id,
+  // which must exist before propose() can compute baseRevisions for it
+  const payload = rawPayload.id ? rawPayload : { ...rawPayload, id: generateUuidV7() };
+  return { payload, targetFiles: ["config.yml", `scopes/${payload.id}/scope.yml`] };
 }
 ```
 
@@ -3357,6 +3743,7 @@ import { readOperation, readChangeSet } from "../../lib/operationStore.mjs";
 import { parseYaml } from "../../lib/yaml.mjs";
 import { isUuidV7 } from "../../lib/ids.mjs";
 import { UsageError } from "../../lib/errors.mjs";
+import { PLUGIN_VERSION, TEMPLATE_PACK_FINGERPRINT } from "../../generated/build-meta.mjs";
 
 const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "commands-"));
 const planningRoot = path.join(workspace, ".planning");
@@ -3365,7 +3752,8 @@ const operationsRoot = path.join(planningRoot, "operations");
 
 const initResult = runInit({ planningRoot, args: { name: "demo", vcs: "git", actor: "carlos" } });
 const initChangeSet = readChangeSet(operationsRoot, initResult.operationId);
-assert.match(initChangeSet.payload.templatePackFingerprint, /^sha256:[0-9a-f]{64}$/, "templatePackFingerprint must be a real hash, never a placeholder string");
+assert.equal(initChangeSet.payload.pluginVersion, PLUGIN_VERSION, "pluginVersion must be exactly the build-time constant, never a runtime fallback");
+assert.equal(initChangeSet.payload.templatePackFingerprint, TEMPLATE_PACK_FINGERPRINT, "templatePackFingerprint must be exactly the build-time constant, never a placeholder string");
 
 let outcome = runChangesetValidate({ planningRoot, operationsRoot, operationId: initResult.operationId });
 assert.equal(outcome.status, "VALIDATED");
@@ -3380,6 +3768,11 @@ const scopeResult = runConfigScopeAdd({ planningRoot, args: { key: "backend", la
 assert.ok(isUuidV7(scopeResult.scopeId));
 const scopeChangeSet = readChangeSet(operationsRoot, scopeResult.operationId);
 assert.equal(scopeChangeSet.payload.id, scopeResult.scopeId, "the scope id in change-set.json must already match what runConfigScopeAdd returned");
+assert.ok(scopeChangeSet.baseRevisions["config.yml"], "baseRevisions must include config.yml");
+const scopeYmlPath = `scopes/${scopeResult.scopeId}/scope.yml`;
+assert.ok(scopeChangeSet.baseRevisions[scopeYmlPath], "baseRevisions must include the new scope's own scope.yml path");
+assert.equal(scopeChangeSet.baseRevisions[scopeYmlPath].revisionHash, "ABSENT");
+assert.equal(scopeChangeSet.baseRevisions[scopeYmlPath].contentHash, "ABSENT");
 
 runChangesetValidate({ planningRoot, operationsRoot, operationId: scopeResult.operationId });
 runChangesetApprove({ operationsRoot, planningRoot, operationId: scopeResult.operationId, actor: "carlos", allowSelfApproval: true });
@@ -3413,29 +3806,10 @@ Expected: FAIL — `Cannot find module '../init.mjs'`
 
 ```js
 // runtime/src/commands/init.mjs
-import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { propose } from "../lib/changeset.mjs";
-import { contentHash } from "../lib/canonical.mjs";
 import { prepareProposal } from "./proposalPreparation.mjs";
-
-function pluginManifestPath() {
-  const here = path.dirname(fileURLToPath(import.meta.url));
-  return path.resolve(here, "..", "..", "..", ".claude-plugin", "plugin.json");
-}
-
-function pluginVersion() {
-  const manifestPath = pluginManifestPath();
-  if (!fs.existsSync(manifestPath)) return "0.0.0";
-  return JSON.parse(fs.readFileSync(manifestPath, "utf8")).version || "0.0.0";
-}
-
-function templatePackFingerprint() {
-  const manifestPath = pluginManifestPath();
-  if (!fs.existsSync(manifestPath)) return `sha256:${"0".repeat(64)}`;
-  return `sha256:${contentHash(fs.readFileSync(manifestPath))}`;
-}
+import { PLUGIN_VERSION, TEMPLATE_PACK_FINGERPRINT } from "../generated/build-meta.mjs";
 
 export function runInit({ planningRoot, args }) {
   const operationsRoot = path.join(planningRoot, "operations");
@@ -3443,8 +3817,8 @@ export function runInit({ planningRoot, args }) {
     name: args.name,
     baseBranch: args.baseBranch || null,
     vcs: args.vcs || "none",
-    pluginVersion: pluginVersion(),
-    templatePackFingerprint: templatePackFingerprint()
+    pluginVersion: PLUGIN_VERSION,
+    templatePackFingerprint: TEMPLATE_PACK_FINGERPRINT
   });
   const operationId = propose({ operationsRoot, planningRoot, kind: "workspace.init", target: {}, payload, targetFiles, actor: args.actor });
   return { operationId };
@@ -3543,7 +3917,7 @@ Expected: PASS, prints `commands: all tests passed`
 
 ```bash
 git add runtime/src/commands/proposalPreparation.mjs runtime/src/commands/init.mjs runtime/src/commands/config.mjs runtime/src/commands/changesetCommand.mjs runtime/src/commands/tests/proposalPreparation.test.mjs runtime/src/commands/tests/commands.test.mjs
-git commit -m "Add init/config/changeset command glue: real fingerprint, scope id fixed at propose, real payload-text propose"
+git commit -m "Add init/config/changeset command glue: build-time metadata, dynamic scope.add targetFiles, real payload-text propose"
 ```
 
 ---
@@ -3553,14 +3927,14 @@ git commit -m "Add init/config/changeset command glue: real fingerprint, scope i
 **Files:**
 - Create: `runtime/src/index.mjs`
 - Delete: `src/runtime.mjs` (old prototype dispatcher)
-- Delete: `src/tests/vertical-slice.test.mjs` (asserted the old flat 10-command surface; replaced by Task 27's CLI e2e suite)
+- Delete: `src/tests/vertical-slice.test.mjs` (asserted the old flat 10-command surface; replaced by Task 26's CLI e2e suite)
 - Test: `runtime/src/tests/dispatcher.test.mjs`
 
 **Interfaces:**
 - Consumes: everything from Tasks 15-22; `isUuidV7` (Task 1); `UsageError`/`StateError`/`StaleError` (Task 5); `RecoveryRequiredError` (Task 11); `LockHeldError` (Task 9); `PathConfinementError` (Task 3).
 - Produces: `dispatch(command: string, args: string[], cwd: string): object` — never catches errors internally; they propagate to the caller (`bin/shipping-mode.mjs`, Task 24) so its typed-error-to-exit-code mapping can see them. Also re-exports every typed error class so Task 24 can import them from the single bundled entry point.
 
-`changeset propose --payload-file <file|->` now really reads the file (or stdin, when the value is `-`) and rejects a missing/malformed file with `UsageError` (exit 1) rather than silently proposing an empty payload (Revision 2 note 5). Every `<operation-id>` positional argument is validated as a real UUIDv7 **before** any command module ever builds a path from it (Revision 2 note 9) — reading from stdin itself is exercised at the CLI e2e level (Task 27), since it requires a real child process with piped input, not something a same-process unit test can drive.
+`changeset propose --payload-file <file|->` now really reads the file (or stdin, when the value is `-`) and rejects a missing/malformed file with `UsageError` (exit 1) rather than silently proposing an empty payload (Revision 2 note 5). Every `<operation-id>` positional argument is validated as a real UUIDv7 **before** any command module ever builds a path from it (Revision 2 note 9) — reading from stdin itself is exercised at the CLI e2e level (Task 26), since it requires a real child process with piped input, not something a same-process unit test can drive.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -3758,7 +4132,7 @@ git commit -m "Add runtime dispatcher: real payload-file/stdin, typed errors bub
 
 Exit codes (Revision 2 note 6): `0` success; `1` for `UsageError`, `StateError`, `StaleError`, `RecoveryRequiredError`, `LockHeldError`, `PathConfinementError`, and for data-driven statuses `INVALID`/`STALE`/`RECOVERY_REQUIRED`/`FAIL`/`NOT_INITIALIZED`; `2` for anything else (a genuinely unexpected crash); `3` for `NOT_IMPLEMENTED`.
 
-The "no external imports, runs without `node_modules`" guarantee (Revision 2 note 7) applies here, to the final bundle — not to `runtime/src/generated/validators.mjs` (Task 7), which is allowed to reference Ajv's own runtime helpers since `node_modules` is always present wherever that pre-bundle file runs directly.
+The "no external imports, runs without `node_modules`" guarantee (Revision 2 note 7) applies here, to the final bundle — not to `runtime/src/generated/validators.mjs` (Task 7), which is allowed to reference Ajv's own runtime helpers since `node_modules` is always present wherever that pre-bundle file runs directly. This task also verifies, textually, that fault injection compiled out of the production bundle entirely (Revision 3 note 11): `npm run build:runtime` (no `--test-bundle` flag) sets `globalThis.__SHIPPING_MODE_TEST_BUILD__` to `"false"` via esbuild's `define`, and the resulting `runtime/dist/shipping-mode.mjs` must not contain the string `SHIPPING_MODE_FAULT_CHECKPOINT` anywhere.
 
 - [ ] **Step 1: Build the bundle**
 
@@ -3784,6 +4158,7 @@ const bundleSource = fs.readFileSync(distFile, "utf8");
 assert.doesNotMatch(bundleSource, /from\s+["']yaml["']/, "the yaml package must be inlined, not imported at runtime");
 assert.doesNotMatch(bundleSource, /from\s+["']ajv["']/, "ajv must not be imported at runtime");
 assert.doesNotMatch(bundleSource, /ajv\/dist\/runtime/, "no reference to ajv's internal runtime path may remain in the final bundle");
+assert.doesNotMatch(bundleSource, /SHIPPING_MODE_FAULT_CHECKPOINT/, "fault injection must be compiled out of the production bundle entirely");
 
 const isolated = fs.mkdtempSync(path.join(os.tmpdir(), "bundle-isolated-"));
 fs.copyFileSync(distFile, path.join(isolated, "shipping-mode.mjs"));
@@ -3963,191 +4338,20 @@ git commit -m "Keep only init/config/check skills active; remove out-of-scope sk
 
 ---
 
-## Task 26: Repo hygiene — portable test runner, `package.json`, `verify-next-generation.sh`, `README.md`
+## Task 26: CLI e2e — comprehensive coverage against the real bundled binary
 
 **Files:**
-- Create: `scripts/run-tests.mjs`
-- Modify: `package.json`
-- Modify: `scripts/verify-next-generation.sh`
-- Modify: `README.md`
-
-**Interfaces:**
-- Produces: `scripts/run-tests.mjs <dir> [<dir> ...]` — a portable Node script (no shell globbing/looping) that recursively discovers `*.test.mjs` files under the given directories, runs each via `child_process.spawnSync`, and exits non-zero if any fail. Replaces the `for f in ...; do node "$f"; done` bash loop from revision 1, which breaks under `cmd.exe` on Windows (Revision 2 note 12).
-
-- [ ] **Step 1: Write `scripts/run-tests.mjs`**
-
-```js
-// scripts/run-tests.mjs
-#!/usr/bin/env node
-import fs from "node:fs";
-import path from "node:path";
-import { spawnSync } from "node:child_process";
-
-function collectTestFiles(root) {
-  const results = [];
-  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
-    const full = path.join(root, entry.name);
-    if (entry.isDirectory()) results.push(...collectTestFiles(full));
-    else if (entry.isFile() && entry.name.endsWith(".test.mjs")) results.push(full);
-  }
-  return results;
-}
-
-const roots = process.argv.slice(2);
-if (roots.length === 0) {
-  console.error("usage: node scripts/run-tests.mjs <dir> [<dir> ...]");
-  process.exit(1);
-}
-
-const files = roots
-  .filter((root) => fs.existsSync(root))
-  .flatMap((root) => collectTestFiles(path.resolve(root)))
-  .sort();
-
-let failures = 0;
-for (const file of files) {
-  const result = spawnSync(process.execPath, [file], { stdio: "inherit" });
-  if (result.status !== 0) {
-    failures += 1;
-    console.error(`FAIL: ${file}`);
-  }
-}
-
-if (failures > 0) {
-  console.error(`${failures} of ${files.length} test file(s) failed`);
-  process.exit(1);
-}
-console.log(`${files.length} test file(s) passed`);
-```
-
-- [ ] **Step 2: Verify it works against the existing test tree**
-
-Run: `node scripts/run-tests.mjs runtime/src/lib/tests runtime/src/commands/tests runtime/src/schemas/tests runtime/src/generated/tests runtime/src/tests`
-Expected: prints `N test file(s) passed` with no `FAIL:` lines, where `N` matches the number of `*.test.mjs` files created across Tasks 1-23.
-
-- [ ] **Step 3: Update `package.json` scripts**
-
-Replace the `"scripts"` block with:
-
-```json
-"scripts": {
-  "build:schemas": "node scripts/build-runtime.mjs --schemas-only",
-  "build:runtime": "node scripts/build-runtime.mjs",
-  "test:host-integration": "node spikes/host-integration/tests/host-integration.test.mjs",
-  "test:unit": "node scripts/run-tests.mjs runtime/src/lib/tests runtime/src/commands/tests runtime/src/schemas/tests runtime/src/generated/tests runtime/src/tests",
-  "test:cli-e2e": "node runtime/tests/cli-e2e.test.mjs",
-  "test:bundle": "node runtime/tests/bundle-self-contained.test.mjs",
-  "verify:corte-1.2": "node spikes/verify-corte-1.2.mjs",
-  "verify:next-generation": "bash scripts/verify-next-generation.sh"
-}
-```
-
-(`test:unit` already covers the crash matrix and lock/quarantine-race tests, since `runtime/src/lib/tests/` includes `crash-matrix.test.mjs`, `lock-concurrency.test.mjs`, and `lock-quarantine-race.test.mjs` — no separate npm script needed for those.)
-
-- [ ] **Step 4: Update `scripts/verify-next-generation.sh`**
-
-Find this block:
-
-```bash
-if [[ "${VERIFY_NEXT_GENERATION_SKIP_TESTS:-0}" != "1" ]]; then
-  (cd "$ROOT" && node hooks/tests/protect-planning-state.test.mjs)
-  (cd "$ROOT" && node spikes/tests/verify-corte-1.2.test.mjs)
-  (cd "$ROOT" && node scripts/tests/verify-next-generation.test.mjs)
-  (cd "$ROOT" && node spikes/host-integration/tests/host-integration.test.mjs)
-  (cd "$ROOT" && node src/tests/vertical-slice.test.mjs)
-  (cd "$ROOT" && node spikes/verify-corte-1.2.mjs --structure-only)
-fi
-```
-
-Replace with:
-
-```bash
-if [[ "${VERIFY_NEXT_GENERATION_SKIP_TESTS:-0}" != "1" ]]; then
-  (cd "$ROOT" && node hooks/tests/protect-planning-state.test.mjs)
-  (cd "$ROOT" && node spikes/tests/verify-corte-1.2.test.mjs)
-  (cd "$ROOT" && node scripts/tests/verify-next-generation.test.mjs)
-  (cd "$ROOT" && node spikes/host-integration/tests/host-integration.test.mjs)
-  (cd "$ROOT" && npm ci --silent)
-  (cd "$ROOT" && npm run --silent build:runtime)
-  (cd "$ROOT" && npm run --silent test:unit)
-  (cd "$ROOT" && npm run --silent test:cli-e2e)
-  (cd "$ROOT" && npm run --silent test:bundle)
-  (cd "$ROOT" && node spikes/verify-corte-1.2.mjs --structure-only)
-fi
-```
-
-`npm ci` and `npm run build:runtime` run **before** `test:unit`/`test:cli-e2e`/`test:bundle` — those suites depend on `node_modules` (for `test:unit`, which imports `yaml`/generated validators) and on `runtime/dist/shipping-mode.mjs` existing (for `test:cli-e2e`/`test:bundle`), per Revision 2 note 12.
-
-- [ ] **Step 5: Update `README.md`**
-
-Replace the current "Bootstrap" section with:
-
-```markdown
-## Bootstrap
-
-\`\`\`bash
-npm ci
-npm run build:runtime
-npm run verify:next-generation
-\`\`\`
-
-## Corte 0 status
-
-Real, tested surface: `init`, `config set`, `config scope add`,
-`changeset propose|validate|approve|apply`, `check schema` — backed by real
-JSON Schemas, UUIDv7 IDs, an explicit approval state machine, and a
-crash-consistent event journal with idempotent recovery. See
-`docs/specs/corte-0-runtime-foundation.md`.
-
-**Not yet implemented (mandatory next iteration, not optional):**
-git/scope/package discovery, guide registration, autonomy configuration,
-`release`/`item`/`work-package`/`task`, `check health|guides|gates`,
-`report`, and approval governance (role separation between proposer and
-approver — self-approval is currently allowed but must be explicit). Any of
-these commands returns `NOT_IMPLEMENTED` with exit code `3` rather than a
-silent or partial result.
-```
-
-- [ ] **Step 6: Run the full regression suite**
-
-Run: `npm run verify:next-generation`
-Expected: PASS — all existing regression suites plus every suite added in Tasks 1-24 (Task 27's CLI e2e file doesn't exist until the next task, so if `test:cli-e2e` fails with a missing file here, that's expected until Task 27 lands; re-run this step again after Task 27).
-
-- [ ] **Step 7: Commit**
-
-```bash
-git add scripts/run-tests.mjs package.json scripts/verify-next-generation.sh README.md
-git commit -m "Add portable test runner; run npm ci + build:runtime before bundle-dependent suites"
-```
-
----
-
-## Task 27: CLI e2e — comprehensive coverage against the real bundled binary
-
-**Files:**
-- Modify: `runtime/src/lib/faultInjection.mjs` (small addition: read an initial checkpoint from an environment variable at module load, so a *child process* — the real `bin/shipping-mode.mjs`, not an in-process import — can be made to crash at a named boundary)
 - Create: `runtime/tests/cli-e2e.test.mjs`
 
 **Interfaces:**
-- Consumes: `bin/shipping-mode.mjs` (Task 24) via `child_process.execFileSync`/`spawnSync`, never in-process imports.
+- Consumes: `bin/shipping-mode.mjs` (Task 24) via `child_process.execFileSync`/`spawnSync`/`execFile`, never in-process imports; the separate test bundle (`runtime/dist/shipping-mode.test-bundle.mjs`, Task 7) only for the one crash-and-recover case that needs fault injection, via a small inline `node -e` script — never through `bin/shipping-mode.mjs`, which always points at the production bundle with fault injection compiled out (Revision 3 note 11).
 
-This is the widest test in the plan (Revision 2 note 13): every negative path from the spec gets a real, separate-process CLI case, including a genuine crash-and-recover cycle driven through the actual bundled binary (via `SHIPPING_MODE_FAULT_CHECKPOINT`), not just the in-process fault injection from Task 20.
+This is the widest test in the plan (Revision 2 note 13): every negative path from the spec gets a real, separate-process CLI case, including a genuine crash-and-recover cycle, two real concurrency races driven through actual child processes (Revision 3 note 8's application-level cases), and an exact field-by-field comparison of the `NOT_IMPLEMENTED` contract (Revision 3 note 9) — not just its `status`/exit code.
 
-- [ ] **Step 1: Add environment-variable-driven fault injection for child processes**
+- [ ] **Step 1: Build both bundles**
 
-Modify `runtime/src/lib/faultInjection.mjs`, adding this right after the `let activeCheckpoint = null;` line:
-
-```js
-if (process.env.SHIPPING_MODE_FAULT_CHECKPOINT) {
-  activeCheckpoint = process.env.SHIPPING_MODE_FAULT_CHECKPOINT;
-}
-```
-
-Run: `node runtime/src/lib/tests/faultInjection.test.mjs` — unaffected (no env var set in-process), still PASS.
-
-Rebuild the bundle so this reaches `runtime/dist/shipping-mode.mjs`:
-
-Run: `npm run build:runtime`
+Run: `npm run build:runtime && npm run build:test-bundle`
+Expected: creates both `runtime/dist/shipping-mode.mjs` (production, no fault injection) and `runtime/dist/shipping-mode.test-bundle.mjs` (gitignored, fault injection armable via `SHIPPING_MODE_FAULT_CHECKPOINT`).
 
 - [ ] **Step 2: Write the e2e test**
 
@@ -4157,11 +4361,16 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { execFileSync } from "node:child_process";
+import { execFileSync, execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
+import { parseYaml } from "../src/lib/yaml.mjs";
+import { PLUGIN_VERSION, TEMPLATE_PACK_FINGERPRINT } from "../src/generated/build-meta.mjs";
 
+const execFileAsync = promisify(execFile);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const bin = path.join(root, "bin", "shipping-mode.mjs");
+const testBundle = path.join(root, "runtime", "dist", "shipping-mode.test-bundle.mjs");
 
 function run(args, cwd, options = {}) {
   try {
@@ -4169,6 +4378,15 @@ function run(args, cwd, options = {}) {
     return { code: 0, json: JSON.parse(stdout) };
   } catch (error) {
     return { code: error.status, json: JSON.parse(error.stdout) };
+  }
+}
+
+async function runAsync(args, cwd) {
+  try {
+    const { stdout } = await execFileAsync("node", [bin, ...args], { cwd, encoding: "utf8" });
+    return { code: 0, json: JSON.parse(stdout) };
+  } catch (error) {
+    return { code: error.code, json: JSON.parse(error.stdout) };
   }
 }
 
@@ -4198,6 +4416,12 @@ function fullyInit(cwd) {
   const check = run(["check", "schema"], cwd);
   assert.equal(check.code, 0);
   assert.equal(check.json.status, "PASS");
+
+  // the real bundle must produce the exact build-time version/fingerprint,
+  // never a runtime-derived or placeholder value (Revision 3 note 5)
+  const pluginLock = parseYaml(fs.readFileSync(path.join(cwd, ".planning", "plugin.lock.yml"), "utf8"));
+  assert.equal(pluginLock.pluginVersion, PLUGIN_VERSION);
+  assert.equal(pluginLock.templatePackFingerprint, TEMPLATE_PACK_FINGERPRINT);
 }
 
 // config set
@@ -4334,24 +4558,32 @@ function fullyInit(cwd) {
   assert.equal(check.json.status, "NOT_INITIALIZED");
 }
 
-// NOT_IMPLEMENTED matrix
+// NOT_IMPLEMENTED matrix -- compare the exact contract field by field, not
+// just status/exit code (Revision 3 note 9)
 {
   const cwd = freshWorkspace();
   fullyInit(cwd);
-  for (const args of [
-    ["release", "--name", "R1"],
-    ["item", "--name", "I1"],
-    ["work-package", "--name", "W1"],
-    ["task", "--name", "T1"],
-    ["report"],
-    ["check", "health"],
-    ["check", "guides"],
-    ["check", "gates"],
-    ["changeset", "propose", "--kind", "task.create", "--payload-file", "-", "--actor", "carlos"]
-  ]) {
+  const cases = [
+    { args: ["release", "--name", "R1"], command: "release" },
+    { args: ["item", "--name", "I1"], command: "item" },
+    { args: ["work-package", "--name", "W1"], command: "work-package" },
+    { args: ["task", "--name", "T1"], command: "task" },
+    { args: ["report"], command: "report" },
+    { args: ["check", "health"], command: "check health" },
+    { args: ["check", "guides"], command: "check guides" },
+    { args: ["check", "gates"], command: "check gates" },
+    { args: ["changeset", "propose", "--kind", "task.create", "--payload-file", "-", "--actor", "carlos"], command: "changeset propose --kind task.create" }
+  ];
+  for (const { args, command } of cases) {
     const result = run(args, cwd);
     assert.equal(result.code, 3, `${args.join(" ")} must exit 3`);
-    assert.equal(result.json.status, "NOT_IMPLEMENTED", `${args.join(" ")} must report NOT_IMPLEMENTED`);
+    assert.deepEqual(result.json, {
+      product: "shipping-mode",
+      command,
+      status: "NOT_IMPLEMENTED",
+      corte: "0",
+      message: "deferred to a later Corte, see docs/plugin-redesign-release-flow/03-plan-incremental.md"
+    }, `${args.join(" ")} must match the NOT_IMPLEMENTED contract exactly, field for field`);
   }
 }
 
@@ -4373,9 +4605,9 @@ function fullyInit(cwd) {
   }
 }
 
-// full crash-and-recover cycle through the real bundled binary: arm a
-// checkpoint via env var, watch the CLI process itself "crash" mid-apply,
-// confirm check schema reports it, then let a normal retry trigger recovery
+// two processes applying the same already-approved operation concurrently --
+// exactly one may succeed, the other must fail with a typed error (lock-held
+// or stale), never both succeeding (Revision 3 note 8, application level)
 {
   const cwd = freshWorkspace();
   const init = run(["init", "--name", "demo", "--vcs", "git", "--actor", "carlos"], cwd);
@@ -4383,10 +4615,65 @@ function fullyInit(cwd) {
   run(["changeset", "validate", operationId], cwd);
   run(["changeset", "approve", operationId, "--actor", "carlos", "--allow-self-approval"], cwd);
 
-  const crashed = run(["changeset", "apply", operationId, "--actor", "carlos"], cwd, {
-    env: { ...process.env, SHIPPING_MODE_FAULT_CHECKPOINT: "AFTER_APPLYING" }
+  const [a, b] = await Promise.all([
+    runAsync(["changeset", "apply", operationId, "--actor", "carlos"], cwd),
+    runAsync(["changeset", "apply", operationId, "--actor", "carlos"], cwd)
+  ]);
+  const successes = [a, b].filter((r) => r.code === 0);
+  const failures = [a, b].filter((r) => r.code !== 0);
+  assert.equal(successes.length, 1, "exactly one concurrent apply may succeed");
+  assert.equal(failures.length, 1);
+  assert.equal(failures[0].code, 1, "the loser must fail with a typed error, never a raw crash");
+}
+
+// two scope.add operations proposing the same key against the same base,
+// approved independently, then applied concurrently -- only one may commit
+{
+  const cwd = freshWorkspace();
+  fullyInit(cwd);
+
+  function proposeApprovedScope(label) {
+    const propose = run(["config", "scope", "add", "--key", "backend", "--label", `Backend ${label}`, "--kind", "code", "--path", `api-${label}/`, "--actor", "carlos"], cwd);
+    run(["changeset", "validate", propose.json.operationId], cwd);
+    run(["changeset", "approve", propose.json.operationId, "--actor", "carlos", "--allow-self-approval"], cwd);
+    return propose.json.operationId;
+  }
+  const operationIdA = proposeApprovedScope("a");
+  const operationIdB = proposeApprovedScope("b");
+
+  const [a, b] = await Promise.all([
+    runAsync(["changeset", "apply", operationIdA, "--actor", "carlos"], cwd),
+    runAsync(["changeset", "apply", operationIdB, "--actor", "carlos"], cwd)
+  ]);
+  const successes = [a, b].filter((r) => r.code === 0);
+  assert.equal(successes.length, 1, "only one of two same-key scope.add operations may apply successfully");
+}
+
+// full crash-and-recover cycle: arm a checkpoint via env var against the
+// separate test bundle (never bin/shipping-mode.mjs, which always points at
+// the production bundle with fault injection compiled out), watch it crash
+// mid-apply, confirm check schema reports it via the real production binary,
+// then let a normal retry (again via the real production binary) trigger recovery
+{
+  const cwd = freshWorkspace();
+  const init = run(["init", "--name", "demo", "--vcs", "git", "--actor", "carlos"], cwd);
+  const operationId = init.json.operationId;
+  run(["changeset", "validate", operationId], cwd);
+  run(["changeset", "approve", operationId, "--actor", "carlos", "--allow-self-approval"], cwd);
+
+  const crashScript = `
+    import { dispatch } from ${JSON.stringify(testBundle)};
+    try {
+      dispatch("changeset", ["apply", ${JSON.stringify(operationId)}, "--actor", "carlos"], ${JSON.stringify(cwd)});
+      process.stdout.write(JSON.stringify({ crashed: false }));
+    } catch (error) {
+      process.stdout.write(JSON.stringify({ crashed: true, message: error.message }));
+    }
+  `;
+  const crashOutput = execFileSync("node", ["--input-type=module", "-e", crashScript], {
+    cwd, encoding: "utf8", env: { ...process.env, SHIPPING_MODE_FAULT_CHECKPOINT: "AFTER_APPLYING" }
   });
-  assert.equal(crashed.code, 2, "a simulated crash is an unexpected error, exit 2");
+  assert.equal(JSON.parse(crashOutput).crashed, true, "the test bundle must actually crash mid-apply when armed");
 
   const checkWhilePending = run(["check", "schema"], cwd);
   assert.ok(checkWhilePending.json.pendingOperations.some((o) => o.operationId === operationId && o.status === "APPLYING"));
@@ -4415,9 +4702,174 @@ Expected: PASS, prints `cli-e2e: all tests passed`
 
 - [ ] **Step 4: Commit**
 
+The test bundle (`runtime/dist/shipping-mode.test-bundle.mjs`) is gitignored (Task 7) — only the production bundle is committed.
+
 ```bash
-git add runtime/src/lib/faultInjection.mjs runtime/dist/shipping-mode.mjs runtime/tests/cli-e2e.test.mjs
-git commit -m "Add comprehensive CLI e2e suite against the real bundled binary, including a crash-and-recover cycle"
+git add runtime/dist/shipping-mode.mjs runtime/tests/cli-e2e.test.mjs
+git commit -m "Add comprehensive CLI e2e suite: happy paths, negative paths, real concurrency races, and a crash-and-recover cycle against the test bundle"
+```
+
+---
+
+## Task 27: Repo hygiene — portable test runner, `package.json`, `verify-next-generation.sh`, `README.md`
+
+**Files:**
+- Create: `scripts/run-tests.mjs`
+- Modify: `package.json`
+- Modify: `scripts/verify-next-generation.sh`
+- Modify: `README.md`
+
+**Interfaces:**
+- Produces: `scripts/run-tests.mjs <dir> [<dir> ...]` — a portable Node script (no shell globbing/looping) that recursively discovers `*.test.mjs` files under the given directories, runs each via `child_process.spawnSync`, and exits non-zero if any fail. Replaces the `for f in ...; do node "$f"; done` bash loop from revision 1, which breaks under `cmd.exe` on Windows (Revision 2 note 12).
+
+This task comes **after** Task 26 (CLI e2e) specifically so that `test:cli-e2e` can be wired into `verify-next-generation.sh` and actually run in this same task, rather than being added to the script before the file it points at exists (Revision 3 note 12 — every task in this plan ends with everything it declares actually passing, never a deliberately red step deferred to "later").
+
+- [ ] **Step 1: Write `scripts/run-tests.mjs`**
+
+```js
+// scripts/run-tests.mjs
+#!/usr/bin/env node
+import fs from "node:fs";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
+
+function collectTestFiles(root) {
+  const results = [];
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    const full = path.join(root, entry.name);
+    if (entry.isDirectory()) results.push(...collectTestFiles(full));
+    else if (entry.isFile() && entry.name.endsWith(".test.mjs")) results.push(full);
+  }
+  return results;
+}
+
+const roots = process.argv.slice(2);
+if (roots.length === 0) {
+  console.error("usage: node scripts/run-tests.mjs <dir> [<dir> ...]");
+  process.exit(1);
+}
+
+const files = roots
+  .filter((root) => fs.existsSync(root))
+  .flatMap((root) => collectTestFiles(path.resolve(root)))
+  .sort();
+
+let failures = 0;
+for (const file of files) {
+  const result = spawnSync(process.execPath, [file], { stdio: "inherit" });
+  if (result.status !== 0) {
+    failures += 1;
+    console.error(`FAIL: ${file}`);
+  }
+}
+
+if (failures > 0) {
+  console.error(`${failures} of ${files.length} test file(s) failed`);
+  process.exit(1);
+}
+console.log(`${files.length} test file(s) passed`);
+```
+
+- [ ] **Step 2: Verify it works against the existing test tree**
+
+Run: `node scripts/run-tests.mjs runtime/src/lib/tests runtime/src/commands/tests runtime/src/schemas/tests runtime/src/generated/tests runtime/src/tests`
+Expected: prints `N test file(s) passed` with no `FAIL:` lines, where `N` matches the number of `*.test.mjs` files created across Tasks 1-23.
+
+- [ ] **Step 3: Update `package.json` scripts**
+
+Replace the `"scripts"` block with:
+
+```json
+"scripts": {
+  "build:schemas": "node scripts/build-runtime.mjs --schemas-only",
+  "build:runtime": "node scripts/build-runtime.mjs",
+  "build:test-bundle": "node scripts/build-runtime.mjs --test-bundle",
+  "test:host-integration": "node spikes/host-integration/tests/host-integration.test.mjs",
+  "test:unit": "node scripts/run-tests.mjs runtime/src/lib/tests runtime/src/commands/tests runtime/src/schemas/tests runtime/src/generated/tests runtime/src/tests",
+  "test:cli-e2e": "node runtime/tests/cli-e2e.test.mjs",
+  "test:bundle": "node runtime/tests/bundle-self-contained.test.mjs",
+  "verify:corte-1.2": "node spikes/verify-corte-1.2.mjs",
+  "verify:next-generation": "bash scripts/verify-next-generation.sh"
+}
+```
+
+(`test:unit` already covers the crash matrix and lock/quarantine-race tests, since `runtime/src/lib/tests/` includes `crash-matrix.test.mjs`, `lock-concurrency.test.mjs`, and `lock-quarantine-race.test.mjs` — no separate npm script needed for those. `build:test-bundle` was already added to `package.json` in Task 7; this step is idempotent if it's already there.)
+
+- [ ] **Step 4: Update `scripts/verify-next-generation.sh`**
+
+Find this block:
+
+```bash
+if [[ "${VERIFY_NEXT_GENERATION_SKIP_TESTS:-0}" != "1" ]]; then
+  (cd "$ROOT" && node hooks/tests/protect-planning-state.test.mjs)
+  (cd "$ROOT" && node spikes/tests/verify-corte-1.2.test.mjs)
+  (cd "$ROOT" && node scripts/tests/verify-next-generation.test.mjs)
+  (cd "$ROOT" && node spikes/host-integration/tests/host-integration.test.mjs)
+  (cd "$ROOT" && node src/tests/vertical-slice.test.mjs)
+  (cd "$ROOT" && node spikes/verify-corte-1.2.mjs --structure-only)
+fi
+```
+
+Replace with:
+
+```bash
+if [[ "${VERIFY_NEXT_GENERATION_SKIP_TESTS:-0}" != "1" ]]; then
+  (cd "$ROOT" && node hooks/tests/protect-planning-state.test.mjs)
+  (cd "$ROOT" && node spikes/tests/verify-corte-1.2.test.mjs)
+  (cd "$ROOT" && node scripts/tests/verify-next-generation.test.mjs)
+  (cd "$ROOT" && node spikes/host-integration/tests/host-integration.test.mjs)
+  (cd "$ROOT" && npm ci --silent)
+  (cd "$ROOT" && npm run --silent build:runtime)
+  (cd "$ROOT" && npm run --silent build:test-bundle)
+  (cd "$ROOT" && npm run --silent test:unit)
+  (cd "$ROOT" && npm run --silent test:cli-e2e)
+  (cd "$ROOT" && npm run --silent test:bundle)
+  (cd "$ROOT" && node spikes/verify-corte-1.2.mjs --structure-only)
+fi
+```
+
+`npm ci` and `npm run build:runtime`/`build:test-bundle` run **before** `test:unit`/`test:cli-e2e`/`test:bundle` — those suites depend on `node_modules` (for `test:unit`, which imports `yaml`/generated validators), on `runtime/dist/shipping-mode.mjs` existing (for `test:cli-e2e`'s non-crash cases and `test:bundle`), and on `runtime/dist/shipping-mode.test-bundle.mjs` existing (for `test:cli-e2e`'s crash-and-recover case), per Revision 2 note 12.
+
+- [ ] **Step 5: Update `README.md`**
+
+Replace the current "Bootstrap" section with:
+
+```markdown
+## Bootstrap
+
+\`\`\`bash
+npm ci
+npm run build:runtime
+npm run verify:next-generation
+\`\`\`
+
+## Corte 0 status
+
+Real, tested surface: `init`, `config set`, `config scope add`,
+`changeset propose|validate|approve|apply`, `check schema` — backed by real
+JSON Schemas, UUIDv7 IDs, an explicit approval state machine, and a
+crash-consistent event journal with idempotent recovery. See
+`docs/specs/corte-0-runtime-foundation.md`.
+
+**Not yet implemented (mandatory next iteration, not optional):**
+git/scope/package discovery, guide registration, autonomy configuration,
+`release`/`item`/`work-package`/`task`, `check health|guides|gates`,
+`report`, and approval governance (role separation between proposer and
+approver — self-approval is currently allowed but must be explicit). Any of
+these commands returns `NOT_IMPLEMENTED` with exit code `3` rather than a
+silent or partial result.
+```
+
+- [ ] **Step 6: Run the full regression suite**
+
+Run: `npm run verify:next-generation`
+Expected: PASS — all existing regression suites plus every suite added in Tasks 1-26, `test:cli-e2e` included, since that file already exists (Task 26 ran before this one).
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add scripts/run-tests.mjs package.json scripts/verify-next-generation.sh README.md
+git commit -m "Add portable test runner; run npm ci + build:runtime(+test-bundle) before bundle-dependent suites"
 ```
 
 ---
@@ -4431,10 +4883,16 @@ git commit -m "Add comprehensive CLI e2e suite against the real bundled binary, 
 Run: `npm run verify:next-generation`
 Expected: PASS, including every existing regression suite (`hooks/tests/protect-planning-state.test.mjs`, `spikes/tests/verify-corte-1.2.test.mjs`, `scripts/tests/verify-next-generation.test.mjs`, `spikes/host-integration/tests/host-integration.test.mjs`) and every new suite from Tasks 1-27.
 
-- [ ] **Step 2: Confirm the bundle is genuinely dependency-free**
+- [ ] **Step 2: Confirm the bundle is genuinely dependency-free, and that the test bundle never leaked into git**
 
 Run: `mkdir -p /tmp/shipping-mode-smoke && cp runtime/dist/shipping-mode.mjs /tmp/shipping-mode-smoke/ && cd /tmp/shipping-mode-smoke && node --input-type=module -e 'import("./shipping-mode.mjs").then((m) => console.log(Object.keys(m)))' && cd -`
 Expected: prints an array including `dispatch`, `UsageError`, `StateError`, `StaleError`, `RecoveryRequiredError`, `LockHeldError`, `PathConfinementError` — with no `node_modules` present in `/tmp/shipping-mode-smoke`.
+
+Run: `git check-ignore -q runtime/dist/shipping-mode.test-bundle.mjs && echo "test bundle correctly ignored" || echo "FAIL: test bundle is not ignored"`
+Expected: `test bundle correctly ignored`
+
+Run: `git ls-files runtime/dist/ | grep -v '^runtime/dist/shipping-mode.mjs$' || echo "clean: only the production bundle is tracked"`
+Expected: `clean: only the production bundle is tracked`
 
 - [ ] **Step 3: Grep for lingering references to removed prototype surface or the old source tree**
 
@@ -4458,6 +4916,12 @@ Expected: `no incorrect self-approval claims found` (self-approval is allowed in
 Run: `grep -rn "Corte 0.*\(terminad\|complet\|cerrad\)" docs/ README.md || echo "no premature completion claims found"`
 Expected: `no premature completion claims found`
 
+Run: `grep -rn '"REJECTED"' runtime/src/schemas runtime/src/lib runtime/src/commands 2>/dev/null || echo "REJECTED does not appear as a live state anywhere"`
+Expected: `REJECTED does not appear as a live state anywhere`
+
+Run: `git grep -n "SHIPPING_MODE_FAULT_CHECKPOINT" -- ':!runtime/src/lib/faultInjection.mjs' ':!runtime/src/lib/tests/*' ':!runtime/tests/cli-e2e.test.mjs' 2>/dev/null || echo "fault injection env var referenced only where expected"`
+Expected: `fault injection env var referenced only where expected`
+
 - [ ] **Step 5: Verify the Definition of Done checklist from the spec (`docs/specs/corte-0-runtime-foundation.md` §17) against what was actually built**
 
 Go through each bullet by hand; do not check anything off as a formality. Every bullet should now be satisfiable by pointing at a specific passing test from Tasks 1-27.
@@ -4468,13 +4932,15 @@ If Steps 1-5 required code changes, commit them individually per fix with descri
 
 ---
 
-## Self-Review Notes (revision 2)
+## Self-Review Notes (revision 3)
 
-**Spec coverage:** §3 (commands, NOT_IMPLEMENTED contract) → Tasks 23-24. §4 (directory structure) → Tasks 7, 23, 24. §5 (storage, operational vs. canonical) → Tasks 12, 17, 18. §6 (IDs) → Task 1. §7 (scope catalog, uniqueness) → Task 14, 22. §8 (hashes) → Task 2. §9 (schemas/YAML/build) → Tasks 4, 6, 7. §10 (state machine, no `REJECTED`, explicit self-approval) → Tasks 15-16. §11 (lock, quarantine reclaim) → Tasks 9-10. §12 (apply sequence, fault checkpoints) → Tasks 17-18. §13 (recovery, path hardening, cleanup) → Task 19. §14 (path confinement, two domains) → Tasks 3, 14, 27. §15 (skills) → Task 25. §16 (testing: unit/schema/lock/crash-matrix/e2e) → Tasks throughout + 20, 27. §17 (DoD) → Task 28.
+**Spec coverage:** §3 (commands, NOT_IMPLEMENTED contract) → Tasks 23-24. §4 (directory structure) → Tasks 7, 23, 24. §5 (storage, operational vs. canonical) → Tasks 12, 17, 18. §6 (IDs) → Task 1. §7 (scope catalog, uniqueness) → Task 14, 22. §8 (hashes) → Task 2. §9 (schemas/YAML/build) → Tasks 4, 6, 7. §10 (state machine, no `REJECTED`, explicit self-approval) → Tasks 15-16. §11 (lock, quarantine reclaim) → Tasks 9-10. §12 (apply sequence, fault checkpoints) → Tasks 17-18. §13 (recovery, path hardening, cleanup) → Task 19. §14 (path confinement, two domains) → Tasks 3, 14, 26. §15 (skills) → Task 25. §16 (testing: unit/schema/lock/crash-matrix/e2e) → Tasks throughout + 20, 26. §17 (DoD) → Task 28.
+
+**Revision 3 fixes, where they landed:** (1) scope.add dynamic targetFiles + ABSENT invariant → Tasks 6, 16, 22. (2) changeSetHash recomputed and cross-checked at validate/approve/apply → Tasks 15, 16, 17. (3) shared `revalidateChangeSet` → Tasks 16-17. (4) recovery conflict blocks `withWorkspaceMutation` → Tasks 13, 20. (5) build-time plugin metadata, no runtime fallback → Tasks 7, 22, 26. (6) `confineUnder` on possibly-missing roots → Tasks 11, 19. (7) `operationDir` real confinement against symlinks → Task 12. (8) real shared-evidence quarantine race test + app-level concurrency → Tasks 10, 26. (9) exact `NOT_IMPLEMENTED` field comparison → Task 26. (10) `check schema` parse-error/symlink handling + `result.json` tamper detection → Tasks 19, 21. (11) fault injection compiled out of the production bundle → Tasks 7, 13, 24, 26. (12) CLI e2e created before being wired into the verify script → Tasks 26-27 swapped from revision 2's ordering. (13) invalid-transition `StateError` guards → Task 16.
 
 **Placeholder scan:** no `TODO`/`TBD` in any committed code block. Task 13's minimal `recovery.mjs` is explicitly justified as *correct-for-what-exists-so-far*, not a stand-in — its test (`mutation.test.mjs`) asserts the one behavior it's responsible for (`[]` when nothing can be `APPLYING` yet, and the lock-required guard) and that assertion stays true after Task 19 expands it, which is exactly why the task ordering is safe.
 
-**Type consistency:** `operationId` (string, UUIDv7) flows unchanged from Task 1 through Task 27. `render: (payload) => Map<string,string>` is consistent across Tasks 14, 16, 17, 18, 22 — always a closure the command layer (Task 22) binds to a specific `kind`/`currentConfig`/`workspaceRoot`, never something `changeset.mjs` builds itself. `filePlan`/`expectedEvents` entry shapes are identical between `operation.schema.json` (Task 6), the code that constructs them (Task 17), and the code that classifies them during recovery (Task 19). Every typed error (`UsageError`, `StateError`, `StaleError`, `RecoveryRequiredError`, `LockHeldError`, `PathConfinementError`) is defined exactly once and only ever imported afterward, and Task 23 re-exports all six from `runtime/src/index.mjs` so Task 24's `bin/shipping-mode.mjs` can import every one of them from the single bundled path.
+**Type consistency:** `operationId` (string, UUIDv7) flows unchanged from Task 1 through Task 26. `render: (payload) => Map<string,string>` is consistent across Tasks 14, 16, 17, 18, 22 — always a closure the command layer (Task 22) binds to a specific `kind`/`currentConfig`/`workspaceRoot`, never something `changeset.mjs` builds itself. `filePlan`/`expectedEvents` entry shapes are identical between `operation.schema.json` (Task 6), the code that constructs them (Task 17), and the code that classifies them during recovery (Task 19). Every typed error (`UsageError`, `StateError`, `StaleError`, `RecoveryRequiredError`, `LockHeldError`, `PathConfinementError`) is defined exactly once and only ever imported afterward, and Task 23 re-exports all six from `runtime/src/index.mjs` so Task 24's `bin/shipping-mode.mjs` can import every one of them from the single bundled path.
 
 ---
 
