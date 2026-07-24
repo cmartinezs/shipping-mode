@@ -247,7 +247,7 @@ Metadata minima recomendada para una fuente resuelta:
   authority: authoritative
   scope: project
   freshness: current
-  availability: implemented
+  availability: mixed
   generated: false
   editable: true
   fingerprint: sha256:...
@@ -264,7 +264,11 @@ partial
 planned
 deprecated
 historical
+mixed
+unknown
 ```
+
+`availability` describe el estado del contenido que la fuente afirma cuando ese estado puede resolverse de forma util. Puede ser `mixed` cuando un mismo documento combina estado actual y futuro, `unknown` cuando discovery no puede inferirlo con seguridad, y puede refinarse a nivel de claim/regla cuando una clasificacion por archivo sea demasiado gruesa.
 
 La configuracion aprobada de Shipping Mode selecciona **que fuentes inspeccionar**; no convierte automaticamente esas fuentes en verdaderas. La autoridad proviene del rol, del estado real del repositorio y de decisiones durables confirmadas.
 

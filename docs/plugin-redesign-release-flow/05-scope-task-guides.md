@@ -239,7 +239,7 @@ Una guide aprobada pasa a `stale` cuando cambia cualquiera de estos elementos re
 
 - fingerprint de una fuente normativa;
 - rol/authority de una fuente;
-- availability (`implemented`, `partial`, `planned`, `deprecated`, `historical`);
+- availability (`implemented`, `partial`, `planned`, `deprecated`, `historical`, `mixed`, `unknown`);
 - decision aceptada que afecta el scope;
 - evidencia que invalida un claim de deployment/runtime;
 - canonical source map o instruction hierarchy aplicable al scope.
