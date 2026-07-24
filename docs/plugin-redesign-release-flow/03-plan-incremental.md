@@ -312,6 +312,7 @@ Cambios:
 - Ejecutar todo cambio via ChangeSet con `baseRevisions` e idempotency key.
 - Guardar comandos ejecutados como estructura y eventos observables.
 - Agregar rollback tecnico o compensacion cuando una operacion falla despues de escribir.
+- Implementar la mecanica Git del lifecycle (`task inspect/start/verify/closeout`) segun el [Git work execution contract](11-git-work-execution-contract.md): Git engine agnostico en Shipping Mode, policy del repositorio anfitrion en Project Context, refinamiento operacional en scope/task guides.
 
 Validacion:
 

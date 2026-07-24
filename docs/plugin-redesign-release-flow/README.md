@@ -31,7 +31,7 @@ El producto next-generation es un producto nuevo `1.0.0`. `v4` queda unicamente 
 9. [Corte -1.1: contratos residuales del runtime](08-corte-1-1-contratos-runtime.md)
 10. [Corte -1.2: spikes de producto y runtime](09-corte-1-2-spikes-producto-runtime.md)
 11. [Corte -1.2: contratos de ejecucion y cierre](10-corte-1-2-contratos-ejecucion.md)
-12. [Git work execution contract](11-git-work-execution-contract.md)
+12. [Git work execution contract](11-git-work-execution-contract.md) (mecanica del Corte 4)
 
 ## Tesis corregida
 
