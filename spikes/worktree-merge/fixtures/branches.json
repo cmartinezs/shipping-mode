@@ -1,0 +1,6 @@
+{
+  "left": [{ "id": "a", "display_id": "REL-001", "slug": "first", "revision": 1 }],
+  "right": [{ "id": "b", "display_id": "REL-002", "slug": "second", "revision": 1 }],
+  "conflictLeft": [{ "id": "x", "revision": 1 }],
+  "conflictRight": [{ "id": "x", "revision": 2 }]
+}

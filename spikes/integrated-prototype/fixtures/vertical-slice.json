@@ -1,0 +1,4 @@
+{
+  "steps": ["init", "config", "release", "item", "work-package", "task", "propose", "apply", "check", "report"],
+  "control_plane": [".planning", "operations", "events", "approvals", "state transitions"]
+}

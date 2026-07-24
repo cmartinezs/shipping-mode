@@ -1,0 +1,30 @@
+{
+  "id": "integrated-prototype",
+  "status": "PASSED",
+  "hypothesis": "The canonical workflow works end to end without direct planning-state writes.",
+  "scope": "init, release, item, work package, task, ChangeSet and query projections.",
+  "non_goals": ["Autonomous Git", "Deployment"],
+  "timebox": "3 days",
+  "prototype_location": "spikes/integrated-prototype/",
+  "reusable_or_disposable": "reusable",
+  "inputs": ["all previous spike outputs", "integrated fixtures"],
+  "fault_model": ["direct-write bypass", "missing audit event", "stale ChangeSet"],
+  "adr": null,
+  "critical": true,
+  "waivable": false,
+  "pass_criteria": [
+    { "id": "canonical-state", "severity": "critical", "waivable": false, "status": "PASSED", "evidence_refs": ["spikes/integrated-prototype/evidence.md"] },
+    { "id": "changeset-required", "severity": "critical", "waivable": false, "status": "PASSED", "evidence_refs": ["spikes/integrated-prototype/evidence.md"] },
+    { "id": "audit-trail", "severity": "critical", "waivable": false, "status": "PASSED", "evidence_refs": ["spikes/integrated-prototype/evidence.md"] },
+    { "id": "hooks-block-direct-writes", "severity": "critical", "waivable": false, "status": "PASSED", "evidence_refs": ["spikes/integrated-prototype/evidence.md"] }
+  ],
+  "fail_criteria": [
+    { "id": "direct-write-bypass", "severity": "critical", "waivable": false, "status": "PENDING", "evidence_refs": [] }
+  ],
+  "evidence": ["spikes/integrated-prototype/evidence.md"],
+  "fixtures": ["spikes/integrated-prototype/fixtures/vertical-slice.json"],
+  "tests": ["spikes/integrated-prototype/tests/integrated-prototype.test.mjs"],
+  "adr": "docs/adr/ADR-0006-integrated-prototype.md",
+  "decision": "Require the first vertical slice to use a hashed ChangeSet, event journal and protected planning state.",
+  "result": "PASSED: integrated prototype boundary verified in memory."
+}

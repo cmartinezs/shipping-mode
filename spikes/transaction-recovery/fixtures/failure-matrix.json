@@ -1,0 +1,5 @@
+[
+  { "failure": "before-record", "expected": "recover" },
+  { "failure": "after-apply", "expected": "recover" },
+  { "failure": null, "expected": "commit" }
+]

@@ -1,0 +1,30 @@
+{
+  "id": "canonical-core",
+  "status": "PASSED",
+  "hypothesis": "UUIDv7, canonicalization, hashing, paths and DSL rules are deterministic across worktrees.",
+  "scope": "Identity, display IDs, RFC 8785, SHA-256, paths, DSL and schemas.",
+  "non_goals": ["User-facing skills"],
+  "timebox": "3 days",
+  "prototype_location": "spikes/canonical-core/",
+  "reusable_or_disposable": "reusable",
+  "inputs": ["RFC 8785 fixtures", "UUIDv7 fixtures", "DSL fixtures"],
+  "fault_model": ["hash drift", "path escape", "ambiguous DSL"],
+  "adr": null,
+  "critical": true,
+  "waivable": false,
+  "pass_criteria": [
+    { "id": "uuidv7-identity", "severity": "critical", "waivable": false, "status": "PASSED", "evidence_refs": ["spikes/canonical-core/evidence.md"] },
+    { "id": "reproducible-hash", "severity": "critical", "waivable": false, "status": "PASSED", "evidence_refs": ["spikes/canonical-core/evidence.md"] },
+    { "id": "path-isolation", "severity": "critical", "waivable": false, "status": "PASSED", "evidence_refs": ["spikes/canonical-core/evidence.md"] },
+    { "id": "deterministic-dsl", "severity": "critical", "waivable": false, "status": "PASSED", "evidence_refs": ["spikes/canonical-core/evidence.md"] }
+  ],
+  "fail_criteria": [
+    { "id": "hash-drift", "severity": "critical", "waivable": false, "status": "PENDING", "evidence_refs": [] }
+  ],
+  "evidence": ["spikes/canonical-core/evidence.md"],
+  "fixtures": ["spikes/canonical-core/fixtures/canonical.json"],
+  "tests": ["spikes/canonical-core/tests/canonical-core.test.mjs"],
+  "adr": "docs/adr/ADR-0003-canonical-core.md",
+  "decision": "Use UUIDv7 primary IDs, canonical JSON, SHA-256 and a closed DSL operator set.",
+  "result": "PASSED: canonical identity and deterministic paths verified."
+}

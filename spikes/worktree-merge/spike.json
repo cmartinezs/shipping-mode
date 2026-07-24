@@ -1,0 +1,29 @@
+{
+  "id": "worktree-merge",
+  "status": "PASSED",
+  "hypothesis": "Append-by-file aggregates and regenerable indexes avoid data loss across worktree merges.",
+  "scope": "create/create, edit/edit, delete/edit, supersede/edit and indexes.",
+  "non_goals": ["Mutable parent moves"],
+  "timebox": "2 days",
+  "prototype_location": "spikes/worktree-merge/",
+  "reusable_or_disposable": "reusable",
+  "inputs": ["worktree fixtures", "aggregate fixtures"],
+  "fault_model": ["silent overwrite", "data loss", "stale index"],
+  "adr": null,
+  "critical": true,
+  "waivable": false,
+  "pass_criteria": [
+    { "id": "no-data-loss", "severity": "critical", "waivable": false, "status": "PASSED", "evidence_refs": ["spikes/worktree-merge/evidence.md"] },
+    { "id": "no-silent-overwrite", "severity": "critical", "waivable": false, "status": "PASSED", "evidence_refs": ["spikes/worktree-merge/evidence.md"] },
+    { "id": "regenerable-indexes", "severity": "critical", "waivable": false, "status": "PASSED", "evidence_refs": ["spikes/worktree-merge/evidence.md"] }
+  ],
+  "fail_criteria": [
+    { "id": "merge-data-loss", "severity": "critical", "waivable": false, "status": "PENDING", "evidence_refs": [] }
+  ],
+  "evidence": ["spikes/worktree-merge/evidence.md"],
+  "fixtures": ["spikes/worktree-merge/fixtures/branches.json"],
+  "tests": ["spikes/worktree-merge/tests/worktree-merge.test.mjs"],
+  "adr": "docs/adr/ADR-0004-worktree-merge.md",
+  "decision": "Merge immutable aggregate records by ID and regenerate indexes; reject divergent collisions.",
+  "result": "PASSED: worktree merge behavior verified without silent overwrite."
+}

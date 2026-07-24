@@ -1,0 +1,6 @@
+[
+  { "node": "18.20.0", "supported": false, "reason": "minimum-version" },
+  { "node": "20.0.0", "supported": true },
+  { "node": "22.0.0", "supported": true },
+  { "node": "20.0.0", "path": "spaces/and-unicode", "supported": true }
+]

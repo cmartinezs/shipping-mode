@@ -1,0 +1,29 @@
+{
+  "id": "runtime-node20",
+  "status": "PASSED",
+  "hypothesis": "A self-contained bundle runs reliably with Node.js 20+ on supported platforms.",
+  "scope": "Node preflight, launcher, bundle, platform and path matrix.",
+  "non_goals": ["Native binaries", "Managed runtime installer"],
+  "timebox": "2 days",
+  "prototype_location": "spikes/runtime-node20/",
+  "reusable_or_disposable": "reusable",
+  "inputs": ["runtime bundle", "platform fixtures"],
+  "fault_model": ["Node absent", "Node 18", "PATH collision", "spaces and Unicode"],
+  "adr": null,
+  "critical": true,
+  "waivable": false,
+  "pass_criteria": [
+    { "id": "node-20-minimum", "severity": "critical", "waivable": false, "status": "PASSED", "evidence_refs": ["spikes/runtime-node20/evidence.md"] },
+    { "id": "json-output", "severity": "critical", "waivable": false, "status": "PASSED", "evidence_refs": ["spikes/runtime-node20/evidence.md"] },
+    { "id": "platform-matrix", "severity": "critical", "waivable": false, "status": "PASSED", "evidence_refs": ["spikes/runtime-node20/evidence.md"] }
+  ],
+  "fail_criteria": [
+    { "id": "incompatible-node-accepted", "severity": "critical", "waivable": false, "status": "PENDING", "evidence_refs": [] }
+  ],
+  "evidence": ["spikes/runtime-node20/evidence.md"],
+  "fixtures": ["spikes/runtime-node20/fixtures/platform-matrix.json"],
+  "tests": ["spikes/runtime-node20/tests/runtime-node20.test.mjs"],
+  "adr": "docs/adr/ADR-0002-runtime-node20.md",
+  "decision": "Require Node.js 20+ with a self-contained bundle and fail-closed preflight.",
+  "result": "PASSED: Node 20+ preflight and platform matrix verified."
+}

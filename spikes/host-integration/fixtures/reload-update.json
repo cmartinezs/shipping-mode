@@ -1,0 +1,5 @@
+{
+  "reload": "claude plugin reload shipping-mode",
+  "update": "claude plugin update shipping-mode@cmartinezs",
+  "version_source": ".claude-plugin/plugin.json"
+}

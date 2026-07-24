@@ -1,0 +1,29 @@
+{
+  "id": "transaction-recovery",
+  "status": "PASSED",
+  "hypothesis": "ChangeSet operations recover deterministically after partial failure or external side effects.",
+  "scope": "staging, apply, verify, recording, compensation and manual intervention.",
+  "non_goals": ["Distributed event sourcing"],
+  "timebox": "3 days",
+  "prototype_location": "spikes/transaction-recovery/",
+  "reusable_or_disposable": "reusable",
+  "inputs": ["fault injection fixtures", "operation manifests"],
+  "fault_model": ["partial apply", "recording failure", "external command failure"],
+  "adr": null,
+  "critical": true,
+  "waivable": false,
+  "pass_criteria": [
+    { "id": "idempotent-retry", "severity": "critical", "waivable": false, "status": "PASSED", "evidence_refs": ["spikes/transaction-recovery/evidence.md"] },
+    { "id": "verified-recovery", "severity": "critical", "waivable": false, "status": "PASSED", "evidence_refs": ["spikes/transaction-recovery/evidence.md"] },
+    { "id": "no-corruption", "severity": "critical", "waivable": false, "status": "PASSED", "evidence_refs": ["spikes/transaction-recovery/evidence.md"] }
+  ],
+  "fail_criteria": [
+    { "id": "recovery-corruption", "severity": "critical", "waivable": false, "status": "PENDING", "evidence_refs": [] }
+  ],
+  "evidence": ["spikes/transaction-recovery/evidence.md"],
+  "fixtures": ["spikes/transaction-recovery/fixtures/failure-matrix.json"],
+  "tests": ["spikes/transaction-recovery/tests/transaction-recovery.test.mjs"],
+  "adr": "docs/adr/ADR-0005-transaction-recovery.md",
+  "decision": "Use journaled ChangeSet operations with verified, idempotent recovery.",
+  "result": "PASSED: partial failure recovery and retry behavior verified."
+}

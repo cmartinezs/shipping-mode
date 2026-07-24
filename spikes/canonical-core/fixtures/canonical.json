@@ -1,0 +1,6 @@
+{
+  "inputA": { "z": 1, "a": { "b": true, "a": "x" } },
+  "inputB": { "a": { "a": "x", "b": true }, "z": 1 },
+  "uuidv7": "0190f1c8-5f11-7cc1-8bb2-2a45f8154ef2",
+  "invalidUuid": "0190f1c8-5f11-6cc1-8bb2-2a45f8154ef2"
+}

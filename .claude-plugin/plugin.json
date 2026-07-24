@@ -1,0 +1,10 @@
+{
+  "name": "shipping-mode",
+  "version": "1.0.0",
+  "description": "Next-generation release planning and execution controls",
+  "author": {
+    "name": "Carlos Martinez"
+  },
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json"
+}

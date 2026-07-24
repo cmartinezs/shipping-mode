@@ -1,0 +1,28 @@
+{
+  "id": "host-integration",
+  "status": "PASSED",
+  "hypothesis": "The plugin host exposes the canonical namespaced skills and bundled hooks.",
+  "scope": "Manifest, discovery, namespace, help, PATH, reload, update and hooks.",
+  "non_goals": ["Productive runtime implementation"],
+  "timebox": "2 days",
+  "prototype_location": "spikes/host-integration/",
+  "reusable_or_disposable": "reusable",
+  "inputs": ["plugin manifest", "Claude Code host"],
+  "fault_model": ["namespace hidden", "hooks not loaded"],
+  "critical": true,
+  "waivable": false,
+  "pass_criteria": [
+    { "id": "manifest", "severity": "critical", "waivable": false, "status": "PASSED", "evidence_refs": ["spikes/host-integration/evidence.md"] },
+    { "id": "hooks-active", "severity": "critical", "waivable": false, "status": "PASSED", "evidence_refs": ["spikes/host-integration/evidence.md"] },
+    { "id": "namespace-discovery", "severity": "critical", "waivable": false, "status": "PASSED", "evidence_refs": ["spikes/host-integration/evidence.md"] }
+  ],
+  "fail_criteria": [
+    { "id": "namespace-hidden", "severity": "critical", "waivable": false, "status": "PENDING", "evidence_refs": [] }
+  ],
+  "evidence": ["spikes/host-integration/evidence.md"],
+  "fixtures": ["spikes/host-integration/fixtures/autocomplete.json", "spikes/host-integration/fixtures/reload-update.json"],
+  "tests": ["spikes/host-integration/tests/host-integration.test.mjs"],
+  "decision": "Adopt the shipping-mode manifest, namespaced skills, bundled hooks and JSON launcher contract.",
+  "result": "PASSED: host discovery and launcher contract verified locally.",
+  "adr": "docs/adr/ADR-0001-host-integration.md"
+}
