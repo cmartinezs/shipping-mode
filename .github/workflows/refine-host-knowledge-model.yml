@@ -1,0 +1,59 @@
+name: Refine host repository knowledge model
+
+on:
+  push:
+    branches:
+      - agent/host-knowledge-model
+
+permissions:
+  contents: write
+
+jobs:
+  patch-docs:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/host-knowledge-model
+          fetch-depth: 0
+
+      - name: Remove project-specific wording and add concern mapping
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          p = Path('docs/plugin-redesign-release-flow/04-release-init-configuracion.md')
+          text = p.read_text()
+          text = text.replace('Extension derivada de GradeOps', 'Extension')
+
+          marker = '''### Claims de ambiente y evidencia
+          '''
+          block = '''### Estrategias transversales como concerns y gates
+
+          Cuando el host documente estrategias transversales —por ejemplo seguridad, observabilidad, testing, UI/design system, accesibilidad, i18n, privacidad o compliance— Shipping Mode debe proponerlas como `concerns` y/o `gates` aplicables por impacto, no convertirlas automaticamente en releases tecnicas separadas.
+
+          ```text
+          host strategy / standard
+              -> concern candidate
+                  -> gate/profile rules
+                      -> work packages/tasks affected
+          ```
+
+          La documentacion host define la intencion y condiciones de aplicacion; `.planning/concerns/**`, `.planning/gates/**` y `.planning/gate-profiles/**` son la proyeccion operacional de Shipping Mode. Deben conservar provenance hacia las fuentes que originaron cada regla.
+
+          '''
+          if text.count(marker) != 1:
+              raise SystemExit(f'claims marker count={text.count(marker)}')
+          text = text.replace(marker, block + marker, 1)
+          p.write_text(text)
+          PY
+
+          rm -f .github/workflows/refine-host-knowledge-model.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "docs: refine generic host knowledge contract"
+          git push origin HEAD:agent/host-knowledge-model
