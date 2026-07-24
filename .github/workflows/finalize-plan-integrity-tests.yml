@@ -27,25 +27,10 @@ jobs:
           plan = Path('docs/plans/corte-0-runtime-foundation-implementation.md')
           text = plan.read_text()
 
-          def replace_once(old, new, label):
-              global text
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f'{label}: expected exactly one match, got {count}')
-              text = text.replace(old, new, 1)
-
-          replace_once(
-          '''  assert.equal(operation.status, "RECOVERY_REQUIRED");
-            assert.ok(operation.conflict);
-            assert.equal(fs.readFileSync(path.join(planningRoot, first.target), "utf8"), "not what recovery expects\\n");
-          }
-
-          // an APPLIED operation with leftover staging residue gets it cleaned up
-          ''',
-          '''  assert.equal(operation.status, "RECOVERY_REQUIRED");
-            assert.ok(operation.conflict);
-            assert.equal(fs.readFileSync(path.join(planningRoot, first.target), "utf8"), "not what recovery expects\\n");
-
+          recovery_needle = '  assert.equal(fs.readFileSync(path.join(planningRoot, first.target), "utf8"), "not what recovery expects\\n");\n'
+          if text.count(recovery_needle) != 1:
+              raise SystemExit(f'recovery insertion point count={text.count(recovery_needle)}')
+          recovery_extra = '''
             // The persisted conflict must remain globally blocking on every later
             // mutation, not just in the recovery sweep that first discovered it.
             const dirsBeforeBlockedAttempts = fs.readdirSync(operationsRoot).sort();
@@ -61,27 +46,17 @@ jobs:
             }
             assert.deepEqual(fs.readdirSync(operationsRoot).sort(), dirsBeforeBlockedAttempts, "blocked mutation attempts must not create new operations");
             assert.equal(readOperation(operationsRoot, operationId).status, "RECOVERY_REQUIRED", "the conflict remains blocking until manually resolved");
-          }
+          '''
+          text = text.replace(recovery_needle, recovery_needle + recovery_extra, 1)
 
-          // an APPLIED operation with leftover staging residue gets it cleaned up
-          ''', 'Task 19 persistent blocking regression')
-
-          replace_once(
-          '''    assert.equal(finalOperation.expectedEvents[0].document.idempotencyKey, persistedManifest.document.idempotencyKey);
-              }
-            }
-
-            for (const boundary of postApplyingBoundaries) {
-          ''',
-          '''    assert.equal(finalOperation.expectedEvents[0].document.idempotencyKey, persistedManifest.document.idempotencyKey);
-                const eventPath = path.join(planningRoot, "events", finalOperation.expectedEvents[0].relativePath);
-                const eventFiles = fs.readdirSync(path.dirname(eventPath)).filter((name) => name.endsWith(".json"));
-                assert.equal(eventFiles.length, 1, "AFTER_MANIFEST: retry must result in exactly one event file, never a regenerated duplicate");
-              }
-            }
-
-            for (const boundary of postApplyingBoundaries) {
-          ''', 'Task 20 single event file assertion')
+          event_needle = '    assert.equal(finalOperation.expectedEvents[0].document.idempotencyKey, persistedManifest.document.idempotencyKey);\n'
+          if text.count(event_needle) != 1:
+              raise SystemExit(f'event insertion point count={text.count(event_needle)}')
+          event_extra = '''    const eventPath = path.join(planningRoot, "events", finalOperation.expectedEvents[0].relativePath);
+              const eventFiles = fs.readdirSync(path.dirname(eventPath)).filter((name) => name.endsWith(".json"));
+              assert.equal(eventFiles.length, 1, "AFTER_MANIFEST: retry must result in exactly one event file, never a regenerated duplicate");
+          '''
+          text = text.replace(event_needle, event_needle + event_extra, 1)
 
           plan.write_text(text)
           PY
