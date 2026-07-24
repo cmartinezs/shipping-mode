@@ -388,8 +388,9 @@ Secuencia exacta:
    que se esperan `ABSENT`) y `staged/` (contenido nuevo renderizado
    para todos los archivos objetivo).
 5. Persistir en `operation.yml` el `filePlan` (uno por archivo) y
-   `expectedEvents` (IDs y metadata de evento fijados **antes** de tocar
-   cualquier archivo canónico):
+   `expectedEvents` — el **documento completo e inmutable de cada
+   evento**, no solo su ID, fijado **antes** de tocar cualquier archivo
+   canónico:
    ```yaml
    filePlan:
      - target: config.yml
@@ -401,10 +402,28 @@ Secuencia exacta:
        stagedRevisionHash: <sha256>
    expectedEvents:
      - eventId: <uuidv7>
-       type: workspace.initialized
-       idempotencyKey: <string>
        relativePath: <yyyy>/<mm>/<uuidv7>.json
+       contentHash: <sha256-bytes>
+       document:
+         eventId: <uuidv7>
+         schemaVersion: <version>
+         type: workspace.initialized
+         aggregate:
+           type: workspace
+           id: <id>
+         occurredAt: <timestamp-fijado-antes-de-APPLYING>
+         actor: <actor>
+         operationId: <operation-id>
+         idempotencyKey: <string>
+         payload: {}
+         inputHash: <hash|null>
+         outputHash: <hash|null>
    ```
+   `occurredAt`, `payload` y `actor` quedan fijados en este paso, antes de
+   `APPLYING` — nunca se recalculan después. El `document` se serializa
+   de forma determinista y su `contentHash` se calcula sobre esos bytes
+   exactos, para que recovery pueda verificar un evento ya escrito sin
+   tener que regenerar nada.
 6. Transición `APPROVED -> APPLYING` (escritura durable en disco antes de
    tocar `.planning/config.yml` et al.).
 7. Aplicar cada archivo mediante `rename()` desde `staged/` a su ruta
@@ -413,12 +432,14 @@ Secuencia exacta:
    `filePlan` persiste los hashes esperados (paso 5): recovery nunca
    depende de que `staged/` siga conteniendo el archivo.
 8. Escribir `result.json` (archivos tocados + hashes nuevos).
-9. Escribir los eventos esperados de forma idempotente, usando los IDs
-   fijados en el paso 5 (nunca se generan IDs nuevos aquí): si el archivo
-   del evento no existe se crea; si existe con el mismo `contentHash` se
-   considera completado; si existe con contenido distinto, la operación
-   pasa a `RECOVERY_REQUIRED` (un evento corrupto/alterado es una
-   violación de integridad, nunca se resuelve en silencio).
+9. Escribir cada evento de `expectedEvents` de forma idempotente,
+   escribiendo exactamente el `document` persistido en el paso 5 (nunca
+   se generan IDs, timestamps o contenido nuevos aquí): si el archivo del
+   evento no existe, se crea con esos bytes exactos; si existe y su
+   `contentHash` coincide con el persistido, se considera completado
+   (idempotente); si existe con un hash distinto, la operación pasa a
+   `RECOVERY_REQUIRED` (un evento corrupto/alterado es una violación de
+   integridad, nunca se resuelve en silencio).
 10. Transición `APPLYING -> APPLIED`; liberar el lock; limpieza
     oportunista de `.runtime/operations/<id>/` (§13).
 
@@ -455,6 +476,16 @@ Una vez que todos los archivos de una operación quedan clasificados como
 "ya aplicado", recovery completa idempotentemente los pasos restantes
 (`result.json` si falta, eventos si faltan, transición a `APPLIED`),
 usando el actor `system:recovery`.
+
+Para eventos, recovery **reutiliza exactamente el `document` persistido**
+en `expectedEvents` (§12 paso 5) — nunca genera un `eventId`, `occurredAt`
+o `payload` nuevos. Por evento: si el archivo no existe, se escribe con
+esos bytes exactos (idempotente, sin importar cuántas veces se reintente);
+si existe y su `contentHash` coincide con el persistido, se considera
+completado; si existe con un hash distinto, la operación pasa a
+`RECOVERY_REQUIRED` — un evento ya escrito con contenido distinto al
+esperado es evidencia de corrupción o de una segunda fuente escribiendo
+el mismo archivo, nunca se sobrescribe.
 
 **Limpieza de `.runtime/operations/<id>/`**: se limpia después de que la
 operación llega a `APPLIED`. Si el proceso cae después de `APPLIED` pero
@@ -567,16 +598,21 @@ re-verificación de que las 21 pruebas existentes
   concurrente con la misma `key` — una tiene éxito, la otra falla
   `STALE` o por unicidad.
 - **Matriz de crash durable** (simulando falla justo después de cada
-  paso de §12, contra la clasificación de §13): tras (1) crear `before/`,
-  (2) crear `staged/`, (3) persistir `filePlan`+`expectedEvents`, (4)
+  frontera durable de §12, contra la clasificación de §13 — la
+  numeración aquí es la de estas fronteras, no coincide literalmente con
+  los pasos 1–10 de esa sección): tras (1) crear `before/`, (2) crear
+  `staged/`, (3) persistir `filePlan`+`expectedEvents` completos, (4)
   pasar a `APPLYING`, (5) aplicar el primer archivo, (6) aplicar todos
   los archivos, (7) escribir `result.json`, (8) escribir el primer
-  evento, (9) escribir todos los eventos, (10) antes de pasar a
-  `APPLIED`. Cada punto debe demostrar recuperación idempotente o
-  transición segura a `RECOVERY_REQUIRED`, sin duplicar eventos ni
-  sobrescribir contenido divergente. Incluye además limpieza segura de
-  `.runtime/operations/<id>/` cuando el crash ocurre después de
-  `APPLIED` pero antes de la limpieza.
+  evento pero **antes** de actualizar `operation.yml`, (9) escribir
+  todos los eventos, (10) antes de pasar a `APPLIED`. Cada punto debe
+  demostrar recuperación idempotente o transición segura a
+  `RECOVERY_REQUIRED`, sin duplicar eventos ni sobrescribir contenido
+  divergente. El punto (8) en particular debe verificar que recovery
+  reutiliza exactamente el `document` ya persistido (mismo `eventId`,
+  `occurredAt`, `payload`) en vez de generar un evento distinto. Incluye
+  además limpieza segura de `.runtime/operations/<id>/` cuando el crash
+  ocurre después de `APPLIED` pero antes de la limpieza.
 - **Regresión** (sin cambios de comportamiento esperados):
   `hooks/tests/protect-planning-state.test.mjs`,
   `scripts/tests/verify-next-generation.test.mjs`,
