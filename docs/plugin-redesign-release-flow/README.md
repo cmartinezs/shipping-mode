@@ -31,6 +31,7 @@ El producto next-generation es un producto nuevo `1.0.0`. `v4` queda unicamente 
 9. [Corte -1.1: contratos residuales del runtime](08-corte-1-1-contratos-runtime.md)
 10. [Corte -1.2: spikes de producto y runtime](09-corte-1-2-spikes-producto-runtime.md)
 11. [Corte -1.2: contratos de ejecucion y cierre](10-corte-1-2-contratos-ejecucion.md)
+12. [Git work execution contract](11-git-work-execution-contract.md)
 
 ## Tesis corregida
 
@@ -42,7 +43,8 @@ El plugin no necesita mas comandos de primer nivel. Necesita un runtime con:
 - launcher estable que resuelve instalacion, template pack, schemas y workspace;
 - scripts deterministas que leen y mutan estado estructurado;
 - skills finas que orquestan, piden aprobacion y acotan el trabajo no determinista;
-- decisiones humanas cuando hay ambiguedad real de producto, alcance, arquitectura o release.
+- un Git engine agnostico que ejecuta la policy del repositorio anfitrion sin hardcodear GitFlow, branch topology ni granularidad de branch/commit;
+- decisiones humanas cuando hay ambiguedad real de producto, alcance, arquitectura, Git policy o release.
 
 La propuesta reduce el flujo publico diario a skills canonicas `init`, `config`, `release`, `item`, `task`, `check`, `report` y `decision`, con `update` como comando de mantenimiento del plugin/template pack. La forma visible final depende del namespace real del plugin y debe cerrarse con el [Corte -1.2](09-corte-1-2-spikes-producto-runtime.md). Los comandos actuales son material de referencia para rescatar capacidades, no API que deba conservarse.
 
@@ -51,3 +53,5 @@ La segunda revision experta aprueba avanzar al Corte -1, pero exige cerrar antes
 La quinta revision cierra las decisiones de producto: producto nuevo `1.0.0`, Node.js 20+, UUIDv7, display IDs deterministas e inmutables y relaciones padre-hijo inmutables. El [Corte -1.2](09-corte-1-2-spikes-producto-runtime.md) queda para ejecutar spikes y reunir evidencia, no para reabrir estas alternativas.
 
 La cuarta revision aprueba ejecutar el Corte -1.2, pero aclara que documentar spikes no equivale a resolverlos. Antes del vertical slice productivo deben quedar cerrados los contratos de [ejecucion y cierre](10-corte-1-2-contratos-ejecucion.md): permisos de skills, launcher interno versus CLI externa, limites de agregados, lifecycle de display IDs, DSL formal, hashing RFC 8785, separacion Execution Context/Deployment Environment, state machine de operaciones y resultados verificables de cada spike.
+
+El [Git work execution contract](11-git-work-execution-contract.md) conserva la disciplina Git trabajada en v3, pero separa responsabilidades: Shipping Mode implementa mecanica, seguridad, worktrees, approvals y evidencia; Project Context contiene la estrategia Git del host; las scope guides solo refinan esa estrategia para cada tipo de trabajo.
