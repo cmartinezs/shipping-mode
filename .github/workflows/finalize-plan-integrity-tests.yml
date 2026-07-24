@@ -1,0 +1,99 @@
+name: Finalize plan integrity tests
+
+on:
+  push:
+    branches:
+      - agent/fix-corte0-plan-integrity
+
+permissions:
+  contents: write
+
+jobs:
+  patch-plan-tests:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/fix-corte0-plan-integrity
+          fetch-depth: 0
+
+      - name: Complete regression cases in canonical plan
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          plan = Path('docs/plans/corte-0-runtime-foundation-implementation.md')
+          text = plan.read_text()
+
+          def replace_once(old, new, label):
+              global text
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected exactly one match, got {count}')
+              text = text.replace(old, new, 1)
+
+          # Extend the existing divergent recovery case: once the conflict is
+          # persisted, two later independent mutations must both remain blocked.
+          replace_once(
+          '''  assert.equal(operation.status, "RECOVERY_REQUIRED");
+            assert.ok(operation.conflict);
+            assert.equal(fs.readFileSync(path.join(planningRoot, first.target), "utf8"), "not what recovery expects\\n");
+          }
+
+          // an APPLIED operation with leftover staging residue gets it cleaned up
+          ''',
+          '''  assert.equal(operation.status, "RECOVERY_REQUIRED");
+            assert.ok(operation.conflict);
+            assert.equal(fs.readFileSync(path.join(planningRoot, first.target), "utf8"), "not what recovery expects\\n");
+
+            // The persisted conflict must remain globally blocking on every later
+            // mutation, not just in the recovery sweep that first discovered it.
+            const dirsBeforeBlockedAttempts = fs.readdirSync(operationsRoot).sort();
+            for (const attemptedName of ["blocked-first", "blocked-second"]) {
+              assert.throws(
+                () => propose({
+                  operationsRoot, planningRoot, kind: "config.update", target: {},
+                  payload: { name: attemptedName }, targetFiles: ["config.yml"], actor: "carlos"
+                }),
+                RecoveryRequiredError,
+                "a persisted RECOVERY_REQUIRED operation must block every subsequent mutation"
+              );
+            }
+            assert.deepEqual(fs.readdirSync(operationsRoot).sort(), dirsBeforeBlockedAttempts, "blocked mutation attempts must not create new operations");
+            assert.equal(readOperation(operationsRoot, operationId).status, "RECOVERY_REQUIRED", "the conflict remains blocking until manually resolved");
+          }
+
+          // an APPLIED operation with leftover staging residue gets it cleaned up
+          ''', 'Task 19 persistent blocking regression')
+
+          # Complete AFTER_MANIFEST proof by asserting only one physical event file
+          # exists after retry, in addition to exact manifest equality.
+          replace_once(
+          '''    assert.equal(finalOperation.expectedEvents[0].document.idempotencyKey, persistedManifest.document.idempotencyKey);
+              }
+            }
+
+            for (const boundary of postApplyingBoundaries) {
+          ''',
+          '''    assert.equal(finalOperation.expectedEvents[0].document.idempotencyKey, persistedManifest.document.idempotencyKey);
+                const eventPath = path.join(planningRoot, "events", finalOperation.expectedEvents[0].relativePath);
+                const eventFiles = fs.readdirSync(path.dirname(eventPath)).filter((name) => name.endsWith(".json"));
+                assert.equal(eventFiles.length, 1, "AFTER_MANIFEST: retry must result in exactly one event file, never a regenerated duplicate");
+              }
+            }
+
+            for (const boundary of postApplyingBoundaries) {
+          ''', 'Task 20 single event file assertion')
+
+          plan.write_text(text)
+          PY
+
+          rm -f .github/workflows/finalize-plan-integrity-tests.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Complete final plan integrity regression cases"
+          git push origin HEAD:agent/fix-corte0-plan-integrity
