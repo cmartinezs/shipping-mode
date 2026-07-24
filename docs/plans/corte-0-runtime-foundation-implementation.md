@@ -897,13 +897,14 @@ Note: the outer `kind` (`workspace.init`/`config.update`/`scope.add`, the Change
     {
       "if": { "properties": { "status": { "enum": ["VALIDATED", "APPROVED", "APPLYING", "APPLIED"] } } },
       "then": {
+        "required": ["validation"],
         "properties": {
           "validation": {
             "type": "object",
             "required": ["validatedAt", "changeSetHash"],
             "properties": {
               "validatedAt": { "type": "string" },
-              "changeSetHash": { "type": "string" }
+              "changeSetHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
             }
           }
         }
@@ -912,14 +913,16 @@ Note: the outer `kind` (`workspace.init`/`config.update`/`scope.add`, the Change
     {
       "if": { "properties": { "status": { "enum": ["APPROVED", "APPLYING", "APPLIED"] } } },
       "then": {
+        "required": ["approval"],
         "properties": {
           "approval": {
             "type": "object",
-            "required": ["actor", "approvedAt", "changeSetHash"],
+            "required": ["actor", "approvedAt", "changeSetHash", "selfApproval"],
             "properties": {
               "actor": { "type": "string" },
               "approvedAt": { "type": "string" },
-              "changeSetHash": { "type": "string" }
+              "changeSetHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+              "selfApproval": { "type": "boolean" }
             }
           }
         }
@@ -944,13 +947,16 @@ Note: the outer `kind` (`workspace.init`/`config.update`/`scope.add`, the Change
     },
     {
       "if": { "properties": { "status": { "const": "RECOVERY_REQUIRED" } } },
-      "then": { "required": ["conflict"] }
+      "then": {
+        "required": ["conflict"],
+        "properties": { "conflict": { "type": "object" } }
+      }
     }
   ]
 }
 ```
 
-The first two `if`/`then` blocks re-declare `validation`/`approval` as `type: "object"` with their own `required`/`properties` — this narrows the base schema's nullable-friendly `["string","null"]` typing down to non-null only for the statuses where those fields must actually be populated, without needing a separate `$defs` indirection.
+The first two `if`/`then` blocks both **require the state-owned property itself** (`validation` for `VALIDATED` and later, `approval` for `APPROVED` and later) and re-declare its populated fields as non-null. A nested `properties` declaration alone would only constrain a field *if present* and would incorrectly allow later states to omit their lifecycle metadata. `RECOVERY_REQUIRED` likewise requires `conflict` to exist as a non-null object.
 
 ```json
 // runtime/src/schemas/event.schema.json
@@ -1334,7 +1340,35 @@ for (const [schemaName, { valid, invalid }] of Object.entries(cases)) {
   assert.equal(invalidResult.valid, false, `${schemaName} invalid fixture must fail`);
 }
 
-console.log("schema fixtures: valid/invalid cases behave correctly for all 7 schemas, including kind-conditional payloads");
+// operation lifecycle metadata is state-owned and mandatory, not optional
+// metadata merely constrained when present.
+const opBase = {
+  id: "018f0000-0000-7000-8000-000000000000",
+  kind: "workspace.init",
+  proposedBy: "carlos",
+  proposedAt: "2026-07-24T00:00:00.000Z",
+  reservedEvents: [{ eventId: "018f0000-0000-7000-8000-000000000001", type: "workspace.initialized" }],
+  history: []
+};
+const validation = { validatedAt: "2026-07-24T00:00:01.000Z", changeSetHash: "a".repeat(64), errors: [] };
+const approval = { actor: "carlos", approvedAt: "2026-07-24T00:00:02.000Z", changeSetHash: "a".repeat(64), selfApproval: true };
+const filePlan = [{ target: "config.yml", stagedRelativePath: "config.yml", expectedBefore: "ABSENT", beforeContentHash: "ABSENT", beforeRevisionHash: "ABSENT", stagedContentHash: "b".repeat(64), stagedRevisionHash: "c".repeat(64) }];
+const expectedEvents = [{ eventId: "018f0000-0000-7000-8000-000000000001", relativePath: "2026/07/018f0000-0000-7000-8000-000000000001.json", contentHash: "d".repeat(64), document: {} }];
+
+const lifecycleInvalid = [
+  { ...opBase, status: "VALIDATED" },
+  { ...opBase, status: "APPROVED", validation },
+  { ...opBase, status: "APPLYING", approval, filePlan, expectedEvents },
+  { ...opBase, status: "APPLYING", validation, filePlan, expectedEvents },
+  { ...opBase, status: "RECOVERY_REQUIRED" },
+  { ...opBase, status: "RECOVERY_REQUIRED", conflict: null }
+];
+for (const fixture of lifecycleInvalid) {
+  const result = validate("operation", fixture);
+  assert.equal(result.valid, false, `operation ${fixture.status} fixture missing required state metadata must fail`);
+}
+
+console.log("schema fixtures: valid/invalid cases behave correctly for all 7 schemas, including kind-conditional payloads and operation state invariants");
 ```
 
 Run: `node runtime/src/lib/tests/schema-fixtures.test.mjs`
@@ -2946,7 +2980,7 @@ Step 1's revalidation calls the **exact same** `revalidateChangeSet` function `v
 
 Because `revalidateChangeSet` already enforces that `changeSet.baseRevisions` contains *exactly* the rendered file set (Task 16, Revision 4 note 3), the loop below that builds `filePlan` can read `changeSet.baseRevisions[relativePath]` directly — there is no `|| { revisionHash: ABSENT, contentHash: ABSENT }` fallback, because there is nothing left for it to safely paper over.
 
-`buildExpectedEvent` is called with the **reserved** `eventId` and `type` from `operation.reservedEvents[0]` (Revision 4 note 2) — Corte 0 operations always reserve exactly one event, computed once by `eventTypeFor` at `propose` time (Task 15), so `prepareApply` never calls `eventTypeFor` or mints a new event ID itself; it only reads what was already reserved.
+`buildExpectedEvent` is called with the **reserved** `eventId` and `type` from `operation.reservedEvents[0]` (Revision 4 note 2) only when no event manifest has yet been persisted. Once `operation.expectedEvents` exists, it is immutable: a retry after `AFTER_MANIFEST` must validate and reuse the **entire persisted event document verbatim** (`eventId`, `occurredAt`, actor, payload, idempotency key, path and content hash), never rebuild it from `reservedEvents`. This is stronger than merely preserving the UUID and is required so a pre-`APPLYING` retry cannot silently change timestamp or event bytes.
 
 Four of the ten fault-injection checkpoints from Revision 2 note 8 live in this task: `AFTER_BEFORE`, `AFTER_STAGED`, `AFTER_MANIFEST`, `AFTER_APPLYING`.
 
@@ -3094,13 +3128,23 @@ function prepareApply({ operationsRoot, planningRoot, operationId, render, actor
   // step 3: persist the filePlan + full, immutable expectedEvents documents,
   // fixed before anything canonical is touched. The event id is the one
   // reserved at propose time (operation.reservedEvents), never a fresh one.
-  const reserved = operation.reservedEvents[0];
-  const expectedEvents = [buildExpectedEvent({
-    eventId: reserved.eventId,
-    type: reserved.type,
-    aggregate: { type: operation.kind.split(".")[0], id: operationId },
-    actor, operationId, idempotencyKey: operationId, payload: changeSet.payload
-  })];
+  const expectedEvents = operation.expectedEvents?.length
+    ? operation.expectedEvents.map((expectedEvent) => {
+        const relationallyConsistent = expectedEvent.eventId === expectedEvent.document?.eventId
+          && expectedEvent.document?.operationId === operation.id
+          && expectedEvent.relativePath.endsWith(`/${expectedEvent.eventId}.json`);
+        const eventSchemaCheck = validateSchema("event", expectedEvent.document);
+        if (!relationallyConsistent || !eventSchemaCheck.valid) {
+          throw new StateError("persisted expectedEvents manifest is invalid or internally inconsistent");
+        }
+        return expectedEvent;
+      })
+    : operation.reservedEvents.map((reserved) => buildExpectedEvent({
+        eventId: reserved.eventId,
+        type: reserved.type,
+        aggregate: { type: operation.kind.split(".")[0], id: operationId },
+        actor, operationId, idempotencyKey: operationId, payload: changeSet.payload
+      }));
 
   operation = readOperation(operationsRoot, operationId);
   writeOperation(operationsRoot, operationId, { ...operation, filePlan, expectedEvents });
@@ -3286,7 +3330,7 @@ git commit -m "Add apply steps 7-10: commit files, write events, APPLIED, cleanu
 
 Classification is against the **persisted `filePlan`**, never against whatever happens to still be in `staged/` — `rename()` consumes its source, so a file already committed by a prior (crashed) attempt has nothing left in `staged/` to compare against (Revision 2 note 3). Every path this function touches — the operation directory name itself, `filePlan.target`, `filePlan.stagedRelativePath` — is confined before use (Revision 2 note 9). Because the per-operation `staged/` directory might not exist at all (e.g. it was already fully consumed and cleaned up, or the crash happened before it was ever created), its existence is checked **before** calling `confineUnder` on it, since `confineUnder` calls `realpathSync` on its root and throws if that root is absent (Revision 3 note 6) — a missing `staged/` is treated the same as a missing staged file: unable to safely redo the write, so `RECOVERY_REQUIRED`, never silently skipped. An operation already `APPLIED` with leftover `.runtime/operations/<id>/` staging residue gets that residue cleaned up (Revision 2 note 8). A `result.json` that already exists is schema-validated and compared against what `filePlan` says it should be — a mismatch is `RECOVERY_REQUIRED`, never silently accepted (Revision 3 note 10, Revision 4 note 5).
 
-Recovery **fails closed** on metadata it can't trust (Revision 4 note 6): an `operation.yml` that's unreadable, unparseable, schema-invalid against `operation.schema.json`, or whose own `id` field doesn't match the directory name it lives in, is never silently skipped and never rewritten (we don't trust it enough to merge new fields into it) — it's reported as a `RECOVERY_REQUIRED` outcome, which `withWorkspaceMutation`'s conflict check (Task 13) turns into a hard block on every subsequent mutation until a human resolves it. Every `expectedEvent` is also checked for internal consistency before recovery trusts it enough to write: `expectedEvent.eventId` must equal `expectedEvent.document.eventId`, `expectedEvent.document.operationId` must equal the operation's own `id`, and `expectedEvent.relativePath` must end with `/<eventId>.json` — these are relational invariants no JSON Schema can express on its own (Revision 4 note 5).
+Recovery **fails closed** on metadata it can't trust (Revision 4 note 6): an `operation.yml` that's unreadable, unparseable, schema-invalid against `operation.schema.json`, or whose own `id` field doesn't match the directory name it lives in, is never silently skipped and never rewritten (we don't trust it enough to merge new fields into it) — it's reported as a `RECOVERY_REQUIRED` outcome, which `withWorkspaceMutation`'s conflict check (Task 13) turns into a hard block on every subsequent mutation until a human resolves it. An operation already persisted in `RECOVERY_REQUIRED` must itself keep returning that same blocking outcome on every later recovery sweep; it is never reclassified as `NOT_APPLICABLE`. Every `expectedEvent` is also checked for internal consistency before recovery trusts it enough to write: `expectedEvent.eventId` must equal `expectedEvent.document.eventId`, `expectedEvent.document.operationId` must equal the operation's own `id`, and `expectedEvent.relativePath` must end with `/<eventId>.json` — these are relational invariants no JSON Schema can express on its own (Revision 4 note 5).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -3517,6 +3561,14 @@ export function runRecovery({ operationsRoot, planningRoot, lock }) {
       continue;
     }
 
+    if (operation.status === "RECOVERY_REQUIRED") {
+      // A manual recovery conflict remains globally blocking across
+      // invocations until a human resolves it. Never downgrade it to
+      // NOT_APPLICABLE on the next recovery sweep.
+      outcomes.push({ operationId, outcome: "RECOVERY_REQUIRED" });
+      continue;
+    }
+
     if (operation.status === "APPLIED") {
       const residue = path.join(stagingRoot, operationId);
       if (fs.existsSync(residue)) {
@@ -3730,17 +3782,25 @@ for (const boundary of preApplyingBoundaries) {
   const reservedEventId = readOperation(operationsRoot, operationId).reservedEvents[0].eventId;
   crashAt(boundary, planningRoot, operationsRoot, operationId);
 
-  assert.equal(readOperation(operationsRoot, operationId).status, "APPROVED", `${boundary}: status must still be APPROVED, recovery has nothing to do yet`);
+  const crashedOperation = readOperation(operationsRoot, operationId);
+  assert.equal(crashedOperation.status, "APPROVED", `${boundary}: status must still be APPROVED, recovery has nothing to do yet`);
+  const persistedManifest = boundary === "AFTER_MANIFEST"
+    ? structuredClone(crashedOperation.expectedEvents[0])
+    : null;
 
   const outcome = applyOperation({ operationsRoot, planningRoot, operationId, render: renderWorkspaceInit, actor: "carlos" });
   assert.equal(outcome.status, "APPLIED", `${boundary}: a plain retry must complete normally`);
   const finalOperation = readOperation(operationsRoot, operationId);
   assert.equal(finalOperation.status, "APPLIED");
-  // the whole point of reserving the event id at propose (Revision 4 note 2):
-  // a crash at AFTER_MANIFEST specifically, right where expectedEvents first
-  // gets computed from reservedEvents, must never end up minting a different
-  // id on retry
   assert.equal(finalOperation.expectedEvents[0].eventId, reservedEventId, `${boundary}: the event id reserved at propose must survive a crash+retry unchanged`);
+  if (boundary === "AFTER_MANIFEST") {
+    assert.deepEqual(finalOperation.expectedEvents[0], persistedManifest, "AFTER_MANIFEST: retry must reuse the full persisted expectedEvent verbatim, not rebuild timestamp/actor/payload/hash");
+    assert.equal(finalOperation.expectedEvents[0].contentHash, persistedManifest.contentHash);
+    assert.equal(finalOperation.expectedEvents[0].document.occurredAt, persistedManifest.document.occurredAt);
+    assert.equal(finalOperation.expectedEvents[0].document.actor, persistedManifest.document.actor);
+    assert.deepEqual(finalOperation.expectedEvents[0].document.payload, persistedManifest.document.payload);
+    assert.equal(finalOperation.expectedEvents[0].document.idempotencyKey, persistedManifest.document.idempotencyKey);
+  }
 }
 
 for (const boundary of postApplyingBoundaries) {
