@@ -1,4 +1,4 @@
-# Corte 0 Runtime Foundation — Implementation Plan (revision 3)
+# Corte 0 Runtime Foundation — Implementation Plan (revision 4)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -44,6 +44,19 @@ A second review, run before any task was executed, found 13 more consistency and
 11. `SHIPPING_MODE_FAULT_CHECKPOINT` env-var-driven fault injection is gated behind `globalThis.__SHIPPING_MODE_TEST_BUILD__`, a flag esbuild's `define` sets to `"false"` in the production bundle (compiling the capability out entirely, verified by grepping the bundle text) and `"true"` only in a separate, gitignored test bundle used solely by the CLI e2e crash-and-recover case. A real installation can never be made to crash on demand by setting an environment variable.
 12. CLI e2e (create the test file, run it standalone) now comes **before** the repo-hygiene task that wires `test:cli-e2e` into `package.json`/`verify-next-generation.sh` — revision 2 had it backwards, which meant that task's own verification step would fail against a file that didn't exist yet until the next task landed. Every task now ends fully green.
 13. `validateOperation` is only legal from `PROPOSED`, and `approveOperation` only from `VALIDATED` — both throw `StateError` otherwise, including against `APPROVED`/`APPLYING`/`APPLIED`/`INVALID`/`STALE`/`RECOVERY_REQUIRED`, so a stray re-run can never retreat an operation to an earlier state or silently re-approve one already moving forward.
+
+## Revision 4 — what changed from revision 3
+
+A third review, explicitly scoped to consistency and integrity fixes rather than further architectural change, found 8 more gaps:
+
+1. The `NOT_IMPLEMENTED` contract's `message` field is now exactly `"deferred to Corte N, see docs/plugin-redesign-release-flow/03-plan-incremental.md"` — not the looser "deferred to a later Corte" wording revision 3 used. The CLI e2e comparison is still field-by-field.
+2. `buildExpectedEvent` no longer generates `eventId` itself. `propose` (Task 15) now reserves the event ID(s) an operation will emit — persisted in a new, schema-validated `operation.reservedEvents` field — before anything else happens; `apply` (Task 17) reads that reservation and passes it into `buildExpectedEvent`, which now requires `eventId` as an input. The event ID an operation ends up using is fixed the moment it's proposed, exactly like the operation ID itself, and a dedicated crash test proves it survives an `AFTER_MANIFEST` crash-and-retry unchanged.
+3. `baseRevisions` must be **exactly** the set of files a `render()` call touches — no more, no less. The `changeSet.baseRevisions[relativePath] || { revisionHash: ABSENT, contentHash: ABSENT }` fallback is gone entirely; `revalidateChangeSet` now renders in memory and requires `baseRevisions`' keys to equal the rendered file set exactly, failing `INVALID` otherwise. This also adds a `workspace.init`-specific bootstrap invariant: `config.yml`, `plugin.lock.yml`, and `.gitignore` must all be `ABSENT` at propose time, so `init` can never reset an already-initialized workspace (`config set` exists for that) — proven by an e2e case that runs `init` twice and confirms the original `config.yml`/`scopeRefs` survive the rejected second attempt untouched.
+4. A change-set that fails its hash re-check at `approve` time now gets durably transitioned to `STALE` (with a `system:validator` history entry) **before** `approveOperation` throws `StaleError` — revision 3 threw without persisting anything, which left the operation stuck in `VALIDATED` forever (a state that, per note 13 above, can never be re-validated or re-approved). This reuses the same `transitionToStale` helper `apply` already had; it's now defined once, in `validateOperation`/`approveOperation`'s task, and reused rather than redefined.
+5. Every primary ID field in every schema now uses the real UUIDv7 pattern (not bare `"type": "string"`), and every hash field gets a real `^[0-9a-f]{64}$` / `^([0-9a-f]{64}|ABSENT)$` / `^sha256:[0-9a-f]{64}$` contract depending on whether it can legitimately describe something absent. `operation.schema.json` gained a new `reservedEvents` field and per-status `allOf`/`if`/`then` invariants (what each of `VALIDATED`/`APPROVED`/`APPLYING`/`APPLIED`/`RECOVERY_REQUIRED` requires to be populated). These schemas are no longer fixture-only: recovery validates `operation.yml` against `operation.schema.json` before acting on it, `apply` validates its constructed `result` before writing it, and the journal validates an event `document` against `event.schema.json` before writing it — plus relational invariants JSON Schema can't express on its own (directory name matches `operation.id`, `changeSet.operationId` matches the operation, `expectedEvent.eventId` matches `expectedEvent.document.eventId`, `expectedEvent.document.operationId` matches the operation, and `relativePath` ends with `/<eventId>.json`), checked directly in code. `plugin.lock.yml`'s build-time fingerprint (revision 3 note 5) is a real fixed-length hash under this same pattern.
+6. Recovery (and `check schema`'s pending-operations enumeration) no longer does `catch { continue }` on an operation directory it can't read. An `operation.yml` that's unreadable, unparseable, schema-invalid, or self-inconsistent (its own `id` disagreeing with the directory it's in) is never rewritten (we don't trust it enough to merge new fields into it) and never silently skipped — it's reported as a `RECOVERY_REQUIRED` outcome (or a `check schema` finding), which blocks every subsequent mutating command via `withWorkspaceMutation`'s existing conflict check.
+7. `confineUnder` proves a path's *descendants* stay inside a root, but never that the root itself is legitimate. A new `assertTrustedRoots(planningRoot)` checks that `.planning` and its known subdirectories (`operations`, `events`, `.runtime`, `scopes`) — whichever of them already exist — are real directories, not symlinks, with a realpath that stays under their expected parent; `.planning` not existing yet is fine (bootstrap), `.planning` existing as a symlink is not. `withWorkspaceMutation`/`recoverWorkspace` call this before the lock is even acquired, since the lock itself lives under `.planning/.runtime/`.
+8. The production bundle's build determinism is now explicitly verified: build it twice from the same source and diff the two outputs' hashes, then diff the regenerated bundle against the one committed to git. The gitignored test bundle is exempt (it's a transient build artifact, never committed).
 
 ## Global Constraints
 
@@ -246,8 +259,50 @@ git commit -m "Add canonicalization and split revisionHash/contentHash"
 - Test: `runtime/src/lib/tests/paths.test.mjs`
 
 **Interfaces:**
-- Produces: `class PathConfinementError extends Error`, `confineUnder(root: string, relativePath: string): string`, `confineRuntimePath(planningRoot: string, relativePath: string): string`, `confineScopePath(workspaceRoot: string, relativePath: string): string`.
+- Produces: `class PathConfinementError extends Error`, `confineUnder(root: string, relativePath: string): string`, `confineRuntimePath(planningRoot: string, relativePath: string): string`, `confineScopePath(workspaceRoot: string, relativePath: string): string`, `assertTrustedRoots(planningRoot: string): void`.
 - `confineUnder` is the generic primitive (any root, any relative path); `confineRuntimePath`/`confineScopePath` are thin domain-specific wrappers over it. Task 11 (event journal) and Task 19 (recovery) both call `confineUnder` directly to confine paths that aren't simply "somewhere under `.planning/`" or "somewhere under the workspace" (e.g. an events root, a staging root).
+
+`confineUnder` protects *descendants* of a root, but never proves the root itself is legitimate. `assertTrustedRoots(planningRoot)` closes that gap (Revision 4 note 7): before `.planning` and its known subdirectories (`operations`, `events`, `.runtime`, `scopes`) are ever used, each one that already exists must be a real directory, not a symlink, with a realpath that stays under its expected parent. A `.planning` that doesn't exist yet is fine (bootstrap is allowed to create it); a `.planning` that already exists as a symlink is not. Task 13 calls this at the very start of `withWorkspaceMutation`/`recoverWorkspace`, before the lock is even acquired (since the lock itself lives under `.planning/.runtime/`).
+
+- [ ] **Step 1a: Write the failing test for `assertTrustedRoots`**
+
+```js
+// runtime/src/lib/tests/trustedRoots.test.mjs
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { assertTrustedRoots, PathConfinementError } from "../paths.mjs";
+
+const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "trusted-"));
+const planningRoot = path.join(workspace, ".planning");
+
+// .planning doesn't exist yet: bootstrap must be allowed
+assert.doesNotThrow(() => assertTrustedRoots(planningRoot));
+
+fs.mkdirSync(planningRoot);
+assert.doesNotThrow(() => assertTrustedRoots(planningRoot));
+
+for (const name of ["operations", "events", ".runtime", "scopes"]) {
+  const outsideTarget = fs.mkdtempSync(path.join(os.tmpdir(), `trusted-outside-${name.replace(".", "")}-`));
+  const linkPath = path.join(planningRoot, name);
+  fs.symlinkSync(outsideTarget, linkPath);
+  assert.throws(() => assertTrustedRoots(planningRoot), PathConfinementError, `.planning/${name} as a symlink must be rejected`);
+  fs.rmSync(linkPath, { force: true });
+  assert.doesNotThrow(() => assertTrustedRoots(planningRoot), `.planning/${name} removed -- back to a trusted state`);
+}
+
+// .planning itself as a symlink must be rejected
+fs.rmSync(planningRoot, { recursive: true, force: true });
+const outsidePlanning = fs.mkdtempSync(path.join(os.tmpdir(), "trusted-outside-planning-"));
+fs.symlinkSync(outsidePlanning, planningRoot);
+assert.throws(() => assertTrustedRoots(planningRoot), PathConfinementError, ".planning itself as a symlink must be rejected");
+
+console.log("trustedRoots: all tests passed");
+```
+
+Run: `node runtime/src/lib/tests/trustedRoots.test.mjs`
+Expected: FAIL — `assertTrustedRoots is not a function`
 
 - [ ] **Step 1: Write the failing test**
 
@@ -359,18 +414,47 @@ export function confineScopePath(workspaceRoot, relativePath) {
   }
   return resolved;
 }
+
+function assertTrustedRoot(parentDir, name) {
+  const candidate = path.join(parentDir, name);
+  if (!fs.existsSync(candidate)) return; // doesn't exist yet -- safe to create later
+  const stat = fs.lstatSync(candidate);
+  if (stat.isSymbolicLink()) {
+    throw new PathConfinementError(`${candidate} must not be a symlink`);
+  }
+  if (!stat.isDirectory()) {
+    throw new PathConfinementError(`${candidate} must be a directory`);
+  }
+  const real = fs.realpathSync.native(candidate);
+  const realParent = fs.realpathSync.native(parentDir);
+  if (!isWithin(real, realParent)) {
+    throw new PathConfinementError(`${candidate} resolves outside ${parentDir}`);
+  }
+}
+
+export function assertTrustedRoots(planningRoot) {
+  const workspaceRoot = path.dirname(planningRoot);
+  assertTrustedRoot(workspaceRoot, path.basename(planningRoot));
+  if (!fs.existsSync(planningRoot)) return; // fresh bootstrap, nothing further to check yet
+  for (const name of ["operations", "events", ".runtime", "scopes"]) {
+    assertTrustedRoot(planningRoot, name);
+  }
+}
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 4: Run tests to verify they pass**
 
 Run: `node runtime/src/lib/tests/paths.test.mjs`
 Expected: PASS, prints `paths: all tests passed`
 
+Run: `node runtime/src/lib/tests/trustedRoots.test.mjs`
+Expected: PASS, prints `trustedRoots: all tests passed`
+
 - [ ] **Step 5: Commit**
 
 ```bash
-git add runtime/src/lib/paths.mjs runtime/src/lib/tests/paths.test.mjs
-git commit -m "Add generic path confinement primitive plus runtime/scope domain wrappers"
+git add runtime/src/lib/paths.mjs runtime/src/lib/tests/paths.test.mjs runtime/src/lib/tests/trustedRoots.test.mjs
+git commit -m "Add generic path confinement, runtime/scope domain wrappers, and trusted-root verification"
 ```
 
 ---
@@ -526,6 +610,10 @@ git commit -m "Add typed errors for usage, state, and staleness failures"
 
 `change-set.schema.json` is the one schema with real internal structure: it validates the **payload's shape conditionally on `kind`**, via `allOf`/`if`/`then`. This is what lets `changeset validate` reject a malformed payload (Task 16) without ever needing to check a partial payload against a canonical entity schema like `config.schema.json` — those are only ever checked against a **fully rendered document**, never a payload fragment.
 
+Every primary ID field uses the real UUIDv7 pattern, not a bare `"type": "string"` — `change-set.operationId`, `operation.id`, `operation.reservedEvents[].eventId`, `operation.expectedEvents[].eventId`, `event.eventId`, `event.operationId`, `result.operationId` (Revision 4 note 5). Hash fields get a real pattern too: `^[0-9a-f]{64}$` for a hash that's always computed from something that exists (`change-set.hash`, `validation.changeSetHash`, `approval.changeSetHash`, `filePlan[].stagedContentHash`/`stagedRevisionHash`, `expectedEvents[].contentHash`, `result.files[].contentHash`), `^([0-9a-f]{64}|ABSENT)$` for a hash that legitimately might describe a file that didn't exist yet (`baseRevisions[path].revisionHash`/`contentHash`, `filePlan[].beforeContentHash`/`beforeRevisionHash`), and `^sha256:[0-9a-f]{64}$` for the one already-prefixed field, `templatePackFingerprint`.
+
+`operation.schema.json` also carries per-status invariants (`allOf`/`if`/`then` keyed on `status`) and a new `reservedEvents` field — the event ID(s) an operation reserves at `propose` time, before any of `validation`/`approval`/`filePlan`/`expectedEvents` exist (Revision 4 note 2; `buildExpectedEvent`, Task 11, later consumes this reserved ID rather than minting a new one).
+
 - [ ] **Step 1: Write the failing test**
 
 ```js
@@ -548,6 +636,10 @@ for (const name of expected) {
 
 const changeSet = JSON.parse(fs.readFileSync(path.join(schemasDir, "change-set.schema.json"), "utf8"));
 assert.ok(Array.isArray(changeSet.allOf) && changeSet.allOf.length === 3, "change-set schema must conditionally validate payload shape per kind");
+
+const operation = JSON.parse(fs.readFileSync(path.join(schemasDir, "operation.schema.json"), "utf8"));
+assert.ok(operation.required.includes("reservedEvents"), "operation schema must require reservedEvents from PROPOSED onward");
+assert.ok(Array.isArray(operation.allOf) && operation.allOf.length >= 5, "operation schema must carry per-status invariants");
 
 console.log("schemas: all 7 files present and structurally sane");
 ```
@@ -630,7 +722,7 @@ Expected: FAIL — schema files don't exist yet
   "required": ["schemaVersion", "operationId", "kind", "target", "baseRevisions", "payload", "hash"],
   "properties": {
     "schemaVersion": { "const": 1 },
-    "operationId": { "type": "string" },
+    "operationId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
     "kind": { "enum": ["workspace.init", "config.update", "scope.add"] },
     "target": { "type": "object" },
     "baseRevisions": {
@@ -640,13 +732,13 @@ Expected: FAIL — schema files don't exist yet
         "additionalProperties": false,
         "required": ["revisionHash", "contentHash"],
         "properties": {
-          "revisionHash": { "type": "string" },
-          "contentHash": { "type": "string" }
+          "revisionHash": { "type": "string", "pattern": "^([0-9a-f]{64}|ABSENT)$" },
+          "contentHash": { "type": "string", "pattern": "^([0-9a-f]{64}|ABSENT)$" }
         }
       }
     },
     "payload": { "type": "object" },
-    "hash": { "type": "string" }
+    "hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
   },
   "allOf": [
     {
@@ -713,19 +805,32 @@ Note: the outer `kind` (`workspace.init`/`config.update`/`scope.add`, the Change
   "$id": "https://shipping-mode.dev/schemas/operation.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "kind", "status", "proposedBy", "proposedAt", "history"],
+  "required": ["id", "kind", "status", "proposedBy", "proposedAt", "reservedEvents", "history"],
   "properties": {
-    "id": { "type": "string" },
+    "id": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
     "kind": { "enum": ["workspace.init", "config.update", "scope.add"] },
     "status": { "enum": ["PROPOSED", "VALIDATED", "APPROVED", "APPLYING", "APPLIED", "INVALID", "STALE", "RECOVERY_REQUIRED"] },
     "proposedBy": { "type": "string" },
     "proposedAt": { "type": "string" },
+    "reservedEvents": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["eventId", "type"],
+        "properties": {
+          "eventId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+          "type": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
     "validation": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "validatedAt": { "type": ["string", "null"] },
-        "changeSetHash": { "type": ["string", "null"] },
+        "changeSetHash": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
         "errors": { "type": "array", "items": { "type": "string" } }
       }
     },
@@ -735,7 +840,7 @@ Note: the outer `kind` (`workspace.init`/`config.update`/`scope.add`, the Change
       "properties": {
         "actor": { "type": ["string", "null"] },
         "approvedAt": { "type": ["string", "null"] },
-        "changeSetHash": { "type": ["string", "null"] },
+        "changeSetHash": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
         "selfApproval": { "type": ["boolean", "null"] }
       }
     },
@@ -749,10 +854,10 @@ Note: the outer `kind` (`workspace.init`/`config.update`/`scope.add`, the Change
           "target": { "type": "string" },
           "stagedRelativePath": { "type": "string" },
           "expectedBefore": { "enum": ["ABSENT", "PRESENT"] },
-          "beforeContentHash": { "type": "string" },
-          "beforeRevisionHash": { "type": "string" },
-          "stagedContentHash": { "type": "string" },
-          "stagedRevisionHash": { "type": "string" }
+          "beforeContentHash": { "type": "string", "pattern": "^([0-9a-f]{64}|ABSENT)$" },
+          "beforeRevisionHash": { "type": "string", "pattern": "^([0-9a-f]{64}|ABSENT)$" },
+          "stagedContentHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "stagedRevisionHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
         }
       }
     },
@@ -763,9 +868,9 @@ Note: the outer `kind` (`workspace.init`/`config.update`/`scope.add`, the Change
         "additionalProperties": false,
         "required": ["eventId", "relativePath", "contentHash", "document"],
         "properties": {
-          "eventId": { "type": "string" },
+          "eventId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
           "relativePath": { "type": "string" },
-          "contentHash": { "type": "string" },
+          "contentHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
           "document": { "type": "object" }
         }
       }
@@ -787,9 +892,65 @@ Note: the outer `kind` (`workspace.init`/`config.update`/`scope.add`, the Change
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "enum": ["VALIDATED", "APPROVED", "APPLYING", "APPLIED"] } } },
+      "then": {
+        "properties": {
+          "validation": {
+            "type": "object",
+            "required": ["validatedAt", "changeSetHash"],
+            "properties": {
+              "validatedAt": { "type": "string" },
+              "changeSetHash": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "status": { "enum": ["APPROVED", "APPLYING", "APPLIED"] } } },
+      "then": {
+        "properties": {
+          "approval": {
+            "type": "object",
+            "required": ["actor", "approvedAt", "changeSetHash"],
+            "properties": {
+              "actor": { "type": "string" },
+              "approvedAt": { "type": "string" },
+              "changeSetHash": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "status": { "enum": ["APPLYING", "APPLIED"] } } },
+      "then": {
+        "required": ["filePlan", "expectedEvents"],
+        "properties": {
+          "filePlan": { "type": "array", "minItems": 1 },
+          "expectedEvents": { "type": "array", "minItems": 1 }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "status": { "const": "APPLIED" } } },
+      "then": {
+        "required": ["appliedAt"],
+        "properties": { "appliedAt": { "type": "string" } }
+      }
+    },
+    {
+      "if": { "properties": { "status": { "const": "RECOVERY_REQUIRED" } } },
+      "then": { "required": ["conflict"] }
+    }
+  ]
 }
 ```
+
+The first two `if`/`then` blocks re-declare `validation`/`approval` as `type: "object"` with their own `required`/`properties` — this narrows the base schema's nullable-friendly `["string","null"]` typing down to non-null only for the statuses where those fields must actually be populated, without needing a separate `$defs` indirection.
 
 ```json
 // runtime/src/schemas/event.schema.json
@@ -799,7 +960,7 @@ Note: the outer `kind` (`workspace.init`/`config.update`/`scope.add`, the Change
   "additionalProperties": false,
   "required": ["eventId", "schemaVersion", "type", "aggregate", "occurredAt", "actor", "operationId", "idempotencyKey", "payload"],
   "properties": {
-    "eventId": { "type": "string" },
+    "eventId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
     "schemaVersion": { "const": 1 },
     "type": { "type": "string", "minLength": 1 },
     "aggregate": {
@@ -813,11 +974,11 @@ Note: the outer `kind` (`workspace.init`/`config.update`/`scope.add`, the Change
     },
     "occurredAt": { "type": "string" },
     "actor": { "type": "string" },
-    "operationId": { "type": "string" },
+    "operationId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
     "idempotencyKey": { "type": "string" },
     "payload": { "type": "object" },
-    "inputHash": { "type": ["string", "null"] },
-    "outputHash": { "type": ["string", "null"] }
+    "inputHash": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+    "outputHash": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" }
   }
 }
 ```
@@ -830,7 +991,7 @@ Note: the outer `kind` (`workspace.init`/`config.update`/`scope.add`, the Change
   "additionalProperties": false,
   "required": ["operationId", "files"],
   "properties": {
-    "operationId": { "type": "string" },
+    "operationId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
     "files": {
       "type": "array",
       "items": {
@@ -839,7 +1000,7 @@ Note: the outer `kind` (`workspace.init`/`config.update`/`scope.add`, the Change
         "required": ["target", "contentHash"],
         "properties": {
           "target": { "type": "string" },
-          "contentHash": { "type": "string" }
+          "contentHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
         }
       }
     }
@@ -1137,25 +1298,31 @@ const cases = {
   "change-set": {
     valid: {
       schemaVersion: 1, operationId: "018f0000-0000-7000-8000-000000000000", kind: "workspace.init", target: {},
-      baseRevisions: {}, hash: "abc",
+      baseRevisions: {}, hash: "a".repeat(64),
       payload: { name: "demo", baseBranch: null, vcs: "git", pluginVersion: "1.0.0", templatePackFingerprint: `sha256:${"a".repeat(64)}` }
     },
     invalid: {
       schemaVersion: 1, operationId: "018f0000-0000-7000-8000-000000000000", kind: "workspace.init", target: {},
-      baseRevisions: {}, hash: "abc",
+      baseRevisions: {}, hash: "a".repeat(64),
       payload: { name: "demo" } // missing vcs/pluginVersion/templatePackFingerprint, required for this kind
     }
   },
   operation: {
-    valid: { id: "018f0000-0000-7000-8000-000000000000", kind: "workspace.init", status: "PROPOSED", proposedBy: "carlos", proposedAt: "2026-07-24T00:00:00.000Z", history: [] },
-    invalid: { id: "018f0000-0000-7000-8000-000000000000", kind: "workspace.init", status: "REJECTED", proposedBy: "carlos", proposedAt: "2026-07-24T00:00:00.000Z", history: [] }
+    valid: {
+      id: "018f0000-0000-7000-8000-000000000000", kind: "workspace.init", status: "PROPOSED", proposedBy: "carlos", proposedAt: "2026-07-24T00:00:00.000Z",
+      reservedEvents: [{ eventId: "018f0000-0000-7000-8000-000000000001", type: "workspace.initialized" }], history: []
+    },
+    invalid: {
+      id: "018f0000-0000-7000-8000-000000000000", kind: "workspace.init", status: "REJECTED", proposedBy: "carlos", proposedAt: "2026-07-24T00:00:00.000Z",
+      reservedEvents: [{ eventId: "018f0000-0000-7000-8000-000000000001", type: "workspace.initialized" }], history: []
+    }
   },
   event: {
     valid: { eventId: "018f0000-0000-7000-8000-000000000000", schemaVersion: 1, type: "workspace.initialized", aggregate: { type: "workspace", id: "018f0000-0000-7000-8000-000000000000" }, occurredAt: "2026-07-24T00:00:00.000Z", actor: "carlos", operationId: "018f0000-0000-7000-8000-000000000000", idempotencyKey: "k1", payload: {} },
     invalid: { eventId: "018f0000-0000-7000-8000-000000000000", schemaVersion: 1, type: "workspace.initialized", occurredAt: "2026-07-24T00:00:00.000Z", actor: "carlos", operationId: "018f0000-0000-7000-8000-000000000000", idempotencyKey: "k1", payload: {} }
   },
   result: {
-    valid: { operationId: "018f0000-0000-7000-8000-000000000000", files: [{ target: "config.yml", contentHash: "abc" }] },
+    valid: { operationId: "018f0000-0000-7000-8000-000000000000", files: [{ target: "config.yml", contentHash: "a".repeat(64) }] },
     invalid: { operationId: "018f0000-0000-7000-8000-000000000000", files: [{ target: "config.yml" }] }
   }
 };
@@ -1525,10 +1692,12 @@ git commit -m "Add two-process concurrency tests for live and abandoned-lock rec
 - Test: `runtime/src/lib/tests/journal.test.mjs`
 
 **Interfaces:**
-- Consumes: `contentHash`, `canonicalize` from Task 2; `generateUuidV7` from Task 1; `confineUnder` from Task 3.
+- Consumes: `contentHash`, `canonicalize` from Task 2; `confineUnder` from Task 3; `validate` (schema facade) from Task 8.
 - Produces: `class RecoveryRequiredError extends Error`, `buildExpectedEvent(fields): { eventId, relativePath, contentHash, document }`, `writeEventIdempotent(eventsRoot: string, expectedEvent): "CREATED" | "ALREADY_APPLIED"`.
 
-`writeEventIdempotent` confines `relativePath` under `eventsRoot` and recomputes the event's content hash from its own `document` before ever touching disk — it does not trust a pre-computed `contentHash` at face value (see Revision 2 note 9). It also creates `eventsRoot` itself first if it doesn't exist yet — `confineUnder` calls `realpathSync` on its root argument, which throws if that root is absent, and `.planning/events/` legitimately doesn't exist before the very first event a fresh workspace ever writes (Revision 3 note 6).
+`writeEventIdempotent` confines `relativePath` under `eventsRoot` and recomputes the event's content hash from its own `document` before ever touching disk — it does not trust a pre-computed `contentHash` at face value (see Revision 2 note 9). It also creates `eventsRoot` itself first if it doesn't exist yet — `confineUnder` calls `realpathSync` on its root argument, which throws if that root is absent, and `.planning/events/` legitimately doesn't exist before the very first event a fresh workspace ever writes (Revision 3 note 6). It also validates `document` against `event.schema.json` before writing anything (Revision 4 note 5) — a schema-invalid document is an internal-consistency bug, never something to write to disk and sort out later.
+
+`buildExpectedEvent` **no longer generates `eventId` itself** — it now requires it as an input field (Revision 4 note 2). The event ID an operation will use is reserved once, at `propose` time (Task 15), long before `buildExpectedEvent` ever runs (which only happens during `apply`, Task 17) — `journal.mjs` no longer imports `generateUuidV7` at all.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1543,7 +1712,9 @@ import { PathConfinementError } from "../paths.mjs";
 import { buildExpectedEvent, writeEventIdempotent, RecoveryRequiredError } from "../journal.mjs";
 
 const operationId = generateUuidV7();
+const eventId = generateUuidV7();
 const expected = buildExpectedEvent({
+  eventId,
   type: "workspace.initialized",
   aggregate: { type: "workspace", id: operationId },
   actor: "carlos",
@@ -1553,10 +1724,11 @@ const expected = buildExpectedEvent({
   occurredAt: "2026-07-24T00:00:00.000Z"
 });
 
-assert.ok(expected.eventId);
+assert.equal(expected.eventId, eventId, "buildExpectedEvent must use the reserved eventId it was given, never mint its own");
 assert.match(expected.relativePath, /^\d{4}\/\d{2}\/[0-9a-f-]+\.json$/);
 assert.ok(expected.contentHash);
 assert.equal(expected.document.type, "workspace.initialized");
+assert.equal(expected.document.eventId, eventId);
 assert.equal(expected.document.occurredAt, "2026-07-24T00:00:00.000Z", "occurredAt must be fixed, never recomputed at write time");
 
 const eventsRoot = fs.mkdtempSync(path.join(os.tmpdir(), "journal-"));
@@ -1579,11 +1751,17 @@ assert.throws(() => writeEventIdempotent(eventsRoot, inconsistent), /contentHash
 const escaping = { ...expected, relativePath: "../../../etc/passwd" };
 assert.throws(() => writeEventIdempotent(eventsRoot, escaping), PathConfinementError);
 
+// a schema-invalid document (missing a required field) must never be written
+const schemaInvalid = { ...expected, relativePath: "2026/07/schema-invalid.json", document: { ...expected.document, actor: undefined } };
+assert.throws(() => writeEventIdempotent(eventsRoot, schemaInvalid), /event/i);
+assert.equal(fs.existsSync(path.join(eventsRoot, "2026", "07", "schema-invalid.json")), false, "a schema-invalid event must never reach disk");
+
 // eventsRoot itself may not exist yet -- true for a fresh workspace's very
 // first event -- writeEventIdempotent must create it, not throw on a missing root
 const freshEventsRoot = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "journal-fresh-")), "events");
 assert.equal(fs.existsSync(freshEventsRoot), false);
 const secondExpected = buildExpectedEvent({
+  eventId: generateUuidV7(),
   type: "workspace.initialized", aggregate: { type: "workspace", id: operationId }, actor: "carlos",
   operationId, idempotencyKey: "k2", payload: {}, occurredAt: "2026-07-24T00:00:00.000Z"
 });
@@ -1603,9 +1781,9 @@ Expected: FAIL — `Cannot find module '../journal.mjs'`
 // runtime/src/lib/journal.mjs
 import fs from "node:fs";
 import path from "node:path";
-import { generateUuidV7 } from "./ids.mjs";
 import { canonicalize, contentHash } from "./canonical.mjs";
 import { confineUnder } from "./paths.mjs";
+import { validate } from "./schema.mjs";
 
 export class RecoveryRequiredError extends Error {}
 
@@ -1613,8 +1791,7 @@ function serializeEvent(document) {
   return `${JSON.stringify(canonicalize(document), null, 2)}\n`;
 }
 
-export function buildExpectedEvent({ type, aggregate, actor, operationId, idempotencyKey, payload, inputHash = null, outputHash = null, occurredAt = new Date().toISOString(), schemaVersion = 1 }) {
-  const eventId = generateUuidV7();
+export function buildExpectedEvent({ eventId, type, aggregate, actor, operationId, idempotencyKey, payload, inputHash = null, outputHash = null, occurredAt = new Date().toISOString(), schemaVersion = 1 }) {
   const document = {
     eventId,
     schemaVersion,
@@ -1640,6 +1817,11 @@ export function buildExpectedEvent({ type, aggregate, actor, operationId, idempo
 }
 
 export function writeEventIdempotent(eventsRoot, expectedEvent) {
+  const schemaResult = validate("event", expectedEvent.document);
+  if (!schemaResult.valid) {
+    throw new Error(`event document is schema-invalid: ${schemaResult.errors.map((e) => `${e.path} ${e.message}`).join("; ")}`);
+  }
+
   fs.mkdirSync(eventsRoot, { recursive: true }); // may be the first event this workspace has ever written
   const confinedPath = confineUnder(eventsRoot, expectedEvent.relativePath);
 
@@ -1819,7 +2001,7 @@ git commit -m "Add atomic operation record I/O, rejecting non-UUIDv7 ids before 
 - Test: `runtime/src/lib/tests/faultInjection.test.mjs`
 
 **Interfaces:**
-- Consumes: `acquireWorkspaceLock` (Task 9); `RecoveryRequiredError` (Task 11).
+- Consumes: `acquireWorkspaceLock` (Task 9); `RecoveryRequiredError` (Task 11); `assertTrustedRoots` (Task 3).
 - Produces: `withWorkspaceMutation({ planningRoot, operationsRoot, operationId? }, callback): any` (acquires the lock, runs recovery, **aborts before the callback if recovery found an unresolved conflict**, runs `callback()`, releases the lock in `finally`, returns whatever `callback()` returns), `recoverWorkspace({ planningRoot, operationsRoot }): Array<{operationId, outcome}>` (a convenience entry point that acquires the lock, runs recovery standalone, and releases — used directly by tests and by any command that wants to force a recovery pass without performing a mutation of its own; unlike `withWorkspaceMutation`, this one never throws on a conflict — it just reports it, since its whole purpose is inspection). Also: `setFaultCheckpoint(name: string): void`, `clearFaultCheckpoint(): void`, `checkpoint(name: string): void`, `class SimulatedCrashError extends Error`. And, from `recovery.mjs`: `runRecovery({ operationsRoot, planningRoot, lock }): Array<{operationId, outcome}>`.
 
 This task exists so that Tasks 15–18 (propose/validate/approve/apply) can all route through the exact same lock-then-recovery ordering rather than each reimplementing it. `runRecovery` requires a held lock as a parameter and throws if called without one — this is genuinely correct and complete *for what exists so far* (nothing can reach the `APPLYING` state before Task 17, so "nothing to recover" is the only correct answer right now, not a stand-in for one). Task 19 adds the classification logic needed once `APPLYING` operations can actually exist.
@@ -1862,6 +2044,7 @@ import path from "node:path";
 import { withWorkspaceMutation, recoverWorkspace } from "../mutation.mjs";
 import { runRecovery } from "../recovery.mjs";
 import { acquireWorkspaceLock } from "../lock.mjs";
+import { PathConfinementError } from "../paths.mjs";
 
 const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "mutation-"));
 const operationsRoot = path.join(planningRoot, "operations");
@@ -1886,6 +2069,15 @@ assert.throws(() => runRecovery({ operationsRoot, planningRoot, lock: null }), /
 const lock = acquireWorkspaceLock(planningRoot, null);
 assert.deepEqual(runRecovery({ operationsRoot, planningRoot, lock }), []);
 lock.release();
+
+// a .planning that's a symlink must block withWorkspaceMutation/recoverWorkspace
+// before the lock is even attempted (Revision 4 note 7)
+const untrustedWorkspace = fs.mkdtempSync(path.join(os.tmpdir(), "mutation-untrusted-"));
+const untrustedPlanningRoot = path.join(untrustedWorkspace, ".planning");
+const outsideTarget = fs.mkdtempSync(path.join(os.tmpdir(), "mutation-untrusted-outside-"));
+fs.symlinkSync(outsideTarget, untrustedPlanningRoot);
+assert.throws(() => withWorkspaceMutation({ planningRoot: untrustedPlanningRoot, operationsRoot: path.join(untrustedPlanningRoot, "operations"), operationId: null }, () => "should never run"), PathConfinementError);
+assert.throws(() => recoverWorkspace({ planningRoot: untrustedPlanningRoot, operationsRoot: path.join(untrustedPlanningRoot, "operations") }), PathConfinementError);
 
 console.log("mutation: all tests passed");
 ```
@@ -1952,8 +2144,10 @@ export function runRecovery({ operationsRoot, planningRoot, lock }) {
 import { acquireWorkspaceLock } from "./lock.mjs";
 import { runRecovery } from "./recovery.mjs";
 import { RecoveryRequiredError } from "./journal.mjs";
+import { assertTrustedRoots } from "./paths.mjs";
 
 export function withWorkspaceMutation({ planningRoot, operationsRoot, operationId = null }, callback) {
+  assertTrustedRoots(planningRoot);
   const lock = acquireWorkspaceLock(planningRoot, operationId);
   try {
     const outcomes = runRecovery({ operationsRoot, planningRoot, lock });
@@ -1968,6 +2162,7 @@ export function withWorkspaceMutation({ planningRoot, operationsRoot, operationI
 }
 
 export function recoverWorkspace({ planningRoot, operationsRoot }) {
+  assertTrustedRoots(planningRoot);
   const lock = acquireWorkspaceLock(planningRoot, null);
   try {
     return runRecovery({ operationsRoot, planningRoot, lock });
@@ -2129,9 +2324,11 @@ git commit -m "Add pure, in-memory renderers; scope id is consumed from payload,
 
 **Interfaces:**
 - Consumes: `generateUuidV7` (Task 1); `revisionHash`, `contentHash`, `ABSENT`, `canonicalize`, `canonicalJson` (Task 2); `confineRuntimePath` (Task 3); `parseYaml` (Task 4); `withWorkspaceMutation` (Task 13); `writeOperation`, `writeChangeSet`, `operationDir` (Task 12).
-- Produces: `propose({ operationsRoot, planningRoot, kind, target, payload, targetFiles, actor }): string` (returns the new `operationId`; also exports the internal `readFileState`/`computePersistedChangeSetHash` helpers for reuse by Tasks 16-18). Every mutation this function performs happens inside `withWorkspaceMutation`, so a `propose` call also triggers a recovery sweep of any other operation stuck `APPLYING` before it does its own work.
+- Produces: `propose({ operationsRoot, planningRoot, kind, target, payload, targetFiles, actor }): string` (returns the new `operationId`; also exports the internal `readFileState`/`computePersistedChangeSetHash`/`eventTypeFor` helpers for reuse by Tasks 16-18). Every mutation this function performs happens inside `withWorkspaceMutation`, so a `propose` call also triggers a recovery sweep of any other operation stuck `APPLYING` before it does its own work.
 
 `computePersistedChangeSetHash(changeSet)` takes the **whole** change-set object (`hash` field present or not — it's stripped internally before hashing) so the exact same function can compute the hash at propose time (before `hash` is ever added) and *recompute* it later at validate/approve/apply time (reading back a persisted `change-set.json` that already has a `hash` field) to detect tampering (Revision 3 note 2) — there is deliberately only one hashing function, not a pair that could drift apart.
+
+`propose` also **reserves the UUIDv7 for the event this operation will eventually emit**, persisting it in `operation.reservedEvents` right away (Revision 4 note 2). `buildExpectedEvent` (Task 11, called much later during `apply`) consumes this reserved ID rather than minting a new one — the event ID an operation ends up using is fixed the moment the operation is proposed, immutable from then on, exactly like the operation ID itself.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2143,6 +2340,7 @@ import os from "node:os";
 import path from "node:path";
 import { propose, computePersistedChangeSetHash } from "../changeset.mjs";
 import { readOperation, readChangeSet } from "../operationStore.mjs";
+import { isUuidV7 } from "../ids.mjs";
 
 const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "propose-"));
 const operationsRoot = path.join(planningRoot, "operations");
@@ -2162,6 +2360,10 @@ assert.equal(operation.status, "PROPOSED");
 assert.equal(operation.proposedBy, "carlos");
 assert.equal(operation.history.length, 1);
 assert.equal(operation.history[0].to, "PROPOSED");
+
+assert.equal(operation.reservedEvents.length, 1, "propose must reserve exactly one event id for this Corte 0 operation");
+assert.ok(isUuidV7(operation.reservedEvents[0].eventId), "the reserved event id must already be a real UUIDv7");
+assert.equal(operation.reservedEvents[0].type, "workspace.initialized");
 
 const changeSet = readChangeSet(operationsRoot, operationId);
 assert.equal(changeSet.operationId, operationId);
@@ -2211,6 +2413,10 @@ export function computePersistedChangeSetHash(changeSet) {
   return revisionHash(withoutHash);
 }
 
+export function eventTypeFor(kind) {
+  return { "workspace.init": "workspace.initialized", "config.update": "config.updated", "scope.add": "scope.added" }[kind];
+}
+
 export function propose({ operationsRoot, planningRoot, kind, target, payload, targetFiles, actor }) {
   return withWorkspaceMutation({ planningRoot, operationsRoot, operationId: null }, () => {
     const operationId = generateUuidV7();
@@ -2224,6 +2430,10 @@ export function propose({ operationsRoot, planningRoot, kind, target, payload, t
     const hash = computePersistedChangeSetHash(changeSetWithoutHash);
     writeChangeSet(operationsRoot, operationId, { ...changeSetWithoutHash, hash });
 
+    // Corte 0 operations always emit exactly one event; its id is reserved
+    // now and never regenerated (Revision 4 note 2)
+    const reservedEvents = [{ eventId: generateUuidV7(), type: eventTypeFor(kind) }];
+
     const proposedAt = new Date().toISOString();
     writeOperation(operationsRoot, operationId, {
       id: operationId,
@@ -2231,7 +2441,8 @@ export function propose({ operationsRoot, planningRoot, kind, target, payload, t
       status: "PROPOSED",
       proposedBy: actor,
       proposedAt,
-      validation: { validatedAt: null, errors: [] },
+      reservedEvents,
+      validation: { validatedAt: null, changeSetHash: null, errors: [] },
       approval: { actor: null, approvedAt: null, changeSetHash: null, selfApproval: null },
       history: [{ at: proposedAt, from: null, to: "PROPOSED", actor, reason: null }]
     });
@@ -2265,9 +2476,9 @@ git commit -m "Add ChangeSet propose: computes baseRevisions and changeSetHash, 
 - Consumes: `validate` (schema facade, Task 8) — imported as `validateSchema` to avoid a name clash with this task's own `validateOperation` export; `readFileState`, `computePersistedChangeSetHash` (Task 15); `withWorkspaceMutation` (Task 13); `StateError`, `StaleError` (Task 5).
 - Produces (added to `changeset.mjs`): a shared internal `revalidateChangeSet({ operationsRoot, planningRoot, operationId, render })` (Revision 3 note 3 — the one place all of the change-set/staleness/rendered-document checks live, reused unchanged by Task 17's `prepareApply`), `validateOperation({ operationsRoot, planningRoot, operationId, render }): void` (mutates `operation.yml` status to `VALIDATED`/`INVALID`/`STALE`, only legal from `PROPOSED`), `approveOperation({ operationsRoot, planningRoot, operationId, actor, allowSelfApproval }): void` (mutates status to `APPROVED`, only legal from `VALIDATED`).
 
-`revalidateChangeSet`'s flow (Revision 2 note 1, Revision 3 notes 1-3): (1) recompute `changeSetHash` from the persisted `change-set.json` and compare against its own `hash` field — a mismatch means the file was tampered with or corrupted, checked **before** anything else, since nothing downstream can be trusted otherwise (Revision 3 note 2); (2) validate `change-set.json` against `change-set.schema.json` — this already enforces the right payload shape per `kind` via the schema's `if`/`then`; (3) check kind-specific structural invariants that JSON Schema can't express because they reference a dynamic path built from `payload.id` — right now just one: a `scope.add`'s new `scopes/<id>/scope.yml` must have been recorded as `ABSENT` in `baseRevisions` at propose time, never something else, even if that "something else" happens to look plausible (Revision 3 note 1); (4) check `baseRevisions` staleness; (5) call `render(payload)` **in memory only** (no disk writes) and validate every rendered document against its real schema (`config.yml` → `config`, `plugin.lock.yml` → `plugin-lock`, `scopes/<id>/scope.yml` → `scope`; `.gitignore` has no schema and is skipped). `render` is a closure the caller (Task 22) already bound to the right kind and current config — this function itself never imports `renderers.mjs` or reads `config.yml`, keeping it domain-agnostic exactly like `applyOperation` will (Tasks 17-18).
+`revalidateChangeSet`'s flow (Revision 2 note 1, Revision 3 notes 1-3, Revision 4 notes 3 and 5): (0) verify `changeSet.operationId` matches the `operationId` this function was called with — a relational invariant JSON Schema can't express, since it's not about one document's internal shape but about two documents agreeing (Revision 4 note 5); (1) recompute `changeSetHash` from the persisted `change-set.json` and compare against its own `hash` field — a mismatch means the file was tampered with or corrupted (Revision 3 note 2); (2) validate `change-set.json` against `change-set.schema.json`; (3) check kind-specific structural invariants JSON Schema can't express because they reference a dynamic path built from `payload.id`, or because they require comparing against `ABSENT` specifically: a `scope.add`'s new `scopes/<id>/scope.yml` must be `ABSENT` in `baseRevisions` (Revision 3 note 1), and a `workspace.init`'s `config.yml`/`plugin.lock.yml`/`.gitignore` must **all** be `ABSENT` too — `init` can never be used to reset an already-initialized workspace; `config set` exists for that (Revision 4 note 3); (4) render `payload` **in memory only** (no disk writes); (5) require the rendered file set to be **exactly** `Object.keys(changeSet.baseRevisions)` — no more, no less, no silent "assume `ABSENT` for whatever's missing" (Revision 4 note 3); (6) check `baseRevisions` staleness against the current file system; (7) validate every rendered document against its real schema (`config.yml` → `config`, `plugin.lock.yml` → `plugin-lock`, `scopes/<id>/scope.yml` → `scope`; `.gitignore` has no schema and is skipped). `render` is a closure the caller (Task 22) already bound to the right kind and current config — this function itself never imports `renderers.mjs` or reads `config.yml`, keeping it domain-agnostic exactly like `applyOperation` will (Tasks 17-18).
 
-`approveOperation` recomputes the hash again and requires it to match **both** `changeSet.hash` and the `changeSetHash` `validateOperation` persisted — if the change-set was edited after validate (even if whoever edited it dutifully updated `hash` to stay internally consistent), that mismatch is caught and approval is refused with a `StaleError` (Revision 3 note 2).
+`approveOperation` recomputes the hash again and requires it to match **both** `changeSet.hash` and the `changeSetHash` `validateOperation` persisted — if the change-set was edited after validate (even if whoever edited it dutifully updated `hash` to stay internally consistent), the operation is durably transitioned to `STALE` (never left stuck as `VALIDATED`, which per the transition guards below could never be re-validated or approved again) before `approveOperation` throws `StaleError` (Revision 3 note 2, Revision 4 note 4). This reuses the same `transitionToStale` helper `apply` (Task 17) uses.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2369,6 +2580,94 @@ function proposeWorkspaceInit(planningRoot, operationsRoot) {
   assert.equal(readOperation(operationsRoot, operationId).status, "STALE");
 }
 
+// workspace.init requires config.yml, plugin.lock.yml, AND .gitignore to all
+// be ABSENT at propose time -- init must never be usable to reset an
+// already-initialized workspace (config set exists for that)
+{
+  const { planningRoot, operationsRoot } = freshPlanningRoot();
+  fs.writeFileSync(path.join(planningRoot, "config.yml"), "schemaVersion: 1\nname: existing\nvcs: git\nbaseBranch: null\nscopeRefs: []\n");
+  fs.writeFileSync(path.join(planningRoot, "plugin.lock.yml"), `schemaVersion: 1\npluginVersion: 1.0.0\ntemplatePackFingerprint: sha256:${"a".repeat(64)}\n`);
+  fs.writeFileSync(path.join(planningRoot, ".gitignore"), ".runtime/\n");
+
+  const operationId = proposeWorkspaceInit(planningRoot, operationsRoot);
+  validateOperation({ operationsRoot, planningRoot, operationId, render: renderWorkspaceInit });
+  const op = readOperation(operationsRoot, operationId);
+  assert.equal(op.status, "INVALID");
+  assert.ok(op.validation.errors.some((e) => e.toLowerCase().includes("absent")), "a second workspace.init against an already-initialized workspace must be rejected");
+}
+
+// baseRevisions must exactly match the rendered file set: removing an entry (workspace.init)
+{
+  const { planningRoot, operationsRoot } = freshPlanningRoot();
+  const operationId = proposeWorkspaceInit(planningRoot, operationsRoot);
+  const changeSetPath = path.join(operationsRoot, operationId, "change-set.json");
+  const changeSet = JSON.parse(fs.readFileSync(changeSetPath, "utf8"));
+  delete changeSet.baseRevisions["plugin.lock.yml"];
+  changeSet.hash = computePersistedChangeSetHash(changeSet);
+  fs.writeFileSync(changeSetPath, JSON.stringify(changeSet, null, 2));
+
+  validateOperation({ operationsRoot, planningRoot, operationId, render: renderWorkspaceInit });
+  const op = readOperation(operationsRoot, operationId);
+  assert.equal(op.status, "INVALID");
+  assert.ok(op.validation.errors.some((e) => e.includes("plugin.lock.yml")));
+}
+
+// baseRevisions must exactly match the rendered file set: removing an entry (scope.add)
+{
+  const { planningRoot, operationsRoot } = freshPlanningRoot();
+  const scopeId = "018f0000-0000-7000-8000-000000000003";
+  const operationId = propose({
+    operationsRoot, planningRoot, kind: "scope.add", target: { scopeId }, actor: "carlos",
+    payload: { id: scopeId, key: "backend", label: "Backend", kind: "code", path: "api/", owner: null },
+    targetFiles: ["config.yml", `scopes/${scopeId}/scope.yml`]
+  });
+  const changeSetPath = path.join(operationsRoot, operationId, "change-set.json");
+  const changeSet = JSON.parse(fs.readFileSync(changeSetPath, "utf8"));
+  delete changeSet.baseRevisions["config.yml"];
+  changeSet.hash = computePersistedChangeSetHash(changeSet);
+  fs.writeFileSync(changeSetPath, JSON.stringify(changeSet, null, 2));
+
+  const currentConfig = { schemaVersion: 1, name: "demo", baseBranch: null, vcs: "git", scopeRefs: [] };
+  const render = (payload) => renderScopeAdd(payload, currentConfig, path.dirname(planningRoot));
+  validateOperation({ operationsRoot, planningRoot, operationId, render });
+  const op = readOperation(operationsRoot, operationId);
+  assert.equal(op.status, "INVALID");
+  assert.ok(op.validation.errors.some((e) => e.includes("config.yml")));
+}
+
+// baseRevisions must exactly match the rendered file set: an extra, unrendered path
+{
+  const { planningRoot, operationsRoot } = freshPlanningRoot();
+  const operationId = proposeWorkspaceInit(planningRoot, operationsRoot);
+  const changeSetPath = path.join(operationsRoot, operationId, "change-set.json");
+  const changeSet = JSON.parse(fs.readFileSync(changeSetPath, "utf8"));
+  changeSet.baseRevisions["unrelated-extra-file.yml"] = { revisionHash: "ABSENT", contentHash: "ABSENT" };
+  changeSet.hash = computePersistedChangeSetHash(changeSet);
+  fs.writeFileSync(changeSetPath, JSON.stringify(changeSet, null, 2));
+
+  validateOperation({ operationsRoot, planningRoot, operationId, render: renderWorkspaceInit });
+  const op = readOperation(operationsRoot, operationId);
+  assert.equal(op.status, "INVALID");
+  assert.ok(op.validation.errors.some((e) => e.includes("unrelated-extra-file.yml")));
+}
+
+// relational invariant: change-set.json's operationId must match the
+// operation directory it lives in
+{
+  const { planningRoot, operationsRoot } = freshPlanningRoot();
+  const operationId = proposeWorkspaceInit(planningRoot, operationsRoot);
+  const changeSetPath = path.join(operationsRoot, operationId, "change-set.json");
+  const changeSet = JSON.parse(fs.readFileSync(changeSetPath, "utf8"));
+  changeSet.operationId = "018f0000-0000-7000-8000-0000000000ff";
+  changeSet.hash = computePersistedChangeSetHash(changeSet);
+  fs.writeFileSync(changeSetPath, JSON.stringify(changeSet, null, 2));
+
+  validateOperation({ operationsRoot, planningRoot, operationId, render: renderWorkspaceInit });
+  const op = readOperation(operationsRoot, operationId);
+  assert.equal(op.status, "INVALID");
+  assert.ok(op.validation.errors.some((e) => e.includes("operationId")));
+}
+
 // tampering: payload changed without updating hash -> the hash recompute at
 // the very start of validate must catch it
 {
@@ -2401,6 +2700,9 @@ function proposeWorkspaceInit(planningRoot, operationsRoot) {
   fs.writeFileSync(changeSetPath, JSON.stringify(changeSet, null, 2));
 
   assert.throws(() => approveOperation({ operationsRoot, planningRoot, operationId, actor: "carlos", allowSelfApproval: true }), StaleError, "a change-set edited after validate must never be approvable, even if it's internally self-consistent");
+  const staleOp = readOperation(operationsRoot, operationId);
+  assert.equal(staleOp.status, "STALE", "the operation must be durably marked STALE, never left stuck as VALIDATED");
+  assert.equal(staleOp.history.at(-1).actor, "system:validator");
 }
 
 // approve requires VALIDATED, rejects self-approval unless explicit
@@ -2459,6 +2761,14 @@ function schemaNameForRenderedPath(relativePath) {
 
 function checkKindInvariants(changeSet) {
   const errors = [];
+  if (changeSet.kind === "workspace.init") {
+    for (const relativePath of ["config.yml", "plugin.lock.yml", ".gitignore"]) {
+      const entry = changeSet.baseRevisions[relativePath];
+      if (!entry || entry.revisionHash !== ABSENT || entry.contentHash !== ABSENT) {
+        errors.push(`${relativePath} must be ABSENT for workspace.init; the workspace already appears initialized -- use config set to update it instead`);
+      }
+    }
+  }
   if (changeSet.kind === "scope.add") {
     const scopePath = `scopes/${changeSet.payload.id}/scope.yml`;
     const entry = changeSet.baseRevisions[scopePath];
@@ -2471,8 +2781,14 @@ function checkKindInvariants(changeSet) {
 
 function revalidateChangeSet({ operationsRoot, planningRoot, operationId, render }) {
   const changeSet = readChangeSet(operationsRoot, operationId);
-  const recomputedHash = computePersistedChangeSetHash(changeSet);
 
+  // relational invariant JSON Schema can't express: the change-set must
+  // agree with the operation directory it's persisted under
+  if (changeSet.operationId !== operationId) {
+    return { ok: false, status: "INVALID", errors: [`change-set.json operationId ${changeSet.operationId} does not match operation ${operationId}`], recomputedHash: null };
+  }
+
+  const recomputedHash = computePersistedChangeSetHash(changeSet);
   if (recomputedHash !== changeSet.hash) {
     return { ok: false, status: "INVALID", errors: ["change-set.json hash does not match its own recomputed content; the file has been tampered with or corrupted"], recomputedHash };
   }
@@ -2487,6 +2803,31 @@ function revalidateChangeSet({ operationsRoot, planningRoot, operationId, render
     return { ok: false, status: "INVALID", errors: invariantErrors, recomputedHash };
   }
 
+  // render in-memory first -- both the exact-match check below and the
+  // per-document schema validation need it
+  let rendered;
+  try {
+    rendered = render(changeSet.payload);
+  } catch (error) {
+    return { ok: false, status: "INVALID", errors: [error.message], recomputedHash };
+  }
+
+  // baseRevisions must be exactly the set of files this render touches --
+  // no more, no less. There is no safe fallback for a path that's missing
+  // from baseRevisions; "assume ABSENT" would let a renamed/added target
+  // slip past staleness checking entirely (Revision 4 note 3).
+  const renderedPaths = new Set(rendered.keys());
+  const baseRevisionPaths = new Set(Object.keys(changeSet.baseRevisions));
+  const missingFromBaseRevisions = [...renderedPaths].filter((p) => !baseRevisionPaths.has(p));
+  const extraInBaseRevisions = [...baseRevisionPaths].filter((p) => !renderedPaths.has(p));
+  if (missingFromBaseRevisions.length > 0 || extraInBaseRevisions.length > 0) {
+    return {
+      ok: false, status: "INVALID",
+      errors: [`baseRevisions must exactly match the rendered file set; missing=${JSON.stringify(missingFromBaseRevisions)} extra=${JSON.stringify(extraInBaseRevisions)}`],
+      recomputedHash
+    };
+  }
+
   for (const [relativePath, expected] of Object.entries(changeSet.baseRevisions)) {
     const actual = readFileState(planningRoot, relativePath);
     if (actual.revisionHash !== expected.revisionHash || actual.contentHash !== expected.contentHash) {
@@ -2495,21 +2836,13 @@ function revalidateChangeSet({ operationsRoot, planningRoot, operationId, render
   }
 
   const renderErrors = [];
-  let rendered = null;
-  try {
-    rendered = render(changeSet.payload);
-  } catch (error) {
-    renderErrors.push(error.message);
-  }
-  if (rendered) {
-    for (const [relativePath, content] of rendered) {
-      const schemaName = schemaNameForRenderedPath(relativePath);
-      if (!schemaName) continue;
-      const value = parseYaml(content);
-      const result = validateSchema(schemaName, value);
-      if (!result.valid) {
-        for (const error of result.errors) renderErrors.push(`${relativePath}${error.path}: ${error.message}`);
-      }
+  for (const [relativePath, content] of rendered) {
+    const schemaName = schemaNameForRenderedPath(relativePath);
+    if (!schemaName) continue;
+    const value = parseYaml(content);
+    const result = validateSchema(schemaName, value);
+    if (!result.valid) {
+      for (const error of result.errors) renderErrors.push(`${relativePath}${error.path}: ${error.message}`);
     }
   }
   if (renderErrors.length > 0) {
@@ -2517,6 +2850,15 @@ function revalidateChangeSet({ operationsRoot, planningRoot, operationId, render
   }
 
   return { ok: true, recomputedHash, changeSet, rendered };
+}
+
+function transitionToStale(operationsRoot, operationId, operation, reason) {
+  const staleAt = new Date().toISOString();
+  writeOperation(operationsRoot, operationId, {
+    ...operation, status: "STALE",
+    history: [...operation.history, { at: staleAt, from: operation.status, to: "STALE", actor: "system:validator", reason }]
+  });
+  throw new StaleError(reason);
 }
 
 export function validateOperation({ operationsRoot, planningRoot, operationId, render }) {
@@ -2556,7 +2898,7 @@ export function approveOperation({ operationsRoot, planningRoot, operationId, ac
     const changeSet = readChangeSet(operationsRoot, operationId);
     const recomputedHash = computePersistedChangeSetHash(changeSet);
     if (recomputedHash !== changeSet.hash || recomputedHash !== operation.validation.changeSetHash) {
-      throw new StaleError("change-set.json changed since validate; propose and validate again before approving");
+      transitionToStale(operationsRoot, operationId, operation, "change-set.json changed since validate; propose and validate again before approving");
     }
 
     const selfApproval = actor === operation.proposedBy;
@@ -2600,7 +2942,11 @@ git commit -m "Add shared revalidateChangeSet, hash-tamper detection, scope.add 
 
 `prepareApply` **does not acquire the workspace lock itself** — by the time it runs, `applyOperation`'s `withWorkspaceMutation` wrapper (Task 18) already holds it. This task's test acquires the lock manually (simulating what `applyOperation` will do) so `prepareApply` can be exercised on its own.
 
-Step 1's revalidation calls the **exact same** `revalidateChangeSet` function `validateOperation` uses (Revision 3 note 3 — one set of rules, not two that could drift apart), then additionally requires the recomputed hash to match `changeSet.hash`, `operation.validation.changeSetHash`, **and** `operation.approval.changeSetHash` all at once (Revision 3 note 2) — this is what catches a change-set edited after approval, even one an editor took care to keep internally hash-consistent. Any revalidation failure at this point — whether `revalidateChangeSet` itself said `INVALID` or `STALE`, or the three-way hash check failed — is treated uniformly as `STALE`: operationally, "something changed since approval" is the accurate diagnosis either way, and the fix is the same (re-propose, re-validate, re-approve). `prepareApply` reuses the `rendered` documents `revalidateChangeSet` already computed rather than calling `render()` a second time.
+Step 1's revalidation calls the **exact same** `revalidateChangeSet` function `validateOperation` uses (Revision 3 note 3 — one set of rules, not two that could drift apart), then additionally requires the recomputed hash to match `changeSet.hash`, `operation.validation.changeSetHash`, **and** `operation.approval.changeSetHash` all at once (Revision 3 note 2) — this is what catches a change-set edited after approval, even one an editor took care to keep internally hash-consistent. Any revalidation failure at this point — whether `revalidateChangeSet` itself said `INVALID` or `STALE`, or the three-way hash check failed — is treated uniformly as `STALE`: operationally, "something changed since approval" is the accurate diagnosis either way, and the fix is the same (re-propose, re-validate, re-approve). `prepareApply` reuses the `rendered` documents `revalidateChangeSet` already computed rather than calling `render()` a second time, and reuses `transitionToStale`/`eventTypeFor` from Task 16/15 rather than redefining them.
+
+Because `revalidateChangeSet` already enforces that `changeSet.baseRevisions` contains *exactly* the rendered file set (Task 16, Revision 4 note 3), the loop below that builds `filePlan` can read `changeSet.baseRevisions[relativePath]` directly — there is no `|| { revisionHash: ABSENT, contentHash: ABSENT }` fallback, because there is nothing left for it to safely paper over.
+
+`buildExpectedEvent` is called with the **reserved** `eventId` and `type` from `operation.reservedEvents[0]` (Revision 4 note 2) — Corte 0 operations always reserve exactly one event, computed once by `eventTypeFor` at `propose` time (Task 15), so `prepareApply` never calls `eventTypeFor` or mints a new event ID itself; it only reads what was already reserved.
 
 Four of the ten fault-injection checkpoints from Revision 2 note 8 live in this task: `AFTER_BEFORE`, `AFTER_STAGED`, `AFTER_MANIFEST`, `AFTER_APPLYING`.
 
@@ -2682,22 +3028,9 @@ Expected: FAIL — `__prepareApplyForTests is not a function`
 
 - [ ] **Step 3: Add steps 1–6 to `changeset.mjs`**
 
-Add these imports (alongside existing ones): `import { buildExpectedEvent } from "./journal.mjs"; import { checkpoint } from "./faultInjection.mjs";` (`StaleError` is already imported from Task 16). Then append:
+Add these imports (alongside existing ones): `import { buildExpectedEvent } from "./journal.mjs"; import { checkpoint } from "./faultInjection.mjs";` (`StaleError`/`transitionToStale` are already available from Task 16 — neither is redefined here). Then append:
 
 ```js
-function eventTypeFor(kind) {
-  return { "workspace.init": "workspace.initialized", "config.update": "config.updated", "scope.add": "scope.added" }[kind];
-}
-
-function transitionToStale(operationsRoot, operationId, operation, reason) {
-  const staleAt = new Date().toISOString();
-  writeOperation(operationsRoot, operationId, {
-    ...operation, status: "STALE",
-    history: [...operation.history, { at: staleAt, from: operation.status, to: "STALE", actor: "system:validator", reason }]
-  });
-  throw new StaleError(reason);
-}
-
 function prepareApply({ operationsRoot, planningRoot, operationId, render, actor }) {
   let operation = readOperation(operationsRoot, operationId);
   if (operation.status !== "APPROVED") {
@@ -2725,10 +3058,13 @@ function prepareApply({ operationsRoot, planningRoot, operationId, render, actor
   fs.mkdirSync(beforeDir, { recursive: true });
 
   // step 2 (part 1): snapshot before/ for files that currently exist, and
-  // build the filePlan entries (both content+revision hashes, before and staged)
+  // build the filePlan entries (both content+revision hashes, before and
+  // staged). revalidateChangeSet already guaranteed baseRevisions contains
+  // exactly the rendered file set, so there is no fallback here -- a missing
+  // entry would be a bug in that guarantee, not something to paper over.
   const filePlan = [];
   for (const [relativePath, newContent] of rendered) {
-    const before = changeSet.baseRevisions[relativePath] || { revisionHash: ABSENT, contentHash: ABSENT };
+    const before = changeSet.baseRevisions[relativePath];
     if (before.contentHash !== ABSENT) {
       const currentAbsolute = confineRuntimePath(planningRoot, relativePath);
       const beforePath = confineRuntimePath(beforeDir, relativePath);
@@ -2756,9 +3092,12 @@ function prepareApply({ operationsRoot, planningRoot, operationId, render, actor
   checkpoint("AFTER_STAGED");
 
   // step 3: persist the filePlan + full, immutable expectedEvents documents,
-  // fixed before anything canonical is touched
+  // fixed before anything canonical is touched. The event id is the one
+  // reserved at propose time (operation.reservedEvents), never a fresh one.
+  const reserved = operation.reservedEvents[0];
   const expectedEvents = [buildExpectedEvent({
-    type: eventTypeFor(operation.kind),
+    eventId: reserved.eventId,
+    type: reserved.type,
     aggregate: { type: operation.kind.split(".")[0], id: operationId },
     actor, operationId, idempotencyKey: operationId, payload: changeSet.payload
   })];
@@ -2805,8 +3144,10 @@ git commit -m "Add apply steps 1-6: shared revalidation + three-way hash check, 
 - Test: `runtime/src/lib/tests/changeset-apply.test.mjs`
 
 **Interfaces:**
-- Consumes: `prepareApply` (internal, Task 17); `writeEventIdempotent` (Task 11); `writeResult` (Task 12); `withWorkspaceMutation` (Task 13).
+- Consumes: `prepareApply` (internal, Task 17); `writeEventIdempotent` (Task 11); `writeResult` (Task 12); `withWorkspaceMutation` (Task 13); `validate` (schema facade, Task 8).
 - Produces: `applyOperation({ operationsRoot, planningRoot, operationId, render, actor }): { status: "APPLIED", files: Array<{target, contentHash}> }` — the full public apply entry point. Requires status `APPROVED`; anything else (including `APPLIED` or `APPLYING`) is a `StateError` — a fresh `applyOperation` call is only ever for a not-yet-attempted apply. An operation stuck in `APPLYING` from a prior crashed attempt is resolved by recovery (Task 19), which the `withWorkspaceMutation` wrapper already runs *before* this function's own body executes.
+
+The `result` object is validated against `result.schema.json` before `writeResult` ever writes it (Revision 4 note 5) — a schema-invalid result would be an internal bug, never something to persist and sort out later.
 
 The remaining six fault-injection checkpoints from Revision 2 note 8 live in this task: `AFTER_FIRST_RENAME`, `AFTER_ALL_RENAMES`, `AFTER_RESULT`, `AFTER_FIRST_EVENT`, `AFTER_ALL_EVENTS`, `BEFORE_APPLIED`.
 
@@ -2866,7 +3207,7 @@ Expected: FAIL — `applyOperation is not a function`
 
 - [ ] **Step 3: Add `applyOperation` to `changeset.mjs`**
 
-Add these imports (alongside existing ones): `import { writeEventIdempotent } from "./journal.mjs"; import { writeResult } from "./operationStore.mjs";`. Then append:
+Add these imports (alongside existing ones): `import { writeEventIdempotent } from "./journal.mjs"; import { writeResult } from "./operationStore.mjs";` (`validate` is already imported as `validateSchema` from Task 16). Then append:
 
 ```js
 export function applyOperation({ operationsRoot, planningRoot, operationId, render, actor }) {
@@ -2890,7 +3231,12 @@ export function applyOperation({ operationsRoot, planningRoot, operationId, rend
     }
     checkpoint("AFTER_ALL_RENAMES");
 
-    writeResult(operationsRoot, operationId, { operationId, files });
+    const result = { operationId, files };
+    const resultSchemaCheck = validateSchema("result", result);
+    if (!resultSchemaCheck.valid) {
+      throw new Error(`constructed result is schema-invalid: ${resultSchemaCheck.errors.map((e) => `${e.path} ${e.message}`).join("; ")}`);
+    }
+    writeResult(operationsRoot, operationId, result);
     checkpoint("AFTER_RESULT");
 
     const eventsRoot = path.join(planningRoot, "events");
@@ -2935,10 +3281,12 @@ git commit -m "Add apply steps 7-10: commit files, write events, APPLIED, cleanu
 - Test: `runtime/src/lib/tests/recovery.test.mjs`
 
 **Interfaces:**
-- Consumes: `readOperation`/`writeOperation`/`writeResult`/`readResult` (Task 12); `writeEventIdempotent`, `RecoveryRequiredError` (Task 11); `contentHash`, `ABSENT` (Task 2); `confineRuntimePath`, `confineUnder` (Task 3); `isUuidV7` (Task 1).
+- Consumes: `readOperation`/`writeOperation`/`writeResult`/`readResult` (Task 12); `writeEventIdempotent`, `RecoveryRequiredError` (Task 11); `contentHash`, `ABSENT` (Task 2); `confineRuntimePath`, `confineUnder` (Task 3); `isUuidV7` (Task 1); `validate` (schema facade, Task 8), imported as `validateSchema`.
 - Produces (unchanged signature from Task 13, real implementation now): `runRecovery({ operationsRoot, planningRoot, lock }): Array<{ operationId, outcome: "COMPLETED" | "RECOVERY_REQUIRED" | "CLEANED_UP" | "NOT_APPLICABLE" }>`.
 
-Classification is against the **persisted `filePlan`**, never against whatever happens to still be in `staged/` — `rename()` consumes its source, so a file already committed by a prior (crashed) attempt has nothing left in `staged/` to compare against (Revision 2 note 3). Every path this function touches — the operation directory name itself, `filePlan.target`, `filePlan.stagedRelativePath` — is confined before use (Revision 2 note 9). Because the per-operation `staged/` directory might not exist at all (e.g. it was already fully consumed and cleaned up, or the crash happened before it was ever created), its existence is checked **before** calling `confineUnder` on it, since `confineUnder` calls `realpathSync` on its root and throws if that root is absent (Revision 3 note 6) — a missing `staged/` is treated the same as a missing staged file: unable to safely redo the write, so `RECOVERY_REQUIRED`, never silently skipped. An operation already `APPLIED` with leftover `.runtime/operations/<id>/` staging residue gets that residue cleaned up (Revision 2 note 8). A `result.json` that already exists is compared against what `filePlan` says it should be — a mismatch is `RECOVERY_REQUIRED`, never silently accepted (Revision 3 note 10).
+Classification is against the **persisted `filePlan`**, never against whatever happens to still be in `staged/` — `rename()` consumes its source, so a file already committed by a prior (crashed) attempt has nothing left in `staged/` to compare against (Revision 2 note 3). Every path this function touches — the operation directory name itself, `filePlan.target`, `filePlan.stagedRelativePath` — is confined before use (Revision 2 note 9). Because the per-operation `staged/` directory might not exist at all (e.g. it was already fully consumed and cleaned up, or the crash happened before it was ever created), its existence is checked **before** calling `confineUnder` on it, since `confineUnder` calls `realpathSync` on its root and throws if that root is absent (Revision 3 note 6) — a missing `staged/` is treated the same as a missing staged file: unable to safely redo the write, so `RECOVERY_REQUIRED`, never silently skipped. An operation already `APPLIED` with leftover `.runtime/operations/<id>/` staging residue gets that residue cleaned up (Revision 2 note 8). A `result.json` that already exists is schema-validated and compared against what `filePlan` says it should be — a mismatch is `RECOVERY_REQUIRED`, never silently accepted (Revision 3 note 10, Revision 4 note 5).
+
+Recovery **fails closed** on metadata it can't trust (Revision 4 note 6): an `operation.yml` that's unreadable, unparseable, schema-invalid against `operation.schema.json`, or whose own `id` field doesn't match the directory name it lives in, is never silently skipped and never rewritten (we don't trust it enough to merge new fields into it) — it's reported as a `RECOVERY_REQUIRED` outcome, which `withWorkspaceMutation`'s conflict check (Task 13) turns into a hard block on every subsequent mutation until a human resolves it. Every `expectedEvent` is also checked for internal consistency before recovery trusts it enough to write: `expectedEvent.eventId` must equal `expectedEvent.document.eventId`, `expectedEvent.document.operationId` must equal the operation's own `id`, and `expectedEvent.relativePath` must end with `/<eventId>.json` — these are relational invariants no JSON Schema can express on its own (Revision 4 note 5).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2952,7 +3300,8 @@ import { propose, validateOperation, approveOperation, __prepareApplyForTests } 
 import { acquireWorkspaceLock } from "../lock.mjs";
 import { runRecovery } from "../recovery.mjs";
 import { renderWorkspaceInit } from "../../commands/renderers.mjs";
-import { readOperation } from "../operationStore.mjs";
+import { readOperation, writeOperation } from "../operationStore.mjs";
+import { RecoveryRequiredError } from "../journal.mjs";
 
 function stuckApplyingOperation() {
   const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "recovery-"));
@@ -3055,6 +3404,47 @@ function stuckApplyingOperation() {
   assert.equal(readOperation(operationsRoot, operationId).status, "RECOVERY_REQUIRED");
 }
 
+// a corrupt operation.yml elsewhere in operations/ must block any new
+// mutation, never be silently skipped or rewritten (Revision 4 note 6)
+{
+  const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "recovery-corrupt-"));
+  const operationsRoot = path.join(planningRoot, "operations");
+  const corruptId = "018f0000-0000-7000-8000-000000000005";
+  fs.mkdirSync(path.join(operationsRoot, corruptId), { recursive: true });
+  fs.writeFileSync(path.join(operationsRoot, corruptId, "operation.yml"), "not: [valid, yaml, at all\n");
+
+  assert.throws(
+    () => propose({
+      operationsRoot, planningRoot, kind: "config.update", target: {},
+      payload: { name: "attempted" }, targetFiles: ["config.yml"], actor: "carlos"
+    }),
+    RecoveryRequiredError,
+    "a corrupt operation.yml elsewhere in operations/ must block any new mutation"
+  );
+
+  const remainingDirs = fs.readdirSync(operationsRoot);
+  assert.equal(remainingDirs.length, 1, "no new operation must have been created while blocked");
+  assert.equal(remainingDirs[0], corruptId);
+}
+
+// an operation stuck in APPLYING without a filePlan (schema-invalid for that
+// status per operation.schema.json's per-status invariants) must never reach
+// APPLIED -- flagged RECOVERY_REQUIRED, and left untouched since we don't
+// trust it enough to rewrite (Revision 4 notes 5-6)
+{
+  const { planningRoot, operationsRoot, operationId } = stuckApplyingOperation();
+  const operation = readOperation(operationsRoot, operationId);
+  delete operation.filePlan;
+  delete operation.expectedEvents;
+  writeOperation(operationsRoot, operationId, operation);
+
+  const lock = acquireWorkspaceLock(planningRoot, null);
+  const outcomes = runRecovery({ operationsRoot, planningRoot, lock });
+  lock.release();
+  assert.equal(outcomes.find((o) => o.operationId === operationId).outcome, "RECOVERY_REQUIRED");
+  assert.equal(readOperation(operationsRoot, operationId).status, "APPLYING", "a schema-invalid operation.yml is reported, never rewritten");
+}
+
 console.log("recovery: all tests passed");
 ```
 
@@ -3074,6 +3464,7 @@ import { writeEventIdempotent, RecoveryRequiredError } from "./journal.mjs";
 import { contentHash, ABSENT } from "./canonical.mjs";
 import { confineRuntimePath, confineUnder } from "./paths.mjs";
 import { isUuidV7 } from "./ids.mjs";
+import { validate as validateSchema } from "./schema.mjs";
 
 function currentContentHash(planningRoot, relativePath) {
   const absolutePath = confineRuntimePath(planningRoot, relativePath);
@@ -3110,7 +3501,19 @@ export function runRecovery({ operationsRoot, planningRoot, lock }) {
     let operation;
     try {
       operation = readOperation(operationsRoot, operationId);
-    } catch {
+    } catch (error) {
+      // unreadable/unparseable operation.yml is an integrity problem, not
+      // something to ignore -- report it and never attempt to rewrite a file
+      // we can't trust reading (Revision 4 note 6)
+      outcomes.push({ operationId, outcome: "RECOVERY_REQUIRED" });
+      continue;
+    }
+
+    const operationSchemaCheck = validateSchema("operation", operation);
+    if (!operationSchemaCheck.valid || operation.id !== operationId) {
+      // schema-invalid or self-inconsistent (directory name disagrees with
+      // the recorded id) -- same treatment: report, never rewrite
+      outcomes.push({ operationId, outcome: "RECOVERY_REQUIRED" });
       continue;
     }
 
@@ -3184,9 +3587,10 @@ export function runRecovery({ operationsRoot, planningRoot, lock }) {
       } catch {
         existingResult = null;
       }
-      if (JSON.stringify(existingResult) !== JSON.stringify(expectedResult)) {
+      const existingSchemaOk = existingResult !== null && validateSchema("result", existingResult).valid;
+      if (!existingSchemaOk || JSON.stringify(existingResult) !== JSON.stringify(expectedResult)) {
         markRecoveryRequired(operationsRoot, operationId, operation, {
-          file: "result.json", reason: "result.json exists but does not match the outcome expected from filePlan"
+          file: "result.json", reason: "result.json exists but does not match the outcome expected from filePlan, or is schema-invalid"
         });
         outcomes.push({ operationId, outcome: "RECOVERY_REQUIRED" });
         continue;
@@ -3197,6 +3601,20 @@ export function runRecovery({ operationsRoot, planningRoot, lock }) {
 
     let eventDivergent = false;
     for (const expectedEvent of operation.expectedEvents || []) {
+      // relational invariants no JSON Schema can express on its own
+      // (Revision 4 note 5) -- never trust an expectedEvent enough to write
+      // it if these disagree with each other
+      const relationallyConsistent = expectedEvent.eventId === expectedEvent.document.eventId
+        && expectedEvent.document.operationId === operation.id
+        && expectedEvent.relativePath.endsWith(`/${expectedEvent.eventId}.json`);
+      if (!relationallyConsistent) {
+        markRecoveryRequired(operationsRoot, operationId, operation, {
+          file: expectedEvent.relativePath,
+          reason: "expectedEvent is internally inconsistent (eventId/operationId/relativePath mismatch)"
+        });
+        eventDivergent = true;
+        break;
+      }
       try {
         writeEventIdempotent(path.join(planningRoot, "events"), expectedEvent);
       } catch (error) {
@@ -3308,13 +3726,21 @@ const postApplyingBoundaries = ["AFTER_APPLYING", "AFTER_FIRST_RENAME", "AFTER_A
 
 for (const boundary of preApplyingBoundaries) {
   const { planningRoot, operationsRoot, operationId } = freshApprovedOperation();
+  // captured before any crash -- reserved at propose time, long before this test runs
+  const reservedEventId = readOperation(operationsRoot, operationId).reservedEvents[0].eventId;
   crashAt(boundary, planningRoot, operationsRoot, operationId);
 
   assert.equal(readOperation(operationsRoot, operationId).status, "APPROVED", `${boundary}: status must still be APPROVED, recovery has nothing to do yet`);
 
   const outcome = applyOperation({ operationsRoot, planningRoot, operationId, render: renderWorkspaceInit, actor: "carlos" });
   assert.equal(outcome.status, "APPLIED", `${boundary}: a plain retry must complete normally`);
-  assert.equal(readOperation(operationsRoot, operationId).status, "APPLIED");
+  const finalOperation = readOperation(operationsRoot, operationId);
+  assert.equal(finalOperation.status, "APPLIED");
+  // the whole point of reserving the event id at propose (Revision 4 note 2):
+  // a crash at AFTER_MANIFEST specifically, right where expectedEvents first
+  // gets computed from reservedEvents, must never end up minting a different
+  // id on retry
+  assert.equal(finalOperation.expectedEvents[0].eventId, reservedEventId, `${boundary}: the event id reserved at propose must survive a crash+retry unchanged`);
 }
 
 for (const boundary of postApplyingBoundaries) {
@@ -3548,6 +3974,25 @@ import { writeOperation } from "../../lib/operationStore.mjs";
   }
 }
 
+// corrupt operation.yml must be reported as a finding, never silently
+// skipped and never rewritten (Revision 4 note 6)
+{
+  const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-corrupt-op-"));
+  fs.writeFileSync(path.join(planningRoot, "config.yml"), "schemaVersion: 1\nname: demo\nvcs: git\nbaseBranch: null\nscopeRefs: []\n");
+  fs.writeFileSync(path.join(planningRoot, "plugin.lock.yml"), `schemaVersion: 1\npluginVersion: 1.0.0\ntemplatePackFingerprint: sha256:${"a".repeat(64)}\n`);
+  const operationsRoot = path.join(planningRoot, "operations");
+  const corruptId = "018f0000-0000-7000-8000-000000000006";
+  fs.mkdirSync(path.join(operationsRoot, corruptId), { recursive: true });
+  fs.writeFileSync(path.join(operationsRoot, corruptId, "operation.yml"), "not: [valid, yaml, at all\n");
+  const rawBefore = fs.readFileSync(path.join(operationsRoot, corruptId, "operation.yml"), "utf8");
+
+  const result = checkSchema({ planningRoot });
+  assert.equal(result.status, "FAIL");
+  assert.ok(result.findings.some((f) => f.includes(corruptId)), "corrupt operation metadata must be reported as a finding, not silently skipped");
+  const rawAfter = fs.readFileSync(path.join(operationsRoot, corruptId, "operation.yml"), "utf8");
+  assert.equal(rawAfter, rawBefore, "check schema must never rewrite operation.yml, corrupt or not");
+}
+
 console.log("check: all tests passed");
 ```
 
@@ -3615,11 +4060,20 @@ export function checkSchema({ planningRoot }) {
   const operationsRoot = path.join(planningRoot, "operations");
   if (fs.existsSync(operationsRoot)) {
     for (const operationId of fs.readdirSync(operationsRoot)) {
-      if (!isUuidV7(operationId)) continue;
+      if (!isUuidV7(operationId)) {
+        findings.push(`operations/${operationId}: not a valid operation id`);
+        continue;
+      }
       let operation;
       try {
         operation = readOperation(operationsRoot, operationId);
-      } catch {
+      } catch (error) {
+        findings.push(`operations/${operationId}/operation.yml: failed to read or parse (${error.message})`);
+        continue;
+      }
+      const operationSchemaCheck = validate("operation", operation);
+      if (!operationSchemaCheck.valid) {
+        for (const error of operationSchemaCheck.errors) findings.push(`operations/${operationId}/operation.yml${error.path}: ${error.message}`);
         continue;
       }
       if (operation.status === "APPLYING" || operation.status === "RECOVERY_REQUIRED") {
@@ -4004,7 +4458,7 @@ function notImplemented(command) {
     status: "NOT_IMPLEMENTED",
     command,
     corte: "0",
-    message: "deferred to a later Corte, see docs/plugin-redesign-release-flow/03-plan-incremental.md"
+    message: "deferred to Corte N, see docs/plugin-redesign-release-flow/03-plan-incremental.md"
   };
 }
 
@@ -4582,7 +5036,7 @@ function fullyInit(cwd) {
       command,
       status: "NOT_IMPLEMENTED",
       corte: "0",
-      message: "deferred to a later Corte, see docs/plugin-redesign-release-flow/03-plan-incremental.md"
+      message: "deferred to Corte N, see docs/plugin-redesign-release-flow/03-plan-incremental.md"
     }, `${args.join(" ")} must match the NOT_IMPLEMENTED contract exactly, field for field`);
   }
 }
@@ -4894,7 +5348,21 @@ Expected: `test bundle correctly ignored`
 Run: `git ls-files runtime/dist/ | grep -v '^runtime/dist/shipping-mode.mjs$' || echo "clean: only the production bundle is tracked"`
 Expected: `clean: only the production bundle is tracked`
 
-- [ ] **Step 3: Grep for lingering references to removed prototype surface or the old source tree**
+- [ ] **Step 3: Verify the production bundle build is deterministic and matches the committed file (Revision 4 note 8)**
+
+```bash
+npm ci
+npm run build:runtime
+sha256sum runtime/dist/shipping-mode.mjs > /tmp/shipping-mode-bundle-hash-1.txt
+rm runtime/dist/shipping-mode.mjs
+npm run build:runtime
+sha256sum runtime/dist/shipping-mode.mjs > /tmp/shipping-mode-bundle-hash-2.txt
+diff /tmp/shipping-mode-bundle-hash-1.txt /tmp/shipping-mode-bundle-hash-2.txt && echo "bundle build is deterministic" || echo "FAIL: bundle differs across two builds from the same source"
+git diff --exit-code runtime/dist/shipping-mode.mjs && echo "regenerated bundle matches the committed one" || echo "FAIL: regenerated bundle differs from what's committed"
+```
+Expected: both checks print their success line. This deliberately doesn't apply to the test bundle (`runtime/dist/shipping-mode.test-bundle.mjs`) — it's a gitignored, temporary build artifact, not something committed to compare against.
+
+- [ ] **Step 4: Grep for lingering references to removed prototype surface or the old source tree**
 
 Run: `grep -rn "work-package\|aggregateDirs" runtime/src bin/shipping-mode.mjs || echo "clean"`
 Expected: `clean`, or only matches inside `NOT_IMPLEMENTED` test fixtures/comments (review any hit manually)
@@ -4902,7 +5370,7 @@ Expected: `clean`, or only matches inside `NOT_IMPLEMENTED` test fixtures/commen
 Run: `test -d src && echo "src/ still exists, should have been removed in Task 23" || echo "clean"`
 Expected: `clean`
 
-- [ ] **Step 4: Verify no forbidden language survived into committed docs**
+- [ ] **Step 5: Verify no forbidden language survived into committed docs**
 
 Run: `grep -rn "sha256:corte-0-placeholder" . --include="*.mjs" --include="*.md" 2>/dev/null || echo "no placeholder fingerprint found"`
 Expected: `no placeholder fingerprint found`
@@ -4922,25 +5390,27 @@ Expected: `REJECTED does not appear as a live state anywhere`
 Run: `git grep -n "SHIPPING_MODE_FAULT_CHECKPOINT" -- ':!runtime/src/lib/faultInjection.mjs' ':!runtime/src/lib/tests/*' ':!runtime/tests/cli-e2e.test.mjs' 2>/dev/null || echo "fault injection env var referenced only where expected"`
 Expected: `fault injection env var referenced only where expected`
 
-- [ ] **Step 5: Verify the Definition of Done checklist from the spec (`docs/specs/corte-0-runtime-foundation.md` §17) against what was actually built**
+- [ ] **Step 6: Verify the Definition of Done checklist from the spec (`docs/specs/corte-0-runtime-foundation.md` §17) against what was actually built**
 
 Go through each bullet by hand; do not check anything off as a formality. Every bullet should now be satisfiable by pointing at a specific passing test from Tasks 1-27.
 
-- [ ] **Step 6: Commit any final fixups**
+- [ ] **Step 7: Commit any final fixups**
 
 If Steps 1-5 required code changes, commit them individually per fix with descriptive messages (do not bundle unrelated fixes into one commit). If nothing needed fixing, this task produces no commit — record in your final report that verification passed cleanly on the first attempt.
 
 ---
 
-## Self-Review Notes (revision 3)
+## Self-Review Notes (revision 4)
 
 **Spec coverage:** §3 (commands, NOT_IMPLEMENTED contract) → Tasks 23-24. §4 (directory structure) → Tasks 7, 23, 24. §5 (storage, operational vs. canonical) → Tasks 12, 17, 18. §6 (IDs) → Task 1. §7 (scope catalog, uniqueness) → Task 14, 22. §8 (hashes) → Task 2. §9 (schemas/YAML/build) → Tasks 4, 6, 7. §10 (state machine, no `REJECTED`, explicit self-approval) → Tasks 15-16. §11 (lock, quarantine reclaim) → Tasks 9-10. §12 (apply sequence, fault checkpoints) → Tasks 17-18. §13 (recovery, path hardening, cleanup) → Task 19. §14 (path confinement, two domains) → Tasks 3, 14, 26. §15 (skills) → Task 25. §16 (testing: unit/schema/lock/crash-matrix/e2e) → Tasks throughout + 20, 26. §17 (DoD) → Task 28.
 
 **Revision 3 fixes, where they landed:** (1) scope.add dynamic targetFiles + ABSENT invariant → Tasks 6, 16, 22. (2) changeSetHash recomputed and cross-checked at validate/approve/apply → Tasks 15, 16, 17. (3) shared `revalidateChangeSet` → Tasks 16-17. (4) recovery conflict blocks `withWorkspaceMutation` → Tasks 13, 20. (5) build-time plugin metadata, no runtime fallback → Tasks 7, 22, 26. (6) `confineUnder` on possibly-missing roots → Tasks 11, 19. (7) `operationDir` real confinement against symlinks → Task 12. (8) real shared-evidence quarantine race test + app-level concurrency → Tasks 10, 26. (9) exact `NOT_IMPLEMENTED` field comparison → Task 26. (10) `check schema` parse-error/symlink handling + `result.json` tamper detection → Tasks 19, 21. (11) fault injection compiled out of the production bundle → Tasks 7, 13, 24, 26. (12) CLI e2e created before being wired into the verify script → Tasks 26-27 swapped from revision 2's ordering. (13) invalid-transition `StateError` guards → Task 16.
 
+**Revision 4 fixes, where they landed:** (1) exact `NOT_IMPLEMENTED` message text → Tasks 23, 26. (2) `eventId` reserved at propose, never regenerated → Tasks 6, 11, 15, 17, 20. (3) `baseRevisions` exact-match + `workspace.init` bootstrap invariant → Tasks 16, 26. (4) approve-time tampering persists `STALE` → Task 16. (5) hardened schemas (UUIDv7/hash patterns, per-status invariants, reservedEvents) actually used at runtime, plus relational invariants → Tasks 6, 11, 16, 18, 19. (6) recovery/check-schema fail closed on corrupt metadata → Tasks 19, 21. (7) `assertTrustedRoots` → Tasks 3, 13. (8) production bundle determinism check → Task 28.
+
 **Placeholder scan:** no `TODO`/`TBD` in any committed code block. Task 13's minimal `recovery.mjs` is explicitly justified as *correct-for-what-exists-so-far*, not a stand-in — its test (`mutation.test.mjs`) asserts the one behavior it's responsible for (`[]` when nothing can be `APPLYING` yet, and the lock-required guard) and that assertion stays true after Task 19 expands it, which is exactly why the task ordering is safe.
 
-**Type consistency:** `operationId` (string, UUIDv7) flows unchanged from Task 1 through Task 26. `render: (payload) => Map<string,string>` is consistent across Tasks 14, 16, 17, 18, 22 — always a closure the command layer (Task 22) binds to a specific `kind`/`currentConfig`/`workspaceRoot`, never something `changeset.mjs` builds itself. `filePlan`/`expectedEvents` entry shapes are identical between `operation.schema.json` (Task 6), the code that constructs them (Task 17), and the code that classifies them during recovery (Task 19). Every typed error (`UsageError`, `StateError`, `StaleError`, `RecoveryRequiredError`, `LockHeldError`, `PathConfinementError`) is defined exactly once and only ever imported afterward, and Task 23 re-exports all six from `runtime/src/index.mjs` so Task 24's `bin/shipping-mode.mjs` can import every one of them from the single bundled path.
+**Type consistency:** `operationId` (string, UUIDv7) flows unchanged from Task 1 through Task 26. `render: (payload) => Map<string,string>` is consistent across Tasks 14, 16, 17, 18, 22 — always a closure the command layer (Task 22) binds to a specific `kind`/`currentConfig`/`workspaceRoot`, never something `changeset.mjs` builds itself. `filePlan`/`expectedEvents`/`reservedEvents` entry shapes are identical between `operation.schema.json` (Task 6), the code that constructs them (Tasks 15, 17), and the code that classifies/validates them during recovery (Task 19). Every typed error (`UsageError`, `StateError`, `StaleError`, `RecoveryRequiredError`, `LockHeldError`, `PathConfinementError`) is defined exactly once and only ever imported afterward, and Task 23 re-exports all six from `runtime/src/index.mjs` so Task 24's `bin/shipping-mode.mjs` can import every one of them from the single bundled path. `transitionToStale` and `eventTypeFor` are each defined exactly once (Task 16 and Task 15 respectively) and reused, never redefined, by Task 17.
 
 ---
 
