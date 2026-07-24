@@ -94,11 +94,23 @@ guides:
     projection: .planning/scopes/web/task-guide.md
     provenance:
       sources:
-        - docs/product/
-        - docs/frontend-guidelines.md
-      source_fingerprints:
-        - path: docs/frontend-guidelines.md
+        - path: docs/product/
+          kind: product
+          role: canonical
+          authority: authoritative
+          scope: project
+          freshness: current
+          availability: implemented
           fingerprint: sha256:...
+        - path: docs/frontend-guidelines.md
+          kind: engineering-standard
+          role: operational
+          authority: normative
+          scope: web
+          freshness: current
+          availability: implemented
+          fingerprint: sha256:...
+      source_map_revision: sha256:...
       generator_version: 1.0.0
       model: gpt-5
       prompt_version: scope-task-guide-v1
@@ -112,8 +124,15 @@ guides:
     projection: .planning/scopes/web/test-guide.md
     provenance:
       sources:
-        - docs/testing.md
-      source_fingerprints: []
+        - path: docs/testing.md
+          kind: testing
+          role: canonical
+          authority: authoritative
+          scope: web
+          freshness: current
+          availability: implemented
+          fingerprint: sha256:...
+      source_map_revision: sha256:...
       generator_version: 1.0.0
       model: null
       prompt_version: null
@@ -167,11 +186,65 @@ Las guias se generan desde:
 - guias de estilo/coding;
 - guias de UI/UX, contratos, datos, seguridad, logging o testing;
 - PDRs/ADRs aceptados;
+- developer guides, repository maps y engineering standards;
+- design systems para scopes UI cuando existan;
+- prompt sources versionados para scopes AI cuando existan;
+- evidence contracts cuando una task/release deba demostrar deployment, compliance, performance u otro outcome;
 - templates existentes del proyecto;
 - scripts de build/test/smoke;
 - convenciones detectadas en codigo solo cuando la documentacion lo permite o cuando el usuario lo aprueba.
 
-El runtime guarda `Source Index` con paths y fingerprints para detectar staleness.
+No todas las fuentes tienen la misma autoridad. El `Source Index` debe registrar `kind`, `role`, `authority`, `scope`, `freshness`, `availability`, fingerprint y provenance suficiente para reproducir por que una regla entro en la guide.
+
+Reglas de seleccion:
+
+- fuentes `canonical` y decisiones `accepted` son candidatas normativas primarias;
+- fuentes `operational` pueden concretar como ejecutar una regla canonica, pero no redefinirla silenciosamente;
+- fuentes `derived` sirven para coordinacion/trazabilidad y deben conservar links hacia sus fuentes origen;
+- fuentes `generated` no se usan como autoridad independiente si puede leerse su fuente original;
+- fuentes `historical` o `reference` solo entran como contexto cuando la guide lo declara explicitamente;
+- si una decision aceptada contradice una guia canonica mas antigua, la decision prevalece dentro de su alcance y la guia antigua queda marcada para refresh;
+- si codigo/config/CI contradice una afirmacion de estado implementado, registrar drift; no asumir que el documento ni el codigo resuelven por si solos la intencion.
+
+El runtime guarda `Source Index` con metadata y fingerprints para detectar staleness.
+
+## Vigencia, navegabilidad y drift de fuentes
+
+Antes de generar o refrescar una guide en modo estricto, Shipping Mode debe evaluar la salud de sus fuentes cuando el tipo de fuente lo permita.
+
+Checks posibles:
+
+```text
+source exists
+referenced path/module/endpoint/migration/profile/command exists
+fingerprint matches approved source revision
+documentation links resolve
+active docs are reachable from configured documentation entry point
+availability does not contradict repository state
+accepted decisions are reflected or explicitly supersede older docs
+environment claims have matching evidence level
+```
+
+El resultado puede modelarse como:
+
+```text
+PASS
+PASS_WITH_CONDITIONS
+FAIL
+```
+
+`FAIL` o un conflicto de autoridad no resuelto bloquea generacion/atomizacion estricta y crea `open_gaps`. `PASS_WITH_CONDITIONS` debe persistir las condiciones en provenance/gaps y requerir decision humana cuando afecten una regla ejecutable.
+
+Una guide aprobada pasa a `stale` cuando cambia cualquiera de estos elementos relevantes:
+
+- fingerprint de una fuente normativa;
+- rol/authority de una fuente;
+- availability (`implemented`, `partial`, `planned`, `deprecated`, `historical`);
+- decision aceptada que afecta el scope;
+- evidencia que invalida un claim de deployment/runtime;
+- canonical source map o instruction hierarchy aplicable al scope.
+
+El drift documental no se corrige automaticamente reescribiendo fuentes host. Shipping Mode propone el ChangeSet/decision o marca el prerequisite correspondiente; el host conserva ownership de su documentacion.
 
 ## Contenido de `task-guide.yml`
 
@@ -237,8 +310,8 @@ Estructura narrativa recomendada:
 
 ## Source Index
 
-| Source | Role | Fingerprint | Notes |
-|--------|------|-------------|-------|
+| Source | Kind | Role | Authority | Scope | Freshness | Availability | Fingerprint | Notes |
+|--------|------|------|-----------|-------|-----------|--------------|-------------|-------|
 
 ## Scope Contract
 
@@ -354,8 +427,8 @@ Estructura narrativa recomendada:
 
 ## Source Index
 
-| Source | Role | Fingerprint | Notes |
-|--------|------|-------------|-------|
+| Source | Kind | Role | Authority | Scope | Freshness | Availability | Fingerprint | Notes |
+|--------|------|------|-----------|-------|-----------|--------------|-------------|-------|
 
 ## Gates By Work Package Type
 
