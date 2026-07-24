@@ -34,8 +34,6 @@ jobs:
                   raise SystemExit(f'{label}: expected exactly one match, got {count}')
               text = text.replace(old, new, 1)
 
-          # Extend the existing divergent recovery case: once the conflict is
-          # persisted, two later independent mutations must both remain blocked.
           replace_once(
           '''  assert.equal(operation.status, "RECOVERY_REQUIRED");
             assert.ok(operation.conflict);
@@ -68,8 +66,6 @@ jobs:
           // an APPLIED operation with leftover staging residue gets it cleaned up
           ''', 'Task 19 persistent blocking regression')
 
-          # Complete AFTER_MANIFEST proof by asserting only one physical event file
-          # exists after retry, in addition to exact manifest equality.
           replace_once(
           '''    assert.equal(finalOperation.expectedEvents[0].document.idempotencyKey, persistedManifest.document.idempotencyKey);
               }
