@@ -3406,6 +3406,22 @@ function stuckApplyingOperation() {
   assert.equal(operation.status, "RECOVERY_REQUIRED");
   assert.ok(operation.conflict);
   assert.equal(fs.readFileSync(path.join(planningRoot, first.target), "utf8"), "not what recovery expects\n");
+
+  // The persisted conflict must remain globally blocking on every later
+  // mutation, not just in the recovery sweep that first discovered it.
+  const dirsBeforeBlockedAttempts = fs.readdirSync(operationsRoot).sort();
+  for (const attemptedName of ["blocked-first", "blocked-second"]) {
+    assert.throws(
+      () => propose({
+        operationsRoot, planningRoot, kind: "config.update", target: {},
+        payload: { name: attemptedName }, targetFiles: ["config.yml"], actor: "carlos"
+      }),
+      RecoveryRequiredError,
+      "a persisted RECOVERY_REQUIRED operation must block every subsequent mutation"
+    );
+  }
+  assert.deepEqual(fs.readdirSync(operationsRoot).sort(), dirsBeforeBlockedAttempts, "blocked mutation attempts must not create new operations");
+  assert.equal(readOperation(operationsRoot, operationId).status, "RECOVERY_REQUIRED", "the conflict remains blocking until manually resolved");
 }
 
 // an APPLIED operation with leftover staging residue gets it cleaned up
@@ -3800,6 +3816,9 @@ for (const boundary of preApplyingBoundaries) {
     assert.equal(finalOperation.expectedEvents[0].document.actor, persistedManifest.document.actor);
     assert.deepEqual(finalOperation.expectedEvents[0].document.payload, persistedManifest.document.payload);
     assert.equal(finalOperation.expectedEvents[0].document.idempotencyKey, persistedManifest.document.idempotencyKey);
+    const eventPath = path.join(planningRoot, "events", finalOperation.expectedEvents[0].relativePath);
+    const eventFiles = fs.readdirSync(path.dirname(eventPath)).filter((name) => name.endsWith(".json"));
+    assert.equal(eventFiles.length, 1, "AFTER_MANIFEST: retry must result in exactly one event file, never a regenerated duplicate");
   }
 }
 
