@@ -1,0 +1,22 @@
+name: Enforce master source branch
+
+on:
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  check-source-branch:
+    name: Require develop source
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify the PR head branch is develop
+        run: |
+          if [ "${{ github.event.pull_request.head.ref }}" != "develop" ]; then
+            echo "PRs into master must come from develop (got '${{ github.event.pull_request.head.ref }}')."
+            exit 1
+          fi
+          echo "OK: PR source branch is develop."
