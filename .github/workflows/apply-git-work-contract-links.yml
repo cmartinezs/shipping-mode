@@ -1,0 +1,184 @@
+name: Apply Git work contract links
+
+on:
+  push:
+    branches:
+      - agent/git-work-execution-contract
+
+permissions:
+  contents: write
+
+jobs:
+  patch-docs:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/git-work-execution-contract
+          fetch-depth: 0
+
+      - name: Integrate Git contract into canonical design docs
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          def patch(path, old, new, label):
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{label}: expected exactly one match, got {count}')
+              p.write_text(text.replace(old, new, 1))
+
+          # 02 — make the boundary explicit in command/skill and runtime contracts.
+          patch(
+            'docs/plugin-redesign-release-flow/02-mapa-comandos-skills.md',
+            '''| `plan-smoke-config`, `plan-git-config` | `/<product-name>:config` con stages `commands`, `git`, `policies` | Borrar config commands sueltos. | Configuracion pertenece al Project Context. |''',
+            '''| `plan-smoke-config`, `plan-git-config` | `/<product-name>:config` con stages `commands`, `git`, `policies` | Borrar config commands sueltos. | Configuracion pertenece al Project Context; la mecanica Git vive en el runtime y la estrategia concreta se resuelve desde la Git policy del host. Ver [Git work execution contract](11-git-work-execution-contract.md). |''',
+            '02 legacy git config mapping'
+          )
+
+          patch(
+            'docs/plugin-redesign-release-flow/02-mapa-comandos-skills.md',
+            '''- pasos Git repetidos;
+- tablas duplicadas;''',
+            '''- pasos Git repetidos o recetas de branching hardcodeadas; las skills delegan en el Git engine + policy evaluator descritos en [Git work execution contract](11-git-work-execution-contract.md);
+- tablas duplicadas;''',
+            '02 skill git rule'
+          )
+
+          patch(
+            'docs/plugin-redesign-release-flow/02-mapa-comandos-skills.md',
+            '''  command-policy.mjs  # comandos estructurados, allowlist, approvals
+  event-journal.mjs   # eventos JSON inmutables bajo .planning/events/
+  change-set.mjs      # inspect/propose/...''',
+            '''  command-policy.mjs  # comandos estructurados, allowlist, approvals
+  git-engine.mjs      # operaciones Git query/mutantes agnosticas, branches/worktrees/commits/evidence
+  git-policy.mjs      # resuelve Project Context + scope refinements + approvals sin hardcodear GitFlow
+  event-journal.mjs   # eventos JSON inmutables bajo .planning/events/
+  change-set.mjs      # inspect/propose/...''',
+            '02 runtime git libraries'
+          )
+
+          # 03 — roadmap: Corte 0 configures policy, Corte 4 executes it.
+          patch(
+            'docs/plugin-redesign-release-flow/03-plan-incremental.md',
+            '''- Detectar y confirmar si el proyecto usa git.
+- Si usa git, configurar branch base, estrategia de ramas, lanes y si se permitira automatizacion `git`/`gh`.''',
+            '''- Detectar y confirmar si el proyecto usa git.
+- Si usa git, resolver el [Git work execution contract](11-git-work-execution-contract.md): Project Context conserva branch de trabajo/base, integracion, produccion/promocion, estrategia de ramas/worktrees, PR targets, merge policy y autonomia; Shipping Mode conserva la mecanica Git segura y no impone GitFlow fijo.
+- Registrar provenance de la Git policy hacia fuentes host como CONTRIBUTING/AGENTS/CLAUDE/developer guides/CI/CODEOWNERS/provider metadata y marcar conflictos como gap/decision antes de permitir automatizacion Git mutante.''',
+            '03 Corte 0 Git policy'
+          )
+
+          patch(
+            'docs/plugin-redesign-release-flow/03-plan-incremental.md',
+            '''- Ejecutar todo cambio via ChangeSet con `baseRevisions` e idempotency key.
+- Guardar comandos ejecutados como estructura y eventos observables.
+- Agregar rollback tecnico o compensacion cuando una operacion falla despues de escribir.''',
+            '''- Ejecutar todo cambio via ChangeSet con `baseRevisions` e idempotency key.
+- Resolver `task inspect/start/verify/closeout` contra Git engine + Project Context Git policy + refinamientos compatibles de la scope guide; branch/worktree/commit/PR no son estados de dominio de la task sino contexto/evidencia del lifecycle.
+- Soportar, sin imponer una, estrategias como branch por task, branch/worktree por work package, branch compartida o trunk-based segun policy host.
+- Registrar branch, worktree, base commit, commits, push y PR/MR como evidencia estructurada; diferenciar integracion de trabajo de promocion estable/productiva.
+- Guardar comandos ejecutados como estructura y eventos observables.
+- Agregar rollback tecnico o compensacion cuando una operacion falla despues de escribir, incluyendo fallas entre commit, push y apertura/actualizacion de PR.''',
+            '03 Corte 4 Git execution'
+          )
+
+          # 04 — expand Project Context Git model and point to the dedicated contract.
+          patch(
+            'docs/plugin-redesign-release-flow/04-release-init-configuracion.md',
+            '''git:
+  enabled: true
+  base_branch: main
+  provider: github
+  automation: assisted''',
+            '''git:
+  enabled: true
+  provider: github
+  branches:
+    work_base: develop
+    integration: develop
+    production: master
+  work:
+    branch_unit: work_package
+    branch_pattern: "<type>/<slug>"
+  worktrees:
+    mode: optional
+    unit: work_package
+  commits:
+    granularity: task
+  pull_requests:
+    enabled: true
+    work_target: develop
+    draft_by_default: true
+    merge_strategy: host_default
+    promotion:
+      source: develop
+      target: master
+  automation:
+    create_branch: allowed
+    create_worktree: allowed
+    commit: allowed
+    push: approval_required
+    create_pr: approval_required
+    merge_pr: approval_required''',
+            '04 Git config example'
+          )
+
+          patch(
+            'docs/plugin-redesign-release-flow/04-release-init-configuracion.md',
+            '''`execution-contexts/` describe donde se ejecutan validaciones (`local`, `ci`, `container`, `preview`). `environments/` describe targets desplegables (`beta`, `demo`, `staging`, `production`). No mezclar `ci` con un ambiente desplegable.''',
+            '''La seccion `git` representa policy del repositorio anfitrion, no un GitFlow universal. Los nombres del ejemplo ilustran que branch por defecto, branch de trabajo, integracion y produccion pueden ser distintas. La mecanica, guardrails, worktrees, evidencia y lifecycle de operaciones Git pertenecen a Shipping Mode y se definen en [Git work execution contract](11-git-work-execution-contract.md).
+
+`execution-contexts/` describe donde se ejecutan validaciones (`local`, `ci`, `container`, `preview`). `environments/` describe targets desplegables (`beta`, `demo`, `staging`, `production`). No mezclar `ci` con un ambiente desplegable.''',
+            '04 Git contract explanation'
+          )
+
+          # 05 — guides may refine Git workflow but cannot override project policy.
+          patch(
+            'docs/plugin-redesign-release-flow/05-scope-task-guides.md',
+            '''automation:
+  generator: scripts/planning/web-task-guide.mjs
+  input_schema: scope-guide-input-v1
+  fallback: mark-gaps
+open_gaps: []''',
+            '''automation:
+  generator: scripts/planning/web-task-guide.mjs
+  input_schema: scope-guide-input-v1
+  fallback: mark-gaps
+git_workflow:
+  branch_unit: work_package
+  commit_granularity: task
+  require_clean_start: true
+  open_pr_after:
+    - work_package_verified
+  required_gates_before_push:
+    - build
+    - unit-tests
+open_gaps: []''',
+            '05 task guide Git refinements'
+          )
+
+          patch(
+            'docs/plugin-redesign-release-flow/05-scope-task-guides.md',
+            '''- si codigo/config/CI contradice una afirmacion de estado implementado, registrar drift; no asumir que el documento ni el codigo resuelven por si solos la intencion.
+
+El runtime guarda `Source Index` con metadata y fingerprints para detectar staleness.''',
+            '''- si codigo/config/CI contradice una afirmacion de estado implementado, registrar drift; no asumir que el documento ni el codigo resuelven por si solos la intencion.
+- las reglas Git de scope solo refinan la Project Context Git policy; no pueden cambiar branch productiva/integracion, PR targets, branch protection, approvals ni promotion flow. Ver [Git work execution contract](11-git-work-execution-contract.md).
+
+El runtime guarda `Source Index` con metadata y fingerprints para detectar staleness.''',
+            '05 Git authority rule'
+          )
+          PY
+
+          rm -f .github/workflows/apply-git-work-contract-links.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Integrate Git work contract across design docs"
+          git push origin HEAD:agent/git-work-execution-contract
