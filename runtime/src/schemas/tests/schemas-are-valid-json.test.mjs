@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const schemasDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const expected = ["config", "plugin-lock", "scope", "change-set", "operation", "event", "result"];
+const expected = ["config", "plugin-lock", "scope", "source", "change-set", "operation", "event", "result"];
 
 for (const name of expected) {
   const file = path.join(schemasDir, `${name}.schema.json`);
@@ -21,4 +21,4 @@ const operation = JSON.parse(fs.readFileSync(path.join(schemasDir, "operation.sc
 assert.ok(operation.required.includes("reservedEvents"), "operation schema must require reservedEvents from PROPOSED onward");
 assert.ok(Array.isArray(operation.allOf) && operation.allOf.length >= 5, "operation schema must carry per-status invariants");
 
-console.log("schemas: all 7 files present and structurally sane");
+console.log(`schemas: all ${expected.length} files present and structurally sane`);

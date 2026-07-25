@@ -6,6 +6,41 @@ import { readOperation } from "../lib/operationStore.mjs";
 import { isUuidV7 } from "../lib/ids.mjs";
 import { assertTrustedRoots, confineWritePath } from "../lib/paths.mjs";
 
+function commandRoleEntries(scope) {
+  if (!scope.commands) return [];
+  const entries = [];
+  for (const role of ["build", "test", "smoke", "lint", "verify"]) {
+    if (scope.commands[role]) entries.push({ label: role, entry: scope.commands[role] });
+  }
+  for (const [role, entry] of Object.entries(scope.commands.custom || {})) {
+    entries.push({ label: `custom.${role}`, entry });
+  }
+  return entries;
+}
+
+function fingerprintKeyMismatch(label, entry) {
+  if (!entry.sourceRefs) return null; // declared entries carry no sourceRefs/sourceFingerprintAtSelection at all
+  const refSet = new Set(entry.sourceRefs);
+  const keySet = new Set(Object.keys(entry.sourceFingerprintAtSelection || {}));
+  const missing = [...refSet].filter((r) => !keySet.has(r));
+  const extra = [...keySet].filter((k) => !refSet.has(k));
+  if (missing.length === 0 && extra.length === 0) return null;
+  return { label, missing, extra };
+}
+
+function findCommandFingerprintKeyMismatches(scope) {
+  const mismatches = [];
+  for (const { label, entry } of commandRoleEntries(scope)) {
+    const selfMismatch = fingerprintKeyMismatch(label, entry);
+    if (selfMismatch) mismatches.push(selfMismatch);
+    for (const [index, alternative] of (entry.alternatives || []).entries()) {
+      const altMismatch = fingerprintKeyMismatch(`${label}.alternatives[${index}]`, alternative);
+      if (altMismatch) mismatches.push(altMismatch);
+    }
+  }
+  return mismatches;
+}
+
 function checkRequiredFile(planningRoot, relativePath, schemaName, findings) {
   let filePath;
   try {
@@ -63,7 +98,44 @@ export function checkSchema({ planningRoot }) {
         findings.push(`scopes/${scopeId}: entry must be a directory`);
         continue;
       }
+      const scopeBeforeCount = findings.length;
       checkRequiredFile(planningRoot, path.join("scopes", scopeId, "scope.yml"), "scope", findings);
+      if (findings.length === scopeBeforeCount) {
+        const scopeFile = confineWritePath(planningRoot, path.join("scopes", scopeId, "scope.yml"));
+        const scope = parseYaml(fs.readFileSync(scopeFile, "utf8"));
+        for (const mismatch of findCommandFingerprintKeyMismatches(scope)) {
+          findings.push(`scopes/${scopeId}/scope.yml: commands.${mismatch.label} sourceFingerprintAtSelection keys do not match sourceRefs (missing=${JSON.stringify(mismatch.missing)}, extra=${JSON.stringify(mismatch.extra)})`);
+        }
+      }
+    }
+  }
+
+  const sourcesRoot = path.join(planningRoot, "sources");
+  if (fs.existsSync(sourcesRoot)) {
+    for (const sourceId of fs.readdirSync(sourcesRoot)) {
+      if (!isUuidV7(sourceId)) {
+        findings.push(`sources/${sourceId}: not a valid source id`);
+        continue;
+      }
+      const sourceEntryPath = path.join(sourcesRoot, sourceId);
+      const sourceStat = fs.lstatSync(sourceEntryPath);
+      if (sourceStat.isSymbolicLink()) {
+        findings.push(`sources/${sourceId}: symlink entries are not permitted`);
+        continue;
+      }
+      if (!sourceStat.isDirectory()) {
+        findings.push(`sources/${sourceId}: entry must be a directory`);
+        continue;
+      }
+      const sourceBeforeCount = findings.length;
+      checkRequiredFile(planningRoot, path.join("sources", sourceId, "source.yml"), "source", findings);
+      if (findings.length === sourceBeforeCount) {
+        const sourceFile = confineWritePath(planningRoot, path.join("sources", sourceId, "source.yml"));
+        const source = parseYaml(fs.readFileSync(sourceFile, "utf8"));
+        if (source.id !== sourceId) {
+          findings.push(`sources/${sourceId}/source.yml: source.id ${source.id} does not match its directory`);
+        }
+      }
     }
   }
 

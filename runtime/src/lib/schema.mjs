@@ -4,6 +4,7 @@ const exportNameByPublicName = {
   config: "validate_config",
   "plugin-lock": "validate_plugin_lock",
   scope: "validate_scope",
+  source: "validate_source",
   "change-set": "validate_change_set",
   operation: "validate_operation",
   event: "validate_event",

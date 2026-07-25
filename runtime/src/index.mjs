@@ -3,6 +3,7 @@ import path from "node:path";
 import { runInit, runConfigSet, runConfigScopeAdd } from "./commands/init.mjs";
 import { runChangesetPropose, runChangesetValidate, runChangesetApprove, runChangesetApply } from "./commands/changesetCommand.mjs";
 import { checkSchema } from "./commands/check.mjs";
+import { runDiscoverScan } from "./commands/discover.mjs";
 import { isUuidV7 } from "./lib/ids.mjs";
 import { UsageError, StateError, StaleError } from "./lib/errors.mjs";
 import { RecoveryRequiredError } from "./lib/journal.mjs";
@@ -105,6 +106,22 @@ export function dispatch(command, args, cwd) {
     const [stage] = args;
     if (stage === "schema") return checkSchema({ planningRoot });
     return notImplemented(`check ${stage || ""}`.trim());
+  }
+
+  if (command === "discover") {
+    const [stage, ...rest] = args;
+    if (stage === "scan") {
+      const options = argsToOptions(rest);
+      const workspaceRoot = cwd;
+      const scanArgs = { planningRoot, workspaceRoot };
+      if (options.max_source_bytes !== undefined) {
+        const parsed = Number(options.max_source_bytes);
+        if (!Number.isInteger(parsed)) throw new UsageError(`--max-source-bytes must be an integer, got ${options.max_source_bytes}`);
+        scanArgs.maxSourceBytes = parsed;
+      }
+      return runDiscoverScan(scanArgs);
+    }
+    return notImplemented(`discover ${stage || ""}`.trim());
   }
 
   return notImplemented(command);

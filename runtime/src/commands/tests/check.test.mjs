@@ -6,7 +6,7 @@ import { checkSchema } from "../check.mjs";
 import { propose, validateOperation, approveOperation, __prepareApplyForTests } from "../../lib/changeset.mjs";
 import { acquireWorkspaceLock } from "../../lib/lock.mjs";
 import { renderConfigUpdate } from "../renderers.mjs";
-import { parseYaml } from "../../lib/yaml.mjs";
+import { parseYaml, stringifyYaml } from "../../lib/yaml.mjs";
 
 // uninitialized workspace
 {
@@ -137,6 +137,119 @@ import { parseYaml } from "../../lib/yaml.mjs";
   assert.ok(result.findings.some((f) => f.includes(corruptId)), "corrupt operation metadata must be reported as a finding, not silently skipped");
   const rawAfter = fs.readFileSync(path.join(operationsRoot, corruptId, "operation.yml"), "utf8");
   assert.equal(rawAfter, rawBefore, "check schema must never rewrite operation.yml, corrupt or not");
+}
+
+// sources/<id>/source.yml is now validated the same way scopes/<id>/scope.yml already is
+{
+  const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-source-valid-"));
+  fs.writeFileSync(path.join(planningRoot, "config.yml"), "schemaVersion: 1\nname: demo\nvcs: git\nbaseBranch: null\nscopeRefs: []\n");
+  fs.writeFileSync(path.join(planningRoot, "plugin.lock.yml"), `schemaVersion: 1\npluginVersion: 1.0.0\ntemplatePackFingerprint: sha256:${"a".repeat(64)}\n`);
+  const sourcesRoot = path.join(planningRoot, "sources");
+  const id = "018f4d1e-0000-7000-8000-000000000001";
+  fs.mkdirSync(path.join(sourcesRoot, id), { recursive: true });
+  fs.writeFileSync(path.join(sourcesRoot, id, "source.yml"), stringifyYaml({
+    schemaVersion: 1, id, path: "docs/x/", family: "decision-sources", kind: "decision", role: "decision",
+    authority: { standing: "authoritative", force: "normative" }, availability: "implemented",
+    confirmedFingerprint: "a".repeat(64), confirmedContentHash: "b".repeat(64),
+    provenance: { discoveredBy: "discover-scan", confirmedBy: "carlos", confirmedAt: "2026-07-25T10:00:00Z", confirmedOperationId: "018f4d1e-0000-7000-8000-000000000002" }
+  }));
+  const result = checkSchema({ planningRoot });
+  assert.equal(result.status, "PASS");
+  assert.deepEqual(result.findings, []);
+}
+
+// source.id not matching its own directory name must be a finding, not silently accepted
+{
+  const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-source-mismatch-"));
+  fs.writeFileSync(path.join(planningRoot, "config.yml"), "schemaVersion: 1\nname: demo\nvcs: git\nbaseBranch: null\nscopeRefs: []\n");
+  fs.writeFileSync(path.join(planningRoot, "plugin.lock.yml"), `schemaVersion: 1\npluginVersion: 1.0.0\ntemplatePackFingerprint: sha256:${"a".repeat(64)}\n`);
+  const sourcesRoot = path.join(planningRoot, "sources");
+  const id = "018f4d1e-0000-7000-8000-000000000003";
+  fs.mkdirSync(path.join(sourcesRoot, id), { recursive: true });
+  fs.writeFileSync(path.join(sourcesRoot, id, "source.yml"), stringifyYaml({
+    schemaVersion: 1, id: "018f4d1e-0000-7000-8000-000000000099", path: "docs/x/", family: "decision-sources", kind: "decision", role: "decision",
+    authority: { standing: "authoritative", force: "normative" }, availability: "implemented",
+    confirmedFingerprint: "a".repeat(64), confirmedContentHash: "b".repeat(64),
+    provenance: { discoveredBy: "discover-scan", confirmedBy: "carlos", confirmedAt: "2026-07-25T10:00:00Z", confirmedOperationId: "018f4d1e-0000-7000-8000-000000000002" }
+  }));
+  const result = checkSchema({ planningRoot });
+  assert.equal(result.status, "FAIL");
+  assert.ok(result.findings.some((f) => f.includes("does not match its directory")));
+}
+
+// commands.<role>.sourceFingerprintAtSelection keys must exactly match sourceRefs -- an
+// extra key (or a missing one) is a finding, even though the schema alone (Task 5) cannot
+// express this and therefore accepts it structurally
+{
+  const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-fingerprint-mismatch-"));
+  fs.writeFileSync(path.join(planningRoot, "config.yml"), "schemaVersion: 1\nname: demo\nvcs: git\nbaseBranch: null\nscopeRefs: []\n");
+  fs.writeFileSync(path.join(planningRoot, "plugin.lock.yml"), `schemaVersion: 1\npluginVersion: 1.0.0\ntemplatePackFingerprint: sha256:${"a".repeat(64)}\n`);
+  const scopeId = "018f4d1e-0000-7000-8000-000000000010";
+  fs.mkdirSync(path.join(planningRoot, "scopes", scopeId), { recursive: true });
+  const refA = "018f4d1e-0000-7000-8000-000000000011";
+  const refB = "018f4d1e-0000-7000-8000-000000000012";
+  fs.writeFileSync(path.join(planningRoot, "scopes", scopeId, "scope.yml"), stringifyYaml({
+    schemaVersion: 1, id: scopeId, key: "api", label: "API", kind: "code", path: "api/", owner: null,
+    commands: {
+      build: {
+        command: "./y", method: "reviewed", confidence: "high",
+        sourceRefs: [refA],
+        sourceFingerprintAtSelection: { [refA]: "a".repeat(64), [refB]: "b".repeat(64) }, // refB is an extra key
+        requiresEnvironment: false, requiresSecrets: false, alternatives: []
+      }
+    }
+  }));
+  const result = checkSchema({ planningRoot });
+  assert.equal(result.status, "FAIL");
+  assert.ok(result.findings.some((f) => f.includes("commands.build") && f.includes("sourceFingerprintAtSelection")));
+}
+
+// the same check reaches into alternatives[], not just the selected command
+{
+  const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-fingerprint-mismatch-alt-"));
+  fs.writeFileSync(path.join(planningRoot, "config.yml"), "schemaVersion: 1\nname: demo\nvcs: git\nbaseBranch: null\nscopeRefs: []\n");
+  fs.writeFileSync(path.join(planningRoot, "plugin.lock.yml"), `schemaVersion: 1\npluginVersion: 1.0.0\ntemplatePackFingerprint: sha256:${"a".repeat(64)}\n`);
+  const scopeId = "018f4d1e-0000-7000-8000-000000000013";
+  fs.mkdirSync(path.join(planningRoot, "scopes", scopeId), { recursive: true });
+  const refA = "018f4d1e-0000-7000-8000-000000000014";
+  const refC = "018f4d1e-0000-7000-8000-000000000015";
+  fs.writeFileSync(path.join(planningRoot, "scopes", scopeId, "scope.yml"), stringifyYaml({
+    schemaVersion: 1, id: scopeId, key: "api", label: "API", kind: "code", path: "api/", owner: null,
+    commands: {
+      build: {
+        command: "./y", method: "reviewed", confidence: "high",
+        sourceRefs: [refA], sourceFingerprintAtSelection: { [refA]: "a".repeat(64) },
+        requiresEnvironment: false, requiresSecrets: false,
+        alternatives: [{
+          command: "./z", sourceRefs: [refC], sourceFingerprintAtSelection: {}, // missing refC's key
+          confidence: "medium", requiresEnvironment: false, requiresSecrets: false
+        }]
+      }
+    }
+  }));
+  const result = checkSchema({ planningRoot });
+  assert.equal(result.status, "FAIL");
+  assert.ok(result.findings.some((f) => f.includes("commands.build.alternatives[0]")));
+}
+
+// a declared command (no sourceRefs at all) never triggers this check
+{
+  const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-fingerprint-declared-ok-"));
+  fs.writeFileSync(path.join(planningRoot, "config.yml"), "schemaVersion: 1\nname: demo\nvcs: git\nbaseBranch: null\nscopeRefs: []\n");
+  fs.writeFileSync(path.join(planningRoot, "plugin.lock.yml"), `schemaVersion: 1\npluginVersion: 1.0.0\ntemplatePackFingerprint: sha256:${"a".repeat(64)}\n`);
+  const scopeId = "018f4d1e-0000-7000-8000-000000000016";
+  fs.mkdirSync(path.join(planningRoot, "scopes", scopeId), { recursive: true });
+  fs.writeFileSync(path.join(planningRoot, "scopes", scopeId, "scope.yml"), stringifyYaml({
+    schemaVersion: 1, id: scopeId, key: "api", label: "API", kind: "code", path: "api/", owner: null,
+    commands: {
+      test: {
+        command: "./mvnw test", method: "declared", declaredBy: "carlos", declaredAt: "2026-07-25T10:00:00Z",
+        declaredOperationId: "018f4d1e-0000-7000-8000-000000000017", requiresEnvironment: false, requiresSecrets: false, alternatives: []
+      }
+    }
+  }));
+  const result = checkSchema({ planningRoot });
+  assert.equal(result.status, "PASS");
 }
 
 console.log("check: all tests passed");

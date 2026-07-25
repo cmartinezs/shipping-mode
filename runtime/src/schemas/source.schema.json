@@ -1,0 +1,52 @@
+{
+  "$id": "https://shipping-mode.dev/schemas/source.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "path", "family", "kind", "role", "authority", "availability", "confirmedFingerprint", "confirmedContentHash", "provenance"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+    "path": { "type": "string", "minLength": 1 },
+    "family": {
+      "enum": [
+        "product-sources", "functional-sources", "technical-sources", "agent-repository-instructions",
+        "project-module-manifests", "execution-commands", "quality-definitions", "local-runtime-environment",
+        "public-data-contracts", "delivery-ci-deployment", "ownership", "decision-sources", "developer-guides",
+        "engineering-standards", "repository-map", "evidence-contracts", "design-system", "prompt-sources",
+        "custom-automation"
+      ]
+    },
+    "kind": {
+      "enum": [
+        "product", "requirements", "architecture", "decision", "developer-guide", "engineering-standard",
+        "agent-instructions", "repository-map", "api-contract", "data-contract", "database", "testing",
+        "quality", "security", "observability", "design-system", "i18n", "runtime", "environment",
+        "deployment", "ci", "ownership", "prompt", "generator", "evidence", "planning"
+      ]
+    },
+    "role": { "enum": ["canonical", "decision", "derived", "operational", "evidence", "generated", "historical", "reference"] },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["standing", "force"],
+      "properties": {
+        "standing": { "enum": ["contextual", "supporting", "authoritative"] },
+        "force": { "enum": ["unknown", "informational", "advisory", "normative"] }
+      }
+    },
+    "availability": { "enum": ["implemented", "partial", "planned", "deprecated", "historical", "mixed", "unknown"] },
+    "confirmedFingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "confirmedContentHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["discoveredBy", "confirmedBy", "confirmedAt", "confirmedOperationId"],
+      "properties": {
+        "discoveredBy": { "type": "string", "minLength": 1 },
+        "confirmedBy": { "type": "string", "minLength": 1 },
+        "confirmedAt": { "type": "string", "minLength": 1 },
+        "confirmedOperationId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }
+      }
+    }
+  }
+}
