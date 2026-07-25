@@ -4,9 +4,16 @@ import { validate } from "../lib/schema.mjs";
 import { parseYaml } from "../lib/yaml.mjs";
 import { readOperation } from "../lib/operationStore.mjs";
 import { isUuidV7 } from "../lib/ids.mjs";
+import { assertTrustedRoots, confineWritePath } from "../lib/paths.mjs";
 
 function checkRequiredFile(planningRoot, relativePath, schemaName, findings) {
-  const filePath = path.join(planningRoot, relativePath);
+  let filePath;
+  try {
+    filePath = confineWritePath(planningRoot, relativePath);
+  } catch (error) {
+    findings.push(`${relativePath}: untrusted path (${error.message})`);
+    return;
+  }
   if (!fs.existsSync(filePath)) {
     findings.push(`${relativePath}: required file is missing`);
     return;
@@ -30,6 +37,12 @@ export function checkSchema({ planningRoot }) {
   }
 
   const findings = [];
+  try {
+    assertTrustedRoots(planningRoot);
+  } catch (error) {
+    return { status: "FAIL", findings: [`trusted roots: ${error.message}`], pendingOperations: [] };
+  }
+
   checkRequiredFile(planningRoot, "config.yml", "config", findings);
   checkRequiredFile(planningRoot, "plugin.lock.yml", "plugin-lock", findings);
 
@@ -41,8 +54,13 @@ export function checkSchema({ planningRoot }) {
         continue;
       }
       const scopeEntryPath = path.join(scopesRoot, scopeId);
-      if (fs.lstatSync(scopeEntryPath).isSymbolicLink()) {
+      const scopeStat = fs.lstatSync(scopeEntryPath);
+      if (scopeStat.isSymbolicLink()) {
         findings.push(`scopes/${scopeId}: symlink entries are not permitted`);
+        continue;
+      }
+      if (!scopeStat.isDirectory()) {
+        findings.push(`scopes/${scopeId}: entry must be a directory`);
         continue;
       }
       checkRequiredFile(planningRoot, path.join("scopes", scopeId, "scope.yml"), "scope", findings);
@@ -57,6 +75,16 @@ export function checkSchema({ planningRoot }) {
         findings.push(`operations/${operationId}: not a valid operation id`);
         continue;
       }
+      const operationEntryPath = path.join(operationsRoot, operationId);
+      const operationStat = fs.lstatSync(operationEntryPath);
+      if (operationStat.isSymbolicLink()) {
+        findings.push(`operations/${operationId}: symlink entries are not permitted`);
+        continue;
+      }
+      if (!operationStat.isDirectory()) {
+        findings.push(`operations/${operationId}: entry must be a directory`);
+        continue;
+      }
       let operation;
       try {
         operation = readOperation(operationsRoot, operationId);
@@ -67,6 +95,10 @@ export function checkSchema({ planningRoot }) {
       const operationSchemaCheck = validate("operation", operation);
       if (!operationSchemaCheck.valid) {
         for (const error of operationSchemaCheck.errors) findings.push(`operations/${operationId}/operation.yml${error.path}: ${error.message}`);
+        continue;
+      }
+      if (operation.id !== operationId) {
+        findings.push(`operations/${operationId}/operation.yml: operation.id ${operation.id} does not match its directory`);
         continue;
       }
       if (operation.status === "APPLYING" || operation.status === "RECOVERY_REQUIRED") {
