@@ -1,10 +1,16 @@
 import fs from "node:fs";
 import path from "node:path";
 import { canonicalize, contentHash } from "./canonical.mjs";
-import { confineUnder } from "./paths.mjs";
+import { confineWritePath, ensureDirectoryTree } from "./paths.mjs";
+import { createFileAtomic } from "./safeFs.mjs";
 import { validate } from "./schema.mjs";
 
-export class RecoveryRequiredError extends Error {}
+export class RecoveryRequiredError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "RecoveryRequiredError";
+  }
+}
 
 function serializeEvent(document) {
   return `${JSON.stringify(canonicalize(document), null, 2)}\n`;
@@ -41,8 +47,9 @@ export function writeEventIdempotent(eventsRoot, expectedEvent) {
     throw new Error(`event document is schema-invalid: ${schemaResult.errors.map((e) => `${e.path} ${e.message}`).join("; ")}`);
   }
 
-  fs.mkdirSync(eventsRoot, { recursive: true }); // may be the first event this workspace has ever written
-  const confinedPath = confineUnder(eventsRoot, expectedEvent.relativePath);
+  const planningRoot = path.dirname(eventsRoot);
+  ensureDirectoryTree(planningRoot, path.basename(eventsRoot));
+  const confinedPath = confineWritePath(eventsRoot, expectedEvent.relativePath);
 
   const serialized = serializeEvent(expectedEvent.document);
   const recomputedHash = contentHash(serialized);
@@ -51,14 +58,18 @@ export function writeEventIdempotent(eventsRoot, expectedEvent) {
   }
 
   if (!fs.existsSync(confinedPath)) {
-    fs.mkdirSync(path.dirname(confinedPath), { recursive: true });
-    const tmpPath = `${confinedPath}.tmp-${process.pid}`;
-    fs.writeFileSync(tmpPath, serialized);
-    fs.renameSync(tmpPath, confinedPath);
-    return "CREATED";
+    try {
+      createFileAtomic(eventsRoot, expectedEvent.relativePath, serialized);
+      return "CREATED";
+    } catch (error) {
+      if (error.code !== "EEXIST") throw error;
+      // A concurrent external publisher may have won. Fall through to the
+      // same content-hash check used for ordinary idempotent retries.
+    }
   }
 
-  const existingHash = contentHash(fs.readFileSync(confinedPath));
+  const existingPath = confineWritePath(eventsRoot, expectedEvent.relativePath);
+  const existingHash = contentHash(fs.readFileSync(existingPath));
   if (existingHash === expectedEvent.contentHash) {
     return "ALREADY_APPLIED";
   }
