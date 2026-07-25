@@ -3,12 +3,13 @@ import path from "node:path";
 import { readOperation, writeOperation, writeResult, readResult } from "./operationStore.mjs";
 import { writeEventIdempotent, RecoveryRequiredError } from "./journal.mjs";
 import { contentHash, ABSENT } from "./canonical.mjs";
-import { confineRuntimePath, confineUnder } from "./paths.mjs";
+import { confineRuntimeWritePath, confineWritePath } from "./paths.mjs";
+import { renameWithinRoot } from "./safeFs.mjs";
 import { isUuidV7 } from "./ids.mjs";
 import { validate as validateSchema } from "./schema.mjs";
 
 function currentContentHash(planningRoot, relativePath) {
-  const absolutePath = confineRuntimePath(planningRoot, relativePath);
+  const absolutePath = confineRuntimeWritePath(planningRoot, relativePath);
   if (!fs.existsSync(absolutePath)) return ABSENT;
   return contentHash(fs.readFileSync(absolutePath));
 }
@@ -22,7 +23,9 @@ function classify(entry, actualHash) {
 function markRecoveryRequired(operationsRoot, operationId, operation, conflict) {
   const detectedAt = new Date().toISOString();
   writeOperation(operationsRoot, operationId, {
-    ...operation, status: "RECOVERY_REQUIRED", conflict: { detectedAt, ...conflict },
+    ...operation,
+    status: "RECOVERY_REQUIRED",
+    conflict: { detectedAt, ...conflict },
     history: [...operation.history, { at: detectedAt, from: "APPLYING", to: "RECOVERY_REQUIRED", actor: "system:recovery", reason: conflict.reason }]
   });
 }
@@ -34,40 +37,33 @@ export function runRecovery({ operationsRoot, planningRoot, lock }) {
   if (!fs.existsSync(operationsRoot)) return [];
 
   const outcomes = [];
-  const stagingRoot = path.join(planningRoot, ".runtime", "operations");
+  const runtimeOperationsRelative = path.join(".runtime", "operations");
 
   for (const operationId of fs.readdirSync(operationsRoot)) {
-    if (!isUuidV7(operationId)) continue; // never trust a directory name that isn't a real operation id
+    if (!isUuidV7(operationId)) continue;
 
     let operation;
     try {
       operation = readOperation(operationsRoot, operationId);
-    } catch (error) {
-      // unreadable/unparseable operation.yml is an integrity problem, not
-      // something to ignore -- report it and never attempt to rewrite a file
-      // we can't trust reading (Revision 4 note 6)
+    } catch {
       outcomes.push({ operationId, outcome: "RECOVERY_REQUIRED" });
       continue;
     }
 
     const operationSchemaCheck = validateSchema("operation", operation);
     if (!operationSchemaCheck.valid || operation.id !== operationId) {
-      // schema-invalid or self-inconsistent (directory name disagrees with
-      // the recorded id) -- same treatment: report, never rewrite
       outcomes.push({ operationId, outcome: "RECOVERY_REQUIRED" });
       continue;
     }
 
     if (operation.status === "RECOVERY_REQUIRED") {
-      // A manual recovery conflict remains globally blocking across
-      // invocations until a human resolves it. Never downgrade it to
-      // NOT_APPLICABLE on the next recovery sweep.
       outcomes.push({ operationId, outcome: "RECOVERY_REQUIRED" });
       continue;
     }
 
     if (operation.status === "APPLIED") {
-      const residue = path.join(stagingRoot, operationId);
+      const residueRelative = path.join(runtimeOperationsRelative, operationId);
+      const residue = confineRuntimeWritePath(planningRoot, residueRelative);
       if (fs.existsSync(residue)) {
         fs.rmSync(residue, { recursive: true, force: true });
         outcomes.push({ operationId, outcome: "CLEANED_UP" });
@@ -84,13 +80,15 @@ export function runRecovery({ operationsRoot, planningRoot, lock }) {
 
     let divergent = false;
     for (const entry of operation.filePlan || []) {
-      const actualHash = currentContentHash(planningRoot, entry.target); // confines entry.target internally
+      const actualHash = currentContentHash(planningRoot, entry.target);
       const classification = classify(entry, actualHash);
 
       if (classification === "DIVERGENT") {
         markRecoveryRequired(operationsRoot, operationId, operation, {
-          file: entry.target, expectedBeforeContentHash: entry.beforeContentHash,
-          expectedStagedContentHash: entry.stagedContentHash, actualContentHash: actualHash,
+          file: entry.target,
+          expectedBeforeContentHash: entry.beforeContentHash,
+          expectedStagedContentHash: entry.stagedContentHash,
+          actualContentHash: actualHash,
           reason: "canonical file diverged from both before and staged expectations"
         });
         divergent = true;
@@ -98,26 +96,34 @@ export function runRecovery({ operationsRoot, planningRoot, lock }) {
       }
 
       if (classification === "PENDING") {
-        const stagedDirForOperation = path.join(stagingRoot, operationId, "staged");
-        // the staging directory might not exist at all (already cleaned up,
-        // or never created if the crash predates it) -- confineUnder throws
-        // on a missing root, so existence is checked first (Revision 3 note 6)
-        const stagedExists = fs.existsSync(stagedDirForOperation);
-        const stagedPath = stagedExists ? confineUnder(stagedDirForOperation, entry.stagedRelativePath) : null;
-        if (!stagedExists || !fs.existsSync(stagedPath) || contentHash(fs.readFileSync(stagedPath)) !== entry.stagedContentHash) {
+        const stagedRelative = path.join(runtimeOperationsRelative, operationId, "staged", entry.stagedRelativePath);
+        let stagedPath;
+        try {
+          stagedPath = confineRuntimeWritePath(planningRoot, stagedRelative);
+        } catch (error) {
           markRecoveryRequired(operationsRoot, operationId, operation, {
-            file: entry.target, expectedBeforeContentHash: entry.beforeContentHash,
-            expectedStagedContentHash: entry.stagedContentHash, actualContentHash: actualHash,
+            file: entry.target,
+            expectedBeforeContentHash: entry.beforeContentHash,
+            expectedStagedContentHash: entry.stagedContentHash,
+            actualContentHash: actualHash,
+            reason: `staged path is not trusted: ${error.message}`
+          });
+          divergent = true;
+          break;
+        }
+        if (!fs.existsSync(stagedPath) || contentHash(fs.readFileSync(stagedPath)) !== entry.stagedContentHash) {
+          markRecoveryRequired(operationsRoot, operationId, operation, {
+            file: entry.target,
+            expectedBeforeContentHash: entry.beforeContentHash,
+            expectedStagedContentHash: entry.stagedContentHash,
+            actualContentHash: actualHash,
             reason: "staged file missing or altered; cannot safely redo the write"
           });
           divergent = true;
           break;
         }
-        const canonicalPath = confineRuntimePath(planningRoot, entry.target);
-        fs.mkdirSync(path.dirname(canonicalPath), { recursive: true });
-        fs.renameSync(stagedPath, canonicalPath);
+        renameWithinRoot(planningRoot, stagedRelative, entry.target);
       }
-      // classification === "APPLIED": nothing to do for this file
     }
     if (divergent) {
       outcomes.push({ operationId, outcome: "RECOVERY_REQUIRED" });
@@ -128,7 +134,7 @@ export function runRecovery({ operationsRoot, planningRoot, lock }) {
       operationId,
       files: (operation.filePlan || []).map((entry) => ({ target: entry.target, contentHash: entry.stagedContentHash }))
     };
-    const resultPath = path.join(operationsRoot, operationId, "result.json");
+    const resultPath = confineWritePath(operationsRoot, path.join(operationId, "result.json"));
     if (fs.existsSync(resultPath)) {
       let existingResult = null;
       try {
@@ -139,7 +145,8 @@ export function runRecovery({ operationsRoot, planningRoot, lock }) {
       const existingSchemaOk = existingResult !== null && validateSchema("result", existingResult).valid;
       if (!existingSchemaOk || JSON.stringify(existingResult) !== JSON.stringify(expectedResult)) {
         markRecoveryRequired(operationsRoot, operationId, operation, {
-          file: "result.json", reason: "result.json exists but does not match the outcome expected from filePlan, or is schema-invalid"
+          file: "result.json",
+          reason: "result.json exists but does not match the outcome expected from filePlan, or is schema-invalid"
         });
         outcomes.push({ operationId, outcome: "RECOVERY_REQUIRED" });
         continue;
@@ -150,9 +157,6 @@ export function runRecovery({ operationsRoot, planningRoot, lock }) {
 
     let eventDivergent = false;
     for (const expectedEvent of operation.expectedEvents || []) {
-      // relational invariants no JSON Schema can express on its own
-      // (Revision 4 note 5) -- never trust an expectedEvent enough to write
-      // it if these disagree with each other
       const relationallyConsistent = expectedEvent.eventId === expectedEvent.document.eventId
         && expectedEvent.document.operationId === operation.id
         && expectedEvent.relativePath.endsWith(`/${expectedEvent.eventId}.json`);
@@ -169,7 +173,8 @@ export function runRecovery({ operationsRoot, planningRoot, lock }) {
       } catch (error) {
         if (error instanceof RecoveryRequiredError) {
           markRecoveryRequired(operationsRoot, operationId, operation, {
-            file: expectedEvent.relativePath, expectedStagedContentHash: expectedEvent.contentHash,
+            file: expectedEvent.relativePath,
+            expectedStagedContentHash: expectedEvent.contentHash,
             reason: "event file exists with unexpected content"
           });
           eventDivergent = true;
@@ -186,10 +191,13 @@ export function runRecovery({ operationsRoot, planningRoot, lock }) {
     const appliedAt = new Date().toISOString();
     const current = readOperation(operationsRoot, operationId);
     writeOperation(operationsRoot, operationId, {
-      ...current, status: "APPLIED", appliedAt,
+      ...current,
+      status: "APPLIED",
+      appliedAt,
       history: [...current.history, { at: appliedAt, from: "APPLYING", to: "APPLIED", actor: "system:recovery", reason: null }]
     });
-    fs.rmSync(path.join(stagingRoot, operationId), { recursive: true, force: true });
+    const residue = confineRuntimeWritePath(planningRoot, path.join(runtimeOperationsRelative, operationId));
+    fs.rmSync(residue, { recursive: true, force: true });
     outcomes.push({ operationId, outcome: "COMPLETED" });
   }
 
