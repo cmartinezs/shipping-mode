@@ -65,6 +65,22 @@ const srcB = "018f4d1e-0000-7000-8000-0000000000a2";
   assert.equal(entry.evidenceState, "evidence-missing");
 }
 
+// evidence-missing: a unique move candidate is still unconfirmed, so the cataloged live path
+// remains unresolved and cannot be treated as usable evidence.
+{
+  const { planningRoot } = makeWorkspace();
+  const scopeId = "018f4d1e-0000-7000-8000-0000000000b6";
+  writeScope(planningRoot, scopeId, {
+    build: { command: "./y", method: "reviewed", confidence: "high", sourceRefs: [srcA], sourceFingerprintAtSelection: { [srcA]: "a".repeat(64) }, requiresEnvironment: false, requiresSecrets: false, alternatives: [] }
+  });
+  const result = computeCommandEvidence({
+    planningRoot,
+    knownSourceDrift: [{ sourceId: srcA, driftState: "moved", confirmedFingerprint: "a".repeat(64), observedFingerprint: null }]
+  });
+  const entry = result.find((r) => r.scopeId === scopeId && r.role === "build");
+  assert.equal(entry.evidenceState, "evidence-missing");
+}
+
 // evidence-updated: catalog's confirmed fingerprint moved past the command's selection snapshot,
 // but live workspace still matches the catalog (no live drift)
 {
@@ -99,4 +115,4 @@ const srcB = "018f4d1e-0000-7000-8000-0000000000a2";
   assert.deepEqual(entry.reasons.sort(), ["catalog-advanced-since-selection", "live-source-differs-from-catalog"].sort());
 }
 
-console.log("discover-command-evidence: not-evidence-backed, current, evidence-missing, evidence-updated, evidence-drifted precedence all pass");
+console.log("discover-command-evidence: not-evidence-backed, current, missing/moved evidence, evidence-updated, and evidence-drifted precedence all pass");

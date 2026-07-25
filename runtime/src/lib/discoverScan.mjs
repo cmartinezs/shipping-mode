@@ -286,7 +286,7 @@ function evaluateCommandEvidence(commandEntry, knownSourceDrift) {
   const driftById = new Map(knownSourceDrift.map((d) => [d.sourceId, d]));
   const refDrifts = commandEntry.sourceRefs.map((ref) => driftById.get(ref));
 
-  if (refDrifts.some((d) => d === undefined || d.driftState === "missing")) {
+  if (refDrifts.some((d) => d === undefined || d.driftState === "missing" || d.driftState === "moved")) {
     return { evidenceState: "evidence-missing", reasons: [] };
   }
   if (refDrifts.some((d) => d.observedFingerprint === undefined || d.observedFingerprint === null)) {

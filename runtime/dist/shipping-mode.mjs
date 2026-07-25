@@ -8943,12 +8943,17 @@ var FingerprintError = class extends Error {
     super(message), this.name = "FingerprintError", this.code = code, this.details = details;
   }
 };
+function asFingerprintObservationError(error, absolutePath, operation) {
+  if (error instanceof FingerprintError) return error;
+  let details = { path: absolutePath, operation, causeCode: error?.code ?? null }, wrapped;
+  return error?.code === "EACCES" || error?.code === "EPERM" ? wrapped = new FingerprintError("unreadable", `unreadable during ${operation}: ${absolutePath}`, details) : error?.code === "ENOENT" ? wrapped = new FingerprintError("observation_race", `path changed during ${operation}: ${absolutePath}`, details) : wrapped = new FingerprintError("observation_failed", `filesystem observation failed during ${operation}: ${absolutePath}`, details), wrapped.cause = error, wrapped;
+}
 function computeFileFingerprint(absolutePath, { maxBytes, statFn = fs10.statSync, readFn = fs10.readFileSync } = {}) {
   let stat;
   try {
     stat = statFn(absolutePath);
   } catch (error) {
-    throw error.code === "EACCES" ? new FingerprintError("unreadable", `unreadable: ${absolutePath}`, { path: absolutePath }) : error;
+    throw asFingerprintObservationError(error, absolutePath, "stat");
   }
   if (stat.size > maxBytes)
     throw new FingerprintError("source_too_large", `source exceeds size limit: ${absolutePath}`, {
@@ -8960,7 +8965,7 @@ function computeFileFingerprint(absolutePath, { maxBytes, statFn = fs10.statSync
   try {
     bytes = readFn(absolutePath);
   } catch (error) {
-    throw error.code === "EACCES" ? new FingerprintError("unreadable", `unreadable: ${absolutePath}`, { path: absolutePath }) : error;
+    throw asFingerprintObservationError(error, absolutePath, "read");
   }
   let hash = contentHash(bytes);
   return { fingerprint: hash, contentHash: hash };
@@ -8974,13 +8979,23 @@ function compareUtf8Bytes(a, b) {
 function collectEntries(absoluteRoot, { readdirFn, lstatFn }) {
   let entries = [];
   function walk(currentAbs, currentRelSegments) {
-    let names = readdirFn(currentAbs, { encoding: "buffer" });
+    let names;
+    try {
+      names = readdirFn(currentAbs, { encoding: "buffer" });
+    } catch (error) {
+      throw asFingerprintObservationError(error, currentAbs, "readdir");
+    }
     for (let nameBuf of names) {
       if (!isValidUtf8Buffer(nameBuf))
         throw new FingerprintError("invalid_utf8", `path is not valid UTF-8 under ${currentAbs}`, { path: currentAbs });
       let name = nameBuf.toString("utf8");
       if (name === ".git") continue;
-      let absChild = path11.join(currentAbs, name), relSegments = [...currentRelSegments, name], stat = lstatFn(absChild);
+      let absChild = path11.join(currentAbs, name), relSegments = [...currentRelSegments, name], stat;
+      try {
+        stat = lstatFn(absChild);
+      } catch (error) {
+        throw asFingerprintObservationError(error, absChild, "lstat");
+      }
       stat.isSymbolicLink() ? entries.push({ relSegments, absPath: absChild, isSymlink: !0 }) : stat.isDirectory() ? walk(absChild, relSegments) : stat.isFile() && entries.push({ relSegments, absPath: absChild, isSymlink: !1 });
     }
   }
@@ -8996,7 +9011,7 @@ function computeDirectoryFingerprint(absoluteRoot, {
   let entries = collectEntries(absoluteRoot, { readdirFn, lstatFn }), byNormalized = /* @__PURE__ */ new Map();
   for (let entry of entries) {
     let rawRelPath = entry.relSegments.join("/"), normalizedRelPath = entry.relSegments.map((segment) => segment.normalize("NFC")).join("/");
-    entry.relPath = rawRelPath;
+    entry.relPath = normalizedRelPath;
     let existing = byNormalized.get(normalizedRelPath);
     if (existing !== void 0 && existing !== rawRelPath)
       throw new FingerprintError("normalized_path_collision", `normalized path collision under ${absoluteRoot}: ${normalizedRelPath}`, {
@@ -9007,7 +9022,12 @@ function computeDirectoryFingerprint(absoluteRoot, {
   }
   let totalBytes = 0;
   for (let entry of entries)
-    entry.isSymlink || (totalBytes += lstatFn(entry.absPath).size);
+    if (!entry.isSymlink)
+      try {
+        totalBytes += lstatFn(entry.absPath).size;
+      } catch (error) {
+        throw asFingerprintObservationError(error, entry.absPath, "preflight-lstat");
+      }
   if (totalBytes > maxBytes)
     throw new FingerprintError("source_too_large", `source exceeds size limit: ${absoluteRoot}`, {
       path: absoluteRoot,
@@ -9022,7 +9042,7 @@ function computeDirectoryFingerprint(absoluteRoot, {
       try {
         targetBuf = readlinkFn(entry.absPath, "buffer");
       } catch (error) {
-        throw error.code === "EACCES" ? new FingerprintError("unreadable", `unreadable: ${entry.absPath}`, { path: entry.absPath }) : error;
+        throw asFingerprintObservationError(error, entry.absPath, "readlink");
       }
       if (!isValidUtf8Buffer(targetBuf))
         throw new FingerprintError("invalid_utf8", `symlink target is not valid UTF-8: ${entry.absPath}`, { path: entry.absPath });
@@ -9035,7 +9055,7 @@ function computeDirectoryFingerprint(absoluteRoot, {
       try {
         bytes = readFileFn(entry.absPath);
       } catch (error) {
-        throw error.code === "EACCES" ? new FingerprintError("unreadable", `unreadable: ${entry.absPath}`, { path: entry.absPath }) : error;
+        throw asFingerprintObservationError(error, entry.absPath, "read");
       }
       let fileHash = contentHash(bytes), relHash = contentHash(Buffer.from(entry.relPath, "utf8"));
       fingerprintLines.push(`file\0${relHash}\0${fileHash}
@@ -9052,7 +9072,7 @@ function computeSourceFingerprint(absolutePath, options = {}) {
   try {
     stat = lstatFn(absolutePath);
   } catch (error) {
-    throw error.code === "EACCES" ? new FingerprintError("unreadable", `unreadable: ${absolutePath}`, { path: absolutePath }) : error;
+    throw asFingerprintObservationError(error, absolutePath, "lstat");
   }
   if (stat.isDirectory()) return computeDirectoryFingerprint(absolutePath, options);
   if (stat.isFile()) return computeFileFingerprint(absolutePath, options);
@@ -9283,7 +9303,7 @@ function evaluateCommandEvidence(commandEntry, knownSourceDrift) {
   if (!commandEntry.sourceRefs || commandEntry.sourceRefs.length === 0)
     return { evidenceState: "not-evidence-backed", reasons: [] };
   let driftById = new Map(knownSourceDrift.map((d) => [d.sourceId, d])), refDrifts = commandEntry.sourceRefs.map((ref) => driftById.get(ref));
-  if (refDrifts.some((d) => d === void 0 || d.driftState === "missing"))
+  if (refDrifts.some((d) => d === void 0 || d.driftState === "missing" || d.driftState === "moved"))
     return { evidenceState: "evidence-missing", reasons: [] };
   if (refDrifts.some((d) => d.observedFingerprint === void 0 || d.observedFingerprint === null))
     return { evidenceState: "unknown", reasons: [] };

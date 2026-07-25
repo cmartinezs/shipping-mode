@@ -11,13 +11,27 @@ export class FingerprintError extends Error {
   }
 }
 
+function asFingerprintObservationError(error, absolutePath, operation) {
+  if (error instanceof FingerprintError) return error;
+  const details = { path: absolutePath, operation, causeCode: error?.code ?? null };
+  let wrapped;
+  if (error?.code === "EACCES" || error?.code === "EPERM") {
+    wrapped = new FingerprintError("unreadable", `unreadable during ${operation}: ${absolutePath}`, details);
+  } else if (error?.code === "ENOENT") {
+    wrapped = new FingerprintError("observation_race", `path changed during ${operation}: ${absolutePath}`, details);
+  } else {
+    wrapped = new FingerprintError("observation_failed", `filesystem observation failed during ${operation}: ${absolutePath}`, details);
+  }
+  wrapped.cause = error;
+  return wrapped;
+}
+
 export function computeFileFingerprint(absolutePath, { maxBytes, statFn = fs.statSync, readFn = fs.readFileSync } = {}) {
   let stat;
   try {
     stat = statFn(absolutePath);
   } catch (error) {
-    if (error.code === "EACCES") throw new FingerprintError("unreadable", `unreadable: ${absolutePath}`, { path: absolutePath });
-    throw error;
+    throw asFingerprintObservationError(error, absolutePath, "stat");
   }
   if (stat.size > maxBytes) {
     throw new FingerprintError("source_too_large", `source exceeds size limit: ${absolutePath}`, {
@@ -30,8 +44,7 @@ export function computeFileFingerprint(absolutePath, { maxBytes, statFn = fs.sta
   try {
     bytes = readFn(absolutePath);
   } catch (error) {
-    if (error.code === "EACCES") throw new FingerprintError("unreadable", `unreadable: ${absolutePath}`, { path: absolutePath });
-    throw error;
+    throw asFingerprintObservationError(error, absolutePath, "read");
   }
   const hash = sha256Hex(bytes);
   return { fingerprint: hash, contentHash: hash };
@@ -51,7 +64,12 @@ function compareUtf8Bytes(a, b) {
 function collectEntries(absoluteRoot, { readdirFn, lstatFn }) {
   const entries = [];
   function walk(currentAbs, currentRelSegments) {
-    const names = readdirFn(currentAbs, { encoding: "buffer" });
+    let names;
+    try {
+      names = readdirFn(currentAbs, { encoding: "buffer" });
+    } catch (error) {
+      throw asFingerprintObservationError(error, currentAbs, "readdir");
+    }
     for (const nameBuf of names) {
       if (!isValidUtf8Buffer(nameBuf)) {
         throw new FingerprintError("invalid_utf8", `path is not valid UTF-8 under ${currentAbs}`, { path: currentAbs });
@@ -60,7 +78,12 @@ function collectEntries(absoluteRoot, { readdirFn, lstatFn }) {
       if (name === ".git") continue; // never part of any source's content, per the design spec
       const absChild = path.join(currentAbs, name);
       const relSegments = [...currentRelSegments, name];
-      const stat = lstatFn(absChild);
+      let stat;
+      try {
+        stat = lstatFn(absChild);
+      } catch (error) {
+        throw asFingerprintObservationError(error, absChild, "lstat");
+      }
       if (stat.isSymbolicLink()) {
         entries.push({ relSegments, absPath: absChild, isSymlink: true });
       } else if (stat.isDirectory()) {
@@ -84,15 +107,13 @@ export function computeDirectoryFingerprint(absoluteRoot, {
 } = {}) {
   const entries = collectEntries(absoluteRoot, { readdirFn, lstatFn });
 
-  // Collision detection is about the RAW relative path used to walk the tree (needed so
-  // renames/reorganizations are detected as fingerprint changes) -- it is NOT about
-  // normalizing symlink targets, which are opaque data, not paths being compared to each
-  // other for identity within this scan (see the symlink-handling loop below).
+  // Detect distinct raw paths that collapse to the same canonical path. Once validated,
+  // the canonical POSIX+NFC representation is the path used for sorting and hashing.
   const byNormalized = new Map();
   for (const entry of entries) {
     const rawRelPath = entry.relSegments.join("/");
     const normalizedRelPath = entry.relSegments.map((segment) => segment.normalize("NFC")).join("/");
-    entry.relPath = rawRelPath;
+    entry.relPath = normalizedRelPath;
     const existing = byNormalized.get(normalizedRelPath);
     if (existing !== undefined && existing !== rawRelPath) {
       throw new FingerprintError("normalized_path_collision", `normalized path collision under ${absoluteRoot}: ${normalizedRelPath}`, {
@@ -106,7 +127,11 @@ export function computeDirectoryFingerprint(absoluteRoot, {
   let totalBytes = 0;
   for (const entry of entries) {
     if (entry.isSymlink) continue;
-    totalBytes += lstatFn(entry.absPath).size;
+    try {
+      totalBytes += lstatFn(entry.absPath).size;
+    } catch (error) {
+      throw asFingerprintObservationError(error, entry.absPath, "preflight-lstat");
+    }
   }
   if (totalBytes > maxBytes) {
     throw new FingerprintError("source_too_large", `source exceeds size limit: ${absoluteRoot}`, {
@@ -126,8 +151,7 @@ export function computeDirectoryFingerprint(absoluteRoot, {
       try {
         targetBuf = readlinkFn(entry.absPath, "buffer");
       } catch (error) {
-        if (error.code === "EACCES") throw new FingerprintError("unreadable", `unreadable: ${entry.absPath}`, { path: entry.absPath });
-        throw error;
+        throw asFingerprintObservationError(error, entry.absPath, "readlink");
       }
       if (!isValidUtf8Buffer(targetBuf)) {
         throw new FingerprintError("invalid_utf8", `symlink target is not valid UTF-8: ${entry.absPath}`, { path: entry.absPath });
@@ -146,8 +170,7 @@ export function computeDirectoryFingerprint(absoluteRoot, {
       try {
         bytes = readFileFn(entry.absPath);
       } catch (error) {
-        if (error.code === "EACCES") throw new FingerprintError("unreadable", `unreadable: ${entry.absPath}`, { path: entry.absPath });
-        throw error;
+        throw asFingerprintObservationError(error, entry.absPath, "read");
       }
       const fileHash = sha256Hex(bytes);
       const relHash = sha256Hex(Buffer.from(entry.relPath, "utf8"));
@@ -169,8 +192,7 @@ export function computeSourceFingerprint(absolutePath, options = {}) {
   try {
     stat = lstatFn(absolutePath);
   } catch (error) {
-    if (error.code === "EACCES") throw new FingerprintError("unreadable", `unreadable: ${absolutePath}`, { path: absolutePath });
-    throw error;
+    throw asFingerprintObservationError(error, absolutePath, "lstat");
   }
   if (stat.isDirectory()) return computeDirectoryFingerprint(absolutePath, options);
   if (stat.isFile()) return computeFileFingerprint(absolutePath, options);

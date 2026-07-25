@@ -149,4 +149,60 @@ function freshDir() {
   assert.notEqual(resultA.fingerprint, resultB.fingerprint, "symlink targets must be compared as raw bytes, never NFC-normalized");
 }
 
-console.log("fingerprint-directory: determinism, multiplicity, symlink text-vs-content, collisions, unreadable, size preflight, invalid UTF-8, .git exclusion, and raw symlink-target hashing all pass");
+// 10. Canonically equivalent path names in separate trees produce the same fingerprint.
+{
+  const dirA = freshDir();
+  const dirB = freshDir();
+  fs.writeFileSync(path.join(dirA, "café.txt"), "same");
+  fs.writeFileSync(path.join(dirB, "café.txt"), "same");
+  const resultA = computeDirectoryFingerprint(dirA, { maxBytes: 1024 });
+  const resultB = computeDirectoryFingerprint(dirB, { maxBytes: 1024 });
+  assert.equal(resultA.fingerprint, resultB.fingerprint, "NFC/NFD-equivalent paths must hash canonically");
+}
+
+// 11. Every filesystem observation phase returns a controlled FingerprintError.
+{
+  const dir = freshDir();
+  fs.writeFileSync(path.join(dir, "file.txt"), "content");
+  const injected = (code) => {
+    const error = new Error(code);
+    error.code = code;
+    throw error;
+  };
+
+  assert.throws(
+    () => computeDirectoryFingerprint(dir, { maxBytes: 1024, readdirFn: () => injected("EACCES") }),
+    (error) => error instanceof FingerprintError && error.code === "unreadable" && error.details.operation === "readdir"
+  );
+  assert.throws(
+    () => computeDirectoryFingerprint(dir, { maxBytes: 1024, lstatFn: () => injected("EACCES") }),
+    (error) => error instanceof FingerprintError && error.code === "unreadable" && error.details.operation === "lstat"
+  );
+
+  let lstatCalls = 0;
+  assert.throws(
+    () => computeDirectoryFingerprint(dir, {
+      maxBytes: 1024,
+      lstatFn: (...args) => {
+        lstatCalls += 1;
+        if (lstatCalls > 1) return injected("ENOENT");
+        return fs.lstatSync(...args);
+      }
+    }),
+    (error) => error instanceof FingerprintError && error.code === "observation_race" && error.details.operation === "preflight-lstat"
+  );
+  assert.throws(
+    () => computeDirectoryFingerprint(dir, { maxBytes: 1024, readFileFn: () => injected("ENOENT") }),
+    (error) => error instanceof FingerprintError && error.code === "observation_race" && error.details.operation === "read"
+  );
+
+  const symlinkDir = freshDir();
+  fs.symlinkSync("target", path.join(symlinkDir, "link"));
+  assert.throws(
+    () => computeDirectoryFingerprint(symlinkDir, { maxBytes: 1024, readlinkFn: () => injected("ENOENT") }),
+    (error) => error instanceof FingerprintError && error.code === "observation_race"
+      && error.details.operation === "readlink" && error.cause?.code === "ENOENT"
+  );
+}
+
+console.log("fingerprint-directory: determinism, multiplicity, canonical paths, symlinks, collisions, controlled observation failures, size preflight, invalid UTF-8, and .git exclusion all pass");
