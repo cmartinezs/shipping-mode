@@ -10,14 +10,17 @@ const configUpdate = prepareProposal("config.update", { name: "renamed" });
 assert.deepEqual(configUpdate.targetFiles, ["config.yml"]);
 
 const scopeWithoutId = prepareProposal("scope.add", { key: "backend", label: "Backend", kind: "code", path: "api/" });
-assert.ok(isUuidV7(scopeWithoutId.payload.id), "a scope id must be generated when the raw payload doesn't already have one");
-assert.deepEqual(scopeWithoutId.targetFiles, ["config.yml", `scopes/${scopeWithoutId.payload.id}/scope.yml`], "scope.add's targetFiles must include the new scope's own path, built from its id");
+assert.ok(isUuidV7(scopeWithoutId.payload.id));
+assert.deepEqual(scopeWithoutId.targetFiles, ["config.yml", `scopes/${scopeWithoutId.payload.id}/scope.yml`]);
 
 const fixedId = "018f0000-0000-7000-8000-000000000000";
 const scopeWithId = prepareProposal("scope.add", { id: fixedId, key: "backend", label: "Backend", kind: "code", path: "api/" });
-assert.equal(scopeWithId.payload.id, fixedId, "an already-fixed id must never be regenerated");
+assert.equal(scopeWithId.payload.id, fixedId);
 assert.deepEqual(scopeWithId.targetFiles, ["config.yml", `scopes/${fixedId}/scope.yml`]);
 
 assert.throws(() => prepareProposal("release.create", {}), UsageError);
+for (const invalidPayload of [null, [], "text", 42]) {
+  assert.throws(() => prepareProposal("scope.add", invalidPayload), UsageError, "non-object payloads are expected usage errors, never TypeError crashes");
+}
 
-console.log("proposalPreparation: all tests passed");
+console.log("proposalPreparation: target derivation and payload type rejection pass");
