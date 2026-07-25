@@ -10,15 +10,17 @@ command -v node >/dev/null 2>&1 || fail "Node.js 20+ is required"
 node -e 'if (Number(process.versions.node.split(".")[0]) < 20) process.exit(1)' || fail "Node.js 20+ is required"
 
 if [[ "${VERIFY_NEXT_GENERATION_SKIP_TESTS:-0}" != "1" ]]; then
+  (cd "$ROOT" && npm ci --silent)
+  (cd "$ROOT" && npm run --silent verify:artifacts)
+  (cd "$ROOT" && npm run --silent build:test-bundle)
   (cd "$ROOT" && node hooks/tests/protect-planning-state.test.mjs)
   (cd "$ROOT" && node spikes/tests/verify-corte-1.2.test.mjs)
   (cd "$ROOT" && node scripts/tests/verify-next-generation.test.mjs)
   (cd "$ROOT" && node spikes/host-integration/tests/host-integration.test.mjs)
-  (cd "$ROOT" && npm ci --silent)
-  (cd "$ROOT" && npm run --silent build:runtime)
-  (cd "$ROOT" && npm run --silent build:test-bundle)
   (cd "$ROOT" && npm run --silent test:unit)
   (cd "$ROOT" && npm run --silent test:cli-e2e)
+  (cd "$ROOT" && npm run --silent test:real-crash-e2e)
+  (cd "$ROOT" && npm run --silent test:security-e2e)
   (cd "$ROOT" && npm run --silent test:bundle)
   (cd "$ROOT" && node spikes/verify-corte-1.2.mjs --structure-only)
 fi
@@ -30,15 +32,7 @@ done
 
 manifest_count="$(find "$ROOT/spikes" -mindepth 2 -maxdepth 2 -name spike.json | wc -l | tr -d ' ')"
 [[ "$manifest_count" == 6 ]] || fail "six spike manifests are required"
-if rg -n 'decision_record|PARTIALLY_APPLIED|OP-01J|01J-|RI0004|/<acronym>-init|/arc-init' "$DOCS_ROOT"; then
-  fail "legacy identity, state or namespace drift detected"
-fi
-if rg -n 'item[[:space:]]+move|change parent_id' "$DOCS_ROOT"; then
-  fail "mutable parent operation detected"
-fi
-if rg -n 'verify-plugin\.sh' "$DOCS_ROOT"; then
-  fail "next-generation documentation still references the v3 verifier"
-fi
+node "$ROOT/scripts/scan-next-generation-docs.mjs" "$DOCS_ROOT"
 
 node -e 'const p=require("./package.json"); if (!p.engines || p.engines.node !== ">=20") process.exit(1)' --input-type=commonjs --no-warnings 2>/dev/null || fail "package.json must require Node >=20"
 for manifest in "$ROOT"/spikes/*/spike.json; do
