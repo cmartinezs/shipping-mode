@@ -251,3 +251,80 @@ export function computeKnownSourceDrift({ planningRoot, workspaceRoot, sourceCan
 
   return { results, diagnostics, fingerprintedSourceCandidates };
 }
+
+function readConfirmedScopes(planningRoot) {
+  const scopesRoot = path.join(planningRoot, "scopes");
+  if (!fs.existsSync(scopesRoot)) return [];
+  const scopes = [];
+  for (const id of fs.readdirSync(scopesRoot)) {
+    if (!isUuidV7(id)) continue;
+    const scopeFile = confineWritePath(planningRoot, path.join("scopes", id, "scope.yml"));
+    if (!fs.existsSync(scopeFile)) continue;
+    scopes.push(parseYaml(fs.readFileSync(scopeFile, "utf8")));
+  }
+  return scopes;
+}
+
+function allCommandEntries(scope) {
+  if (!scope.commands) return [];
+  const entries = [];
+  for (const role of ["build", "test", "smoke", "lint", "verify"]) {
+    if (scope.commands[role]) entries.push({ role, entry: scope.commands[role] });
+  }
+  for (const [role, entry] of Object.entries(scope.commands.custom || {})) {
+    entries.push({ role: `custom.${role}`, entry });
+  }
+  return entries;
+}
+
+function evaluateCommandEvidence(commandEntry, knownSourceDrift) {
+  if (!commandEntry.sourceRefs || commandEntry.sourceRefs.length === 0) {
+    return { evidenceState: "not-evidence-backed", reasons: [] };
+  }
+
+  const driftById = new Map(knownSourceDrift.map((d) => [d.sourceId, d]));
+  const refDrifts = commandEntry.sourceRefs.map((ref) => driftById.get(ref));
+
+  if (refDrifts.some((d) => d === undefined || d.driftState === "missing")) {
+    return { evidenceState: "evidence-missing", reasons: [] };
+  }
+  if (refDrifts.some((d) => d.observedFingerprint === undefined || d.observedFingerprint === null)) {
+    return { evidenceState: "unknown", reasons: [] };
+  }
+
+  const reasons = new Set();
+  let anyDrifted = false;
+  let anyUpdated = false;
+  for (const ref of commandEntry.sourceRefs) {
+    const drift = driftById.get(ref);
+    // NEVER fall back to observedFingerprint here: confirmedFingerprint (the catalog's
+    // baseline) and observedFingerprint (what's live right now) answer different questions.
+    // Using the live value as a stand-in for the catalog's would report a false
+    // "catalog-advanced-since-selection" whenever there's live drift but the catalog itself
+    // never moved -- exactly the bug this explicit field separation exists to prevent.
+    if (drift.driftState === "changed") {
+      anyDrifted = true;
+      reasons.add("live-source-differs-from-catalog");
+    }
+    if (commandEntry.sourceFingerprintAtSelection[ref] !== drift.confirmedFingerprint) {
+      anyUpdated = true;
+      reasons.add("catalog-advanced-since-selection");
+    }
+  }
+
+  if (anyDrifted) return { evidenceState: "evidence-drifted", reasons: [...reasons] };
+  if (anyUpdated) return { evidenceState: "evidence-updated", reasons: [...reasons] };
+  return { evidenceState: "current", reasons: [] };
+}
+
+export function computeCommandEvidence({ planningRoot, knownSourceDrift }) {
+  const scopes = readConfirmedScopes(planningRoot);
+  const results = [];
+  for (const scope of scopes) {
+    for (const { role, entry } of allCommandEntries(scope)) {
+      const { evidenceState, reasons } = evaluateCommandEvidence(entry, knownSourceDrift);
+      results.push({ scopeId: scope.id, role, evidenceState, reasons });
+    }
+  }
+  return results;
+}
