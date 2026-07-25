@@ -271,7 +271,48 @@ function freshDir() {
   assert.equal(readWasCalled, false, "content must never be read once the stat-sum preflight already exceeds the cap");
 }
 
-console.log("fingerprint-directory: determinism, multiplicity, symlink text-vs-content, collisions, unreadable, size preflight all pass");
+// 7. Invalid UTF-8 in a directory ENTRY NAME (distinct from the NFC-collision case above --
+//    this is a raw filename that isn't valid UTF-8 at all, not two valid-but-equivalent ones).
+//    Built via a Buffer path so the raw bytes reach the filesystem unmodified -- a JS string
+//    literal cannot represent unpaired/invalid UTF-8 bytes on disk.
+{
+  const dir = freshDir();
+  const invalidNamePath = Buffer.concat([Buffer.from(dir + path.sep, "utf8"), Buffer.from([0xff, 0xfe, 0x2e, 0x74, 0x78, 0x74])]);
+  fs.writeFileSync(invalidNamePath, "content");
+  assert.throws(
+    () => computeDirectoryFingerprint(dir, { maxBytes: 1024 }),
+    (error) => error instanceof FingerprintError && error.code === "invalid_utf8"
+  );
+}
+
+// 8. .git/ is always excluded from the manifest, even if it contains content that would
+//    otherwise change the fingerprint
+{
+  const dir = freshDir();
+  fs.writeFileSync(path.join(dir, "real.txt"), "content");
+  const before = computeDirectoryFingerprint(dir, { maxBytes: 1024 * 1024 });
+  fs.mkdirSync(path.join(dir, ".git"));
+  fs.writeFileSync(path.join(dir, ".git", "HEAD"), "ref: refs/heads/main\n");
+  const after = computeDirectoryFingerprint(dir, { maxBytes: 1024 * 1024 });
+  assert.equal(before.fingerprint, after.fingerprint, ".git/ must never affect the fingerprint");
+  assert.equal(before.contentHash, after.contentHash);
+}
+
+// 9. Symlink target is hashed as raw validated UTF-8 bytes, NOT NFC-normalized -- two
+//    textually-different-but-NFC-equivalent targets must produce DIFFERENT fingerprints
+//    (normalizing here without a collision check would silently collapse them). Uses the
+//    same explicit \u escape technique as the path-collision test above, for the same reason.
+{
+  const dirA = freshDir();
+  fs.symlinkSync("caf\u00e9", path.join(dirA, "link"));
+  const dirB = freshDir();
+  fs.symlinkSync("cafe\u0301", path.join(dirB, "link"));
+  const resultA = computeDirectoryFingerprint(dirA, { maxBytes: 1024 });
+  const resultB = computeDirectoryFingerprint(dirB, { maxBytes: 1024 });
+  assert.notEqual(resultA.fingerprint, resultB.fingerprint, "symlink targets must be compared as raw bytes, never NFC-normalized");
+}
+
+console.log("fingerprint-directory: determinism, multiplicity, symlink text-vs-content, collisions, unreadable, size preflight, invalid UTF-8, .git exclusion, and raw symlink-target hashing all pass");
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -290,6 +331,13 @@ function isValidUtf8Buffer(buf) {
   return Buffer.from(buf.toString("utf8"), "utf8").equals(buf);
 }
 
+// Byte-wise UTF-8 comparison, per the design spec ("sorted lexicographic, byte-wise UTF-8") --
+// NOT JavaScript's default string comparison, which compares UTF-16 code units and can
+// disagree with byte order for characters outside the BMP or in specific Unicode ranges.
+function compareUtf8Bytes(a, b) {
+  return Buffer.compare(Buffer.from(a, "utf8"), Buffer.from(b, "utf8"));
+}
+
 function collectEntries(absoluteRoot, { readdirFn, lstatFn }) {
   const entries = [];
   function walk(currentAbs, currentRelSegments) {
@@ -299,6 +347,7 @@ function collectEntries(absoluteRoot, { readdirFn, lstatFn }) {
         throw new FingerprintError("invalid_utf8", `path is not valid UTF-8 under ${currentAbs}`, { path: currentAbs });
       }
       const name = nameBuf.toString("utf8");
+      if (name === ".git") continue; // never part of any source's content, per the design spec
       const absChild = path.join(currentAbs, name);
       const relSegments = [...currentRelSegments, name];
       const stat = lstatFn(absChild);
@@ -325,11 +374,15 @@ export function computeDirectoryFingerprint(absoluteRoot, {
 } = {}) {
   const entries = collectEntries(absoluteRoot, { readdirFn, lstatFn });
 
+  // Collision detection is about the RAW relative path used to walk the tree (needed so
+  // renames/reorganizations are detected as fingerprint changes) -- it is NOT about
+  // normalizing symlink targets, which are opaque data, not paths being compared to each
+  // other for identity within this scan (see the symlink-handling loop below).
   const byNormalized = new Map();
   for (const entry of entries) {
     const rawRelPath = entry.relSegments.join("/");
     const normalizedRelPath = entry.relSegments.map((segment) => segment.normalize("NFC")).join("/");
-    entry.relPath = normalizedRelPath;
+    entry.relPath = rawRelPath;
     const existing = byNormalized.get(normalizedRelPath);
     if (existing !== undefined && existing !== rawRelPath) {
       throw new FingerprintError("normalized_path_collision", `normalized path collision under ${absoluteRoot}: ${normalizedRelPath}`, {
@@ -353,7 +406,7 @@ export function computeDirectoryFingerprint(absoluteRoot, {
     });
   }
 
-  entries.sort((a, b) => (a.relPath < b.relPath ? -1 : a.relPath > b.relPath ? 1 : 0));
+  entries.sort((a, b) => compareUtf8Bytes(a.relPath, b.relPath));
 
   const fingerprintLines = [];
   const contentLines = [];
@@ -369,9 +422,13 @@ export function computeDirectoryFingerprint(absoluteRoot, {
       if (!isValidUtf8Buffer(targetBuf)) {
         throw new FingerprintError("invalid_utf8", `symlink target is not valid UTF-8: ${entry.absPath}`, { path: entry.absPath });
       }
-      const target = targetBuf.toString("utf8").normalize("NFC");
+      // Deliberately NOT NFC-normalized: the target is opaque data being hashed for
+      // content-identity, not a path compared against other paths for collision purposes.
+      // Normalizing it here (without an equivalent collision check) would silently collapse
+      // two textually-different targets into the same hash -- exactly the kind of unhandled
+      // collision the path-normalization block above exists to catch, not create.
       const relHash = sha256Hex(Buffer.from(entry.relPath, "utf8"));
-      const targetHash = sha256Hex(Buffer.from(target, "utf8"));
+      const targetHash = sha256Hex(targetBuf);
       fingerprintLines.push(`symlink\0${relHash}\0${targetHash}\n`);
       contentLines.push(`symlink\0${targetHash}\n`);
     } else {
@@ -740,12 +797,14 @@ assert.equal(validate("scope", { ...baseScope, commands: { build: reviewedComman
 const dupRefs = { ...reviewedCommand, sourceRefs: ["018f4d1e-0000-7000-8000-000000000004", "018f4d1e-0000-7000-8000-000000000004"] };
 assert.equal(validate("scope", { ...baseScope, commands: { build: dupRefs } }).valid, false);
 
-// sourceFingerprintAtSelection keys must exactly match sourceRefs -- extra key rejected
-const extraFingerprintKey = {
-  ...reviewedCommand,
-  sourceFingerprintAtSelection: { "018f4d1e-0000-7000-8000-000000000004": "c".repeat(64), "018f4d1e-0000-7000-8000-000000000099": "e".repeat(64) }
-};
-assert.equal(validate("scope", { ...baseScope, commands: { build: extraFingerprintKey } }).valid, false);
+// NOTE: "sourceFingerprintAtSelection keys must exactly match sourceRefs" is NOT asserted
+// here. Plain JSON Schema's additionalProperties/propertyNames can constrain what a key
+// LOOKS like, but cannot express "this object's key set equals that array's contents" as a
+// cross-field constraint -- there is no schema shape that makes this pass. That check is a
+// real, implemented relational check (not deferred, not skipped) in Task 13, exercised
+// against actual scope.yml fixtures via check schema, where application code can compare
+// the two sets directly. Asserting it here, against the schema alone, would be a test that
+// can never pass no matter what the schema says -- exactly the contradiction to avoid.
 
 // custom role must not reuse a well-known name
 assert.equal(validate("scope", { ...baseScope, commands: { custom: { test: reviewedCommand } } }).valid, false);
@@ -867,7 +926,7 @@ Replace the full contents of `runtime/src/schemas/scope.schema.json`:
 }
 ```
 
-Note: this schema does not yet enforce "`sourceFingerprintAtSelection` keys exactly match `sourceRefs`" as a cross-field structural constraint (plain JSON Schema draft used here has no clean way to express "these two objects have identical key sets" without `propertyNames`/`dependentSchemas` gymnastics that would hurt readability for little benefit at this layer). The test above only exercises the "extra key" direction. Enforcing the full bidirectional match is deferred to the semantic validation pipeline in Plan 2 (`discover propose`'s structural validation step), which has direct access to both arrays/objects in application code and can express set-equality directly and clearly. Leave a one-line comment to this effect above the `sourceFingerprintAtSelection` properties in both `alternative` and `commandEntry`.
+Note: this schema deliberately does not attempt to enforce "`sourceFingerprintAtSelection` keys exactly match `sourceRefs`" as a cross-field structural constraint — plain JSON Schema has no clean way to express "these two objects have identical key sets," and forcing it through `propertyNames`/`dependentSchemas` gymnastics would hurt readability for no real benefit at this layer. That check is implemented as real application code, with its own real test, in **Task 13** (`check schema`), which has direct access to both the `sourceRefs` array and the `sourceFingerprintAtSelection` object and can express set-equality plainly. Leave a one-line comment to this effect above the `sourceFingerprintAtSelection` properties in both `alternative` and `commandEntry`.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -890,7 +949,7 @@ git commit -m "feat(discovery): extend scope schema with declared/inferred/revie
 - Test: `runtime/src/lib/tests/discover-git.test.mjs`
 
 **Interfaces:**
-- Produces: `detectGit(workspaceRoot, { execFileFn })` → `{ enabled: boolean, branch: string|null, remote: string|null, vcs: "git"|"none" }`.
+- Produces: `detectGit(workspaceRoot, { execFileFn })` → `{ enabled: boolean, revision: string|null, branch: string|null, remote: string|null, vcs: "git"|"none" }`. `revision` is the commit SHA (`git rev-parse HEAD`) — this, not the branch name, is what `baseRevision.vcsRevision` in the design spec means by `git:<sha>`: a branch can advance while keeping the exact same name, so it cannot serve as a revision/consistency marker on its own.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -903,29 +962,31 @@ import { detectGit } from "../discoverScan.mjs";
 const notGitResult = detectGit("/anywhere", {
   execFileFn: () => { const e = new Error("not a git repository"); e.status = 128; throw e; }
 });
-assert.deepEqual(notGitResult, { enabled: false, branch: null, remote: null, vcs: "none" });
+assert.deepEqual(notGitResult, { enabled: false, revision: null, branch: null, remote: null, vcs: "none" });
 
 // git workspace: injected execFileFn simulates real git plumbing output
 const gitResult = detectGit("/anywhere", {
   execFileFn: (cmd, args) => {
+    if (args.includes("HEAD") && !args.includes("--abbrev-ref")) return "a".repeat(40) + "\n";
     if (args.includes("--abbrev-ref")) return "main\n";
     if (args.includes("--get")) return "origin\n";
     throw new Error(`unexpected git invocation: ${args.join(" ")}`);
   }
 });
-assert.deepEqual(gitResult, { enabled: true, branch: "main", remote: "origin", vcs: "git" });
+assert.deepEqual(gitResult, { enabled: true, revision: "a".repeat(40), branch: "main", remote: "origin", vcs: "git" });
 
 // git workspace with no configured remote: remote is null, still enabled
 const gitNoRemote = detectGit("/anywhere", {
   execFileFn: (cmd, args) => {
+    if (args.includes("HEAD") && !args.includes("--abbrev-ref")) return "b".repeat(40) + "\n";
     if (args.includes("--abbrev-ref")) return "main\n";
     if (args.includes("--get")) { const e = new Error("no such remote"); e.status = 1; throw e; }
     throw new Error(`unexpected git invocation: ${args.join(" ")}`);
   }
 });
-assert.deepEqual(gitNoRemote, { enabled: true, branch: "main", remote: null, vcs: "git" });
+assert.deepEqual(gitNoRemote, { enabled: true, revision: "b".repeat(40), branch: "main", remote: null, vcs: "git" });
 
-console.log("discover-git: not-a-repo, repo-with-remote, repo-without-remote all pass");
+console.log("discover-git: not-a-repo, repo-with-remote, repo-without-remote all pass, and revision is the commit SHA, not the branch name");
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -944,12 +1005,13 @@ function defaultExecFile(command, args, options) {
 }
 
 export function detectGit(workspaceRoot, { execFileFn = defaultExecFile } = {}) {
-  let branch;
+  let revision;
   try {
-    branch = execFileFn("git", ["-C", workspaceRoot, "rev-parse", "--abbrev-ref", "HEAD"]).trim();
+    revision = execFileFn("git", ["-C", workspaceRoot, "rev-parse", "HEAD"]).trim();
   } catch {
-    return { enabled: false, branch: null, remote: null, vcs: "none" };
+    return { enabled: false, revision: null, branch: null, remote: null, vcs: "none" };
   }
+  const branch = execFileFn("git", ["-C", workspaceRoot, "rev-parse", "--abbrev-ref", "HEAD"]).trim();
   let remote = null;
   try {
     remote = execFileFn("git", ["-C", workspaceRoot, "config", "--get", "remote.origin.url"]).trim() || null;
@@ -957,11 +1019,11 @@ export function detectGit(workspaceRoot, { execFileFn = defaultExecFile } = {}) 
   } catch {
     remote = null;
   }
-  return { enabled: true, branch, remote, vcs: "git" };
+  return { enabled: true, revision, branch, remote, vcs: "git" };
 }
 ```
 
-Note: `remote` is reported as the remote **name** (`"origin"`), not the URL, matching the design's `git.remote` field (a remote name, consumed only as a signal that a remote exists — the URL itself is host-specific and out of scope here). The injected test's `--get` branch returning `"origin\n"` represents `git config --get remote.origin.url` succeeding (meaning the `origin` remote exists); the actual URL value is discarded in favor of the fixed literal `"origin"`.
+Note: `remote` is reported as the remote **name** (`"origin"`), not the URL, matching the design's `git.remote` field (a remote name, consumed only as a signal that a remote exists — the URL itself is host-specific and out of scope here). The injected test's `--get` branch returning `"origin\n"` represents `git config --get remote.origin.url` succeeding (meaning the `origin` remote exists); the actual URL value is discarded in favor of the fixed literal `"origin"`. `revision` uses `rev-parse HEAD` (the full commit SHA) specifically, checked first — if this fails, the workspace isn't a git repository at all and detection stops there; the second call (`--abbrev-ref HEAD`, the branch name) is only reached once we already know we're in a real repo, so it isn't separately try/caught.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -985,7 +1047,7 @@ git commit -m "feat(discovery): add git detection for discover scan"
 
 **Interfaces:**
 - Consumes: nothing new.
-- Produces: `enumerateCandidates(workspaceRoot, { readdirFn, lstatFn })` → `{ scopeCandidates: Array<{path, signals, suggestions:{kind, ruleIds}}>, sourceCandidates: Array<{path, candidateFamilies, ruleIds}> }` (no fingerprints yet — those are computed by the orchestrator in Task 10, which has access to `--max-source-bytes`).
+- Produces: `enumerateCandidates(workspaceRoot, { readdirFn, lstatFn })` → `{ scopeCandidates: Array<{path, signals, suggestions:{kind, ruleIds}}>, sourceCandidates: Array<{path, candidateFamilies, ruleIds}>, diagnostics: Array<{code, path, message}> }` (no fingerprints yet — those are computed by Task 8, which has access to `--max-source-bytes` and already owns the per-item diagnostic pattern for fingerprint failures; this task's own `diagnostics` cover enumeration-time I/O errors, a different failure class). The rule table covers all 19 families from `docs/plugin-redesign-release-flow/04-release-init-configuracion.md:165-187` — the design spec's approved scope explicitly includes the full taxonomy, not a subset.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1003,9 +1065,22 @@ fs.writeFileSync(path.join(root, "api", "pom.xml"), "<project/>");
 fs.mkdirSync(path.join(root, "web"));
 fs.writeFileSync(path.join(root, "web", "package.json"), "{}");
 fs.mkdirSync(path.join(root, "docs", "adr"), { recursive: true });
+fs.mkdirSync(path.join(root, "docs", "product"), { recursive: true });
+fs.mkdirSync(path.join(root, "docs", "requirements"), { recursive: true });
+fs.mkdirSync(path.join(root, "docs", "architecture"), { recursive: true });
+fs.mkdirSync(path.join(root, "docs", "developer-guide"), { recursive: true });
+fs.mkdirSync(path.join(root, "docs", "evidence"), { recursive: true });
 fs.writeFileSync(path.join(root, "CODEOWNERS"), "* @carlos");
 fs.mkdirSync(path.join(root, ".github", "workflows"), { recursive: true });
 fs.writeFileSync(path.join(root, "AGENTS.md"), "# agent instructions");
+fs.writeFileSync(path.join(root, "REPOSITORY_MAP.md"), "# map");
+fs.writeFileSync(path.join(root, "STYLEGUIDE.md"), "# standards");
+fs.mkdirSync(path.join(root, "scripts"));
+fs.mkdirSync(path.join(root, "design-system"));
+fs.mkdirSync(path.join(root, "prompts"));
+fs.mkdirSync(path.join(root, "migrations"));
+fs.writeFileSync(path.join(root, "openapi.yaml"), "openapi: 3.0.0");
+fs.writeFileSync(path.join(root, ".eslintrc.json"), "{}");
 
 const result = enumerateCandidates(root);
 
@@ -1019,27 +1094,37 @@ const webScope = result.scopeCandidates.find((c) => c.path === "web/");
 assert.ok(webScope, "web/ with package.json should be a scope candidate");
 assert.ok(webScope.suggestions.ruleIds.includes("scope.node-package"));
 
-const adrSource = result.sourceCandidates.find((c) => c.path === "docs/adr/");
-assert.ok(adrSource, "docs/adr/ should be a decision-sources candidate");
-assert.ok(adrSource.candidateFamilies.includes("decision-sources"));
-assert.ok(adrSource.ruleIds.includes("source.adr-directory"));
-
-const ownershipSource = result.sourceCandidates.find((c) => c.path === "CODEOWNERS");
-assert.ok(ownershipSource, "CODEOWNERS should be an ownership candidate");
-assert.ok(ownershipSource.candidateFamilies.includes("ownership"));
-
-const ciSource = result.sourceCandidates.find((c) => c.path === ".github/workflows/");
-assert.ok(ciSource, ".github/workflows/ should be a delivery-ci-deployment candidate");
-
-const agentSource = result.sourceCandidates.find((c) => c.path === "AGENTS.md");
-assert.ok(agentSource, "AGENTS.md should be an agent-repository-instructions candidate");
+// one representative check per family -- all 19 families must have at least one matching rule
+const byPath = (p) => result.sourceCandidates.find((c) => c.path === p);
+assert.ok(byPath("docs/adr/")?.candidateFamilies.includes("decision-sources"));
+assert.ok(byPath("docs/product/")?.candidateFamilies.includes("product-sources"));
+assert.ok(byPath("docs/requirements/")?.candidateFamilies.includes("functional-sources"));
+assert.ok(byPath("docs/architecture/")?.candidateFamilies.includes("technical-sources"));
+assert.ok(byPath("docs/developer-guide/")?.candidateFamilies.includes("developer-guides"));
+assert.ok(byPath("docs/evidence/")?.candidateFamilies.includes("evidence-contracts"));
+assert.ok(byPath("CODEOWNERS")?.candidateFamilies.includes("ownership"));
+assert.ok(byPath(".github/workflows/")?.candidateFamilies.includes("delivery-ci-deployment"));
+assert.ok(byPath("AGENTS.md")?.candidateFamilies.includes("agent-repository-instructions"));
+assert.ok(byPath("REPOSITORY_MAP.md")?.candidateFamilies.includes("repository-map"));
+assert.ok(byPath("STYLEGUIDE.md")?.candidateFamilies.includes("engineering-standards"));
+assert.ok(byPath("design-system/")?.candidateFamilies.includes("design-system"));
+assert.ok(byPath("prompts/")?.candidateFamilies.includes("prompt-sources"));
+assert.ok(byPath("migrations/")?.candidateFamilies.includes("public-data-contracts"));
+assert.ok(byPath("openapi.yaml")?.candidateFamilies.includes("public-data-contracts"));
+assert.ok(byPath(".eslintrc.json")?.candidateFamilies.includes("quality-definitions"));
 
 // package.json is both a scope signal AND a project-module-manifests source candidate
-const webManifestSource = result.sourceCandidates.find((c) => c.path === "web/package.json");
+const webManifestSource = byPath("web/package.json");
 assert.ok(webManifestSource, "package.json should also be registered as its own source candidate");
 assert.ok(webManifestSource.candidateFamilies.includes("project-module-manifests"));
 
-console.log("discover-candidates: scope and source candidate rule table produces expected signals/families/ruleIds");
+// scripts/ carries BOTH execution-commands and custom-automation -- one path, two families
+const scriptsSource = byPath("scripts/");
+assert.ok(scriptsSource);
+assert.ok(scriptsSource.candidateFamilies.includes("execution-commands"));
+assert.ok(scriptsSource.candidateFamilies.includes("custom-automation"));
+
+console.log("discover-candidates: all 19 families produce expected candidates with signals/families/ruleIds");
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -1062,26 +1147,50 @@ const SCOPE_MANIFEST_RULES = [
   { fileName: "go.mod", ruleId: "scope.go-module", kind: "code" }
 ];
 
+// Every rule below maps to one or more of the 19 families in
+// docs/plugin-redesign-release-flow/04-release-init-configuracion.md:165-187. Each
+// fileName/dirName appears in at most one rule (a path can still end up tagged with
+// multiple families via a single rule's `families` array, e.g. scripts/ below).
 const SOURCE_FILE_RULES = [
-  { fileName: "package.json", ruleId: "source.package-manifest", family: "project-module-manifests" },
-  { fileName: "pom.xml", ruleId: "source.package-manifest", family: "project-module-manifests" },
-  { fileName: "pyproject.toml", ruleId: "source.package-manifest", family: "project-module-manifests" },
-  { fileName: "go.mod", ruleId: "source.package-manifest", family: "project-module-manifests" },
-  { fileName: "Cargo.toml", ruleId: "source.package-manifest", family: "project-module-manifests" },
-  { fileName: "CODEOWNERS", ruleId: "source.ownership", family: "ownership" },
-  { fileName: "AGENTS.md", ruleId: "source.agent-instructions", family: "agent-repository-instructions" },
-  { fileName: "CLAUDE.md", ruleId: "source.agent-instructions", family: "agent-repository-instructions" },
-  { fileName: "README.md", ruleId: "source.agent-instructions", family: "agent-repository-instructions" },
-  { fileName: "CONTRIBUTING.md", ruleId: "source.agent-instructions", family: "agent-repository-instructions" },
-  { fileName: "Dockerfile", ruleId: "source.env-runtime", family: "local-runtime-environment" },
-  { fileName: "docker-compose.yml", ruleId: "source.env-runtime", family: "local-runtime-environment" },
-  { fileName: ".env.example", ruleId: "source.env-runtime", family: "local-runtime-environment" }
+  { fileName: "package.json", ruleId: "source.package-manifest", families: ["project-module-manifests"] },
+  { fileName: "pom.xml", ruleId: "source.package-manifest", families: ["project-module-manifests"] },
+  { fileName: "pyproject.toml", ruleId: "source.package-manifest", families: ["project-module-manifests"] },
+  { fileName: "go.mod", ruleId: "source.package-manifest", families: ["project-module-manifests"] },
+  { fileName: "Cargo.toml", ruleId: "source.package-manifest", families: ["project-module-manifests"] },
+  { fileName: "CODEOWNERS", ruleId: "source.ownership", families: ["ownership"] },
+  { fileName: "AGENTS.md", ruleId: "source.agent-instructions", families: ["agent-repository-instructions"] },
+  { fileName: "CLAUDE.md", ruleId: "source.agent-instructions", families: ["agent-repository-instructions"] },
+  { fileName: "README.md", ruleId: "source.agent-instructions", families: ["agent-repository-instructions"] },
+  { fileName: "CONTRIBUTING.md", ruleId: "source.agent-instructions", families: ["agent-repository-instructions"] },
+  { fileName: "Dockerfile", ruleId: "source.env-runtime", families: ["local-runtime-environment"] },
+  { fileName: "docker-compose.yml", ruleId: "source.env-runtime", families: ["local-runtime-environment"] },
+  { fileName: ".env.example", ruleId: "source.env-runtime", families: ["local-runtime-environment"] },
+  { fileName: ".eslintrc.json", ruleId: "source.quality-config", families: ["quality-definitions"] },
+  { fileName: ".eslintrc.js", ruleId: "source.quality-config", families: ["quality-definitions"] },
+  { fileName: ".prettierrc", ruleId: "source.quality-config", families: ["quality-definitions"] },
+  { fileName: "sonar-project.properties", ruleId: "source.quality-config", families: ["quality-definitions"] },
+  { fileName: "openapi.yaml", ruleId: "source.api-contract", families: ["public-data-contracts"] },
+  { fileName: "openapi.yml", ruleId: "source.api-contract", families: ["public-data-contracts"] },
+  { fileName: "openapi.json", ruleId: "source.api-contract", families: ["public-data-contracts"] },
+  { fileName: "STYLEGUIDE.md", ruleId: "source.engineering-standard", families: ["engineering-standards"] },
+  { fileName: "REPOSITORY_MAP.md", ruleId: "source.repository-map", families: ["repository-map"] }
 ];
 
 const SOURCE_DIRECTORY_RULES = [
-  { dirName: "adr", underDocs: true, ruleId: "source.adr-directory", family: "decision-sources" },
-  { dirName: "decisions", underDocs: true, ruleId: "source.adr-directory", family: "decision-sources" },
-  { relativePath: ".github/workflows", ruleId: "source.ci-workflows", family: "delivery-ci-deployment" }
+  { dirName: "adr", underDocs: true, ruleId: "source.adr-directory", families: ["decision-sources"] },
+  { dirName: "decisions", underDocs: true, ruleId: "source.adr-directory", families: ["decision-sources"] },
+  { relativePath: ".github/workflows", ruleId: "source.ci-workflows", families: ["delivery-ci-deployment"] },
+  { dirName: "product", underDocs: true, ruleId: "source.product-docs", families: ["product-sources"] },
+  { dirName: "requirements", underDocs: true, ruleId: "source.functional-requirements", families: ["functional-sources"] },
+  { dirName: "architecture", underDocs: true, ruleId: "source.technical-architecture", families: ["technical-sources"] },
+  { dirName: "developer-guide", underDocs: true, ruleId: "source.developer-guide", families: ["developer-guides"] },
+  { dirName: "evidence", underDocs: true, ruleId: "source.evidence-docs", families: ["evidence-contracts"] },
+  { dirName: "migrations", ruleId: "source.db-migrations", families: ["public-data-contracts"] },
+  { dirName: "scripts", ruleId: "source.scripts-directory", families: ["execution-commands", "custom-automation"] },
+  { dirName: "design-system", ruleId: "source.design-system", families: ["design-system"] },
+  { dirName: "prompts", ruleId: "source.prompt-sources", families: ["prompt-sources"] },
+  { dirName: "tools", ruleId: "source.custom-automation", families: ["custom-automation"] },
+  { dirName: "bin", ruleId: "source.custom-automation", families: ["custom-automation"] }
 ];
 
 function listTopLevel(currentDir, { readdirFn = fs.readdirSync, lstatFn = fs.lstatSync } = {}) {
@@ -1095,12 +1204,17 @@ function listTopLevel(currentDir, { readdirFn = fs.readdirSync, lstatFn = fs.lst
 export function enumerateCandidates(workspaceRoot, { readdirFn = fs.readdirSync, lstatFn = fs.lstatSync } = {}) {
   const scopeCandidates = [];
   const sourceCandidates = [];
+  const diagnostics = [];
 
   function walk(currentDir, relativeDir) {
     let children;
     try {
       children = listTopLevel(currentDir, { readdirFn, lstatFn });
-    } catch {
+    } catch (error) {
+      // Never silently drop a subtree: an EACCES, I/O error, or filesystem race here would
+      // otherwise omit evidence with no trace at all, contradicting the design's "hard
+      // diagnostic, never silent" principle just as much as a fingerprint failure would.
+      diagnostics.push({ code: "enumeration_error", path: relativeDir || ".", message: error.message });
       return;
     }
     const fileNames = new Set(children.filter((c) => c.stat.isFile()).map((c) => c.name));
@@ -1123,7 +1237,7 @@ export function enumerateCandidates(workspaceRoot, { readdirFn = fs.readdirSync,
 
       if (child.stat.isFile()) {
         const fileRule = SOURCE_FILE_RULES.find((r) => r.fileName === child.name);
-        if (fileRule) sourceCandidates.push({ path: childRelative, candidateFamilies: [fileRule.family], ruleIds: [fileRule.ruleId] });
+        if (fileRule) sourceCandidates.push({ path: childRelative, candidateFamilies: fileRule.families, ruleIds: [fileRule.ruleId] });
       }
 
       if (child.stat.isDirectory()) {
@@ -1131,14 +1245,14 @@ export function enumerateCandidates(workspaceRoot, { readdirFn = fs.readdirSync,
         const dirRule = SOURCE_DIRECTORY_RULES.find((r) =>
           r.relativePath ? childRelative === r.relativePath : (r.dirName === child.name && (!r.underDocs || relativeDir === "docs"))
         );
-        if (dirRule) sourceCandidates.push({ path: `${childRelative}/`, candidateFamilies: [dirRule.family], ruleIds: [dirRule.ruleId] });
+        if (dirRule) sourceCandidates.push({ path: `${childRelative}/`, candidateFamilies: dirRule.families, ruleIds: [dirRule.ruleId] });
         walk(child.absPath, childRelative);
       }
     }
   }
 
   walk(workspaceRoot, "");
-  return { scopeCandidates, sourceCandidates };
+  return { scopeCandidates, sourceCandidates, diagnostics };
 }
 ```
 
@@ -1147,13 +1261,38 @@ export function enumerateCandidates(workspaceRoot, { readdirFn = fs.readdirSync,
 Run: `node runtime/src/lib/tests/discover-candidates.test.mjs`
 Expected: PASS.
 
-Note for future work (do not implement now — out of scope for this task): the rule tables above cover a representative subset of the 19 families documented in `docs/plugin-redesign-release-flow/04-release-init-configuracion.md:165-187`, not all of them. Adding more families later is purely additive — new table entries, no algorithm changes.
+- [ ] **Step 5: Add and verify the enumeration-error diagnostic (does not crash the scan)**
 
-- [ ] **Step 5: Commit**
+Append to the same test file, before the final `console.log`:
+
+```js
+// an unreadable subtree must produce a diagnostic and never abort the rest of the walk
+{
+  const root2 = fs.mkdtempSync(path.join(os.tmpdir(), "discover-candidates-err-"));
+  fs.mkdirSync(path.join(root2, "ok"));
+  fs.writeFileSync(path.join(root2, "ok", "pom.xml"), "<project/>");
+  fs.mkdirSync(path.join(root2, "broken"));
+
+  const injectedReaddir = (dir, ...rest) => {
+    if (dir === path.join(root2, "broken")) {
+      const e = new Error("denied"); e.code = "EACCES"; throw e;
+    }
+    return fs.readdirSync(dir, ...rest);
+  };
+  const result2 = enumerateCandidates(root2, { readdirFn: injectedReaddir });
+  assert.ok(result2.scopeCandidates.some((c) => c.path === "ok/"), "the healthy subtree must still be processed");
+  assert.ok(result2.diagnostics.some((d) => d.code === "enumeration_error" && d.path === "broken"), "the broken subtree must produce a diagnostic instead of crashing the whole scan");
+}
+```
+
+Run: `node runtime/src/lib/tests/discover-candidates.test.mjs`
+Expected: PASS.
+
+- [ ] **Step 6: Commit**
 
 ```bash
 git add runtime/src/lib/discoverScan.mjs runtime/src/lib/tests/discover-candidates.test.mjs
-git commit -m "feat(discovery): add scope and source candidate enumeration rules"
+git commit -m "feat(discovery): add full 19-family candidate enumeration with per-subtree diagnostics"
 ```
 
 ---
@@ -1165,8 +1304,8 @@ git commit -m "feat(discovery): add scope and source candidate enumeration rules
 - Test: `runtime/src/lib/tests/discover-drift.test.mjs`
 
 **Interfaces:**
-- Consumes: `computeSourceFingerprint`, `detectMoved`, `FingerprintError` (Task 3); reads `sources/*/source.yml` via `confineWritePath`/`parseYaml` (same pattern as `check.mjs:46-67`).
-- Produces: `computeKnownSourceDrift({ planningRoot, workspaceRoot, sourceCandidates, maxSourceBytes })` → `{ results: Array<{ sourceId, path, observedFingerprint, observedContentHash, driftState, freshness, observedAtPath }>, diagnostics: Array<{code, path, sourceId?, message}> }`. A `FingerprintError` while re-fingerprinting any single confirmed source or move-detection candidate becomes one `diagnostics` entry and that item is skipped — it must never abort the rest of the scan.
+- Consumes: `computeSourceFingerprint`, `detectMoved`, `FingerprintError` (Task 3); `confineScopePath` (already exists in `runtime/src/lib/paths.mjs`, currently used to validate a *scope's* `path` field against `workspaceRoot` — reused here unchanged for a *source's* `path` field, which needs exactly the same guarantee: relative-only, no `..` escapes, resolves inside `workspaceRoot`); reads `sources/*/source.yml` via `confineWritePath`/`parseYaml` (same pattern as `check.mjs:46-67`).
+- Produces: `computeKnownSourceDrift({ planningRoot, workspaceRoot, sourceCandidates, maxSourceBytes })` → `{ results: Array<{ sourceId, path, confirmedFingerprint, confirmedContentHash, observedFingerprint, observedContentHash, driftState, freshness?, observedAtPath }>, diagnostics: Array<{code, path, sourceId?, message}>, fingerprintedSourceCandidates: Array<sourceCandidate & {observedFingerprint, observedContentHash}> }`. `freshness` is present only for `unchanged`/`changed` (`"current"`/`"stale"`) — it is **absent** (not the string `"unknown"`) for `missing`/`moved`, per the design spec ("indefinido para missing/moved porque driftState ya los describe sin ambigüedad"). Every result entry always carries **both** `confirmedFingerprint`/`confirmedContentHash` (read straight from the catalog) **and** `observedFingerprint`/`observedContentHash` (recomputed live) as two genuinely distinct values — Task 9 needs both to tell "the catalog moved since a command was selected" apart from "the live workspace differs from the catalog," and conflating them (e.g. falling back from one to the other) produces false evidence-state reports. `fingerprintedSourceCandidates` is the **complete, fingerprinted** `sourceCandidates` list (a candidate that fails fingerprinting is dropped from it with a diagnostic, never left with a null/placeholder fingerprint) — `discover scan`'s `ScanResult.sourceCandidates` (Task 11) is exactly this array, not a separate, later computation; fingerprinting a candidate is part of `discover scan` itself, not deferred to a later capability. A path-confinement failure, or a `FingerprintError`, on any single confirmed source or candidate becomes one `diagnostics` entry and that item is skipped — neither must ever abort the rest of the scan.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1199,13 +1338,13 @@ function writeSource(planningRoot, id, overrides) {
   }));
 }
 
-// unchanged
+// unchanged -- and confirmedFingerprint/confirmedContentHash are present and distinct
+// from observedFingerprint/observedContentHash as their own explicit fields
 {
   const { workspaceRoot, planningRoot } = makeWorkspace();
   const id = "018f4d1e-0000-7000-8000-000000000001";
   fs.mkdirSync(path.join(workspaceRoot, "docs", "adr"), { recursive: true });
   fs.writeFileSync(path.join(workspaceRoot, "docs", "adr", "0001.md"), "decision");
-  // compute the real fingerprint so the fixture is internally consistent
   const real = computeSourceFingerprint(path.join(workspaceRoot, "docs", "adr"), { maxBytes: 1024 });
   writeSource(planningRoot, id, { confirmedFingerprint: real.fingerprint, confirmedContentHash: real.contentHash });
 
@@ -1213,24 +1352,30 @@ function writeSource(planningRoot, id, overrides) {
   const entry = results.find((d) => d.sourceId === id);
   assert.equal(entry.driftState, "unchanged");
   assert.equal(entry.freshness, "current");
+  assert.equal(entry.confirmedFingerprint, real.fingerprint);
+  assert.equal(entry.observedFingerprint, real.fingerprint);
+  assert.equal(entry.confirmedContentHash, real.contentHash);
   assert.deepEqual(diagnostics, []);
 }
 
-// changed
+// changed -- confirmedFingerprint (catalog) and observedFingerprint (live) must be reported
+// as the two distinct values they are, never one standing in for the other
 {
   const { workspaceRoot, planningRoot } = makeWorkspace();
   const id = "018f4d1e-0000-7000-8000-000000000002";
   fs.mkdirSync(path.join(workspaceRoot, "docs", "adr"), { recursive: true });
   fs.writeFileSync(path.join(workspaceRoot, "docs", "adr", "0001.md"), "decision v2");
-  writeSource(planningRoot, id); // confirmedFingerprint stays as the all-zero placeholder, guaranteed to differ
+  writeSource(planningRoot, id); // confirmedFingerprint stays the all-zero placeholder, guaranteed to differ from the live one
 
   const { results } = computeKnownSourceDrift({ planningRoot, workspaceRoot, sourceCandidates: [], maxSourceBytes: 1024 });
   const entry = results.find((d) => d.sourceId === id);
   assert.equal(entry.driftState, "changed");
   assert.equal(entry.freshness, "stale");
+  assert.equal(entry.confirmedFingerprint, "0".repeat(64));
+  assert.notEqual(entry.observedFingerprint, entry.confirmedFingerprint);
 }
 
-// missing (no moved candidate available)
+// missing (no moved candidate available) -- freshness must be ABSENT, not the string "unknown"
 {
   const { workspaceRoot, planningRoot } = makeWorkspace();
   const id = "018f4d1e-0000-7000-8000-000000000003";
@@ -1239,7 +1384,7 @@ function writeSource(planningRoot, id, overrides) {
   const { results } = computeKnownSourceDrift({ planningRoot, workspaceRoot, sourceCandidates: [], maxSourceBytes: 1024 });
   const entry = results.find((d) => d.sourceId === id);
   assert.equal(entry.driftState, "missing");
-  assert.equal(entry.freshness, "unknown");
+  assert.equal("freshness" in entry, false, "freshness must be absent for missing, not the literal string \"unknown\" -- driftState already says everything unambiguously");
   assert.equal(entry.observedAtPath, null);
 }
 
@@ -1252,14 +1397,20 @@ function writeSource(planningRoot, id, overrides) {
   const real = computeSourceFingerprint(path.join(workspaceRoot, "docs", "new-adr"), { maxBytes: 1024 });
   writeSource(planningRoot, id, { confirmedContentHash: real.contentHash }); // path still "docs/adr/", which does not exist
 
-  const { results } = computeKnownSourceDrift({
+  const { results, fingerprintedSourceCandidates } = computeKnownSourceDrift({
     planningRoot, workspaceRoot,
     sourceCandidates: [{ path: "docs/new-adr/", candidateFamilies: ["decision-sources"], ruleIds: [] }],
     maxSourceBytes: 1024
   });
   const entry = results.find((d) => d.sourceId === id);
   assert.equal(entry.driftState, "moved");
+  assert.equal("freshness" in entry, false);
   assert.equal(entry.observedAtPath, "docs/new-adr/");
+  // the candidate itself comes back fully fingerprinted -- this is the SAME computation the
+  // ScanResult's sourceCandidates output (Task 11) reuses, not a separate later step
+  const candidate = fingerprintedSourceCandidates.find((c) => c.path === "docs/new-adr/");
+  assert.equal(candidate.observedContentHash, real.contentHash);
+  assert.equal(candidate.observedFingerprint, real.fingerprint);
 }
 
 // a confirmed source that has become unreadable/oversized produces a diagnostic and does
@@ -1285,7 +1436,24 @@ function writeSource(planningRoot, id, overrides) {
   assert.ok(diagnostics.some((d) => d.code === "source_too_large" && d.sourceId === brokenId), "the broken source must produce a diagnostic instead of crashing the call");
 }
 
-console.log("discover-drift: unchanged, changed, missing, moved, and per-item diagnostic-not-crash all pass");
+// SECURITY: a confirmed source with a manipulated/corrupted path that escapes the workspace
+// (e.g. "../../secret") must never be read -- confineScopePath must reject it, caught here as
+// a diagnostic (this task's own per-item contract), never a crash and never a silent read
+// outside the workspace
+{
+  const { workspaceRoot, planningRoot } = makeWorkspace();
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), "discover-drift-outside-"));
+  fs.writeFileSync(path.join(outside, "secret.txt"), "should never be read by discovery");
+  const escapingId = "018f4d1e-0000-7000-8000-000000000007";
+  const relativeEscape = path.relative(workspaceRoot, outside); // e.g. "../../tmp/discover-drift-outside-XXXX"
+  writeSource(planningRoot, escapingId, { path: relativeEscape });
+
+  const { results, diagnostics } = computeKnownSourceDrift({ planningRoot, workspaceRoot, sourceCandidates: [], maxSourceBytes: 1024 });
+  assert.equal(results.find((r) => r.sourceId === escapingId), undefined, "an escaping source must never appear in results");
+  assert.ok(diagnostics.some((d) => d.code === "untrusted_source_path" && d.sourceId === escapingId), "the escape must be reported as a diagnostic");
+}
+
+console.log("discover-drift: unchanged, changed, missing, moved (with confirmedFingerprint/observedFingerprint kept distinct, freshness absent for missing/moved), per-item diagnostic-not-crash, and path-escape rejection all pass");
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -1295,7 +1463,7 @@ Expected: FAIL with `computeKnownSourceDrift is not a function`.
 
 - [ ] **Step 3: Write minimal implementation**
 
-Append to `runtime/src/lib/discoverScan.mjs` (add `import { computeSourceFingerprint, detectMoved, FingerprintError } from "./fingerprint.mjs";`, `import { confineWritePath } from "./paths.mjs";`, `import { parseYaml } from "./yaml.mjs";`, `import { isUuidV7 } from "./ids.mjs";` at the top):
+Append to `runtime/src/lib/discoverScan.mjs` (add `import { computeSourceFingerprint, detectMoved, FingerprintError } from "./fingerprint.mjs";`, `import { confineWritePath, confineScopePath, PathConfinementError } from "./paths.mjs";`, `import { parseYaml } from "./yaml.mjs";`, `import { isUuidV7 } from "./ids.mjs";` at the top):
 
 ```js
 function readConfirmedSources(planningRoot) {
@@ -1311,6 +1479,18 @@ function readConfirmedSources(planningRoot) {
   return sources;
 }
 
+// Resolves a host-repository-relative path (a source's `path` field, or a candidate's
+// `path`) safely under workspaceRoot -- relative-only, no `..` escapes, no absolute paths.
+// Reuses the existing confineScopePath rather than inventing a parallel confinement
+// function: a source's path needs exactly the same guarantee a scope's path already gets.
+function resolveHostPath(workspaceRoot, relativePath) {
+  return confineScopePath(workspaceRoot, relativePath);
+}
+
+function fingerprintOne(absolutePath, maxSourceBytes) {
+  return computeSourceFingerprint(absolutePath, { maxBytes: maxSourceBytes });
+}
+
 export function computeKnownSourceDrift({ planningRoot, workspaceRoot, sourceCandidates, maxSourceBytes }) {
   const confirmedSources = readConfirmedSources(planningRoot);
   const results = [];
@@ -1318,14 +1498,21 @@ export function computeKnownSourceDrift({ planningRoot, workspaceRoot, sourceCan
   const missingForMoveDetection = [];
 
   for (const source of confirmedSources) {
-    const absolutePath = path.join(workspaceRoot, source.path);
+    let absolutePath;
+    try {
+      absolutePath = resolveHostPath(workspaceRoot, source.path);
+    } catch (error) {
+      if (!(error instanceof PathConfinementError)) throw error;
+      diagnostics.push({ code: "untrusted_source_path", path: source.path, sourceId: source.id, message: error.message });
+      continue; // never read outside workspaceRoot, and never let one bad entry crash the scan
+    }
     if (!fs.existsSync(absolutePath)) {
-      missingForMoveDetection.push({ sourceId: source.id, confirmedContentHash: source.confirmedContentHash, path: source.path });
+      missingForMoveDetection.push({ sourceId: source.id, path: source.path, confirmedFingerprint: source.confirmedFingerprint, confirmedContentHash: source.confirmedContentHash });
       continue;
     }
     let observed;
     try {
-      observed = computeSourceFingerprint(absolutePath, { maxBytes: maxSourceBytes });
+      observed = fingerprintOne(absolutePath, maxSourceBytes);
     } catch (error) {
       if (!(error instanceof FingerprintError)) throw error;
       diagnostics.push({ code: error.code, path: source.path, sourceId: source.id, message: error.message });
@@ -1335,6 +1522,8 @@ export function computeKnownSourceDrift({ planningRoot, workspaceRoot, sourceCan
     results.push({
       sourceId: source.id,
       path: source.path,
+      confirmedFingerprint: source.confirmedFingerprint,
+      confirmedContentHash: source.confirmedContentHash,
       observedFingerprint: observed.fingerprint,
       observedContentHash: observed.contentHash,
       driftState,
@@ -1343,34 +1532,47 @@ export function computeKnownSourceDrift({ planningRoot, workspaceRoot, sourceCan
     });
   }
 
-  if (missingForMoveDetection.length > 0) {
-    const newCandidatesWithHashes = [];
-    for (const candidate of sourceCandidates) {
-      const absolutePath = path.join(workspaceRoot, candidate.path);
-      try {
-        const observed = computeSourceFingerprint(absolutePath, { maxBytes: maxSourceBytes });
-        newCandidatesWithHashes.push({ path: candidate.path, observedContentHash: observed.contentHash, observedFingerprint: observed.fingerprint });
-      } catch (error) {
-        if (!(error instanceof FingerprintError)) throw error;
-        diagnostics.push({ code: error.code, path: candidate.path, message: error.message });
-      }
+  // Every candidate is fingerprinted unconditionally -- this is discover scan's own
+  // observation, consumed both by move-detection below AND directly as the ScanResult's
+  // sourceCandidates output (Task 11 uses fingerprintedSourceCandidates as-is).
+  const fingerprintedSourceCandidates = [];
+  for (const candidate of sourceCandidates) {
+    let absolutePath;
+    try {
+      absolutePath = resolveHostPath(workspaceRoot, candidate.path);
+    } catch (error) {
+      if (!(error instanceof PathConfinementError)) throw error;
+      diagnostics.push({ code: "untrusted_source_path", path: candidate.path, message: error.message });
+      continue;
     }
-    const movedResults = detectMoved(missingForMoveDetection, newCandidatesWithHashes);
+    try {
+      const observed = fingerprintOne(absolutePath, maxSourceBytes);
+      fingerprintedSourceCandidates.push({ ...candidate, observedFingerprint: observed.fingerprint, observedContentHash: observed.contentHash });
+    } catch (error) {
+      if (!(error instanceof FingerprintError)) throw error;
+      diagnostics.push({ code: error.code, path: candidate.path, message: error.message });
+    }
+  }
+
+  if (missingForMoveDetection.length > 0) {
+    const movedResults = detectMoved(missingForMoveDetection, fingerprintedSourceCandidates);
     for (const missing of missingForMoveDetection) {
       const moveResult = movedResults.find((r) => r.sourceId === missing.sourceId);
       results.push({
         sourceId: missing.sourceId,
         path: missing.path,
+        confirmedFingerprint: missing.confirmedFingerprint,
+        confirmedContentHash: missing.confirmedContentHash,
         observedFingerprint: null,
         observedContentHash: null,
         driftState: moveResult.driftState,
-        freshness: "unknown",
         observedAtPath: moveResult.observedAtPath
+        // no `freshness` key at all for missing/moved -- see the Interfaces note above
       });
     }
   }
 
-  return { results, diagnostics };
+  return { results, diagnostics, fingerprintedSourceCandidates };
 }
 ```
 
@@ -1383,7 +1585,7 @@ Expected: PASS.
 
 ```bash
 git add runtime/src/lib/discoverScan.mjs runtime/src/lib/tests/discover-drift.test.mjs
-git commit -m "feat(discovery): compute known-source drift including moved detection"
+git commit -m "feat(discovery): compute known-source drift with path confinement and full candidate fingerprinting"
 ```
 
 ---
@@ -1395,7 +1597,7 @@ git commit -m "feat(discovery): compute known-source drift including moved detec
 - Test: `runtime/src/lib/tests/discover-command-evidence.test.mjs`
 
 **Interfaces:**
-- Consumes: drift results from Task 8 (`{sourceId, driftState}` per source, keyed by id); reads `scopes/*/scope.yml` via the same `confineWritePath` pattern as `check.mjs:49-68`.
+- Consumes: drift results from Task 8 (`{sourceId, driftState, confirmedFingerprint, observedFingerprint}` per source, keyed by id — Task 8 now always supplies **both** `confirmedFingerprint` and `observedFingerprint` as distinct fields; this function must compare against `confirmedFingerprint` directly and never fall back to `observedFingerprint` when it's absent, since those two answer genuinely different questions — see Task 8's Interfaces note); reads `scopes/*/scope.yml` via the same `confineWritePath` pattern as `check.mjs:49-68`.
 - Produces: `computeCommandEvidence({ planningRoot, knownSourceDrift })` → `Array<{ scopeId, role, evidenceState, reasons }>`, implementing the precedence algorithm from the design spec exactly: `not-evidence-backed → evidence-missing → unknown → evidence-drifted → evidence-updated → current`, with `evidence-drifted` outranking `evidence-updated` and both reasons reported together when both apply.
 
 - [ ] **Step 1: Write the failing test**
@@ -1440,14 +1642,19 @@ const srcB = "018f4d1e-0000-7000-8000-0000000000a2";
   assert.deepEqual(entry.reasons, []);
 }
 
-// current: no drift on the referenced source
+// current: no drift on the referenced source. confirmedFingerprint and observedFingerprint
+// are both supplied explicitly and equal -- this fixture must never rely on a fallback from
+// one to the other (Task 8 always provides both as real, independent fields now)
 {
   const { planningRoot } = makeWorkspace();
   const scopeId = "018f4d1e-0000-7000-8000-0000000000b2";
   writeScope(planningRoot, scopeId, {
     build: { command: "./y", method: "reviewed", confidence: "high", sourceRefs: [srcA], sourceFingerprintAtSelection: { [srcA]: "a".repeat(64) }, requiresEnvironment: false, requiresSecrets: false, alternatives: [] }
   });
-  const result = computeCommandEvidence({ planningRoot, knownSourceDrift: [{ sourceId: srcA, driftState: "unchanged", observedFingerprint: "a".repeat(64) }] });
+  const result = computeCommandEvidence({
+    planningRoot,
+    knownSourceDrift: [{ sourceId: srcA, driftState: "unchanged", confirmedFingerprint: "a".repeat(64), observedFingerprint: "a".repeat(64) }]
+  });
   const entry = result.find((r) => r.scopeId === scopeId && r.role === "build");
   assert.equal(entry.evidenceState, "current");
 }
@@ -1556,12 +1763,16 @@ function evaluateCommandEvidence(commandEntry, knownSourceDrift) {
   let anyUpdated = false;
   for (const ref of commandEntry.sourceRefs) {
     const drift = driftById.get(ref);
-    const catalogFingerprint = drift.confirmedFingerprint ?? drift.observedFingerprint;
+    // NEVER fall back to observedFingerprint here: confirmedFingerprint (the catalog's
+    // baseline) and observedFingerprint (what's live right now) answer different questions.
+    // Using the live value as a stand-in for the catalog's would report a false
+    // "catalog-advanced-since-selection" whenever there's live drift but the catalog itself
+    // never moved -- exactly the bug this explicit field separation exists to prevent.
     if (drift.driftState === "changed") {
       anyDrifted = true;
       reasons.add("live-source-differs-from-catalog");
     }
-    if (commandEntry.sourceFingerprintAtSelection[ref] !== catalogFingerprint) {
+    if (commandEntry.sourceFingerprintAtSelection[ref] !== drift.confirmedFingerprint) {
       anyUpdated = true;
       reasons.add("catalog-advanced-since-selection");
     }
@@ -1716,7 +1927,7 @@ git commit -m "feat(discovery): compute canonical workspaceHash for scan output"
 
 **Interfaces:**
 - Consumes: `detectGit`, `enumerateCandidates`, `computeKnownSourceDrift`, `computeCommandEvidence`, `computeWorkspaceHash` (Tasks 6-10).
-- Produces: `runDiscoverScan({ planningRoot, workspaceRoot, maxSourceBytes })` → full `ScanResult` object (see design doc D.1); throws `UsageError` if `maxSourceBytes` is outside `[1048576, 2147483648]`.
+- Produces: `runDiscoverScan({ planningRoot, workspaceRoot, maxSourceBytes })` → full `ScanResult` object (see design doc D.1); throws `UsageError` if `maxSourceBytes` is outside `[1048576, 2147483648]`. `ScanResult.sourceCandidates` carries **real** `observedFingerprint`/`observedContentHash` values for every candidate that could be fingerprinted (never `null` placeholders) — this is `computeKnownSourceDrift`'s `fingerprintedSourceCandidates` output (Task 8) used directly, because fingerprinting a candidate is part of what `discover scan` itself observes, not a capability deferred to something later. `ScanResult.baseRevision.vcsRevision` uses `git.revision` (the commit SHA), never `git.branch` — a branch name can advance while staying the same string, so it cannot serve as the consistency marker the design spec means by `git:<sha>`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1741,9 +1952,19 @@ assert.equal(result.schemaVersion, 1);
 assert.equal(typeof result.scanId, "string");
 assert.equal(typeof result.generatedAt, "string");
 assert.equal(result.baseRevision.workspaceHash.length, 64);
+assert.equal(result.baseRevision.vcsRevision, "none"); // no real .git in this temp dir
 assert.equal(result.scanParameters.maxSourceBytes, 1024 * 1024);
-assert.equal(result.git.vcs, "none"); // no real .git in this temp dir
+assert.equal(result.git.vcs, "none");
 assert.ok(result.scopeCandidates.some((c) => c.path === "web/"));
+
+// package.json is ALSO a sourceCandidate (project-module-manifests), and it must come back
+// with a REAL fingerprint -- never a null placeholder deferred to some later capability
+const webManifestCandidate = result.sourceCandidates.find((c) => c.path === "web/package.json");
+assert.ok(webManifestCandidate, "web/package.json must be a source candidate");
+assert.equal(webManifestCandidate.observedFingerprint.length, 64);
+assert.equal(webManifestCandidate.observedContentHash.length, 64);
+assert.notEqual(webManifestCandidate.observedFingerprint, null);
+
 assert.deepEqual(result.knownSources, []);
 assert.deepEqual(result.knownCommandsEvidence, []);
 assert.deepEqual(result.diagnostics, []);
@@ -1756,7 +1977,7 @@ assert.throws(() => runDiscoverScan({ planningRoot, workspaceRoot, maxSourceByte
 const withDefault = runDiscoverScan({ planningRoot, workspaceRoot });
 assert.equal(withDefault.scanParameters.maxSourceBytes, 536870912);
 
-console.log("discover command: full ScanResult assembly, range validation, and default all pass");
+console.log("discover command: full ScanResult assembly (with real candidate fingerprints and commit-SHA vcsRevision), range validation, and default all pass");
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -1782,22 +2003,18 @@ export function runDiscoverScan({ planningRoot, workspaceRoot, maxSourceBytes = 
   }
 
   const git = detectGit(workspaceRoot);
-  const { scopeCandidates, sourceCandidates } = enumerateCandidates(workspaceRoot);
-  const { results: knownSources, diagnostics: driftDiagnostics } = computeKnownSourceDrift({ planningRoot, workspaceRoot, sourceCandidates, maxSourceBytes });
+  const { scopeCandidates, sourceCandidates: rawSourceCandidates, diagnostics: enumerationDiagnostics } = enumerateCandidates(workspaceRoot);
+  const {
+    results: knownSources,
+    diagnostics: driftDiagnostics,
+    fingerprintedSourceCandidates
+  } = computeKnownSourceDrift({ planningRoot, workspaceRoot, sourceCandidates: rawSourceCandidates, maxSourceBytes });
   const knownCommandsEvidence = computeCommandEvidence({ planningRoot, knownSourceDrift: knownSources });
 
-  // Candidate fingerprints are not eagerly computed here (see note below); only
-  // known/confirmed-source and moved-detection fingerprinting (inside
-  // computeKnownSourceDrift, Task 8) happens in Plan 1, and any failure there
-  // already became a `driftDiagnostics` entry instead of throwing.
-  const sourceCandidatesWithFingerprints = sourceCandidates.map((candidate) => {
-    return { ...candidate, observedFingerprint: null, observedContentHash: null };
-  });
-
-  const diagnostics = [...driftDiagnostics];
+  const diagnostics = [...enumerationDiagnostics, ...driftDiagnostics];
   const workspaceHash = computeWorkspaceHash({
     scopeCandidates,
-    sourceCandidates: sourceCandidatesWithFingerprints,
+    sourceCandidates: fingerprintedSourceCandidates,
     knownSources,
     knownCommandsEvidence
   });
@@ -1806,11 +2023,11 @@ export function runDiscoverScan({ planningRoot, workspaceRoot, maxSourceBytes = 
     schemaVersion: 1,
     scanId: generateUuidV7(),
     generatedAt: new Date().toISOString(),
-    baseRevision: { vcsRevision: git.enabled ? `git:${git.branch}` : "none", workspaceHash },
+    baseRevision: { vcsRevision: git.enabled ? `git:${git.revision}` : "none", workspaceHash },
     scanParameters: { maxSourceBytes },
     git,
     scopeCandidates,
-    sourceCandidates: sourceCandidatesWithFingerprints,
+    sourceCandidates: fingerprintedSourceCandidates,
     knownSources,
     knownCommandsEvidence,
     diagnostics
@@ -1818,7 +2035,7 @@ export function runDiscoverScan({ planningRoot, workspaceRoot, maxSourceBytes = 
 }
 ```
 
-Note: this task deliberately leaves `sourceCandidates[].observedFingerprint/observedContentHash` as `null` placeholders rather than eagerly fingerprinting every candidate on every scan — fingerprinting every candidate in a large repo on every `discover scan` call could be slow, and Plan 1 has no consumer that needs candidate fingerprints yet (only `computeKnownSourceDrift`'s internal moved-detection step needs them, and it already computes them itself in Task 8). Wiring per-candidate fingerprinting into the top-level `ScanResult` output (with per-candidate diagnostics on failure) is Plan 2's job, once `discover propose` actually needs to consume and re-verify those values. Leave a comment saying so above the `sourceCandidatesWithFingerprints` line.
+`fingerprintedSourceCandidates` (Task 8) already dropped any candidate that failed fingerprinting, with a diagnostic recorded for it — there is nothing left for this orchestrator to compute or defer; it just assembles what Tasks 6-10 already produced.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -1829,7 +2046,7 @@ Expected: PASS.
 
 ```bash
 git add runtime/src/commands/discover.mjs runtime/src/commands/tests/discover.test.mjs
-git commit -m "feat(discovery): assemble full ScanResult via runDiscoverScan orchestrator"
+git commit -m "feat(discovery): assemble full ScanResult with real candidate fingerprints and commit-SHA revision"
 ```
 
 ---
@@ -1917,7 +2134,7 @@ git commit -m "feat(discovery): wire discover scan into the CLI dispatcher"
 - Test: `runtime/src/commands/tests/check.test.mjs` (extend existing file — Read it first)
 
 **Interfaces:**
-- Modifies: `checkSchema({ planningRoot })` — adds a `sources/<id>/source.yml` validation block mirroring the existing `scopes/<id>/scope.yml` block at `check.mjs:49-68`, plus the relational check that `source.id` matches its directory name (mirroring the existing `operation.id`-matches-directory check at `check.mjs:100-103`).
+- Modifies: `checkSchema({ planningRoot })` — adds a `sources/<id>/source.yml` validation block mirroring the existing `scopes/<id>/scope.yml` block at `check.mjs:49-68`, plus the relational check that `source.id` matches its directory name (mirroring the existing `operation.id`-matches-directory check at `check.mjs:100-103`). Also adds `findCommandFingerprintKeyMismatches(scope)` — the relational check Task 5 explicitly deferred to here: for every command entry in a scope's `commands` (including `custom.*` and every `alternatives[]` entry), `sourceFingerprintAtSelection`'s keys must be exactly the set in `sourceRefs`, no more, no less. This is real, implemented, and tested in this task — not left as a gap.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -2015,6 +2232,167 @@ git add runtime/src/commands/check.mjs runtime/src/commands/tests/check.test.mjs
 git commit -m "feat(discovery): validate sources/<id>/source.yml in check schema"
 ```
 
+- [ ] **Step 6: Write the failing test for the fingerprint-key relational check**
+
+Add to the same test file, before the final `console.log`:
+
+```js
+// commands.<role>.sourceFingerprintAtSelection keys must exactly match sourceRefs -- an
+// extra key (or a missing one) is a finding, even though the schema alone (Task 5) cannot
+// express this and therefore accepts it structurally
+{
+  const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-fingerprint-mismatch-"));
+  fs.writeFileSync(path.join(planningRoot, "config.yml"), "schemaVersion: 1\nname: demo\nvcs: git\nbaseBranch: null\nscopeRefs: []\n");
+  fs.writeFileSync(path.join(planningRoot, "plugin.lock.yml"), `schemaVersion: 1\npluginVersion: 1.0.0\ntemplatePackFingerprint: sha256:${"a".repeat(64)}\n`);
+  const scopeId = "018f4d1e-0000-7000-8000-000000000010";
+  fs.mkdirSync(path.join(planningRoot, "scopes", scopeId), { recursive: true });
+  const refA = "018f4d1e-0000-7000-8000-000000000011";
+  const refB = "018f4d1e-0000-7000-8000-000000000012";
+  fs.writeFileSync(path.join(planningRoot, "scopes", scopeId, "scope.yml"), stringifyYaml({
+    schemaVersion: 1, id: scopeId, key: "api", label: "API", kind: "code", path: "api/", owner: null,
+    commands: {
+      build: {
+        command: "./y", method: "reviewed", confidence: "high",
+        sourceRefs: [refA],
+        sourceFingerprintAtSelection: { [refA]: "a".repeat(64), [refB]: "b".repeat(64) }, // refB is an extra key
+        requiresEnvironment: false, requiresSecrets: false, alternatives: []
+      }
+    }
+  }));
+  const result = checkSchema({ planningRoot });
+  assert.equal(result.status, "FAIL");
+  assert.ok(result.findings.some((f) => f.includes("commands.build") && f.includes("sourceFingerprintAtSelection")));
+}
+
+// the same check reaches into alternatives[], not just the selected command
+{
+  const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-fingerprint-mismatch-alt-"));
+  fs.writeFileSync(path.join(planningRoot, "config.yml"), "schemaVersion: 1\nname: demo\nvcs: git\nbaseBranch: null\nscopeRefs: []\n");
+  fs.writeFileSync(path.join(planningRoot, "plugin.lock.yml"), `schemaVersion: 1\npluginVersion: 1.0.0\ntemplatePackFingerprint: sha256:${"a".repeat(64)}\n`);
+  const scopeId = "018f4d1e-0000-7000-8000-000000000013";
+  fs.mkdirSync(path.join(planningRoot, "scopes", scopeId), { recursive: true });
+  const refA = "018f4d1e-0000-7000-8000-000000000014";
+  const refC = "018f4d1e-0000-7000-8000-000000000015";
+  fs.writeFileSync(path.join(planningRoot, "scopes", scopeId, "scope.yml"), stringifyYaml({
+    schemaVersion: 1, id: scopeId, key: "api", label: "API", kind: "code", path: "api/", owner: null,
+    commands: {
+      build: {
+        command: "./y", method: "reviewed", confidence: "high",
+        sourceRefs: [refA], sourceFingerprintAtSelection: { [refA]: "a".repeat(64) },
+        requiresEnvironment: false, requiresSecrets: false,
+        alternatives: [{
+          command: "./z", sourceRefs: [refC], sourceFingerprintAtSelection: {}, // missing refC's key
+          confidence: "medium", requiresEnvironment: false, requiresSecrets: false
+        }]
+      }
+    }
+  }));
+  const result = checkSchema({ planningRoot });
+  assert.equal(result.status, "FAIL");
+  assert.ok(result.findings.some((f) => f.includes("commands.build.alternatives[0]")));
+}
+
+// a declared command (no sourceRefs at all) never triggers this check
+{
+  const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-fingerprint-declared-ok-"));
+  fs.writeFileSync(path.join(planningRoot, "config.yml"), "schemaVersion: 1\nname: demo\nvcs: git\nbaseBranch: null\nscopeRefs: []\n");
+  fs.writeFileSync(path.join(planningRoot, "plugin.lock.yml"), `schemaVersion: 1\npluginVersion: 1.0.0\ntemplatePackFingerprint: sha256:${"a".repeat(64)}\n`);
+  const scopeId = "018f4d1e-0000-7000-8000-000000000016";
+  fs.mkdirSync(path.join(planningRoot, "scopes", scopeId), { recursive: true });
+  fs.writeFileSync(path.join(planningRoot, "scopes", scopeId, "scope.yml"), stringifyYaml({
+    schemaVersion: 1, id: scopeId, key: "api", label: "API", kind: "code", path: "api/", owner: null,
+    commands: {
+      test: {
+        command: "./mvnw test", method: "declared", declaredBy: "carlos", declaredAt: "2026-07-25T10:00:00Z",
+        declaredOperationId: "018f4d1e-0000-7000-8000-000000000017", requiresEnvironment: false, requiresSecrets: false, alternatives: []
+      }
+    }
+  }));
+  const result = checkSchema({ planningRoot });
+  assert.equal(result.status, "PASS");
+}
+```
+
+- [ ] **Step 7: Run test to verify it fails**
+
+Run: `node runtime/src/commands/tests/check.test.mjs`
+Expected: FAIL — the first two new cases expect `FAIL` with a specific finding, but nothing currently inspects `commands` at all, so `result.status` stays `"PASS"`.
+
+- [ ] **Step 8: Write minimal implementation**
+
+Add this above `checkSchema` in `runtime/src/commands/check.mjs`:
+
+```js
+function commandRoleEntries(scope) {
+  if (!scope.commands) return [];
+  const entries = [];
+  for (const role of ["build", "test", "smoke", "lint", "verify"]) {
+    if (scope.commands[role]) entries.push({ label: role, entry: scope.commands[role] });
+  }
+  for (const [role, entry] of Object.entries(scope.commands.custom || {})) {
+    entries.push({ label: `custom.${role}`, entry });
+  }
+  return entries;
+}
+
+function fingerprintKeyMismatch(label, entry) {
+  if (!entry.sourceRefs) return null; // declared entries carry no sourceRefs/sourceFingerprintAtSelection at all
+  const refSet = new Set(entry.sourceRefs);
+  const keySet = new Set(Object.keys(entry.sourceFingerprintAtSelection || {}));
+  const missing = [...refSet].filter((r) => !keySet.has(r));
+  const extra = [...keySet].filter((k) => !refSet.has(k));
+  if (missing.length === 0 && extra.length === 0) return null;
+  return { label, missing, extra };
+}
+
+function findCommandFingerprintKeyMismatches(scope) {
+  const mismatches = [];
+  for (const { label, entry } of commandRoleEntries(scope)) {
+    const selfMismatch = fingerprintKeyMismatch(label, entry);
+    if (selfMismatch) mismatches.push(selfMismatch);
+    for (const [index, alternative] of (entry.alternatives || []).entries()) {
+      const altMismatch = fingerprintKeyMismatch(`${label}.alternatives[${index}]`, alternative);
+      if (altMismatch) mismatches.push(altMismatch);
+    }
+  }
+  return mismatches;
+}
+```
+
+Then replace the existing single-line scope validation call inside the `scopes/` loop —
+
+```js
+      checkRequiredFile(planningRoot, path.join("scopes", scopeId, "scope.yml"), "scope", findings);
+```
+
+— with:
+
+```js
+      const beforeCount = findings.length;
+      checkRequiredFile(planningRoot, path.join("scopes", scopeId, "scope.yml"), "scope", findings);
+      if (findings.length === beforeCount) {
+        const scopeFile = confineWritePath(planningRoot, path.join("scopes", scopeId, "scope.yml"));
+        const scope = parseYaml(fs.readFileSync(scopeFile, "utf8"));
+        for (const mismatch of findCommandFingerprintKeyMismatches(scope)) {
+          findings.push(`scopes/${scopeId}/scope.yml: commands.${mismatch.label} sourceFingerprintAtSelection keys do not match sourceRefs (missing=${JSON.stringify(mismatch.missing)}, extra=${JSON.stringify(mismatch.extra)})`);
+        }
+      }
+```
+
+(`beforeCount` here is scoped to this loop iteration and is unrelated to the `beforeCount` used later in the `sources/` block added earlier in this task — they don't conflict since each lives inside its own loop body, but name them distinctly, e.g. `scopeBeforeCount`/`sourceBeforeCount`, if your editor flags shadowing.)
+
+- [ ] **Step 9: Run test to verify it passes**
+
+Run: `node runtime/src/commands/tests/check.test.mjs`
+Expected: PASS. Then run `npm run test:unit` for full regression.
+
+- [ ] **Step 10: Commit**
+
+```bash
+git add runtime/src/commands/check.mjs runtime/src/commands/tests/check.test.mjs
+git commit -m "feat(discovery): enforce sourceFingerprintAtSelection/sourceRefs key-set equality in check schema"
+```
+
 ---
 
 ### Task 14: `discover` skill doc
@@ -2084,9 +2462,16 @@ Expected: no stray temp files; the diff only touches the files listed in Tasks 1
 
 - [ ] **Step 5: Definition of Done checklist**
 
-- [ ] `computeFileFingerprint`/`computeDirectoryFingerprint`/`computeSourceFingerprint` pass every case in H.1 of the design doc that applies to this plan (single-file identity, multiplicity, symlink text-vs-content, path collision, invalid UTF-8 is exercised implicitly by the collision/manifest code path — add one more explicit test now if Task 2 didn't already cover an isolated invalid-UTF-8 symlink-target case; if it's missing, add it before checking this box).
+- [ ] `computeFileFingerprint`/`computeDirectoryFingerprint`/`computeSourceFingerprint` pass every H.1 case: single-file identity, multiplicity, symlink text-vs-pointed-content (never the pointed-to content, never NFC-normalized), path collision (via genuinely distinct code point sequences, not visually-identical source text), invalid UTF-8 in both a path segment and a symlink target, `.git/` exclusion, byte-wise UTF-8 sort order, size preflight before any content read.
 - [ ] `discover scan` never writes to `.planning/` under any code path (confirm by grepping `runtime/src/lib/discoverScan.mjs` and `runtime/src/commands/discover.mjs` for any `writeFileSync`/`writeFileAtomic`/`ensureDirectoryTree` call — there should be none).
+- [ ] Every confirmed source's `path` (and every candidate's `path`) is resolved through `confineScopePath` before any filesystem access — a manipulated/corrupted `source.yml` with an escaping path (`../../secret`) produces a diagnostic, never a read outside `workspaceRoot` (Task 8's adversarial test).
+- [ ] `enumerateCandidates`'s rule table covers all 19 families from `docs/plugin-redesign-release-flow/04-release-init-configuracion.md:165-187` — not a subset — matching the design spec's approved "todo el modelo de conocimiento del host" scope.
+- [ ] No I/O error during enumeration or fingerprinting is ever silently swallowed — every failure path (enumeration EACCES, fingerprint EACCES/oversized/collision/invalid-UTF-8, path confinement rejection) produces a `diagnostics` entry and lets the rest of the scan continue.
+- [ ] `ScanResult.sourceCandidates` always carries real `observedFingerprint`/`observedContentHash` for every candidate that could be fingerprinted — never `null` placeholders deferred to a later plan; a candidate that fails fingerprinting is omitted with a diagnostic instead.
+- [ ] `ScanResult.baseRevision.vcsRevision` is built from `git.revision` (the commit SHA via `git rev-parse HEAD`), never `git.branch`.
+- [ ] Every known-source drift result always carries **both** `confirmedFingerprint`/`confirmedContentHash` (from the catalog) and `observedFingerprint`/`observedContentHash` (live) as distinct fields — `computeCommandEvidence` never falls back from one to the other. `freshness` is present only for `unchanged`/`changed`; absent (not the string `"unknown"`) for `missing`/`moved`.
 - [ ] `source.schema.json` and the `scope.schema.json` `commands` extension both compile cleanly via `npm run build:schemas`.
-- [ ] `check schema` covers `sources/**` the same way it covers `scopes/**`.
+- [ ] `check schema` covers `sources/**` the same way it covers `scopes/**`, and additionally enforces `sourceFingerprintAtSelection`/`sourceRefs` key-set equality for every command entry (including `alternatives[]`) — the one relational check plain JSON Schema cannot express.
 - [ ] No new npm dependency was added (`git diff develop...HEAD -- package.json package-lock.json` is empty, or only reflects an unrelated lockfile refresh if one was already pending).
 - [ ] This plan does not introduce any new ChangeSet `kind`, does not modify `changeset.mjs`, `mutation.mjs`, `lock.mjs`, `journal.mjs`, or `recovery.mjs` — confirm with `git diff --stat` against the base branch.
+- [ ] `docs/superpowers/plans/2026-07-25-discovery-iteration-INDEX.md` is up to date — this plan marked done there only once merged, with Plans 2–5 still clearly open.
