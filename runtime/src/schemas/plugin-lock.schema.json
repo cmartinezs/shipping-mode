@@ -1,0 +1,11 @@
+{
+  "$id": "https://shipping-mode.dev/schemas/plugin-lock.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "pluginVersion", "templatePackFingerprint"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "pluginVersion": { "type": "string", "minLength": 1 },
+    "templatePackFingerprint": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+  }
+}

@@ -9,10 +9,25 @@
   "engines": {
     "node": ">=20"
   },
+  "dependencies": {
+    "yaml": "^2.5.0"
+  },
   "scripts": {
+    "build:schemas": "node scripts/build-runtime.mjs --schemas-only",
+    "build:runtime": "node scripts/build-runtime.mjs",
+    "build:test-bundle": "node scripts/build-runtime.mjs --test-bundle",
+    "verify:artifacts": "node scripts/verify-generated-artifacts.mjs",
     "test:host-integration": "node spikes/host-integration/tests/host-integration.test.mjs",
-    "test:vertical-slice": "node src/tests/vertical-slice.test.mjs",
+    "test:unit": "node scripts/run-tests.mjs runtime/src/lib/tests runtime/src/commands/tests runtime/src/schemas/tests runtime/src/generated/tests runtime/src/tests",
+    "test:cli-e2e": "node runtime/tests/cli-e2e.test.mjs",
+    "test:real-crash-e2e": "node runtime/tests/real-crash-e2e.test.mjs",
+    "test:bundle": "node runtime/tests/bundle-self-contained.test.mjs",
     "verify:corte-1.2": "node spikes/verify-corte-1.2.mjs",
-    "verify:next-generation": "bash scripts/verify-next-generation.sh"
+    "verify:next-generation": "bash scripts/verify-next-generation.sh",
+    "test:security-e2e": "node runtime/tests/security-e2e.test.mjs"
+  },
+  "devDependencies": {
+    "ajv": "^8.20.0",
+    "esbuild": "^0.24.2"
   }
 }

@@ -1,8 +1,12 @@
 ---
-description: Check Shipping Mode architecture and project state.
-argument-hint: [check]
+description: Check Shipping Mode schema validity, query-only.
+argument-hint: schema
 disable-model-invocation: true
-allowed-tools: Bash(shipping-mode check *)
+allowed-tools: Bash(shipping-mode check schema:*)
 ---
 
-Run query-only checks through the Shipping Mode launcher.
+Run `shipping-mode check schema` to validate `config.yml`, `plugin.lock.yml`,
+and `scopes/**` against their JSON Schemas. Query-only: never mutates state,
+never triggers recovery. Reports `NOT_INITIALIZED` if `.planning/` doesn't
+exist yet. `release/item/work-package/task/report` and
+`check health|guides|gates` are not implemented in Corte 0.

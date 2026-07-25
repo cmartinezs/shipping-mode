@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const manifest = JSON.parse(fs.readFileSync(path.join(root, ".claude-plugin/plugin.json"), "utf8"));
-const skillNames = ["init", "config", "release", "item", "task", "check", "report", "decision", "update"];
+// Corte 0 keeps only init/config/check active (see Task 25); release, item,
+// task, report, decision, and update are deferred and their skill stubs were
+// removed, so they're no longer part of this discovery contract.
+const skillNames = ["init", "config", "check"];
 
 assert.equal(manifest.name, "shipping-mode", "manifest-name");
 assert.equal(manifest.version, "1.0.0", "manifest-version");
@@ -26,11 +30,34 @@ assert.match(hookCommand, /protect-planning-state-hook\.sh/);
 
 const launcher = path.join(root, "bin/shipping-mode.mjs");
 const help = JSON.parse(execFileSync(process.execPath, [launcher, "--help"], { encoding: "utf8" }));
-assert.deepEqual(help.commands, ["check architecture --contract corte-1.2", "--help", "--version"]);
+// Real Corte 0 command surface (Task 24) -- the old "check architecture
+// --contract corte-1.2" placeholder no longer exists.
+assert.deepEqual(help.commands, [
+  "init --name <name> [--base-branch <b>] [--vcs git|none] --actor <actor>",
+  "config set --name <name> --actor <actor>",
+  "config scope add --key <slug> --label <label> --kind code|non_code --path <path> [--owner <o>] --actor <actor>",
+  "changeset propose --kind <workspace.init|config.update|scope.add> --payload-file <file|-> --actor <actor>",
+  "changeset validate <operation-id>",
+  "changeset approve <operation-id> --actor <actor> [--allow-self-approval]",
+  "changeset apply <operation-id> --actor <actor>",
+  "check schema",
+  "--help", "--version"
+]);
 const version = JSON.parse(execFileSync(process.execPath, [launcher, "--version"], { encoding: "utf8" }));
 assert.deepEqual(version, { product: "shipping-mode", version: "1.0.0" });
-const check = JSON.parse(execFileSync(process.execPath, [launcher, "check", "architecture", "--contract", "corte-1.2"], { encoding: "utf8" }));
-assert.equal(check.status, "PASS", "launcher-access");
+
+// prove the launcher actually executes a real subcommand end to end and
+// returns real JSON, against a fresh workspace with no .planning/ yet --
+// deeper CLI behavior (happy/negative paths, concurrency, crash-recovery)
+// is covered by runtime/tests/cli-e2e.test.mjs, not duplicated here
+const checkCwd = fs.mkdtempSync(path.join(os.tmpdir(), "host-integration-"));
+let check;
+try {
+  check = JSON.parse(execFileSync(process.execPath, [launcher, "check", "schema"], { encoding: "utf8", cwd: checkCwd }));
+} catch (error) {
+  check = JSON.parse(error.stdout);
+}
+assert.equal(check.status, "NOT_INITIALIZED", "launcher-access");
 
 const autocomplete = JSON.parse(fs.readFileSync(path.join(root, "spikes/host-integration/fixtures/autocomplete.json"), "utf8"));
 assert.deepEqual(autocomplete.commands, skillNames.map((skill) => `/shipping-mode:${skill}`));
