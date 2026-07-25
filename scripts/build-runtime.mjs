@@ -35,7 +35,28 @@ function buildValidators() {
     ajv.addSchema(schema, schemaName);
     exportNames[exportNameFor(schemaName)] = schemaName;
   }
-  const moduleCode = standaloneCode(ajv, exportNames);
+  let moduleCode = standaloneCode(ajv, exportNames);
+
+  // Fix ESM compatibility: ajv generates require() calls which don't work in ESM
+  // Import the ucs2length function dynamically and wrap it
+  if (moduleCode.includes('require("ajv/dist/runtime/ucs2length")')) {
+    // Replace the require call with a reference to the imported variable
+    moduleCode = moduleCode.replace(
+      /const\s+(\w+)\s*=\s*require\("ajv\/dist\/runtime\/ucs2length"\)\.default/g,
+      'const $1 = __ucs2length'
+    );
+
+    // Add import at the top of the file, after "use strict" if present
+    const useStrictMatch = moduleCode.match(/^"use strict";/);
+    if (useStrictMatch) {
+      // "use strict" is present, insert import after it
+      moduleCode = '"use strict";import __ucs2lengthMod from "ajv/dist/runtime/ucs2length.js";const __ucs2length = __ucs2lengthMod.default;' + moduleCode.slice(13);
+    } else {
+      // No "use strict", add import at the beginning
+      moduleCode = 'import __ucs2lengthMod from "ajv/dist/runtime/ucs2length.js";const __ucs2length = __ucs2lengthMod.default;' + moduleCode;
+    }
+  }
+
   fs.mkdirSync(generatedDir, { recursive: true });
   fs.writeFileSync(path.join(generatedDir, "validators.mjs"), moduleCode);
   return exportNames;
