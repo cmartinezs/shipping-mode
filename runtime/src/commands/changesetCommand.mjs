@@ -1,15 +1,15 @@
 import fs from "node:fs";
 import path from "node:path";
-import { validateOperation, approveOperation, applyOperation } from "../lib/changeset.mjs";
+import { validateOperation, approveOperation, applyOperation, propose } from "../lib/changeset.mjs";
 import { renderWorkspaceInit, renderConfigUpdate, renderScopeAdd } from "./renderers.mjs";
 import { readChangeSet, readOperation } from "../lib/operationStore.mjs";
 import { parseYaml } from "../lib/yaml.mjs";
-import { propose } from "../lib/changeset.mjs";
 import { prepareProposal } from "./proposalPreparation.mjs";
 import { UsageError } from "../lib/errors.mjs";
+import { confineRuntimeWritePath } from "../lib/paths.mjs";
 
 function readCurrentConfig(planningRoot) {
-  const configPath = path.join(planningRoot, "config.yml");
+  const configPath = confineRuntimeWritePath(planningRoot, "config.yml");
   return fs.existsSync(configPath) ? parseYaml(fs.readFileSync(configPath, "utf8")) : null;
 }
 
@@ -27,6 +27,9 @@ export function runChangesetPropose({ planningRoot, kind, payloadText, actor }) 
     rawPayload = trimmed.startsWith("{") ? JSON.parse(trimmed) : parseYaml(trimmed);
   } catch (error) {
     throw new UsageError(`invalid payload: ${error.message}`);
+  }
+  if (rawPayload === null || typeof rawPayload !== "object" || Array.isArray(rawPayload)) {
+    throw new UsageError("changeset payload must be a mapping/object");
   }
   const { payload, targetFiles } = prepareProposal(kind, rawPayload);
   const operationsRoot = path.join(planningRoot, "operations");
