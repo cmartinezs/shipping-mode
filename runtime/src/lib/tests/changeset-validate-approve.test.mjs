@@ -5,6 +5,7 @@ import path from "node:path";
 import { propose, validateOperation, approveOperation, computePersistedChangeSetHash } from "../changeset.mjs";
 import { readOperation, writeOperation } from "../operationStore.mjs";
 import { StateError, StaleError } from "../errors.mjs";
+import { RecoveryRequiredError } from "../journal.mjs";
 import { renderWorkspaceInit, renderConfigUpdate, renderScopeAdd } from "../../commands/renderers.mjs";
 
 function freshPlanningRoot() {
@@ -249,8 +250,22 @@ for (const terminalStatus of ["INVALID", "STALE", "RECOVERY_REQUIRED", "APPLYING
   const operationId = proposeWorkspaceInit(planningRoot, operationsRoot);
   const operation = readOperation(operationsRoot, operationId);
   writeOperation(operationsRoot, operationId, { ...operation, status: terminalStatus });
-  assert.throws(() => validateOperation({ operationsRoot, planningRoot, operationId, render: renderWorkspaceInit }), StateError, `validate must refuse to run against an operation in ${terminalStatus}`);
-  assert.throws(() => approveOperation({ operationsRoot, planningRoot, operationId, actor: "carlos", allowSelfApproval: true }), StateError, `approve must refuse to run against an operation in ${terminalStatus}`);
+  // RECOVERY_REQUIRED/APPLYING/APPLIED are special: now that Task 19 makes
+  // recovery detection real, withWorkspaceMutation's recovery sweep (Task 13)
+  // inspects every operation before the mutation runs -- and this synthetic
+  // operation (status forced directly via writeOperation, never actually
+  // validated/approved/applied) fails operation.schema.json's per-status
+  // invariants for these three statuses (missing validation/approval
+  // content, filePlan/expectedEvents, conflict, etc.), so recovery reports
+  // it RECOVERY_REQUIRED and withWorkspaceMutation blocks the mutation
+  // before validateOperation/approveOperation's own status check ever runs.
+  // This is the correct, intended behavior (an unresolved/untrustworthy
+  // operation blocks every mutating command uniformly), not a regression --
+  // INVALID/STALE aren't covered by any per-status schema requirement, so
+  // they still reach the real status check and throw StateError as before.
+  const expectedError = ["RECOVERY_REQUIRED", "APPLYING", "APPLIED"].includes(terminalStatus) ? RecoveryRequiredError : StateError;
+  assert.throws(() => validateOperation({ operationsRoot, planningRoot, operationId, render: renderWorkspaceInit }), expectedError, `validate must refuse to run against an operation in ${terminalStatus}`);
+  assert.throws(() => approveOperation({ operationsRoot, planningRoot, operationId, actor: "carlos", allowSelfApproval: true }), expectedError, `approve must refuse to run against an operation in ${terminalStatus}`);
 }
 
 console.log("changeset-validate-approve: all tests passed");
