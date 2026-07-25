@@ -9,6 +9,9 @@
   "engines": {
     "node": ">=20"
   },
+  "dependencies": {
+    "yaml": "^2.5.0"
+  },
   "scripts": {
     "test:host-integration": "node spikes/host-integration/tests/host-integration.test.mjs",
     "test:vertical-slice": "node src/tests/vertical-slice.test.mjs",
