@@ -46,34 +46,75 @@ function buildValidators() {
   }
   let moduleCode = standaloneCode(ajv, exportNames);
 
-  if (moduleCode.includes('require("ajv/dist/runtime/ucs2length")')) {
-    moduleCode = moduleCode.replace(
-      /const\s+(\w+)\s*=\s*require\("ajv\/dist\/runtime\/ucs2length"\)\.default/g,
-      "const $1 = __ucs2length"
-    );
-
-    const ucs2lengthInline = "function __ucs2length(str) {\n"
-      + "  const len = str.length;\n"
-      + "  let length = 0;\n"
-      + "  let pos = 0;\n"
-      + "  let value;\n"
-      + "  while (pos < len) {\n"
-      + "    length++;\n"
-      + "    value = str.charCodeAt(pos++);\n"
-      + "    if (value >= 0xd800 && value <= 0xdbff && pos < len) {\n"
-      + "      value = str.charCodeAt(pos);\n"
-      + "      if ((value & 0xfc00) === 0xdc00) pos++;\n"
-      + "    }\n"
-      + "  }\n"
-      + "  return length;\n"
-      + "}\n";
-
-    const useStrictMatch = moduleCode.match(/^"use strict";/);
-    if (useStrictMatch) {
-      moduleCode = `"use strict";${ucs2lengthInline}${moduleCode.slice(13)}`;
-    } else {
-      moduleCode = ucs2lengthInline + moduleCode;
+  // Ajv's standalone codegen emits require("ajv/dist/runtime/<helper>").default for a
+  // handful of keyword implementations (ucs2length for unicode-aware maxLength/minLength,
+  // equal for uniqueItems/const/enum deep-equality, ...). None of those helpers exist in an
+  // ESM bundle with no `require`, so each one actually exercised by a schema keyword must be
+  // inlined here -- this list grows only when a new schema starts using a keyword that
+  // triggers a runtime helper Ajv hasn't needed before (uniqueItems, first used by
+  // scope.schema.json's commands.sourceRefs, is what first required the `equal` entry).
+  const runtimeHelperInlines = [
+    {
+      requireName: "ucs2length",
+      localName: "__ucs2length",
+      source: "function __ucs2length(str) {\n"
+        + "  const len = str.length;\n"
+        + "  let length = 0;\n"
+        + "  let pos = 0;\n"
+        + "  let value;\n"
+        + "  while (pos < len) {\n"
+        + "    length++;\n"
+        + "    value = str.charCodeAt(pos++);\n"
+        + "    if (value >= 0xd800 && value <= 0xdbff && pos < len) {\n"
+        + "      value = str.charCodeAt(pos);\n"
+        + "      if ((value & 0xfc00) === 0xdc00) pos++;\n"
+        + "    }\n"
+        + "  }\n"
+        + "  return length;\n"
+        + "}\n"
+    },
+    {
+      // Inlines fast-deep-equal (the actual implementation ajv/dist/runtime/equal re-exports)
+      // so uniqueItems/const/enum deep-equality works with no `require` at runtime.
+      requireName: "equal",
+      localName: "__deepEqual",
+      source: "function __deepEqual(a, b) {\n"
+        + "  if (a === b) return true;\n"
+        + "  if (a && b && typeof a == \"object\" && typeof b == \"object\") {\n"
+        + "    if (a.constructor !== b.constructor) return false;\n"
+        + "    let length, i, keys;\n"
+        + "    if (Array.isArray(a)) {\n"
+        + "      length = a.length;\n"
+        + "      if (length != b.length) return false;\n"
+        + "      for (i = length; i-- !== 0; ) if (!__deepEqual(a[i], b[i])) return false;\n"
+        + "      return true;\n"
+        + "    }\n"
+        + "    if (a.constructor === RegExp) return a.source === b.source && a.flags === b.flags;\n"
+        + "    if (a.valueOf !== Object.prototype.valueOf) return a.valueOf() === b.valueOf();\n"
+        + "    if (a.toString !== Object.prototype.toString) return a.toString() === b.toString();\n"
+        + "    keys = Object.keys(a);\n"
+        + "    length = keys.length;\n"
+        + "    if (length !== Object.keys(b).length) return false;\n"
+        + "    for (i = length; i-- !== 0; ) if (!Object.prototype.hasOwnProperty.call(b, keys[i])) return false;\n"
+        + "    for (i = length; i-- !== 0; ) { const key = keys[i]; if (!__deepEqual(a[key], b[key])) return false; }\n"
+        + "    return true;\n"
+        + "  }\n"
+        + "  return a !== a && b !== b;\n"
+        + "}\n"
     }
+  ];
+
+  let prefix = "";
+  for (const helper of runtimeHelperInlines) {
+    const requirePattern = new RegExp(`const\\s+(\\w+)\\s*=\\s*require\\("ajv/dist/runtime/${helper.requireName}"\\)\\.default`, "g");
+    if (!requirePattern.test(moduleCode)) continue;
+    moduleCode = moduleCode.replace(requirePattern, `const $1 = ${helper.localName}`);
+    prefix += helper.source;
+  }
+
+  if (prefix) {
+    const useStrictMatch = moduleCode.match(/^"use strict";/);
+    moduleCode = useStrictMatch ? `"use strict";${prefix}${moduleCode.slice(13)}` : prefix + moduleCode;
   }
 
   fs.mkdirSync(generatedDir, { recursive: true });
