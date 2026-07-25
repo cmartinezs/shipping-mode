@@ -3,41 +3,60 @@ import path from "node:path";
 import { parseYaml, stringifyYaml } from "./yaml.mjs";
 import { isUuidV7 } from "./ids.mjs";
 import { UsageError } from "./errors.mjs";
-import { confineUnder } from "./paths.mjs";
+import { confineWritePath, ensureDirectoryTree } from "./paths.mjs";
+import { writeFileAtomic } from "./safeFs.mjs";
 
-export function operationDir(operationsRoot, id) {
-  if (!isUuidV7(id)) throw new UsageError(`invalid operation id: ${id}`);
-  fs.mkdirSync(operationsRoot, { recursive: true }); // may be this workspace's first operation ever
-  return confineUnder(operationsRoot, id);
+function ensureOperationsRoot(operationsRoot) {
+  const parent = path.dirname(operationsRoot);
+  ensureDirectoryTree(parent, path.basename(operationsRoot));
 }
 
-function writeAtomic(filePath, contents) {
-  fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  const tmpPath = `${filePath}.tmp-${process.pid}`;
-  fs.writeFileSync(tmpPath, contents);
-  fs.renameSync(tmpPath, filePath);
+export function operationDir(operationsRoot, id, { create = false } = {}) {
+  if (!isUuidV7(id)) throw new UsageError(`invalid operation id: ${id}`);
+  if (create) ensureOperationsRoot(operationsRoot);
+  if (!fs.existsSync(operationsRoot)) {
+    const error = new Error(`operations root does not exist: ${operationsRoot}`);
+    error.code = "ENOENT";
+    throw error;
+  }
+  const relative = id;
+  if (create) ensureDirectoryTree(operationsRoot, relative);
+  return confineWritePath(operationsRoot, relative);
+}
+
+function relativeFile(id, name) {
+  return path.join(id, name);
 }
 
 export function writeOperation(operationsRoot, id, operation) {
-  writeAtomic(path.join(operationDir(operationsRoot, id), "operation.yml"), stringifyYaml(operation));
+  operationDir(operationsRoot, id, { create: true });
+  writeFileAtomic(operationsRoot, relativeFile(id, "operation.yml"), stringifyYaml(operation));
 }
 
 export function readOperation(operationsRoot, id) {
-  return parseYaml(fs.readFileSync(path.join(operationDir(operationsRoot, id), "operation.yml"), "utf8"));
+  operationDir(operationsRoot, id);
+  const filePath = confineWritePath(operationsRoot, relativeFile(id, "operation.yml"));
+  return parseYaml(fs.readFileSync(filePath, "utf8"));
 }
 
 export function writeChangeSet(operationsRoot, id, changeSet) {
-  writeAtomic(path.join(operationDir(operationsRoot, id), "change-set.json"), `${JSON.stringify(changeSet, null, 2)}\n`);
+  operationDir(operationsRoot, id, { create: true });
+  writeFileAtomic(operationsRoot, relativeFile(id, "change-set.json"), `${JSON.stringify(changeSet, null, 2)}\n`);
 }
 
 export function readChangeSet(operationsRoot, id) {
-  return JSON.parse(fs.readFileSync(path.join(operationDir(operationsRoot, id), "change-set.json"), "utf8"));
+  operationDir(operationsRoot, id);
+  const filePath = confineWritePath(operationsRoot, relativeFile(id, "change-set.json"));
+  return JSON.parse(fs.readFileSync(filePath, "utf8"));
 }
 
 export function writeResult(operationsRoot, id, result) {
-  writeAtomic(path.join(operationDir(operationsRoot, id), "result.json"), `${JSON.stringify(result, null, 2)}\n`);
+  operationDir(operationsRoot, id, { create: true });
+  writeFileAtomic(operationsRoot, relativeFile(id, "result.json"), `${JSON.stringify(result, null, 2)}\n`);
 }
 
 export function readResult(operationsRoot, id) {
-  return JSON.parse(fs.readFileSync(path.join(operationDir(operationsRoot, id), "result.json"), "utf8"));
+  operationDir(operationsRoot, id);
+  const filePath = confineWritePath(operationsRoot, relativeFile(id, "result.json"));
+  return JSON.parse(fs.readFileSync(filePath, "utf8"));
 }
