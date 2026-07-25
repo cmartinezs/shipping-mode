@@ -5,10 +5,10 @@ import { canonicalize, canonicalJson, revisionHash, contentHash, ABSENT } from "
 import { confineRuntimePath } from "./paths.mjs";
 import { parseYaml } from "./yaml.mjs";
 import { withWorkspaceMutation } from "./mutation.mjs";
-import { writeOperation, readOperation, writeChangeSet, readChangeSet } from "./operationStore.mjs";
+import { writeOperation, readOperation, writeChangeSet, readChangeSet, writeResult } from "./operationStore.mjs";
 import { validate as validateSchema } from "./schema.mjs";
 import { StateError, StaleError } from "./errors.mjs";
-import { buildExpectedEvent } from "./journal.mjs";
+import { buildExpectedEvent, writeEventIdempotent } from "./journal.mjs";
 import { checkpoint } from "./faultInjection.mjs";
 
 export function readFileState(planningRoot, relativePath) {
@@ -332,4 +332,53 @@ function prepareApply({ operationsRoot, planningRoot, operationId, render, actor
 
 export function __prepareApplyForTests(args) {
   return prepareApply(args);
+}
+
+export function applyOperation({ operationsRoot, planningRoot, operationId, render, actor }) {
+  return withWorkspaceMutation({ planningRoot, operationsRoot, operationId }, () => {
+    const operation = readOperation(operationsRoot, operationId);
+    if (operation.status !== "APPROVED") {
+      throw new StateError(`cannot apply operation in status ${operation.status}`);
+    }
+
+    const { filePlan, expectedEvents } = prepareApply({ operationsRoot, planningRoot, operationId, render, actor });
+
+    const stagingDir = path.join(planningRoot, ".runtime", "operations", operationId, "staged");
+    const files = [];
+    for (const [index, entry] of filePlan.entries()) {
+      const stagedPath = confineRuntimePath(stagingDir, entry.stagedRelativePath);
+      const canonicalPath = confineRuntimePath(planningRoot, entry.target);
+      fs.mkdirSync(path.dirname(canonicalPath), { recursive: true });
+      fs.renameSync(stagedPath, canonicalPath);
+      files.push({ target: entry.target, contentHash: entry.stagedContentHash });
+      if (index === 0) checkpoint("AFTER_FIRST_RENAME");
+    }
+    checkpoint("AFTER_ALL_RENAMES");
+
+    const result = { operationId, files };
+    const resultSchemaCheck = validateSchema("result", result);
+    if (!resultSchemaCheck.valid) {
+      throw new Error(`constructed result is schema-invalid: ${resultSchemaCheck.errors.map((e) => `${e.path} ${e.message}`).join("; ")}`);
+    }
+    writeResult(operationsRoot, operationId, result);
+    checkpoint("AFTER_RESULT");
+
+    const eventsRoot = path.join(planningRoot, "events");
+    for (const [index, expectedEvent] of expectedEvents.entries()) {
+      writeEventIdempotent(eventsRoot, expectedEvent);
+      if (index === 0) checkpoint("AFTER_FIRST_EVENT");
+    }
+    checkpoint("AFTER_ALL_EVENTS");
+    checkpoint("BEFORE_APPLIED");
+
+    const appliedAt = new Date().toISOString();
+    const current = readOperation(operationsRoot, operationId);
+    writeOperation(operationsRoot, operationId, {
+      ...current, status: "APPLIED", appliedAt,
+      history: [...current.history, { at: appliedAt, from: "APPLYING", to: "APPLIED", actor, reason: null }]
+    });
+    fs.rmSync(path.join(planningRoot, ".runtime", "operations", operationId), { recursive: true, force: true });
+
+    return { status: "APPLIED", files };
+  });
 }
