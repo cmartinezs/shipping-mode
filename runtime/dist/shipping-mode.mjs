@@ -89,15 +89,15 @@ var require_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    function visit_(key, node, visitor, path11) {
-      let ctrl = callVisitor(key, node, visitor, path11);
+    function visit_(key, node, visitor, path12) {
+      let ctrl = callVisitor(key, node, visitor, path12);
       if (identity.isNode(ctrl) || identity.isPair(ctrl))
-        return replaceNode(key, path11, ctrl), visit_(key, ctrl, visitor, path11);
+        return replaceNode(key, path12, ctrl), visit_(key, ctrl, visitor, path12);
       if (typeof ctrl != "symbol") {
         if (identity.isCollection(node)) {
-          path11 = Object.freeze(path11.concat(node));
+          path12 = Object.freeze(path12.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
-            let ci = visit_(i, node.items[i], visitor, path11);
+            let ci = visit_(i, node.items[i], visitor, path12);
             if (typeof ci == "number")
               i = ci - 1;
             else {
@@ -107,12 +107,12 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path11 = Object.freeze(path11.concat(node));
-          let ck = visit_("key", node.key, visitor, path11);
+          path12 = Object.freeze(path12.concat(node));
+          let ck = visit_("key", node.key, visitor, path12);
           if (ck === BREAK)
             return BREAK;
           ck === REMOVE && (node.key = null);
-          let cv = visit_("value", node.value, visitor, path11);
+          let cv = visit_("value", node.value, visitor, path12);
           if (cv === BREAK)
             return BREAK;
           cv === REMOVE && (node.value = null);
@@ -127,15 +127,15 @@ var require_visit = __commonJS({
     visitAsync.BREAK = BREAK;
     visitAsync.SKIP = SKIP;
     visitAsync.REMOVE = REMOVE;
-    async function visitAsync_(key, node, visitor, path11) {
-      let ctrl = await callVisitor(key, node, visitor, path11);
+    async function visitAsync_(key, node, visitor, path12) {
+      let ctrl = await callVisitor(key, node, visitor, path12);
       if (identity.isNode(ctrl) || identity.isPair(ctrl))
-        return replaceNode(key, path11, ctrl), visitAsync_(key, ctrl, visitor, path11);
+        return replaceNode(key, path12, ctrl), visitAsync_(key, ctrl, visitor, path12);
       if (typeof ctrl != "symbol") {
         if (identity.isCollection(node)) {
-          path11 = Object.freeze(path11.concat(node));
+          path12 = Object.freeze(path12.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
-            let ci = await visitAsync_(i, node.items[i], visitor, path11);
+            let ci = await visitAsync_(i, node.items[i], visitor, path12);
             if (typeof ci == "number")
               i = ci - 1;
             else {
@@ -145,12 +145,12 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path11 = Object.freeze(path11.concat(node));
-          let ck = await visitAsync_("key", node.key, visitor, path11);
+          path12 = Object.freeze(path12.concat(node));
+          let ck = await visitAsync_("key", node.key, visitor, path12);
           if (ck === BREAK)
             return BREAK;
           ck === REMOVE && (node.key = null);
-          let cv = await visitAsync_("value", node.value, visitor, path11);
+          let cv = await visitAsync_("value", node.value, visitor, path12);
           if (cv === BREAK)
             return BREAK;
           cv === REMOVE && (node.value = null);
@@ -173,22 +173,22 @@ var require_visit = __commonJS({
         Seq: visitor.Collection
       }, visitor) : visitor;
     }
-    function callVisitor(key, node, visitor, path11) {
+    function callVisitor(key, node, visitor, path12) {
       if (typeof visitor == "function")
-        return visitor(key, node, path11);
+        return visitor(key, node, path12);
       if (identity.isMap(node))
-        return visitor.Map?.(key, node, path11);
+        return visitor.Map?.(key, node, path12);
       if (identity.isSeq(node))
-        return visitor.Seq?.(key, node, path11);
+        return visitor.Seq?.(key, node, path12);
       if (identity.isPair(node))
-        return visitor.Pair?.(key, node, path11);
+        return visitor.Pair?.(key, node, path12);
       if (identity.isScalar(node))
-        return visitor.Scalar?.(key, node, path11);
+        return visitor.Scalar?.(key, node, path12);
       if (identity.isAlias(node))
-        return visitor.Alias?.(key, node, path11);
+        return visitor.Alias?.(key, node, path12);
     }
-    function replaceNode(key, path11, node) {
-      let parent = path11[path11.length - 1];
+    function replaceNode(key, path12, node) {
+      let parent = path12[path12.length - 1];
       if (identity.isCollection(parent))
         parent.items[key] = node;
       else if (identity.isPair(parent))
@@ -642,10 +642,10 @@ var require_Collection = __commonJS({
   "node_modules/yaml/dist/nodes/Collection.js"(exports) {
     "use strict";
     var createNode = require_createNode(), identity = require_identity(), Node = require_Node();
-    function collectionFromPath(schema, path11, value) {
+    function collectionFromPath(schema, path12, value) {
       let v = value;
-      for (let i = path11.length - 1; i >= 0; --i) {
-        let k = path11[i];
+      for (let i = path12.length - 1; i >= 0; --i) {
+        let k = path12[i];
         if (typeof k == "number" && Number.isInteger(k) && k >= 0) {
           let a = [];
           a[k] = v, v = a;
@@ -662,7 +662,7 @@ var require_Collection = __commonJS({
         sourceObjects: /* @__PURE__ */ new Map()
       });
     }
-    var isEmptyPath = (path11) => path11 == null || typeof path11 == "object" && !!path11[Symbol.iterator]().next().done, Collection = class extends Node.NodeBase {
+    var isEmptyPath = (path12) => path12 == null || typeof path12 == "object" && !!path12[Symbol.iterator]().next().done, Collection = class extends Node.NodeBase {
       constructor(type, schema) {
         super(type), Object.defineProperty(this, "schema", {
           value: schema,
@@ -685,11 +685,11 @@ var require_Collection = __commonJS({
        * be a Pair instance or a `{ key, value }` object, which may not have a key
        * that already exists in the map.
        */
-      addIn(path11, value) {
-        if (isEmptyPath(path11))
+      addIn(path12, value) {
+        if (isEmptyPath(path12))
           this.add(value);
         else {
-          let [key, ...rest] = path11, node = this.get(key, !0);
+          let [key, ...rest] = path12, node = this.get(key, !0);
           if (identity.isCollection(node))
             node.addIn(rest, value);
           else if (node === void 0 && this.schema)
@@ -702,8 +702,8 @@ var require_Collection = __commonJS({
        * Removes a value from the collection.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path11) {
-        let [key, ...rest] = path11;
+      deleteIn(path12) {
+        let [key, ...rest] = path12;
         if (rest.length === 0)
           return this.delete(key);
         let node = this.get(key, !0);
@@ -716,8 +716,8 @@ var require_Collection = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path11, keepScalar) {
-        let [key, ...rest] = path11, node = this.get(key, !0);
+      getIn(path12, keepScalar) {
+        let [key, ...rest] = path12, node = this.get(key, !0);
         return rest.length === 0 ? !keepScalar && identity.isScalar(node) ? node.value : node : identity.isCollection(node) ? node.getIn(rest, keepScalar) : void 0;
       }
       hasAllNullValues(allowScalar) {
@@ -731,8 +731,8 @@ var require_Collection = __commonJS({
       /**
        * Checks if the collection includes a value with the key `key`.
        */
-      hasIn(path11) {
-        let [key, ...rest] = path11;
+      hasIn(path12) {
+        let [key, ...rest] = path12;
         if (rest.length === 0)
           return this.has(key);
         let node = this.get(key, !0);
@@ -742,8 +742,8 @@ var require_Collection = __commonJS({
        * Sets a value in this collection. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path11, value) {
-        let [key, ...rest] = path11;
+      setIn(path12, value) {
+        let [key, ...rest] = path12;
         if (rest.length === 0)
           this.set(key, value);
         else {
@@ -2616,8 +2616,8 @@ var require_Document = __commonJS({
         assertCollection(this.contents) && this.contents.add(value);
       }
       /** Adds a value to the document. */
-      addIn(path11, value) {
-        assertCollection(this.contents) && this.contents.addIn(path11, value);
+      addIn(path12, value) {
+        assertCollection(this.contents) && this.contents.addIn(path12, value);
       }
       /**
        * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
@@ -2678,8 +2678,8 @@ var require_Document = __commonJS({
        * Removes a value from the document.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path11) {
-        return Collection.isEmptyPath(path11) ? this.contents == null ? !1 : (this.contents = null, !0) : assertCollection(this.contents) ? this.contents.deleteIn(path11) : !1;
+      deleteIn(path12) {
+        return Collection.isEmptyPath(path12) ? this.contents == null ? !1 : (this.contents = null, !0) : assertCollection(this.contents) ? this.contents.deleteIn(path12) : !1;
       }
       /**
        * Returns item at `key`, or `undefined` if not found. By default unwraps
@@ -2694,8 +2694,8 @@ var require_Document = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path11, keepScalar) {
-        return Collection.isEmptyPath(path11) ? !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents : identity.isCollection(this.contents) ? this.contents.getIn(path11, keepScalar) : void 0;
+      getIn(path12, keepScalar) {
+        return Collection.isEmptyPath(path12) ? !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents : identity.isCollection(this.contents) ? this.contents.getIn(path12, keepScalar) : void 0;
       }
       /**
        * Checks if the document includes a value with the key `key`.
@@ -2706,8 +2706,8 @@ var require_Document = __commonJS({
       /**
        * Checks if the document includes a value at `path`.
        */
-      hasIn(path11) {
-        return Collection.isEmptyPath(path11) ? this.contents !== void 0 : identity.isCollection(this.contents) ? this.contents.hasIn(path11) : !1;
+      hasIn(path12) {
+        return Collection.isEmptyPath(path12) ? this.contents !== void 0 : identity.isCollection(this.contents) ? this.contents.hasIn(path12) : !1;
       }
       /**
        * Sets a value in this document. For `!!set`, `value` needs to be a
@@ -2720,8 +2720,8 @@ var require_Document = __commonJS({
        * Sets a value in this document. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path11, value) {
-        Collection.isEmptyPath(path11) ? this.contents = value : this.contents == null ? this.contents = Collection.collectionFromPath(this.schema, Array.from(path11), value) : assertCollection(this.contents) && this.contents.setIn(path11, value);
+      setIn(path12, value) {
+        Collection.isEmptyPath(path12) ? this.contents = value : this.contents == null ? this.contents = Collection.collectionFromPath(this.schema, Array.from(path12), value) : assertCollection(this.contents) && this.contents.setIn(path12, value);
       }
       /**
        * Change the YAML version and schema used by the document.
@@ -4116,9 +4116,9 @@ var require_cst_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    visit.itemAtPath = (cst, path11) => {
+    visit.itemAtPath = (cst, path12) => {
       let item = cst;
-      for (let [field, index] of path11) {
+      for (let [field, index] of path12) {
         let tok = item?.[field];
         if (tok && "items" in tok)
           item = tok.items[index];
@@ -4127,21 +4127,21 @@ var require_cst_visit = __commonJS({
       }
       return item;
     };
-    visit.parentCollection = (cst, path11) => {
-      let parent = visit.itemAtPath(cst, path11.slice(0, -1)), field = path11[path11.length - 1][0], coll = parent?.[field];
+    visit.parentCollection = (cst, path12) => {
+      let parent = visit.itemAtPath(cst, path12.slice(0, -1)), field = path12[path12.length - 1][0], coll = parent?.[field];
       if (coll && "items" in coll)
         return coll;
       throw new Error("Parent collection not found");
     };
-    function _visit(path11, item, visitor) {
-      let ctrl = visitor(item, path11);
+    function _visit(path12, item, visitor) {
+      let ctrl = visitor(item, path12);
       if (typeof ctrl == "symbol")
         return ctrl;
       for (let field of ["key", "value"]) {
         let token = item[field];
         if (token && "items" in token) {
           for (let i = 0; i < token.items.length; ++i) {
-            let ci = _visit(Object.freeze(path11.concat([[field, i]])), token.items[i], visitor);
+            let ci = _visit(Object.freeze(path12.concat([[field, i]])), token.items[i], visitor);
             if (typeof ci == "number")
               i = ci - 1;
             else {
@@ -4150,10 +4150,10 @@ var require_cst_visit = __commonJS({
               ci === REMOVE && (token.items.splice(i, 1), i -= 1);
             }
           }
-          typeof ctrl == "function" && field === "key" && (ctrl = ctrl(item, path11));
+          typeof ctrl == "function" && field === "key" && (ctrl = ctrl(item, path12));
         }
       }
-      return typeof ctrl == "function" ? ctrl(item, path11) : ctrl;
+      return typeof ctrl == "function" ? ctrl(item, path12) : ctrl;
     }
     exports.visit = visit;
   }
@@ -5156,8 +5156,8 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              let fs10 = this.flowScalar(this.type);
-              atNextItem || it.value ? (map.items.push({ start, key: fs10, sep: [] }), this.onKeyLine = !0) : it.sep ? this.stack.push(fs10) : (Object.assign(it, { key: fs10, sep: [] }), this.onKeyLine = !0);
+              let fs11 = this.flowScalar(this.type);
+              atNextItem || it.value ? (map.items.push({ start, key: fs11, sep: [] }), this.onKeyLine = !0) : it.sep ? this.stack.push(fs11) : (Object.assign(it, { key: fs11, sep: [] }), this.onKeyLine = !0);
               return;
             }
             default: {
@@ -5255,8 +5255,8 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              let fs10 = this.flowScalar(this.type);
-              !it || it.value ? fc.items.push({ start: [], key: fs10, sep: [] }) : it.sep ? this.stack.push(fs10) : Object.assign(it, { key: fs10, sep: [] });
+              let fs11 = this.flowScalar(this.type);
+              !it || it.value ? fc.items.push({ start: [], key: fs11, sep: [] }) : it.sep ? this.stack.push(fs11) : Object.assign(it, { key: fs11, sep: [] });
               return;
             }
             case "flow-map-end":
@@ -5484,15 +5484,15 @@ var require_dist = __commonJS({
 });
 
 // runtime/src/index.mjs
-import fs9 from "node:fs";
-import path10 from "node:path";
+import fs10 from "node:fs";
+import path11 from "node:path";
 
 // runtime/src/commands/init.mjs
-import path7 from "node:path";
+import path8 from "node:path";
 
 // runtime/src/lib/changeset.mjs
-import fs6 from "node:fs";
-import path6 from "node:path";
+import fs7 from "node:fs";
+import path7 from "node:path";
 
 // runtime/src/lib/ids.mjs
 import crypto from "node:crypto";
@@ -5540,13 +5540,18 @@ function isWithin(target, root) {
   let relative = path.relative(root, target);
   return relative === "" || !relative.startsWith("..") && !path.isAbsolute(relative);
 }
-function confineUnder(root, relativePath) {
+function lexicalTarget(root, relativePath) {
+  if (typeof relativePath != "string" || relativePath.length === 0)
+    throw new PathConfinementError("path must be a non-empty relative string");
   if (path.isAbsolute(relativePath))
     throw new PathConfinementError(`absolute path rejected: ${relativePath}`);
-  let normalizedTarget = path.resolve(root, relativePath);
-  if (!isWithin(normalizedTarget, root))
+  let target = path.resolve(root, relativePath);
+  if (!isWithin(target, root))
     throw new PathConfinementError(`path escapes root: ${relativePath}`);
-  let segments = relativePath.split(path.sep).filter(Boolean), currentPath = root, currentReal = fs.realpathSync.native(root), resolvedCount = 0;
+  return target;
+}
+function confineUnder(root, relativePath) {
+  let normalizedTarget = lexicalTarget(root, relativePath), segments = relativePath.split(/[\\/]+/).filter(Boolean), currentPath = root, currentReal = fs.realpathSync.native(root), resolvedCount = 0;
   for (let segment of segments) {
     currentPath = path.join(currentPath, segment);
     let stat;
@@ -5568,8 +5573,49 @@ function confineUnder(root, relativePath) {
   let remainingSegments = segments.slice(resolvedCount);
   return remainingSegments.length > 0 ? path.join(currentReal, ...remainingSegments) : currentReal;
 }
-function confineRuntimePath(planningRoot, relativePath) {
-  return confineUnder(planningRoot, relativePath);
+function confineWritePath(root, relativePath) {
+  let normalizedTarget = lexicalTarget(root, relativePath), rootStat = fs.lstatSync(root);
+  if (rootStat.isSymbolicLink() || !rootStat.isDirectory())
+    throw new PathConfinementError(`${root} must be a real directory`);
+  let segments = relativePath.split(/[\\/]+/).filter(Boolean), current = root;
+  for (let [index, segment] of segments.entries()) {
+    current = path.join(current, segment);
+    let stat;
+    try {
+      stat = fs.lstatSync(current);
+    } catch (error) {
+      if (error.code === "ENOENT") break;
+      throw error;
+    }
+    if (stat.isSymbolicLink())
+      throw new PathConfinementError(`symlink component rejected for mutation path: ${current}`);
+    if (index < segments.length - 1 && !stat.isDirectory())
+      throw new PathConfinementError(`non-directory path component rejected: ${current}`);
+  }
+  return normalizedTarget;
+}
+function ensureDirectoryTree(root, relativeDirectory = "") {
+  let rootStat = fs.lstatSync(root);
+  if (rootStat.isSymbolicLink() || !rootStat.isDirectory())
+    throw new PathConfinementError(`${root} must be a real directory`);
+  if (!relativeDirectory || relativeDirectory === ".") return root;
+  lexicalTarget(root, relativeDirectory);
+  let current = root;
+  for (let segment of relativeDirectory.split(/[\\/]+/).filter(Boolean)) {
+    current = path.join(current, segment);
+    try {
+      fs.mkdirSync(current);
+    } catch (error) {
+      if (error.code !== "EEXIST") throw error;
+    }
+    let stat = fs.lstatSync(current);
+    if (stat.isSymbolicLink() || !stat.isDirectory())
+      throw new PathConfinementError(`directory component must be a real directory: ${current}`);
+  }
+  return current;
+}
+function confineRuntimeWritePath(planningRoot, relativePath) {
+  return confineWritePath(planningRoot, relativePath);
 }
 function confineScopePath(workspaceRoot, relativePath) {
   let resolved = confineUnder(workspaceRoot, relativePath), planningRoot = path.resolve(workspaceRoot, ".planning");
@@ -5604,6 +5650,65 @@ function assertTrustedRoots(planningRoot) {
   }
   for (let name of ["operations", "events", ".runtime", "scopes"])
     assertTrustedRoot(planningRoot, name);
+  let runtimeRoot = path.join(planningRoot, ".runtime");
+  try {
+    fs.lstatSync(runtimeRoot);
+  } catch (error) {
+    if (error.code === "ENOENT") return;
+    throw error;
+  }
+  assertTrustedRoot(runtimeRoot, "operations");
+}
+
+// runtime/src/lib/safeFs.mjs
+import crypto3 from "node:crypto";
+import fs2 from "node:fs";
+import path2 from "node:path";
+function parentRelative(relativePath) {
+  let parent = path2.dirname(relativePath);
+  return parent === "." ? "" : parent;
+}
+function removeTemporary(tempPath) {
+  try {
+    fs2.rmSync(tempPath, { force: !0 });
+  } catch {
+  }
+}
+function writeFileAtomic(root, relativePath, contents) {
+  ensureDirectoryTree(root, parentRelative(relativePath));
+  let targetPath = confineWritePath(root, relativePath), tempRelativePath = `${relativePath}.tmp-${process.pid}-${crypto3.randomUUID()}`, tempPath = confineWritePath(root, tempRelativePath);
+  try {
+    fs2.writeFileSync(tempPath, contents, { flag: "wx" }), confineWritePath(root, relativePath), fs2.renameSync(tempPath, targetPath);
+  } finally {
+    removeTemporary(tempPath);
+  }
+}
+function createFileAtomic(root, relativePath, contents) {
+  ensureDirectoryTree(root, parentRelative(relativePath));
+  let targetPath = confineWritePath(root, relativePath), tempRelativePath = `${relativePath}.tmp-${process.pid}-${crypto3.randomUUID()}`, tempPath = confineWritePath(root, tempRelativePath);
+  try {
+    fs2.writeFileSync(tempPath, contents, { flag: "wx" }), fs2.linkSync(tempPath, targetPath);
+  } finally {
+    removeTemporary(tempPath);
+  }
+}
+function renameWithinRoot(root, fromRelativePath, toRelativePath) {
+  ensureDirectoryTree(root, parentRelative(toRelativePath));
+  let fromPath = confineWritePath(root, fromRelativePath), toPath = confineWritePath(root, toRelativePath);
+  fs2.renameSync(fromPath, toPath);
+}
+function copyFileAtomic(root, sourceRelativePath, targetRelativePath) {
+  let sourcePath = confineWritePath(root, sourceRelativePath), contents = fs2.readFileSync(sourcePath);
+  writeFileAtomic(root, targetRelativePath, contents);
+}
+function assertDistinctMutationTargets(root, relativePaths) {
+  let seen = /* @__PURE__ */ new Set();
+  for (let relativePath of relativePaths) {
+    let normalized = path2.normalize(confineWritePath(root, relativePath));
+    if (seen.has(normalized))
+      throw new PathConfinementError(`duplicate or aliased mutation target: ${relativePath}`);
+    seen.add(normalized);
+  }
 }
 
 // runtime/src/lib/yaml.mjs
@@ -5619,10 +5724,10 @@ function stringifyYaml(value) {
 }
 
 // runtime/src/lib/lock.mjs
-import fs2 from "node:fs";
+import fs3 from "node:fs";
 import os from "node:os";
-import path2 from "node:path";
-import crypto3 from "node:crypto";
+import path3 from "node:path";
+import crypto4 from "node:crypto";
 var LockHeldError = class extends Error {
   constructor(message) {
     super(message), this.name = "LockHeldError";
@@ -5637,94 +5742,64 @@ function isProcessAlive(pid) {
 }
 function readMetadata(metadataPath) {
   try {
-    return JSON.parse(fs2.readFileSync(metadataPath, "utf8"));
+    return JSON.parse(fs3.readFileSync(metadataPath, "utf8"));
   } catch {
     return null;
   }
 }
 function writeMetadataExclusive(metadataPath, content) {
-  try {
-    return fs2.writeFileSync(metadataPath, content, { flag: "wx" }), !0;
-  } catch (error) {
-    if (error.code === "EEXIST") return !1;
-    throw error;
-  }
-}
-function restoreCapturedLock(lockDir, metadataPath, capturedMetadata) {
-  try {
-    fs2.mkdirSync(lockDir);
-  } catch (mkdirError) {
-    if (mkdirError.code !== "EEXIST") throw mkdirError;
-  }
-  let currentlyThere = readMetadata(metadataPath);
-  return currentlyThere && currentlyThere.token === capturedMetadata.token ? !0 : currentlyThere ? !1 : writeMetadataExclusive(metadataPath, JSON.stringify(capturedMetadata, null, 2));
+  fs3.writeFileSync(metadataPath, content, { flag: "wx" });
 }
 function acquireWorkspaceLock(planningRoot, operationId = null) {
-  let runtimeDir = path2.join(planningRoot, ".runtime"), lockDir = path2.join(runtimeDir, "workspace.lock"), metadataPath = path2.join(lockDir, "lock.json");
-  for (; ; ) {
-    fs2.mkdirSync(runtimeDir, { recursive: !0 });
-    try {
-      fs2.mkdirSync(lockDir);
-    } catch (error) {
-      if (error.code !== "EEXIST") throw error;
-      let metadata = readMetadata(metadataPath);
-      if (!metadata)
-        throw new LockHeldError("workspace lock present without readable metadata; manual resolution required");
-      if (metadata.hostname !== os.hostname())
-        throw new LockHeldError(`workspace lock held by host ${metadata.hostname}`);
-      if (isProcessAlive(metadata.pid))
-        throw new LockHeldError(`workspace lock held by running process ${metadata.pid}`);
-      let quarantineDir = path2.join(runtimeDir, `workspace.lock.quarantine-${crypto3.randomUUID()}`);
-      try {
-        fs2.renameSync(lockDir, quarantineDir);
-      } catch (renameError) {
-        if (renameError.code === "ENOENT") continue;
-        throw renameError;
-      }
-      let capturedMetadata = readMetadata(path2.join(quarantineDir, "lock.json"));
-      if (capturedMetadata && capturedMetadata.token === metadata.token) {
-        fs2.rmSync(quarantineDir, { recursive: !0, force: !0 });
-        continue;
-      }
-      if (!capturedMetadata) {
-        fs2.rmSync(quarantineDir, { recursive: !0, force: !0 });
-        continue;
-      }
-      throw restoreCapturedLock(lockDir, metadataPath, capturedMetadata) ? (fs2.rmSync(quarantineDir, { recursive: !0, force: !0 }), new LockHeldError("workspace lock changed ownership during reclaim; retry")) : new LockHeldError(
-        `workspace lock changed ownership during reclaim and could not be restored (path now held by an unrelated lock); the captured lock's original record is preserved at ${quarantineDir} for manual recovery`
-      );
-    }
-    let token = crypto3.randomUUID(), written;
-    try {
-      written = writeMetadataExclusive(metadataPath, JSON.stringify({
-        token,
-        pid: process.pid,
-        hostname: os.hostname(),
-        startedAt: (/* @__PURE__ */ new Date()).toISOString(),
-        operationId
-      }, null, 2));
-    } catch (writeError) {
-      if (writeError.code === "ENOENT") continue;
-      throw writeError;
-    }
-    if (written)
-      return {
-        token,
-        release() {
-          let currentMetadata = readMetadata(metadataPath);
-          !currentMetadata || currentMetadata.token !== token || fs2.rmSync(lockDir, { recursive: !0, force: !0 });
-        }
-      };
+  let runtimeDir = path3.join(planningRoot, ".runtime"), lockDir = path3.join(runtimeDir, "workspace.lock"), metadataPath = path3.join(lockDir, "lock.json");
+  try {
+    fs3.mkdirSync(planningRoot);
+  } catch (error) {
+    if (error.code !== "EEXIST") throw error;
   }
+  let planningStat = fs3.lstatSync(planningRoot);
+  if (planningStat.isSymbolicLink() || !planningStat.isDirectory())
+    throw new PathConfinementError(`${planningRoot} must be a real directory`);
+  ensureDirectoryTree(planningRoot, ".runtime");
+  try {
+    fs3.mkdirSync(lockDir);
+  } catch (error) {
+    if (error.code !== "EEXIST") throw error;
+    let metadata = readMetadata(metadataPath);
+    throw metadata ? metadata.hostname !== os.hostname() ? new LockHeldError(`workspace lock held by host ${metadata.hostname}`) : isProcessAlive(metadata.pid) ? new LockHeldError(`workspace lock held by running process ${metadata.pid}`) : new LockHeldError(
+      `workspace lock belongs to dead process ${metadata.pid} on this host; inspect ${metadataPath} and remove ${lockDir} manually only after confirming no writer is active`
+    ) : new LockHeldError(
+      "workspace lock exists without readable metadata; automatic removal is unsafe and manual resolution is required"
+    );
+  }
+  let token = crypto4.randomUUID();
+  try {
+    writeMetadataExclusive(metadataPath, JSON.stringify({
+      token,
+      pid: process.pid,
+      hostname: os.hostname(),
+      startedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      operationId
+    }, null, 2));
+  } catch (error) {
+    throw new LockHeldError(`workspace lock metadata could not be committed safely: ${error.message}`);
+  }
+  return {
+    token,
+    release() {
+      let currentMetadata = readMetadata(metadataPath);
+      !currentMetadata || currentMetadata.token !== token || fs3.rmSync(lockDir, { recursive: !0, force: !0 });
+    }
+  };
 }
 
 // runtime/src/lib/recovery.mjs
-import fs5 from "node:fs";
-import path5 from "node:path";
+import fs6 from "node:fs";
+import path6 from "node:path";
 
 // runtime/src/lib/operationStore.mjs
-import fs3 from "node:fs";
-import path3 from "node:path";
+import fs4 from "node:fs";
+import path4 from "node:path";
 
 // runtime/src/lib/errors.mjs
 var UsageError = class extends Error {
@@ -5742,39 +5817,52 @@ var UsageError = class extends Error {
 };
 
 // runtime/src/lib/operationStore.mjs
-function operationDir(operationsRoot, id) {
-  if (!isUuidV7(id)) throw new UsageError(`invalid operation id: ${id}`);
-  return fs3.mkdirSync(operationsRoot, { recursive: !0 }), confineUnder(operationsRoot, id);
+function ensureOperationsRoot(operationsRoot) {
+  let parent = path4.dirname(operationsRoot);
+  ensureDirectoryTree(parent, path4.basename(operationsRoot));
 }
-function writeAtomic(filePath, contents) {
-  fs3.mkdirSync(path3.dirname(filePath), { recursive: !0 });
-  let tmpPath = `${filePath}.tmp-${process.pid}`;
-  fs3.writeFileSync(tmpPath, contents), fs3.renameSync(tmpPath, filePath);
+function operationDir(operationsRoot, id, { create = !1 } = {}) {
+  if (!isUuidV7(id)) throw new UsageError(`invalid operation id: ${id}`);
+  if (create && ensureOperationsRoot(operationsRoot), !fs4.existsSync(operationsRoot)) {
+    let error = new Error(`operations root does not exist: ${operationsRoot}`);
+    throw error.code = "ENOENT", error;
+  }
+  let relative = id;
+  return create && ensureDirectoryTree(operationsRoot, relative), confineWritePath(operationsRoot, relative);
+}
+function relativeFile(id, name) {
+  return path4.join(id, name);
 }
 function writeOperation(operationsRoot, id, operation) {
-  writeAtomic(path3.join(operationDir(operationsRoot, id), "operation.yml"), stringifyYaml(operation));
+  operationDir(operationsRoot, id, { create: !0 }), writeFileAtomic(operationsRoot, relativeFile(id, "operation.yml"), stringifyYaml(operation));
 }
 function readOperation(operationsRoot, id) {
-  return parseYaml(fs3.readFileSync(path3.join(operationDir(operationsRoot, id), "operation.yml"), "utf8"));
+  operationDir(operationsRoot, id);
+  let filePath = confineWritePath(operationsRoot, relativeFile(id, "operation.yml"));
+  return parseYaml(fs4.readFileSync(filePath, "utf8"));
 }
 function writeChangeSet(operationsRoot, id, changeSet) {
-  writeAtomic(path3.join(operationDir(operationsRoot, id), "change-set.json"), `${JSON.stringify(changeSet, null, 2)}
+  operationDir(operationsRoot, id, { create: !0 }), writeFileAtomic(operationsRoot, relativeFile(id, "change-set.json"), `${JSON.stringify(changeSet, null, 2)}
 `);
 }
 function readChangeSet(operationsRoot, id) {
-  return JSON.parse(fs3.readFileSync(path3.join(operationDir(operationsRoot, id), "change-set.json"), "utf8"));
+  operationDir(operationsRoot, id);
+  let filePath = confineWritePath(operationsRoot, relativeFile(id, "change-set.json"));
+  return JSON.parse(fs4.readFileSync(filePath, "utf8"));
 }
 function writeResult(operationsRoot, id, result) {
-  writeAtomic(path3.join(operationDir(operationsRoot, id), "result.json"), `${JSON.stringify(result, null, 2)}
+  operationDir(operationsRoot, id, { create: !0 }), writeFileAtomic(operationsRoot, relativeFile(id, "result.json"), `${JSON.stringify(result, null, 2)}
 `);
 }
 function readResult(operationsRoot, id) {
-  return JSON.parse(fs3.readFileSync(path3.join(operationDir(operationsRoot, id), "result.json"), "utf8"));
+  operationDir(operationsRoot, id);
+  let filePath = confineWritePath(operationsRoot, relativeFile(id, "result.json"));
+  return JSON.parse(fs4.readFileSync(filePath, "utf8"));
 }
 
 // runtime/src/lib/journal.mjs
-import fs4 from "node:fs";
-import path4 from "node:path";
+import fs5 from "node:fs";
+import path5 from "node:path";
 
 // runtime/src/generated/validators.mjs
 var validators_exports = {};
@@ -7442,6 +7530,9 @@ function validate(schemaName, data) {
 
 // runtime/src/lib/journal.mjs
 var RecoveryRequiredError = class extends Error {
+  constructor(message) {
+    super(message), this.name = "RecoveryRequiredError";
+  }
 };
 function serializeEvent(document) {
   return `${JSON.stringify(canonicalize(document), null, 2)}
@@ -7472,24 +7563,27 @@ function writeEventIdempotent(eventsRoot, expectedEvent) {
   let schemaResult = validate("event", expectedEvent.document);
   if (!schemaResult.valid)
     throw new Error(`event document is schema-invalid: ${schemaResult.errors.map((e) => `${e.path} ${e.message}`).join("; ")}`);
-  fs4.mkdirSync(eventsRoot, { recursive: !0 });
-  let confinedPath = confineUnder(eventsRoot, expectedEvent.relativePath), serialized = serializeEvent(expectedEvent.document);
+  let planningRoot = path5.dirname(eventsRoot);
+  ensureDirectoryTree(planningRoot, path5.basename(eventsRoot));
+  let confinedPath = confineWritePath(eventsRoot, expectedEvent.relativePath), serialized = serializeEvent(expectedEvent.document);
   if (contentHash(serialized) !== expectedEvent.contentHash)
     throw new Error(`expectedEvent.contentHash does not match its own document for ${expectedEvent.relativePath}`);
-  if (!fs4.existsSync(confinedPath)) {
-    fs4.mkdirSync(path4.dirname(confinedPath), { recursive: !0 });
-    let tmpPath = `${confinedPath}.tmp-${process.pid}`;
-    return fs4.writeFileSync(tmpPath, serialized), fs4.renameSync(tmpPath, confinedPath), "CREATED";
-  }
-  if (contentHash(fs4.readFileSync(confinedPath)) === expectedEvent.contentHash)
+  if (!fs5.existsSync(confinedPath))
+    try {
+      return createFileAtomic(eventsRoot, expectedEvent.relativePath, serialized), "CREATED";
+    } catch (error) {
+      if (error.code !== "EEXIST") throw error;
+    }
+  let existingPath = confineWritePath(eventsRoot, expectedEvent.relativePath);
+  if (contentHash(fs5.readFileSync(existingPath)) === expectedEvent.contentHash)
     return "ALREADY_APPLIED";
   throw new RecoveryRequiredError(`event file ${expectedEvent.relativePath} exists with unexpected content`);
 }
 
 // runtime/src/lib/recovery.mjs
 function currentContentHash(planningRoot, relativePath) {
-  let absolutePath = confineRuntimePath(planningRoot, relativePath);
-  return fs5.existsSync(absolutePath) ? contentHash(fs5.readFileSync(absolutePath)) : ABSENT;
+  let absolutePath = confineRuntimeWritePath(planningRoot, relativePath);
+  return fs6.existsSync(absolutePath) ? contentHash(fs6.readFileSync(absolutePath)) : ABSENT;
 }
 function classify(entry, actualHash) {
   return actualHash === entry.stagedContentHash ? "APPLIED" : actualHash === entry.beforeContentHash ? "PENDING" : "DIVERGENT";
@@ -7506,9 +7600,9 @@ function markRecoveryRequired(operationsRoot, operationId, operation, conflict) 
 function runRecovery({ operationsRoot, planningRoot, lock }) {
   if (!lock || typeof lock.token != "string")
     throw new Error("runRecovery requires an acquired workspace lock");
-  if (!fs5.existsSync(operationsRoot)) return [];
-  let outcomes = [], stagingRoot = path5.join(planningRoot, ".runtime", "operations");
-  for (let operationId of fs5.readdirSync(operationsRoot)) {
+  if (!fs6.existsSync(operationsRoot)) return [];
+  let outcomes = [], runtimeOperationsRelative = path6.join(".runtime", "operations");
+  for (let operationId of fs6.readdirSync(operationsRoot)) {
     if (!isUuidV7(operationId)) continue;
     let operation;
     try {
@@ -7526,8 +7620,8 @@ function runRecovery({ operationsRoot, planningRoot, lock }) {
       continue;
     }
     if (operation.status === "APPLIED") {
-      let residue = path5.join(stagingRoot, operationId);
-      fs5.existsSync(residue) ? (fs5.rmSync(residue, { recursive: !0, force: !0 }), outcomes.push({ operationId, outcome: "CLEANED_UP" })) : outcomes.push({ operationId, outcome: "NOT_APPLICABLE" });
+      let residueRelative = path6.join(runtimeOperationsRelative, operationId), residue2 = confineRuntimeWritePath(planningRoot, residueRelative);
+      fs6.existsSync(residue2) ? (fs6.rmSync(residue2, { recursive: !0, force: !0 }), outcomes.push({ operationId, outcome: "CLEANED_UP" })) : outcomes.push({ operationId, outcome: "NOT_APPLICABLE" });
       continue;
     }
     if (operation.status !== "APPLYING") {
@@ -7548,8 +7642,20 @@ function runRecovery({ operationsRoot, planningRoot, lock }) {
         break;
       }
       if (classification === "PENDING") {
-        let stagedDirForOperation = path5.join(stagingRoot, operationId, "staged"), stagedExists = fs5.existsSync(stagedDirForOperation), stagedPath = stagedExists ? confineUnder(stagedDirForOperation, entry.stagedRelativePath) : null;
-        if (!stagedExists || !fs5.existsSync(stagedPath) || contentHash(fs5.readFileSync(stagedPath)) !== entry.stagedContentHash) {
+        let stagedRelative = path6.join(runtimeOperationsRelative, operationId, "staged", entry.stagedRelativePath), stagedPath;
+        try {
+          stagedPath = confineRuntimeWritePath(planningRoot, stagedRelative);
+        } catch (error) {
+          markRecoveryRequired(operationsRoot, operationId, operation, {
+            file: entry.target,
+            expectedBeforeContentHash: entry.beforeContentHash,
+            expectedStagedContentHash: entry.stagedContentHash,
+            actualContentHash: actualHash,
+            reason: `staged path is not trusted: ${error.message}`
+          }), divergent = !0;
+          break;
+        }
+        if (!fs6.existsSync(stagedPath) || contentHash(fs6.readFileSync(stagedPath)) !== entry.stagedContentHash) {
           markRecoveryRequired(operationsRoot, operationId, operation, {
             file: entry.target,
             expectedBeforeContentHash: entry.beforeContentHash,
@@ -7559,8 +7665,7 @@ function runRecovery({ operationsRoot, planningRoot, lock }) {
           }), divergent = !0;
           break;
         }
-        let canonicalPath = confineRuntimePath(planningRoot, entry.target);
-        fs5.mkdirSync(path5.dirname(canonicalPath), { recursive: !0 }), fs5.renameSync(stagedPath, canonicalPath);
+        renameWithinRoot(planningRoot, stagedRelative, entry.target);
       }
     }
     if (divergent) {
@@ -7570,8 +7675,8 @@ function runRecovery({ operationsRoot, planningRoot, lock }) {
     let expectedResult = {
       operationId,
       files: (operation.filePlan || []).map((entry) => ({ target: entry.target, contentHash: entry.stagedContentHash }))
-    }, resultPath = path5.join(operationsRoot, operationId, "result.json");
-    if (fs5.existsSync(resultPath)) {
+    }, resultPath = confineWritePath(operationsRoot, path6.join(operationId, "result.json"));
+    if (fs6.existsSync(resultPath)) {
       let existingResult = null;
       try {
         existingResult = readResult(operationsRoot, operationId);
@@ -7597,7 +7702,7 @@ function runRecovery({ operationsRoot, planningRoot, lock }) {
         break;
       }
       try {
-        writeEventIdempotent(path5.join(planningRoot, "events"), expectedEvent);
+        writeEventIdempotent(path6.join(planningRoot, "events"), expectedEvent);
       } catch (error) {
         if (error instanceof RecoveryRequiredError) {
           markRecoveryRequired(operationsRoot, operationId, operation, {
@@ -7620,7 +7725,9 @@ function runRecovery({ operationsRoot, planningRoot, lock }) {
       status: "APPLIED",
       appliedAt,
       history: [...current.history, { at: appliedAt, from: "APPLYING", to: "APPLIED", actor: "system:recovery", reason: null }]
-    }), fs5.rmSync(path5.join(stagingRoot, operationId), { recursive: !0, force: !0 }), outcomes.push({ operationId, outcome: "COMPLETED" });
+    });
+    let residue = confineRuntimeWritePath(planningRoot, path6.join(runtimeOperationsRelative, operationId));
+    fs6.rmSync(residue, { recursive: !0, force: !0 }), outcomes.push({ operationId, outcome: "COMPLETED" });
   }
   return outcomes;
 }
@@ -7641,20 +7748,20 @@ function withWorkspaceMutation({ planningRoot, operationsRoot, operationId = nul
 
 // runtime/src/lib/faultInjection.mjs
 var SimulatedCrashError = class extends Error {
-}, activeCheckpoint = null;
+}, activeCheckpoint = null, hardExitOnCheckpoint = !1;
 function checkpoint(name) {
   if (activeCheckpoint === name) {
     let triggered = activeCheckpoint;
-    throw activeCheckpoint = null, new SimulatedCrashError(triggered);
+    throw activeCheckpoint = null, hardExitOnCheckpoint && process.exit(97), new SimulatedCrashError(triggered);
   }
 }
 
 // runtime/src/lib/changeset.mjs
 function readFileState(planningRoot, relativePath) {
-  let absolutePath = confineRuntimePath(planningRoot, relativePath);
-  if (!fs6.existsSync(absolutePath))
+  let absolutePath = confineRuntimeWritePath(planningRoot, relativePath);
+  if (!fs7.existsSync(absolutePath))
     return { revisionHash: ABSENT, contentHash: ABSENT };
-  let bytes = fs6.readFileSync(absolutePath), isStructured = relativePath.endsWith(".yml") || relativePath.endsWith(".yaml") || relativePath.endsWith(".json"), structuredValue = isStructured ? relativePath.endsWith(".json") ? JSON.parse(bytes.toString("utf8")) : parseYaml(bytes.toString("utf8")) : null;
+  let bytes = fs7.readFileSync(absolutePath), isStructured = relativePath.endsWith(".yml") || relativePath.endsWith(".yaml") || relativePath.endsWith(".json"), structuredValue = isStructured ? relativePath.endsWith(".json") ? JSON.parse(bytes.toString("utf8")) : parseYaml(bytes.toString("utf8")) : null;
   return {
     revisionHash: isStructured ? revisionHash(structuredValue) : contentHash(bytes),
     contentHash: contentHash(bytes)
@@ -7669,7 +7776,9 @@ function eventTypeFor(kind) {
 }
 function propose({ operationsRoot, planningRoot, kind, target, payload, targetFiles, actor }) {
   return withWorkspaceMutation({ planningRoot, operationsRoot, operationId: null }, () => {
-    let operationId = generateUuidV7(), baseRevisions = {};
+    let operationId = generateUuidV7();
+    assertDistinctMutationTargets(planningRoot, targetFiles);
+    let baseRevisions = {};
     for (let relativePath of targetFiles)
       baseRevisions[relativePath] = readFileState(planningRoot, relativePath);
     let changeSetWithoutHash = { schemaVersion: 1, operationId, kind, target, baseRevisions, payload }, hash = computePersistedChangeSetHash(changeSetWithoutHash);
@@ -7719,7 +7828,7 @@ function revalidateChangeSet({ operationsRoot, planningRoot, operationId, render
     return { ok: !1, status: "INVALID", errors: invariantErrors, recomputedHash };
   let rendered;
   try {
-    rendered = render(changeSet.payload);
+    rendered = render(changeSet.payload), assertDistinctMutationTargets(planningRoot, [...rendered.keys()]);
   } catch (error) {
     return { ok: !1, status: "INVALID", errors: [error.message], recomputedHash };
   }
@@ -7804,16 +7913,12 @@ function prepareApply({ operationsRoot, planningRoot, operationId, render, actor
   revalidation.ok || transitionToStale(operationsRoot, operationId, operation, revalidation.errors[0]);
   let recomputedHash = revalidation.recomputedHash;
   (recomputedHash !== changeSet.hash || recomputedHash !== operation.validation.changeSetHash || recomputedHash !== operation.approval.changeSetHash) && transitionToStale(operationsRoot, operationId, operation, "changeSetHash no longer matches validate/approve; the change-set has drifted since approval");
-  let rendered = revalidation.rendered, stagingDir = path6.join(planningRoot, ".runtime", "operations", operationId, "staged"), beforeDir = path6.join(planningRoot, ".runtime", "operations", operationId, "before");
-  fs6.mkdirSync(stagingDir, { recursive: !0 }), fs6.mkdirSync(beforeDir, { recursive: !0 });
+  let rendered = revalidation.rendered, runtimeOperationRelative = path7.join(".runtime", "operations", operationId), stagingRelative = path7.join(runtimeOperationRelative, "staged"), beforeRelative = path7.join(runtimeOperationRelative, "before");
+  ensureDirectoryTree(planningRoot, stagingRelative), ensureDirectoryTree(planningRoot, beforeRelative), assertDistinctMutationTargets(planningRoot, [...rendered.keys()]);
   let filePlan = [];
   for (let [relativePath, newContent] of rendered) {
     let before = changeSet.baseRevisions[relativePath];
-    if (before.contentHash !== ABSENT) {
-      let currentAbsolute = confineRuntimePath(planningRoot, relativePath), beforePath = confineRuntimePath(beforeDir, relativePath);
-      fs6.mkdirSync(path6.dirname(beforePath), { recursive: !0 }), fs6.copyFileSync(currentAbsolute, beforePath);
-    }
-    filePlan.push({
+    confineRuntimeWritePath(planningRoot, relativePath), before.contentHash !== ABSENT && copyFileAtomic(planningRoot, relativePath, path7.join(beforeRelative, relativePath)), filePlan.push({
       target: relativePath,
       stagedRelativePath: relativePath,
       expectedBefore: before.contentHash === ABSENT ? "ABSENT" : "PRESENT",
@@ -7824,10 +7929,8 @@ function prepareApply({ operationsRoot, planningRoot, operationId, render, actor
     });
   }
   checkpoint("AFTER_BEFORE");
-  for (let [relativePath, newContent] of rendered) {
-    let stagedPath = confineRuntimePath(stagingDir, relativePath);
-    fs6.mkdirSync(path6.dirname(stagedPath), { recursive: !0 }), fs6.writeFileSync(stagedPath, newContent);
-  }
+  for (let [relativePath, newContent] of rendered)
+    writeFileAtomic(planningRoot, path7.join(stagingRelative, relativePath), newContent);
   checkpoint("AFTER_STAGED");
   let expectedEvents = operation.expectedEvents?.length ? operation.expectedEvents.map((expectedEvent) => {
     let relationallyConsistent = expectedEvent.eventId === expectedEvent.document?.eventId && expectedEvent.document?.operationId === operation.id && expectedEvent.relativePath.endsWith(`/${expectedEvent.eventId}.json`), eventSchemaCheck = validate("event", expectedEvent.document);
@@ -7849,42 +7952,47 @@ function prepareApply({ operationsRoot, planningRoot, operationId, render, actor
     ...operation,
     status: "APPLYING",
     history: [...operation.history, { at: applyingAt, from: "APPROVED", to: "APPLYING", actor, reason: null }]
-  }), checkpoint("AFTER_APPLYING"), { filePlan, expectedEvents };
+  }), checkpoint("AFTER_APPLYING"), { filePlan, expectedEvents, stagingRelative, runtimeOperationRelative };
 }
 function applyOperation({ operationsRoot, planningRoot, operationId, render, actor }) {
   return withWorkspaceMutation({ planningRoot, operationsRoot, operationId }, () => {
     let operation = readOperation(operationsRoot, operationId);
     if (operation.status !== "APPROVED")
       throw new StateError(`cannot apply operation in status ${operation.status}`);
-    let { filePlan, expectedEvents } = prepareApply({ operationsRoot, planningRoot, operationId, render, actor }), stagingDir = path6.join(planningRoot, ".runtime", "operations", operationId, "staged"), files = [];
-    for (let [index, entry] of filePlan.entries()) {
-      let stagedPath = confineRuntimePath(stagingDir, entry.stagedRelativePath), canonicalPath = confineRuntimePath(planningRoot, entry.target);
-      fs6.mkdirSync(path6.dirname(canonicalPath), { recursive: !0 }), fs6.renameSync(stagedPath, canonicalPath), files.push({ target: entry.target, contentHash: entry.stagedContentHash }), index === 0 && checkpoint("AFTER_FIRST_RENAME");
-    }
+    let { filePlan, expectedEvents, stagingRelative, runtimeOperationRelative } = prepareApply({ operationsRoot, planningRoot, operationId, render, actor }), files = [];
+    for (let [index, entry] of filePlan.entries())
+      renameWithinRoot(planningRoot, path7.join(stagingRelative, entry.stagedRelativePath), entry.target), files.push({ target: entry.target, contentHash: entry.stagedContentHash }), index === 0 && checkpoint("AFTER_FIRST_RENAME");
     checkpoint("AFTER_ALL_RENAMES");
     let result = { operationId, files }, resultSchemaCheck = validate("result", result);
     if (!resultSchemaCheck.valid)
       throw new Error(`constructed result is schema-invalid: ${resultSchemaCheck.errors.map((e) => `${e.path} ${e.message}`).join("; ")}`);
     writeResult(operationsRoot, operationId, result), checkpoint("AFTER_RESULT");
-    let eventsRoot = path6.join(planningRoot, "events");
+    let eventsRoot = path7.join(planningRoot, "events");
     for (let [index, expectedEvent] of expectedEvents.entries())
       writeEventIdempotent(eventsRoot, expectedEvent), index === 0 && checkpoint("AFTER_FIRST_EVENT");
     checkpoint("AFTER_ALL_EVENTS"), checkpoint("BEFORE_APPLIED");
     let appliedAt = (/* @__PURE__ */ new Date()).toISOString(), current = readOperation(operationsRoot, operationId);
-    return writeOperation(operationsRoot, operationId, {
+    writeOperation(operationsRoot, operationId, {
       ...current,
       status: "APPLIED",
       appliedAt,
       history: [...current.history, { at: appliedAt, from: "APPLYING", to: "APPLIED", actor, reason: null }]
-    }), fs6.rmSync(path6.join(planningRoot, ".runtime", "operations", operationId), { recursive: !0, force: !0 }), { status: "APPLIED", files };
+    });
+    let residuePath = confineRuntimeWritePath(planningRoot, runtimeOperationRelative);
+    return fs7.rmSync(residuePath, { recursive: !0, force: !0 }), { status: "APPLIED", files };
   });
 }
 
 // runtime/src/commands/proposalPreparation.mjs
 var SUPPORTED_KINDS = /* @__PURE__ */ new Set(["workspace.init", "config.update", "scope.add"]);
+function requireObjectPayload(rawPayload) {
+  if (rawPayload === null || typeof rawPayload != "object" || Array.isArray(rawPayload))
+    throw new UsageError("changeset payload must be a mapping/object");
+  return rawPayload;
+}
 function prepareProposal(kind, rawPayload) {
   if (!SUPPORTED_KINDS.has(kind)) throw new UsageError(`unsupported changeset kind: ${kind}`);
-  if (kind === "workspace.init")
+  if (requireObjectPayload(rawPayload), kind === "workspace.init")
     return { payload: rawPayload, targetFiles: ["config.yml", "plugin.lock.yml", ".gitignore"] };
   if (kind === "config.update")
     return { payload: rawPayload, targetFiles: ["config.yml"] };
@@ -7897,7 +8005,7 @@ var PLUGIN_VERSION = "1.0.0", TEMPLATE_PACK_FINGERPRINT = "sha256:b97c7bb4bac7e4
 
 // runtime/src/commands/init.mjs
 function runInit({ planningRoot, args }) {
-  let operationsRoot = path7.join(planningRoot, "operations"), { payload, targetFiles } = prepareProposal("workspace.init", {
+  let operationsRoot = path8.join(planningRoot, "operations"), { payload, targetFiles } = prepareProposal("workspace.init", {
     name: args.name,
     baseBranch: args.baseBranch || null,
     vcs: args.vcs || "none",
@@ -7907,11 +8015,11 @@ function runInit({ planningRoot, args }) {
   return { operationId: propose({ operationsRoot, planningRoot, kind: "workspace.init", target: {}, payload, targetFiles, actor: args.actor }) };
 }
 function runConfigSet({ planningRoot, args }) {
-  let operationsRoot = path7.join(planningRoot, "operations"), { payload, targetFiles } = prepareProposal("config.update", { name: args.name });
+  let operationsRoot = path8.join(planningRoot, "operations"), { payload, targetFiles } = prepareProposal("config.update", { name: args.name });
   return { operationId: propose({ operationsRoot, planningRoot, kind: "config.update", target: {}, payload, targetFiles, actor: args.actor }) };
 }
 function runConfigScopeAdd({ planningRoot, args }) {
-  let operationsRoot = path7.join(planningRoot, "operations"), { payload, targetFiles } = prepareProposal("scope.add", {
+  let operationsRoot = path8.join(planningRoot, "operations"), { payload, targetFiles } = prepareProposal("scope.add", {
     key: args.key,
     label: args.label,
     kind: args.kind,
@@ -7922,8 +8030,8 @@ function runConfigScopeAdd({ planningRoot, args }) {
 }
 
 // runtime/src/commands/changesetCommand.mjs
-import fs7 from "node:fs";
-import path8 from "node:path";
+import fs8 from "node:fs";
+import path9 from "node:path";
 
 // runtime/src/commands/renderers.mjs
 function toKebabCase(value) {
@@ -7959,8 +8067,8 @@ function renderScopeAdd({ id, key, label, kind, path: scopePath, owner = null },
 
 // runtime/src/commands/changesetCommand.mjs
 function readCurrentConfig(planningRoot) {
-  let configPath = path8.join(planningRoot, "config.yml");
-  return fs7.existsSync(configPath) ? parseYaml(fs7.readFileSync(configPath, "utf8")) : null;
+  let configPath = confineRuntimeWritePath(planningRoot, "config.yml");
+  return fs8.existsSync(configPath) ? parseYaml(fs8.readFileSync(configPath, "utf8")) : null;
 }
 function renderFor(kind, payload, currentConfig, workspaceRoot) {
   if (kind === "workspace.init") return renderWorkspaceInit(payload);
@@ -7976,12 +8084,14 @@ function runChangesetPropose({ planningRoot, kind, payloadText, actor }) {
   } catch (error) {
     throw new UsageError(`invalid payload: ${error.message}`);
   }
-  let { payload, targetFiles } = prepareProposal(kind, rawPayload), operationsRoot = path8.join(planningRoot, "operations");
+  if (rawPayload === null || typeof rawPayload != "object" || Array.isArray(rawPayload))
+    throw new UsageError("changeset payload must be a mapping/object");
+  let { payload, targetFiles } = prepareProposal(kind, rawPayload), operationsRoot = path9.join(planningRoot, "operations");
   return { operationId: propose({ operationsRoot, planningRoot, kind, target: {}, payload, targetFiles, actor }) };
 }
 function runChangesetValidate({ planningRoot, operationsRoot, operationId }) {
   let changeSet = readChangeSet(operationsRoot, operationId), currentConfig = changeSet.kind === "workspace.init" ? null : readCurrentConfig(planningRoot);
-  validateOperation({ operationsRoot, planningRoot, operationId, render: (payload) => renderFor(changeSet.kind, payload, currentConfig, path8.dirname(planningRoot)) });
+  validateOperation({ operationsRoot, planningRoot, operationId, render: (payload) => renderFor(changeSet.kind, payload, currentConfig, path9.dirname(planningRoot)) });
   let operation = readOperation(operationsRoot, operationId);
   return { status: operation.status, errors: operation.validation?.errors || [] };
 }
@@ -7990,21 +8100,27 @@ function runChangesetApprove({ operationsRoot, planningRoot, operationId, actor,
 }
 function runChangesetApply({ planningRoot, operationsRoot, operationId, actor }) {
   let changeSet = readChangeSet(operationsRoot, operationId), currentConfig = changeSet.kind === "workspace.init" ? null : readCurrentConfig(planningRoot);
-  return applyOperation({ operationsRoot, planningRoot, operationId, actor, render: (payload) => renderFor(changeSet.kind, payload, currentConfig, path8.dirname(planningRoot)) });
+  return applyOperation({ operationsRoot, planningRoot, operationId, actor, render: (payload) => renderFor(changeSet.kind, payload, currentConfig, path9.dirname(planningRoot)) });
 }
 
 // runtime/src/commands/check.mjs
-import fs8 from "node:fs";
-import path9 from "node:path";
+import fs9 from "node:fs";
+import path10 from "node:path";
 function checkRequiredFile(planningRoot, relativePath, schemaName, findings) {
-  let filePath = path9.join(planningRoot, relativePath);
-  if (!fs8.existsSync(filePath)) {
+  let filePath;
+  try {
+    filePath = confineWritePath(planningRoot, relativePath);
+  } catch (error) {
+    findings.push(`${relativePath}: untrusted path (${error.message})`);
+    return;
+  }
+  if (!fs9.existsSync(filePath)) {
     findings.push(`${relativePath}: required file is missing`);
     return;
   }
   let value;
   try {
-    value = parseYaml(fs8.readFileSync(filePath, "utf8"));
+    value = parseYaml(fs9.readFileSync(filePath, "utf8"));
   } catch (error) {
     findings.push(`${relativePath}: failed to parse (${error.message})`);
     return;
@@ -8014,29 +8130,47 @@ function checkRequiredFile(planningRoot, relativePath, schemaName, findings) {
     for (let error of result.errors) findings.push(`${relativePath}${error.path}: ${error.message}`);
 }
 function checkSchema({ planningRoot }) {
-  if (!fs8.existsSync(planningRoot))
+  if (!fs9.existsSync(planningRoot))
     return { status: "NOT_INITIALIZED", findings: ["workspace is not initialized: .planning/ does not exist"], pendingOperations: [] };
   let findings = [];
+  try {
+    assertTrustedRoots(planningRoot);
+  } catch (error) {
+    return { status: "FAIL", findings: [`trusted roots: ${error.message}`], pendingOperations: [] };
+  }
   checkRequiredFile(planningRoot, "config.yml", "config", findings), checkRequiredFile(planningRoot, "plugin.lock.yml", "plugin-lock", findings);
-  let scopesRoot = path9.join(planningRoot, "scopes");
-  if (fs8.existsSync(scopesRoot))
-    for (let scopeId of fs8.readdirSync(scopesRoot)) {
+  let scopesRoot = path10.join(planningRoot, "scopes");
+  if (fs9.existsSync(scopesRoot))
+    for (let scopeId of fs9.readdirSync(scopesRoot)) {
       if (!isUuidV7(scopeId)) {
         findings.push(`scopes/${scopeId}: not a valid scope id`);
         continue;
       }
-      let scopeEntryPath = path9.join(scopesRoot, scopeId);
-      if (fs8.lstatSync(scopeEntryPath).isSymbolicLink()) {
+      let scopeEntryPath = path10.join(scopesRoot, scopeId), scopeStat = fs9.lstatSync(scopeEntryPath);
+      if (scopeStat.isSymbolicLink()) {
         findings.push(`scopes/${scopeId}: symlink entries are not permitted`);
         continue;
       }
-      checkRequiredFile(planningRoot, path9.join("scopes", scopeId, "scope.yml"), "scope", findings);
+      if (!scopeStat.isDirectory()) {
+        findings.push(`scopes/${scopeId}: entry must be a directory`);
+        continue;
+      }
+      checkRequiredFile(planningRoot, path10.join("scopes", scopeId, "scope.yml"), "scope", findings);
     }
-  let pendingOperations = [], operationsRoot = path9.join(planningRoot, "operations");
-  if (fs8.existsSync(operationsRoot))
-    for (let operationId of fs8.readdirSync(operationsRoot)) {
+  let pendingOperations = [], operationsRoot = path10.join(planningRoot, "operations");
+  if (fs9.existsSync(operationsRoot))
+    for (let operationId of fs9.readdirSync(operationsRoot)) {
       if (!isUuidV7(operationId)) {
         findings.push(`operations/${operationId}: not a valid operation id`);
+        continue;
+      }
+      let operationEntryPath = path10.join(operationsRoot, operationId), operationStat = fs9.lstatSync(operationEntryPath);
+      if (operationStat.isSymbolicLink()) {
+        findings.push(`operations/${operationId}: symlink entries are not permitted`);
+        continue;
+      }
+      if (!operationStat.isDirectory()) {
+        findings.push(`operations/${operationId}: entry must be a directory`);
         continue;
       }
       let operation;
@@ -8049,6 +8183,10 @@ function checkSchema({ planningRoot }) {
       let operationSchemaCheck = validate("operation", operation);
       if (!operationSchemaCheck.valid) {
         for (let error of operationSchemaCheck.errors) findings.push(`operations/${operationId}/operation.yml${error.path}: ${error.message}`);
+        continue;
+      }
+      if (operation.id !== operationId) {
+        findings.push(`operations/${operationId}/operation.yml: operation.id ${operation.id} does not match its directory`);
         continue;
       }
       (operation.status === "APPLYING" || operation.status === "RECOVERY_REQUIRED") && pendingOperations.push({ operationId, status: operation.status });
@@ -8081,13 +8219,13 @@ function requireOperationId(value) {
 }
 function readPayloadText(payloadFileArg, cwd) {
   if (!payloadFileArg || payloadFileArg === !0) throw new UsageError("changeset propose requires --payload-file <file|->");
-  if (payloadFileArg === "-") return fs9.readFileSync(0, "utf8");
-  let resolved = path10.resolve(cwd, payloadFileArg);
-  if (!fs9.existsSync(resolved)) throw new UsageError(`payload file not found: ${payloadFileArg}`);
-  return fs9.readFileSync(resolved, "utf8");
+  if (payloadFileArg === "-") return fs10.readFileSync(0, "utf8");
+  let resolved = path11.resolve(cwd, payloadFileArg);
+  if (!fs10.existsSync(resolved)) throw new UsageError(`payload file not found: ${payloadFileArg}`);
+  return fs10.readFileSync(resolved, "utf8");
 }
 function dispatch(command, args, cwd) {
-  let planningRoot = path10.join(cwd, ".planning"), operationsRoot = path10.join(planningRoot, "operations");
+  let planningRoot = path11.join(cwd, ".planning"), operationsRoot = path11.join(planningRoot, "operations");
   if (command === "init") {
     let options = argsToOptions(args);
     if (!options.name || !options.actor) throw new UsageError("init requires --name and --actor");
