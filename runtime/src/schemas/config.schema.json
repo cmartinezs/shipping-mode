@@ -1,0 +1,24 @@
+{
+  "$id": "https://shipping-mode.dev/schemas/config.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "name", "vcs", "scopeRefs"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "name": { "type": "string", "minLength": 1 },
+    "baseBranch": { "type": ["string", "null"] },
+    "vcs": { "enum": ["git", "none"] },
+    "scopeRefs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "key"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+          "key": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" }
+        }
+      }
+    }
+  }
+}

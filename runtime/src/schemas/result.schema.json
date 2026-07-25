@@ -1,0 +1,21 @@
+{
+  "$id": "https://shipping-mode.dev/schemas/result.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["operationId", "files"],
+  "properties": {
+    "operationId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+    "files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["target", "contentHash"],
+        "properties": {
+          "target": { "type": "string" },
+          "contentHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    }
+  }
+}

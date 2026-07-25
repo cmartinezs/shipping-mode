@@ -1,0 +1,80 @@
+{
+  "$id": "https://shipping-mode.dev/schemas/change-set.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "operationId", "kind", "target", "baseRevisions", "payload", "hash"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "operationId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+    "kind": { "enum": ["workspace.init", "config.update", "scope.add"] },
+    "target": { "type": "object" },
+    "baseRevisions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["revisionHash", "contentHash"],
+        "properties": {
+          "revisionHash": { "type": "string", "pattern": "^([0-9a-f]{64}|ABSENT)$" },
+          "contentHash": { "type": "string", "pattern": "^([0-9a-f]{64}|ABSENT)$" }
+        }
+      }
+    },
+    "payload": { "type": "object" },
+    "hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "workspace.init" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "vcs", "pluginVersion", "templatePackFingerprint"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1 },
+              "baseBranch": { "type": ["string", "null"] },
+              "vcs": { "enum": ["git", "none"] },
+              "pluginVersion": { "type": "string", "minLength": 1 },
+              "templatePackFingerprint": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "config.update" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name"],
+            "properties": { "name": { "type": "string", "minLength": 1 } }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "scope.add" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "key", "label", "kind", "path"],
+            "properties": {
+              "id": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+              "key": { "type": "string", "minLength": 1 },
+              "label": { "type": "string", "minLength": 1 },
+              "kind": { "enum": ["code", "non_code"] },
+              "path": { "type": "string", "minLength": 1 },
+              "owner": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

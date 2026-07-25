@@ -1,0 +1,27 @@
+{
+  "$id": "https://shipping-mode.dev/schemas/event.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["eventId", "schemaVersion", "type", "aggregate", "occurredAt", "actor", "operationId", "idempotencyKey", "payload"],
+  "properties": {
+    "eventId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+    "schemaVersion": { "const": 1 },
+    "type": { "type": "string", "minLength": 1 },
+    "aggregate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id"],
+      "properties": {
+        "type": { "type": "string" },
+        "id": { "type": "string" }
+      }
+    },
+    "occurredAt": { "type": "string" },
+    "actor": { "type": "string" },
+    "operationId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+    "idempotencyKey": { "type": "string" },
+    "payload": { "type": "object" },
+    "inputHash": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+    "outputHash": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" }
+  }
+}
