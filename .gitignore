@@ -2,3 +2,4 @@
 node_modules/
 *.log
 .superpowers/
+runtime/dist/shipping-mode.test-bundle.mjs

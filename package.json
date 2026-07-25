@@ -16,6 +16,13 @@
     "test:host-integration": "node spikes/host-integration/tests/host-integration.test.mjs",
     "test:vertical-slice": "node src/tests/vertical-slice.test.mjs",
     "verify:corte-1.2": "node spikes/verify-corte-1.2.mjs",
-    "verify:next-generation": "bash scripts/verify-next-generation.sh"
+    "verify:next-generation": "bash scripts/verify-next-generation.sh",
+    "build:schemas": "node scripts/build-runtime.mjs --schemas-only",
+    "build:runtime": "node scripts/build-runtime.mjs",
+    "build:test-bundle": "node scripts/build-runtime.mjs --test-bundle"
+  },
+  "devDependencies": {
+    "ajv": "^8.20.0",
+    "esbuild": "^0.24.2"
   }
 }
