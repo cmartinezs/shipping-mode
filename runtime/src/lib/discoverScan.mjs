@@ -1,6 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import { computeSourceFingerprint, detectMoved, FingerprintError } from "./fingerprint.mjs";
+import { confineWritePath, confineScopePath, PathConfinementError } from "./paths.mjs";
+import { parseYaml } from "./yaml.mjs";
+import { isUuidV7 } from "./ids.mjs";
 
 function defaultExecFile(command, args, options) {
   return execFileSync(command, args, { encoding: "utf8", ...options });
@@ -137,4 +141,113 @@ export function enumerateCandidates(workspaceRoot, { readdirFn = fs.readdirSync,
 
   walk(workspaceRoot, "");
   return { scopeCandidates, sourceCandidates, diagnostics };
+}
+
+function readConfirmedSources(planningRoot) {
+  const sourcesRoot = path.join(planningRoot, "sources");
+  if (!fs.existsSync(sourcesRoot)) return [];
+  const sources = [];
+  for (const id of fs.readdirSync(sourcesRoot)) {
+    if (!isUuidV7(id)) continue;
+    const sourceFile = confineWritePath(planningRoot, path.join("sources", id, "source.yml"));
+    if (!fs.existsSync(sourceFile)) continue;
+    sources.push(parseYaml(fs.readFileSync(sourceFile, "utf8")));
+  }
+  return sources;
+}
+
+// Resolves a host-repository-relative path (a source's `path` field, or a candidate's
+// `path`) safely under workspaceRoot -- relative-only, no `..` escapes, no absolute paths.
+// Reuses the existing confineScopePath rather than inventing a parallel confinement
+// function: a source's path needs exactly the same guarantee a scope's path already gets.
+function resolveHostPath(workspaceRoot, relativePath) {
+  return confineScopePath(workspaceRoot, relativePath);
+}
+
+function fingerprintOne(absolutePath, maxSourceBytes) {
+  return computeSourceFingerprint(absolutePath, { maxBytes: maxSourceBytes });
+}
+
+export function computeKnownSourceDrift({ planningRoot, workspaceRoot, sourceCandidates, maxSourceBytes }) {
+  const confirmedSources = readConfirmedSources(planningRoot);
+  const results = [];
+  const diagnostics = [];
+  const missingForMoveDetection = [];
+
+  for (const source of confirmedSources) {
+    let absolutePath;
+    try {
+      absolutePath = resolveHostPath(workspaceRoot, source.path);
+    } catch (error) {
+      if (!(error instanceof PathConfinementError)) throw error;
+      diagnostics.push({ code: "untrusted_source_path", path: source.path, sourceId: source.id, message: error.message });
+      continue; // never read outside workspaceRoot, and never let one bad entry crash the scan
+    }
+    if (!fs.existsSync(absolutePath)) {
+      missingForMoveDetection.push({ sourceId: source.id, path: source.path, confirmedFingerprint: source.confirmedFingerprint, confirmedContentHash: source.confirmedContentHash });
+      continue;
+    }
+    let observed;
+    try {
+      observed = fingerprintOne(absolutePath, maxSourceBytes);
+    } catch (error) {
+      if (!(error instanceof FingerprintError)) throw error;
+      diagnostics.push({ code: error.code, path: source.path, sourceId: source.id, message: error.message });
+      continue; // a fingerprint failure on one confirmed source must never abort the rest of the scan
+    }
+    const driftState = observed.fingerprint === source.confirmedFingerprint ? "unchanged" : "changed";
+    results.push({
+      sourceId: source.id,
+      path: source.path,
+      confirmedFingerprint: source.confirmedFingerprint,
+      confirmedContentHash: source.confirmedContentHash,
+      observedFingerprint: observed.fingerprint,
+      observedContentHash: observed.contentHash,
+      driftState,
+      freshness: driftState === "unchanged" ? "current" : "stale",
+      observedAtPath: null
+    });
+  }
+
+  // Every candidate is fingerprinted unconditionally -- this is discover scan's own
+  // observation, consumed both by move-detection below AND directly as the ScanResult's
+  // sourceCandidates output (Task 11 uses fingerprintedSourceCandidates as-is).
+  const fingerprintedSourceCandidates = [];
+  for (const candidate of sourceCandidates) {
+    let absolutePath;
+    try {
+      absolutePath = resolveHostPath(workspaceRoot, candidate.path);
+    } catch (error) {
+      if (!(error instanceof PathConfinementError)) throw error;
+      diagnostics.push({ code: "untrusted_source_path", path: candidate.path, message: error.message });
+      continue;
+    }
+    try {
+      const observed = fingerprintOne(absolutePath, maxSourceBytes);
+      fingerprintedSourceCandidates.push({ ...candidate, observedFingerprint: observed.fingerprint, observedContentHash: observed.contentHash });
+    } catch (error) {
+      if (!(error instanceof FingerprintError)) throw error;
+      diagnostics.push({ code: error.code, path: candidate.path, message: error.message });
+    }
+  }
+
+  if (missingForMoveDetection.length > 0) {
+    const movedResults = detectMoved(missingForMoveDetection, fingerprintedSourceCandidates);
+    for (const missing of missingForMoveDetection) {
+      const moveResult = movedResults.find((r) => r.sourceId === missing.sourceId);
+      results.push({
+        sourceId: missing.sourceId,
+        path: missing.path,
+        confirmedFingerprint: missing.confirmedFingerprint,
+        confirmedContentHash: missing.confirmedContentHash,
+        observedFingerprint: null,
+        observedContentHash: null,
+        driftState: moveResult.driftState,
+        observedAtPath: moveResult.observedAtPath
+        // no `freshness` key at all for missing/moved -- see the Interfaces note above
+      });
+    }
+  }
+
+  return { results, diagnostics, fingerprintedSourceCandidates };
 }
