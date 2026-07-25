@@ -4,6 +4,8 @@ import os from "node:os";
 import path from "node:path";
 import { confineUnder, confineRuntimePath, confineScopePath, PathConfinementError } from "../paths.mjs";
 
+assert.equal(new PathConfinementError("x").name, "PathConfinementError", "error.name must identify the error type, not read as generic Error");
+
 const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "paths-"));
 const planningRoot = path.join(workspace, ".planning");
 fs.mkdirSync(planningRoot, { recursive: true });
@@ -29,6 +31,18 @@ assert.throws(() => confineScopePath(workspace, "escape-link/anything"), PathCon
 const insidePlanningLink = path.join(planningRoot, "escape-link");
 fs.symlinkSync(outside, insidePlanningLink);
 assert.throws(() => confineRuntimePath(planningRoot, "escape-link/operation.yml"), PathConfinementError);
+
+// a symlink that lexically avoids ".planning/" but *resolves* into it must still be rejected --
+// confineUnder must return the real-resolved path of the existing prefix (not the lexical
+// pre-resolution text) so confineScopePath's .planning-exclusion check actually sees where the
+// path really lands
+const decoyLink = path.join(workspace, "decoy");
+fs.symlinkSync(planningRoot, decoyLink);
+assert.throws(
+  () => confineScopePath(workspace, "decoy/config.yml"),
+  PathConfinementError,
+  "a symlink aliasing into .planning/ must be rejected even though the alias name itself is not literally under .planning/",
+);
 
 // the generic primitive works under an arbitrary root, e.g. an events root or a staging root
 const eventsRoot = path.join(planningRoot, "events");

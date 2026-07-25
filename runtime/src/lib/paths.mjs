@@ -1,7 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
 
-export class PathConfinementError extends Error {}
+export class PathConfinementError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "PathConfinementError";
+  }
+}
 
 function isWithin(target, root) {
   const relative = path.relative(root, target);
@@ -20,13 +25,14 @@ export function confineUnder(root, relativePath) {
   const segments = relativePath.split(path.sep).filter(Boolean);
   let currentPath = root;
   let currentReal = fs.realpathSync.native(root);
+  let resolvedCount = 0; // how many leading segments were confirmed to exist and folded into currentReal
   for (const segment of segments) {
     currentPath = path.join(currentPath, segment);
     let stat;
     try {
       stat = fs.lstatSync(currentPath);
     } catch (error) {
-      if (error.code === "ENOENT") break; // rest already validated lexically above
+      if (error.code === "ENOENT") break; // this and every remaining segment don't exist yet
       throw error;
     }
     if (stat.isSymbolicLink()) {
@@ -38,8 +44,18 @@ export function confineUnder(root, relativePath) {
     } else {
       currentReal = fs.realpathSync.native(currentPath);
     }
+    resolvedCount += 1;
   }
-  return normalizedTarget;
+
+  // The lexical `normalizedTarget` ignores symlink resolution entirely, so a symlink that
+  // exists but is not itself an escape (e.g. an alias fully inside root, like
+  // workspace/decoy -> workspace/.planning) would otherwise be returned as its pre-resolution
+  // text, letting callers reason about the wrong location. Build the return value from the
+  // real path of the confirmed-existing prefix (currentReal, the same value the escape check
+  // above already validated) with any not-yet-existing trailing segments appended lexically --
+  // they can't be realpath'd because they don't exist yet.
+  const remainingSegments = segments.slice(resolvedCount);
+  return remainingSegments.length > 0 ? path.join(currentReal, ...remainingSegments) : currentReal;
 }
 
 export function confineRuntimePath(planningRoot, relativePath) {
@@ -80,7 +96,12 @@ function assertTrustedRoot(parentDir, name) {
 export function assertTrustedRoots(planningRoot) {
   const workspaceRoot = path.dirname(planningRoot);
   assertTrustedRoot(workspaceRoot, path.basename(planningRoot));
-  if (!fs.existsSync(planningRoot)) return; // fresh bootstrap, nothing further to check yet
+  try {
+    fs.lstatSync(planningRoot);
+  } catch (error) {
+    if (error.code === "ENOENT") return; // fresh bootstrap, nothing further to check yet
+    throw error;
+  }
   for (const name of ["operations", "events", ".runtime", "scopes"]) {
     assertTrustedRoot(planningRoot, name);
   }
