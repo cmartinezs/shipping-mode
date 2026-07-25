@@ -162,3 +162,26 @@ export function computeDirectoryFingerprint(absoluteRoot, {
     contentHash: sha256Hex(Buffer.from(contentLines.join(""), "utf8"))
   };
 }
+
+export function computeSourceFingerprint(absolutePath, options = {}) {
+  const { lstatFn = fs.lstatSync } = options;
+  let stat;
+  try {
+    stat = lstatFn(absolutePath);
+  } catch (error) {
+    if (error.code === "EACCES") throw new FingerprintError("unreadable", `unreadable: ${absolutePath}`, { path: absolutePath });
+    throw error;
+  }
+  if (stat.isDirectory()) return computeDirectoryFingerprint(absolutePath, options);
+  if (stat.isFile()) return computeFileFingerprint(absolutePath, options);
+  throw new FingerprintError("unreadable", `not a regular file or directory: ${absolutePath}`, { path: absolutePath });
+}
+
+export function detectMoved(missingSources, newCandidates) {
+  return missingSources.map((missing) => {
+    const matches = newCandidates.filter((candidate) => candidate.observedContentHash === missing.confirmedContentHash);
+    return matches.length === 1
+      ? { sourceId: missing.sourceId, driftState: "moved", observedAtPath: matches[0].path }
+      : { sourceId: missing.sourceId, driftState: "missing", observedAtPath: null };
+  });
+}
