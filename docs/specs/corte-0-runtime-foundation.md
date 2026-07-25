@@ -1,8 +1,13 @@
 # Corte 0 — Runtime Foundation (diseño de endurecimiento)
 
-Estado: aprobado conceptualmente, revisión 2 incorpora correcciones de
-diseño antes de pasar a plan de implementación.
-Fecha: 2026-07-24.
+Estado: implementado en `runtime/`, mergeado a `develop` (PR #7) y
+endurecido por una revisión de seguridad posterior al merge, ya
+incorporada en este documento (antes vivía como
+`corte-0-runtime-foundation-security-amendment.md`, ahora retirado —
+este documento es la única fuente de verdad). Corte 0 **no** se marca
+como cerrado: el descubrimiento de git/scopes/guides y el resto de
+§2.2 siguen pendientes como iteración obligatoria.
+Fecha: 2026-07-24. Revisión de seguridad incorporada: 2026-07-25.
 
 ## 1. Objetivo
 
@@ -298,6 +303,12 @@ Cada transición agrega `history: [{at, from, to, actor, reason}]`.
 - **propose**: crea `operations/<id>/change-set.json` y `operation.yml`
   en `PROPOSED`. `baseRevisions` usa `{revisionHash, contentHash}` por
   archivo, con `ABSENT`/`ABSENT` para archivos que se espera no existan.
+  `propose` también reserva, de una sola vez, el/los `eventId` que la
+  operación emitirá al aplicarse (`operation.reservedEvents: [{eventId,
+  type}]`) — es parte normativa del modelo persistido, no un detalle de
+  implementación. `apply` (§12 paso 5) materializa el documento completo
+  del evento a partir de esa reserva; nunca genera un `eventId` nuevo, y
+  recovery (§13) reutiliza ese mismo documento verbatim.
 - **validate**: valida `payload` contra el schema vía
   `runtime/src/lib/schema.mjs` y recalcula `baseRevisions` contra el
   estado actual (ambos hashes). Falla el schema → `INVALID`. Alguna
@@ -343,18 +354,34 @@ Se adquiere antes de: recovery, `validate`, `approve`, `apply`, y
 cualquier operación que modifique `operation.yml`. **Nunca** antes de
 `--help`, `--version`, `check schema` (§13, query-only).
 
-Manejo de lock activo/abandonado:
+Manejo de lock activo/abandonado — **fail closed, sin reclamo
+automático en ningún caso** (revisado tras el merge de PR #7; la
+revisión 2 de este documento permitía romper automáticamente un lock
+de `pid` muerto vía rename-a-cuarentena — ese diseño fue implementado,
+endurecido durante 3 rondas de revisión, y finalmente **descartado**
+en favor de la política más simple y estricta de abajo, porque
+`mkdir`/`rename` por sí solos no pueden dar una garantía de fencing: un
+reclamador puede vaciar temporalmente la ruta del lock y permitir que
+un segundo escritor entre mientras el proceso original todavía
+ejecuta bajo el supuesto de que sigue siendo dueño):
 
 - Lock con `hostname` distinto al actual → nunca se rompe
   automáticamente; error explícito indicando qué host lo sostiene.
 - Lock con `hostname` igual y `pid` vivo (`process.kill(pid, 0)` no
   lanza `ESRCH`) → nunca se rompe automáticamente; error explícito de
   "lock en uso".
-- Lock con `hostname` igual y `pid` muerto → se considera abandonado por
-  un crash; se rompe de forma segura y se registra el evento.
+- Lock con `hostname` igual y `pid` muerto → **tampoco se rompe
+  automáticamente**. `LockHeldError` explícito indicando el PID muerto y
+  la ruta exacta a inspeccionar; un operador debe confirmar que ningún
+  escritor sigue activo y borrar el directorio del lock a mano. En la
+  siguiente invocación, un lock nuevo se adquiere normalmente y corre el
+  barrido de recovery habitual antes de ejecutar el callback solicitado.
 - Lock cuyo directorio existe pero sin metadata válida (crash entre
-  `mkdir` y la escritura de metadata) → tratado igual que "otro host":
-  no se rompe automáticamente, error explícito para resolución manual.
+  `mkdir` y la escritura de metadata) → mismo tratamiento: nunca se
+  rompe automáticamente, error explícito para resolución manual.
+
+Un mecanismo de lease/fencing que permita reclamo automático seguro
+queda fuera de alcance de Corte 0 (§2.2, futura iteración).
 
 Después de adquirir el lock, `apply` **vuelve a verificar** `baseRevisions`
 (ambos hashes) de forma autoritativa antes de continuar — la verificación
@@ -443,10 +470,32 @@ Secuencia exacta:
 10. Transición `APPLYING -> APPLIED`; liberar el lock; limpieza
     oportunista de `.runtime/operations/<id>/` (§13).
 
+Publicación atómica de archivos (todo paso que escribe `staged/`,
+`before/`, `operation.yml`, `change-set.json`, `result.json`, o un
+evento): nunca un nombre de temporal predecible. Para registros
+reemplazables (`operation.yml`, `change-set.json`, `result.json`,
+`staged/**`): nombre temporal aleatorio criptográfico → creación
+exclusiva (`wx`) → revalidación de confinamiento del destino →
+`rename()` atómico. Para archivos de creación única (eventos): nombre
+temporal aleatorio → creación exclusiva (`wx`) → publicación atómica
+sin-clobber vía `link()` (nunca `rename()`: `link()` falla con
+`EEXIST` si otro escritor ya publicó el mismo destino, sin permitir
+jamás una sobrescritura silenciosa entre el chequeo de existencia y la
+publicación). Los objetivos de mutación renderizados de una misma
+operación deben resolver a un conjunto de paths normalizados
+distintos entre sí; un target duplicado o alias se rechaza antes de
+llegar a `staged/`.
+
 ## 13. Recovery
 
 Corre al inicio de cualquier comando mutante (`propose`, `validate`,
 `approve`, `apply`), **después** de adquirir el workspace lock (§11).
+Dado que §11 ya no reclama automáticamente un lock de proceso muerto,
+una operación atascada en `APPLYING` detrás de un lock muerto queda
+inalcanzable para recovery hasta que un operador libere el lock a
+mano; recovery en sí no cambia — solo su punto de entrada ahora
+depende de una intervención manual previa cuando el lock, y no solo la
+operación, quedó abandonado.
 **Nunca** corre como efecto secundario de `--help`, `--version` o
 `check schema` — esos comandos son estrictamente query-only; `check
 schema` puede *reportar* operaciones en `APPLYING` o
@@ -505,6 +554,31 @@ solo:
 Todo destino que el runtime escribe (`staged/`, `before/`, la ruta final
 de cada `rename()`, `operations/**`, `.runtime/**`) debe permanecer
 estrictamente contenido dentro de `.planning/`.
+
+Un path de mutación aplica una regla más estricta que una referencia de
+solo lectura (§14.2): **ningún componente existente puede ser un
+symlink**, incluso uno que resuelva dentro de `.planning/`. Esto cubre
+targets canónicos (`config.yml`, `plugin.lock.yml`, `.gitignore`,
+`scopes/**`), archivos permanentes de operación (`operation.yml`,
+`change-set.json`, `result.json`), `.runtime/operations/<id>/before/**`
+y `.../staged/**`, archivos de evento, y todo temporal. Toda raíz de
+control anidada se crea segmento por segmento y se revalida como
+directorio real tras crearla; un symlink preexistente en cualquier
+punto de la cadena (incluida la raíz misma) causa un fallo de
+confinamiento tipado antes de escribir un solo byte fuera de la raíz
+nombrada.
+
+`assertTrustedRoots(planningRoot)` valida, cuando existen, todas las
+raíces de control:
+
+```
+.planning/
+.planning/operations/
+.planning/events/
+.planning/scopes/
+.planning/.runtime/
+.planning/.runtime/operations/
+```
 
 ### 14.2 Paths referenciados por un scope
 
@@ -613,6 +687,47 @@ re-verificación de que las 21 pruebas existentes
   `occurredAt`, `payload`) en vez de generar un evento distinto. Incluye
   además limpieza segura de `.runtime/operations/<id>/` cuando el crash
   ocurre después de `APPLIED` pero antes de la limpieza.
+- **Crash real (no solo excepción simulada)**: la inyección de fallos por
+  excepción (matriz de crash de arriba) es útil para cubrir determinísticamente
+  las 10 fronteras durables, pero no prueba el comportamiento de lock
+  abandonado — un `finally` de JS sigue corriendo tras una excepción
+  simulada, así que el lock siempre se libera limpio. La suite CLI e2e
+  ejecuta además al menos una salida dura de proceso real dentro de la
+  sección crítica, después de que la operación llega a `APPLYING`: (1) el
+  bundle de test sale sin desenrollar la pila; (2)
+  `workspace.lock/lock.json` queda con el PID muerto; (3) una invocación
+  normal falla cerrado y no reclama el lock automáticamente; (4) el test
+  realiza la remoción manual explícita, como lo haría un operador; (5) la
+  siguiente invocación adquiere un lock nuevo y completa recovery; (6)
+  `check schema` posterior reporta `PASS` sin operaciones pendientes; (7)
+  existe exactamente un evento y un `result.json`.
+- **Clasificación de payload**: un payload de ChangeSet debe ser un
+  mapping/objeto no nulo. YAML vacío, escalares y arrays son rechazos
+  tipados `UsageError` con exit code `1`; nunca deben escapar como
+  `TypeError` o exit code `2` interno.
+- **`check schema` — integridad relacional**: además de validar cada
+  operación contra `operation.schema.json`, verifica el invariante
+  `operation.id === operations/<directory-id>` y reporta raíces de
+  control o entradas symlinked como findings, nunca las sigue ni las
+  ignora en silencio.
+- **Determinismo del build (verificación reforzada)**: el gate de
+  verificación no reconstruye el bundle de producción in-place antes de
+  chequear su vigencia. En su lugar: instala dependencias desde
+  `package-lock.json`, construye validadores + build metadata + bundle de
+  producción **dos veces en dos directorios temporales aislados**, exige
+  que ambos builds limpios sean idénticos byte a byte entre sí y contra
+  cada artefacto generado commiteado, y ejecuta el bundle aislado sin
+  `node_modules` a través de un ciclo de vida real completo
+  (`init -> validate -> approve -> apply -> check schema`).
+- **Scanner de docs portable**: la detección de referencias legacy en la
+  documentación usa un script Node portable
+  (`scripts/scan-next-generation-docs.mjs`), no depende silenciosamente
+  de que `ripgrep` esté instalado en el entorno de verificación.
+- **CI**: `.github/workflows/runtime-foundation.yml` corre en pushes a la
+  rama de feature y en pull requests hacia `develop`; permisos mínimos
+  (`contents: read`), build en directorio temporal aislado del runner, y
+  verifica que correr `verify:next-generation` no modifique los
+  artefactos commiteados.
 - **Regresión** (sin cambios de comportamiento esperados):
   `hooks/tests/protect-planning-state.test.mjs`,
   `scripts/tests/verify-next-generation.test.mjs`,
@@ -625,27 +740,51 @@ re-verificación de que las 21 pruebas existentes
 
 ## 17. Definition of Done de este pase
 
-- [ ] Todos los tests nuevos/actualizados (unit, lock/concurrencia, YAML,
+Revisado tras el merge de PR #7 para incorporar la revisión de
+seguridad (§11, §12, §14, §16). Corte 0 permanece abierto hasta que
+todo lo siguiente sea cierto:
+
+- [x] Todos los tests nuevos/actualizados (unit, lock/concurrencia, YAML,
       schema/build, CLI e2e, matriz de crash, confinamiento) pasan.
-- [ ] Las suites de regresión existentes siguen pasando sin cambios de
-      comportamiento.
-- [ ] `.planning/**` sigue protegido contra escritura directa.
-- [ ] Ningún comando fuera de alcance tiene una ruta silenciosa o parcial:
+- [x] Las suites de regresión existentes siguen pasando sin cambios de
+      comportamiento no documentados.
+- [x] `.planning/**` sigue protegido contra escritura directa.
+- [x] Ningún comando fuera de alcance tiene una ruta silenciosa o parcial:
       todos responden `NOT_IMPLEMENTED` con contrato y exit code
       verificados por test.
-- [ ] `README.md` y este documento reflejan con precisión qué cubre esta
+- [x] `README.md` y este documento reflejan con precisión qué cubre esta
       fundación y qué queda como iteración obligatoria siguiente
       (descubrimiento de git/scopes/guides, autonomía, release/item/
       work-package/task, `check health/guides/gates`, `report`,
       gobernanza de aprobación).
-- [ ] Ningún texto afirma atomicidad transaccional multiarchivo; el
+- [x] Ningún texto afirma atomicidad transaccional multiarchivo; el
       lenguaje usado es "crash-consistent con recovery idempotente".
-- [ ] Ningún texto afirma que existe separación obligatoria
+- [x] Ningún texto afirma que existe separación obligatoria
       proponente/aprobador: la auto-aprobación está permitida y marcada
       explícitamente (`selfApproval`), la gobernanza es trabajo futuro.
-- [ ] El bundle `runtime/dist/shipping-mode.mjs` corre sin `node_modules`
+- [x] El bundle `runtime/dist/shipping-mode.mjs` corre sin `node_modules`
       y sin imports externos verificables.
-- [ ] Corte 0 **no** se marca como cerrado/terminado en ningún documento.
+- [x] Locks muertos y sin metadata fallan cerrado y exigen resolución
+      manual explícita (§11) — ningún camino de código los reclama
+      automáticamente.
+- [x] Ninguna escritura de staging, snapshot, temporal, evento, operación
+      o canónica puede redirigirse a través de un symlink preexistente
+      (§14.1).
+- [x] Existe un test e2e de salida dura de proceso que prueba el flujo
+      completo lock-muerto → resolución manual → recovery (§16).
+- [x] `check schema` verifica la identidad del directorio de cada
+      operación (§16).
+- [x] Payloads null/escalares/array son rechazos tipados de uso, nunca
+      `TypeError` (§16).
+- [x] Dos builds de producción aislados coinciden entre sí y con el
+      bundle commiteado (§16).
+- [x] El bundle aislado completa un ciclo de vida real sin `node_modules`
+      (§16).
+- [x] El job de verificación de GitHub Actions pasa desde un checkout
+      limpio (§16).
+- [ ] Corte 0 **no** se marca como cerrado/terminado en ningún documento
+      — esta casilla nunca se marca; es una regla permanente, no un
+      hito a completar.
 
 ## 18. Explícitamente fuera de alcance (iteración obligatoria siguiente)
 
