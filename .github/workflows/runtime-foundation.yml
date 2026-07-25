@@ -25,16 +25,16 @@ jobs:
       - name: Stage review artifacts
         if: always()
         run: |
-          mkdir -p .ci-artifacts/runtime/src/generated .ci-artifacts/runtime/dist
-          cp "$RUNNER_TEMP/generated/validators.mjs" .ci-artifacts/runtime/src/generated/validators.mjs
-          cp "$RUNNER_TEMP/generated/build-meta.mjs" .ci-artifacts/runtime/src/generated/build-meta.mjs
-          cp "$RUNNER_TEMP/shipping-mode.mjs" .ci-artifacts/runtime/dist/shipping-mode.mjs
+          mkdir -p ci-artifacts/runtime/src/generated ci-artifacts/runtime/dist
+          cp "$RUNNER_TEMP/generated/validators.mjs" ci-artifacts/runtime/src/generated/validators.mjs
+          cp "$RUNNER_TEMP/generated/build-meta.mjs" ci-artifacts/runtime/src/generated/build-meta.mjs
+          cp "$RUNNER_TEMP/shipping-mode.mjs" ci-artifacts/runtime/dist/shipping-mode.mjs
       - name: Upload generated runtime for review
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: runtime-foundation-generated
-          path: .ci-artifacts
+          path: ci-artifacts
           if-no-files-found: error
       - run: npm run verify:next-generation
       - name: Prove verification leaves committed artifacts unchanged
