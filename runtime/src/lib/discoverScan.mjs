@@ -5,6 +5,7 @@ import { computeSourceFingerprint, detectMoved, FingerprintError } from "./finge
 import { confineWritePath, confineScopePath, PathConfinementError } from "./paths.mjs";
 import { parseYaml } from "./yaml.mjs";
 import { isUuidV7 } from "./ids.mjs";
+import { contentHash as sha256Hex } from "./canonical.mjs";
 
 function defaultExecFile(command, args, options) {
   return execFileSync(command, args, { encoding: "utf8", ...options });
@@ -327,4 +328,35 @@ export function computeCommandEvidence({ planningRoot, knownSourceDrift }) {
     }
   }
   return results;
+}
+
+export function stringSetHash(strings) {
+  const lines = strings.map((s) => `${sha256Hex(Buffer.from(s, "utf8"))}\n`).sort();
+  return sha256Hex(Buffer.from(lines.join(""), "utf8"));
+}
+
+function hashOrEmpty(value) {
+  return sha256Hex(Buffer.from(value ?? "", "utf8"));
+}
+
+export function computeWorkspaceHash({ scopeCandidates, sourceCandidates, knownSources, knownCommandsEvidence }) {
+  const lines = [];
+
+  for (const c of scopeCandidates) {
+    lines.push(`scope\0${hashOrEmpty(c.path)}\0${stringSetHash(c.signals)}\0${hashOrEmpty(c.suggestions?.kind)}\0${stringSetHash(c.suggestions?.ruleIds || [])}\n`);
+  }
+  for (const c of sourceCandidates) {
+    lines.push(`sourceCandidate\0${hashOrEmpty(c.path)}\0${stringSetHash(c.candidateFamilies)}\0${c.observedFingerprint}\0${c.observedContentHash}\0${stringSetHash(c.ruleIds)}\n`);
+  }
+  for (const s of knownSources) {
+    const fp = s.observedFingerprint ?? hashOrEmpty("missing");
+    const ch = s.observedContentHash ?? hashOrEmpty("missing");
+    lines.push(`knownSource\0${s.sourceId}\0${s.driftState}\0${hashOrEmpty(s.path)}\0${fp}\0${ch}\0${hashOrEmpty(s.observedAtPath)}\n`);
+  }
+  for (const e of knownCommandsEvidence) {
+    lines.push(`commandEvidence\0${e.scopeId}\0${e.role}\0${e.evidenceState}\0${stringSetHash(e.reasons)}\n`);
+  }
+
+  lines.sort();
+  return sha256Hex(Buffer.from(lines.join(""), "utf8"));
 }
