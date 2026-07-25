@@ -10,12 +10,26 @@ legacy skills, v3 command scripts, or active/finished storage.
 ## Bootstrap
 
 ```bash
+npm ci
+npm run build:runtime
 npm run verify:next-generation
-npm run verify:corte-1.2
-npm run test:vertical-slice
 ```
 
+## Corte 0 status
+
+Real, tested surface: `init`, `config set`, `config scope add`,
+`changeset propose|validate|approve|apply`, `check schema` — backed by real
+JSON Schemas, UUIDv7 IDs, an explicit approval state machine, and a
+crash-consistent event journal with idempotent recovery. See
+`docs/specs/corte-0-runtime-foundation.md`.
+
+**Not yet implemented (mandatory next iteration, not optional):**
+git/scope/package discovery, guide registration, autonomy configuration,
+`release`/`item`/`work-package`/`task`, `check health|guides|gates`,
+`report`, and approval governance (role separation between proposer and
+approver — self-approval is currently allowed but must be explicit). Any of
+these commands returns `NOT_IMPLEMENTED` with exit code `3` rather than a
+silent or partial result.
+
 The product launcher is `bin/shipping-mode.mjs` and returns JSON for host
-skills. Productive runtime work remains blocked until all Corte -1.2 spikes
-are closed. Corte -1.2 is now closed; Corte 0 contains the first vertical
-slice behind the launcher and remains intentionally minimal.
+skills.

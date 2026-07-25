@@ -14,7 +14,12 @@ if [[ "${VERIFY_NEXT_GENERATION_SKIP_TESTS:-0}" != "1" ]]; then
   (cd "$ROOT" && node spikes/tests/verify-corte-1.2.test.mjs)
   (cd "$ROOT" && node scripts/tests/verify-next-generation.test.mjs)
   (cd "$ROOT" && node spikes/host-integration/tests/host-integration.test.mjs)
-  (cd "$ROOT" && node src/tests/vertical-slice.test.mjs)
+  (cd "$ROOT" && npm ci --silent)
+  (cd "$ROOT" && npm run --silent build:runtime)
+  (cd "$ROOT" && npm run --silent build:test-bundle)
+  (cd "$ROOT" && npm run --silent test:unit)
+  (cd "$ROOT" && npm run --silent test:cli-e2e)
+  (cd "$ROOT" && npm run --silent test:bundle)
   (cd "$ROOT" && node spikes/verify-corte-1.2.mjs --structure-only)
 fi
 
