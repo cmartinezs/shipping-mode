@@ -30,4 +30,17 @@ assert.ok(proposeFromFile.operationId);
 
 assert.throws(() => dispatch("changeset", ["propose", "--kind", "config.update", "--payload-file", path.join(cwd, "missing.json"), "--actor", "carlos"], cwd), UsageError);
 
+const discoverResult = dispatch("discover", ["scan"], cwd);
+assert.equal(discoverResult.schemaVersion, 1);
+assert.equal(discoverResult.scanParameters.maxSourceBytes, 536870912);
+
+const discoverWithFlag = dispatch("discover", ["scan", "--max-source-bytes", "2097152"], cwd);
+assert.equal(discoverWithFlag.scanParameters.maxSourceBytes, 2097152);
+
+assert.throws(() => dispatch("discover", ["scan", "--max-source-bytes", "10"], cwd), UsageError, "below the 1 MiB floor must be rejected");
+
+const discoverNotImplemented = dispatch("discover", ["nonsense"], cwd);
+assert.equal(discoverNotImplemented.status, "NOT_IMPLEMENTED");
+assert.equal(discoverNotImplemented.corte, "0");
+
 console.log("dispatcher: all tests passed");
