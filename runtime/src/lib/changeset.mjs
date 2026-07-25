@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import path from "node:path";
 import { generateUuidV7 } from "./ids.mjs";
 import { canonicalize, canonicalJson, revisionHash, contentHash, ABSENT } from "./canonical.mjs";
 import { confineRuntimePath } from "./paths.mjs";
@@ -7,6 +8,8 @@ import { withWorkspaceMutation } from "./mutation.mjs";
 import { writeOperation, readOperation, writeChangeSet, readChangeSet } from "./operationStore.mjs";
 import { validate as validateSchema } from "./schema.mjs";
 import { StateError, StaleError } from "./errors.mjs";
+import { buildExpectedEvent } from "./journal.mjs";
+import { checkpoint } from "./faultInjection.mjs";
 
 export function readFileState(planningRoot, relativePath) {
   const absolutePath = confineRuntimePath(planningRoot, relativePath);
@@ -228,4 +231,105 @@ export function approveOperation({ operationsRoot, planningRoot, operationId, ac
       history: [...operation.history, { at: approvedAt, from: "VALIDATED", to: "APPROVED", actor, reason: selfApproval ? "self-approved" : null }]
     });
   });
+}
+
+function prepareApply({ operationsRoot, planningRoot, operationId, render, actor }) {
+  let operation = readOperation(operationsRoot, operationId);
+  if (operation.status !== "APPROVED") {
+    throw new StateError(`cannot apply operation in status ${operation.status}`);
+  }
+  const changeSet = readChangeSet(operationsRoot, operationId);
+
+  // step 1 (revalidation under the lock, authoritative -- the earlier
+  // validate/approve checks were only ever a fail-fast optimistic pass).
+  // Reuses the exact same rule set validateOperation uses, then additionally
+  // requires the hash to still match what validate AND approve each recorded.
+  const revalidation = revalidateChangeSet({ operationsRoot, planningRoot, operationId, render });
+  if (!revalidation.ok) {
+    transitionToStale(operationsRoot, operationId, operation, revalidation.errors[0]);
+  }
+  const recomputedHash = revalidation.recomputedHash;
+  if (recomputedHash !== changeSet.hash || recomputedHash !== operation.validation.changeSetHash || recomputedHash !== operation.approval.changeSetHash) {
+    transitionToStale(operationsRoot, operationId, operation, "changeSetHash no longer matches validate/approve; the change-set has drifted since approval");
+  }
+
+  const rendered = revalidation.rendered;
+  const stagingDir = path.join(planningRoot, ".runtime", "operations", operationId, "staged");
+  const beforeDir = path.join(planningRoot, ".runtime", "operations", operationId, "before");
+  fs.mkdirSync(stagingDir, { recursive: true });
+  fs.mkdirSync(beforeDir, { recursive: true });
+
+  // step 2 (part 1): snapshot before/ for files that currently exist, and
+  // build the filePlan entries (both content+revision hashes, before and
+  // staged). revalidateChangeSet already guaranteed baseRevisions contains
+  // exactly the rendered file set, so there is no fallback here -- a missing
+  // entry would be a bug in that guarantee, not something to paper over.
+  const filePlan = [];
+  for (const [relativePath, newContent] of rendered) {
+    const before = changeSet.baseRevisions[relativePath];
+    if (before.contentHash !== ABSENT) {
+      const currentAbsolute = confineRuntimePath(planningRoot, relativePath);
+      const beforePath = confineRuntimePath(beforeDir, relativePath);
+      fs.mkdirSync(path.dirname(beforePath), { recursive: true });
+      fs.copyFileSync(currentAbsolute, beforePath);
+    }
+    filePlan.push({
+      target: relativePath,
+      stagedRelativePath: relativePath,
+      expectedBefore: before.contentHash === ABSENT ? "ABSENT" : "PRESENT",
+      beforeContentHash: before.contentHash,
+      beforeRevisionHash: before.revisionHash,
+      stagedContentHash: contentHash(newContent),
+      stagedRevisionHash: relativePath.endsWith(".gitignore") ? contentHash(newContent) : revisionHash(parseYaml(newContent))
+    });
+  }
+  checkpoint("AFTER_BEFORE");
+
+  // step 2 (part 2): write staged/ content
+  for (const [relativePath, newContent] of rendered) {
+    const stagedPath = confineRuntimePath(stagingDir, relativePath);
+    fs.mkdirSync(path.dirname(stagedPath), { recursive: true });
+    fs.writeFileSync(stagedPath, newContent);
+  }
+  checkpoint("AFTER_STAGED");
+
+  // step 3: persist the filePlan + full, immutable expectedEvents documents,
+  // fixed before anything canonical is touched. The event id is the one
+  // reserved at propose time (operation.reservedEvents), never a fresh one.
+  const expectedEvents = operation.expectedEvents?.length
+    ? operation.expectedEvents.map((expectedEvent) => {
+        const relationallyConsistent = expectedEvent.eventId === expectedEvent.document?.eventId
+          && expectedEvent.document?.operationId === operation.id
+          && expectedEvent.relativePath.endsWith(`/${expectedEvent.eventId}.json`);
+        const eventSchemaCheck = validateSchema("event", expectedEvent.document);
+        if (!relationallyConsistent || !eventSchemaCheck.valid) {
+          throw new StateError("persisted expectedEvents manifest is invalid or internally inconsistent");
+        }
+        return expectedEvent;
+      })
+    : operation.reservedEvents.map((reserved) => buildExpectedEvent({
+        eventId: reserved.eventId,
+        type: reserved.type,
+        aggregate: { type: operation.kind.split(".")[0], id: operationId },
+        actor, operationId, idempotencyKey: operationId, payload: changeSet.payload
+      }));
+
+  operation = readOperation(operationsRoot, operationId);
+  writeOperation(operationsRoot, operationId, { ...operation, filePlan, expectedEvents });
+  checkpoint("AFTER_MANIFEST");
+
+  // step 4: durable transition to APPLYING, still holding the lock
+  operation = readOperation(operationsRoot, operationId);
+  const applyingAt = new Date().toISOString();
+  writeOperation(operationsRoot, operationId, {
+    ...operation, status: "APPLYING",
+    history: [...operation.history, { at: applyingAt, from: "APPROVED", to: "APPLYING", actor, reason: null }]
+  });
+  checkpoint("AFTER_APPLYING");
+
+  return { filePlan, expectedEvents };
+}
+
+export function __prepareApplyForTests(args) {
+  return prepareApply(args);
 }
