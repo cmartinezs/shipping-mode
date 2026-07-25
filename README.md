@@ -11,17 +11,36 @@ legacy skills, v3 command scripts, or active/finished storage.
 
 ```bash
 npm ci
-npm run build:runtime
 npm run verify:next-generation
 ```
+
+The verification gate rebuilds validators and the production bundle in
+isolated temporary directories, compares them byte-for-byte with the committed
+artifacts, builds the test-only fault-injection bundle, and executes unit,
+concurrency, CLI, hard-crash, isolated-bundle, and regression suites.
 
 ## Corte 0 status
 
 Real, tested surface: `init`, `config set`, `config scope add`,
 `changeset propose|validate|approve|apply`, `check schema` — backed by real
-JSON Schemas, UUIDv7 IDs, an explicit approval state machine, and a
-crash-consistent event journal with idempotent recovery. See
-`docs/specs/corte-0-runtime-foundation.md`.
+JSON Schemas, UUIDv7 IDs, an explicit approval state machine, confined atomic
+filesystem writes, and a crash-consistent event journal with idempotent
+recovery. See:
+
+- `docs/specs/corte-0-runtime-foundation.md`
+- `docs/specs/corte-0-runtime-foundation-security-amendment.md`
+
+The security amendment is normative and supersedes conflicting lock,
+filesystem, crash-testing, and build-verification details in the earlier spec
+and implementation plan.
+
+### Lock recovery policy
+
+Corte 0 never auto-reclaims a workspace lock whose owner PID is dead or whose
+metadata is unreadable. An operator must inspect the lock metadata, confirm
+that no writer is active, and remove the lock directory manually. This
+fail-closed policy preserves mutual exclusion without pretending that
+`mkdir`/`rename` provides leases or fencing.
 
 **Not yet implemented (mandatory next iteration, not optional):**
 git/scope/package discovery, guide registration, autonomy configuration,
