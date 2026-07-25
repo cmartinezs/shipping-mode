@@ -13,26 +13,34 @@ function isWithin(target, root) {
   return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
 }
 
-export function confineUnder(root, relativePath) {
+function lexicalTarget(root, relativePath) {
+  if (typeof relativePath !== "string" || relativePath.length === 0) {
+    throw new PathConfinementError("path must be a non-empty relative string");
+  }
   if (path.isAbsolute(relativePath)) {
     throw new PathConfinementError(`absolute path rejected: ${relativePath}`);
   }
-  const normalizedTarget = path.resolve(root, relativePath);
-  if (!isWithin(normalizedTarget, root)) {
+  const target = path.resolve(root, relativePath);
+  if (!isWithin(target, root)) {
     throw new PathConfinementError(`path escapes root: ${relativePath}`);
   }
+  return target;
+}
 
-  const segments = relativePath.split(path.sep).filter(Boolean);
+export function confineUnder(root, relativePath) {
+  const normalizedTarget = lexicalTarget(root, relativePath);
+  const segments = relativePath.split(/[\\/]+/).filter(Boolean);
   let currentPath = root;
   let currentReal = fs.realpathSync.native(root);
-  let resolvedCount = 0; // how many leading segments were confirmed to exist and folded into currentReal
+  let resolvedCount = 0;
+
   for (const segment of segments) {
     currentPath = path.join(currentPath, segment);
     let stat;
     try {
       stat = fs.lstatSync(currentPath);
     } catch (error) {
-      if (error.code === "ENOENT") break; // this and every remaining segment don't exist yet
+      if (error.code === "ENOENT") break;
       throw error;
     }
     if (stat.isSymbolicLink()) {
@@ -47,19 +55,73 @@ export function confineUnder(root, relativePath) {
     resolvedCount += 1;
   }
 
-  // The lexical `normalizedTarget` ignores symlink resolution entirely, so a symlink that
-  // exists but is not itself an escape (e.g. an alias fully inside root, like
-  // workspace/decoy -> workspace/.planning) would otherwise be returned as its pre-resolution
-  // text, letting callers reason about the wrong location. Build the return value from the
-  // real path of the confirmed-existing prefix (currentReal, the same value the escape check
-  // above already validated) with any not-yet-existing trailing segments appended lexically --
-  // they can't be realpath'd because they don't exist yet.
   const remainingSegments = segments.slice(resolvedCount);
   return remainingSegments.length > 0 ? path.join(currentReal, ...remainingSegments) : currentReal;
 }
 
+// Mutation paths are stricter than read-only references: no existing path
+// component may be a symlink, even when it resolves back inside the root.
+// This prevents aliases such as .runtime/operations -> another in-workspace
+// directory from redirecting staging, snapshots, temporaries, or canonical
+// writes to a location the caller did not name.
+export function confineWritePath(root, relativePath) {
+  const normalizedTarget = lexicalTarget(root, relativePath);
+  const rootStat = fs.lstatSync(root);
+  if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) {
+    throw new PathConfinementError(`${root} must be a real directory`);
+  }
+
+  const segments = relativePath.split(/[\\/]+/).filter(Boolean);
+  let current = root;
+  for (const [index, segment] of segments.entries()) {
+    current = path.join(current, segment);
+    let stat;
+    try {
+      stat = fs.lstatSync(current);
+    } catch (error) {
+      if (error.code === "ENOENT") break;
+      throw error;
+    }
+    if (stat.isSymbolicLink()) {
+      throw new PathConfinementError(`symlink component rejected for mutation path: ${current}`);
+    }
+    if (index < segments.length - 1 && !stat.isDirectory()) {
+      throw new PathConfinementError(`non-directory path component rejected: ${current}`);
+    }
+  }
+  return normalizedTarget;
+}
+
+export function ensureDirectoryTree(root, relativeDirectory = "") {
+  const rootStat = fs.lstatSync(root);
+  if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) {
+    throw new PathConfinementError(`${root} must be a real directory`);
+  }
+  if (!relativeDirectory || relativeDirectory === ".") return root;
+
+  lexicalTarget(root, relativeDirectory);
+  let current = root;
+  for (const segment of relativeDirectory.split(/[\\/]+/).filter(Boolean)) {
+    current = path.join(current, segment);
+    try {
+      fs.mkdirSync(current);
+    } catch (error) {
+      if (error.code !== "EEXIST") throw error;
+    }
+    const stat = fs.lstatSync(current);
+    if (stat.isSymbolicLink() || !stat.isDirectory()) {
+      throw new PathConfinementError(`directory component must be a real directory: ${current}`);
+    }
+  }
+  return current;
+}
+
 export function confineRuntimePath(planningRoot, relativePath) {
   return confineUnder(planningRoot, relativePath);
+}
+
+export function confineRuntimeWritePath(planningRoot, relativePath) {
+  return confineWritePath(planningRoot, relativePath);
 }
 
 export function confineScopePath(workspaceRoot, relativePath) {
@@ -77,7 +139,7 @@ function assertTrustedRoot(parentDir, name) {
   try {
     stat = fs.lstatSync(candidate);
   } catch (error) {
-    if (error.code === "ENOENT") return; // doesn't exist yet -- safe to create later
+    if (error.code === "ENOENT") return;
     throw error;
   }
   if (stat.isSymbolicLink()) {
@@ -99,10 +161,19 @@ export function assertTrustedRoots(planningRoot) {
   try {
     fs.lstatSync(planningRoot);
   } catch (error) {
-    if (error.code === "ENOENT") return; // fresh bootstrap, nothing further to check yet
+    if (error.code === "ENOENT") return;
     throw error;
   }
   for (const name of ["operations", "events", ".runtime", "scopes"]) {
     assertTrustedRoot(planningRoot, name);
   }
+
+  const runtimeRoot = path.join(planningRoot, ".runtime");
+  try {
+    fs.lstatSync(runtimeRoot);
+  } catch (error) {
+    if (error.code === "ENOENT") return;
+    throw error;
+  }
+  assertTrustedRoot(runtimeRoot, "operations");
 }
