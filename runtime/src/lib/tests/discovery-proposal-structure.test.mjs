@@ -4,6 +4,7 @@ import { validateProposalStructure } from "../discoveryProposal.mjs";
 const scopeId = "018f4d1e-0000-7000-8000-000000000001";
 const srcA = "018f4d1e-0000-7000-8000-000000000002";
 const srcB = "018f4d1e-0000-7000-8000-000000000003";
+const srcC = "018f4d1e-0000-7000-8000-000000000004";
 
 function baseProposal(overrides = {}) {
   return {
@@ -73,6 +74,47 @@ function baseProposal(overrides = {}) {
   }));
   assert.equal(result.ok, false);
   assert.ok(result.errors.some((e) => e.code === "fingerprint_key_mismatch"));
+}
+
+// regression: two scopeCommands[] entries sharing the same (scopeId, role) -- already flagged
+// by duplicate_scope_command -- must NOT let the later entry shadow the earlier one when
+// checking fingerprint-key mismatches. Both entries have their own, distinct mismatch (extra
+// srcB on the first, extra srcC on the second), so both must be reported.
+{
+  const result = validateProposalStructure(baseProposal({
+    scopeCommands: [
+      {
+        scopeId, role: "build", command: "./x", method: "reviewed", confidence: "high",
+        sourceRefs: [srcA], sourceFingerprintAtSelection: { [srcA]: "c".repeat(64), [srcB]: "d".repeat(64) },
+        requiresEnvironment: false, requiresSecrets: false, alternatives: []
+      },
+      {
+        scopeId, role: "build", command: "./y", method: "reviewed", confidence: "high",
+        sourceRefs: [srcA], sourceFingerprintAtSelection: { [srcA]: "c".repeat(64), [srcC]: "d".repeat(64) },
+        requiresEnvironment: false, requiresSecrets: false, alternatives: []
+      }
+    ]
+  }));
+  assert.equal(result.ok, false);
+  const mismatches = result.errors.filter((e) => e.code === "fingerprint_key_mismatch");
+  assert.equal(mismatches.length, 2);
+  assert.ok(mismatches.some((e) => e.extra.includes(srcB)));
+  assert.ok(mismatches.some((e) => e.extra.includes(srcC)));
+}
+
+// multiple simultaneous DIFFERENT relational violations -> both codes come back together,
+// proving "collects everything" isn't just true by inspection of a single-violation case
+{
+  const result = validateProposalStructure(baseProposal({
+    scanParameters: { maxSourceBytes: 100 },
+    sources: [
+      { action: "update", sourceId: srcA, observedFingerprint: "c".repeat(64), observedContentHash: "d".repeat(64) },
+      { action: "remove", sourceId: srcA }
+    ]
+  }));
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((e) => e.code === "scan_parameters_out_of_range"));
+  assert.ok(result.errors.some((e) => e.code === "duplicate_source_action" && e.sourceId === srcA));
 }
 
 // fully valid, structurally complete proposal -> ok

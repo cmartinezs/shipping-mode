@@ -41,21 +41,24 @@ function checkDuplicateScopeCommands(proposal) {
 // A role like "custom.e2e" must land at fakeScope.commands.custom.e2e, not the literal key
 // "custom.e2e" -- allCommandEntries only looks inside commands.custom for anything beyond the
 // five well-known roles.
+//
+// One fake scope is built PER ENTRY, not grouped by scopeId: if two scopeCommands[] entries
+// share the same (scopeId, role) -- already flagged separately by checkDuplicateScopeCommands --
+// grouping by scopeId would let the later entry silently overwrite the earlier one in the fake
+// scope's commands.<role> slot, so the earlier entry's own mismatch would never be checked. A
+// caller fixing a proposal must see every applicable error in one round-trip, including on
+// entries that are also duplicates of each other.
 function checkFingerprintKeyMismatches(proposal) {
   const errors = [];
-  const byScope = new Map();
   for (const entry of proposal.scopeCommands || []) {
-    if (!byScope.has(entry.scopeId)) byScope.set(entry.scopeId, { commands: { custom: {} } });
-    const scopeEntry = byScope.get(entry.scopeId);
+    const fakeScope = { commands: { custom: {} } };
     if (entry.role.startsWith("custom.")) {
-      scopeEntry.commands.custom[entry.role.slice("custom.".length)] = entry;
+      fakeScope.commands.custom[entry.role.slice("custom.".length)] = entry;
     } else {
-      scopeEntry.commands[entry.role] = entry;
+      fakeScope.commands[entry.role] = entry;
     }
-  }
-  for (const [scopeId, fakeScope] of byScope) {
     for (const mismatch of findCommandFingerprintKeyMismatches(fakeScope)) {
-      errors.push({ code: "fingerprint_key_mismatch", scopeId, role: mismatch.label, missing: mismatch.missing, extra: mismatch.extra, message: `scopeCommands entry for scope ${scopeId} role ${mismatch.label}: sourceFingerprintAtSelection keys do not match sourceRefs` });
+      errors.push({ code: "fingerprint_key_mismatch", scopeId: entry.scopeId, role: mismatch.label, missing: mismatch.missing, extra: mismatch.extra, message: `scopeCommands entry for scope ${entry.scopeId} role ${mismatch.label}: sourceFingerprintAtSelection keys do not match sourceRefs` });
     }
   }
   return errors;
