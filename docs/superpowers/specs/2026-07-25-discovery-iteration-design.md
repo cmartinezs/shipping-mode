@@ -218,6 +218,11 @@ already passed an applied ChangeSet):
 - `inferred`: came from `discover propose`, auto-approved by autonomy policy (no human looked at this specific item).
 - `reviewed`: came from `discover propose`, paused, and a human approved it explicitly.
 
+For `DiscoveryProposal` input, `method` is untrusted proposal data used only to
+validate the evidence shape. The persisted catalog command's `method` is
+server-owned at apply time: `--mode autonomous` stores `inferred`, and
+`--mode human` stores `reviewed`.
+
 **Well-known roles:** `build | test | smoke | lint | verify` (schema slots).
 Anything else goes under `custom.<role>`, pattern `^[a-z][a-z0-9-]{0,63}$`,
 must not reuse a well-known name.
@@ -430,7 +435,7 @@ JSON like `discover propose`, same `propose→validate→approve→apply` gate.
 ```json
 {
   "autonomyEvaluation": {
-    "policyFingerprint": "sha256:...",
+    "policyFingerprint": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     "autoApprovable": false,
     "blockedBy": [
       { "itemRef": "sources[0]", "reason": "authority_above_ceiling" },
