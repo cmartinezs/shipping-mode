@@ -186,3 +186,36 @@ export function verifySourceFingerprints({ proposal, planningRoot, workspaceRoot
   }
   return errors.length === 0 ? { ok: true } : { ok: false, errors };
 }
+
+function resolvableSourceIds(proposal, confirmedIds) {
+  const resolvable = new Set(confirmedIds);
+  for (const entry of proposal.sources || []) {
+    if (entry.action === "update" || entry.action === "move") resolvable.add(entry.sourceId);
+    // "add" deliberately excluded -- no sourceId exists yet; "remove" deliberately excluded --
+    // referencing a source being removed is handled as its own check in Task 8
+  }
+  return resolvable;
+}
+
+export function resolveSourceReferences({ proposal, planningRoot }) {
+  const confirmedIds = readConfirmedSources(planningRoot).map((s) => s.id);
+  const resolvable = resolvableSourceIds(proposal, confirmedIds);
+  const errors = [];
+
+  for (const command of proposal.scopeCommands || []) {
+    for (const ref of command.sourceRefs || []) {
+      if (!resolvable.has(ref)) {
+        errors.push({ code: "dangling_source_ref", scopeId: command.scopeId, role: command.role, sourceId: ref, message: `sourceRef ${ref} does not resolve to a confirmed source or an update/move in this same proposal` });
+      }
+    }
+    for (const alternative of command.alternatives || []) {
+      for (const ref of alternative.sourceRefs || []) {
+        if (!resolvable.has(ref)) {
+          errors.push({ code: "dangling_source_ref", scopeId: command.scopeId, role: command.role, sourceId: ref, message: `alternative sourceRef ${ref} does not resolve to a confirmed source or an update/move in this same proposal` });
+        }
+      }
+    }
+  }
+
+  return errors.length === 0 ? { ok: true } : { ok: false, errors };
+}
