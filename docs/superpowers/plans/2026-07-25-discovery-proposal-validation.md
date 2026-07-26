@@ -1036,15 +1036,25 @@ const idMove = "018f4d1e-0000-7000-8000-000000000003";
   assert.equal(result.ok, true);
 }
 
-// remove: no fingerprint claim to verify at all -- always structurally fine at this step
+// remove: no fingerprint claim to verify -- but the sourceId must still be a real, confirmed source
 {
   const { workspaceRoot, planningRoot } = makeWorkspace();
+  writeConfirmedSource(planningRoot, idMove);
   const proposal = { scanParameters: { maxSourceBytes: 1024 * 1024 }, sources: [{ action: "remove", sourceId: idMove }] };
   const result = verifySourceFingerprints({ proposal, planningRoot, workspaceRoot });
   assert.equal(result.ok, true);
 }
 
-console.log("discovery-proposal-fingerprints: add/update/move/remove fingerprint re-verification, path confinement, and move identity checks all pass");
+// remove: sourceId does not exist in the confirmed catalog at all -- rejected, not silently accepted
+{
+  const { workspaceRoot, planningRoot } = makeWorkspace();
+  const proposal = { scanParameters: { maxSourceBytes: 1024 * 1024 }, sources: [{ action: "remove", sourceId: idMove }] };
+  const result = verifySourceFingerprints({ proposal, planningRoot, workspaceRoot });
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((e) => e.code === "unknown_source_id" && e.sourceId === idMove));
+}
+
+console.log("discovery-proposal-fingerprints: add/update/move/remove fingerprint re-verification, path confinement, move identity checks, and remove-target existence all pass");
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -1058,16 +1068,20 @@ Append to `runtime/src/lib/discoveryProposal.mjs` (add `import fs from "node:fs"
 
 ```js
 function verifyOneSourceAction(entry, { confirmedById, workspaceRoot, maxSourceBytes }) {
-  if (entry.action === "remove") return []; // no fingerprint claim to verify
-
   if (entry.action === "add") {
     return verifyClaimedFingerprint(entry, entry.path, workspaceRoot, maxSourceBytes);
   }
 
+  // update, move, and remove all reference an existing sourceId -- confirm it's real before
+  // doing anything else. Without this, "remove" was the only action type that could target a
+  // completely fictitious sourceId and pass validation (update/move already reject via
+  // unknown_source_id below; remove used to skip this lookup entirely).
   const confirmed = confirmedById.get(entry.sourceId);
   if (!confirmed) {
     return [{ code: "unknown_source_id", sourceId: entry.sourceId, message: `sources[] entry references sourceId ${entry.sourceId}, which is not in the confirmed catalog` }];
   }
+
+  if (entry.action === "remove") return []; // existence already confirmed above; no fingerprint claim to verify
 
   if (entry.action === "update") {
     return verifyClaimedFingerprint(entry, confirmed.path, workspaceRoot, maxSourceBytes);
