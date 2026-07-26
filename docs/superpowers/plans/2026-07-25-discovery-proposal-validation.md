@@ -1996,3 +1996,79 @@ Expected: no stray temp files; the diff only touches the files from Tasks 1–10
 - [ ] No new npm dependency was added (`git diff develop...HEAD -- package.json package-lock.json` is empty).
 - [ ] This plan does not introduce any new ChangeSet `kind` and does not modify `changeset.mjs`, `mutation.mjs`, `lock.mjs`, `journal.mjs`, `recovery.mjs`, or `changesetCommand.mjs` — confirm with `git diff --stat` against the base branch.
 - [ ] `docs/superpowers/plans/2026-07-25-discovery-iteration-INDEX.md` is updated: this plan marked done only once merged, Plan 3 (ChangeSet integration) still clearly open and now unblocked.
+
+---
+
+### Post-implementation amendment: final whole-branch review findings
+
+Tasks 1–11 above are the original plan as written and executed. After Task 11 completed, a
+final whole-branch review (covering all 11 tasks together, since Tasks 7–11 skipped individual
+per-task review by human directive) found one Critical bug and several Important gaps that this
+amendment fixes. This section documents what changed and why, rather than rewriting the task
+sections above — `runtime/src/lib/discoveryProposal.mjs` and its tests are the ground truth for
+the final shape; treat any conflict between a task section above and the code as the code winning.
+
+**Critical — `discover validate` exited 0 on a rejected proposal.** `runDiscoverValidate` returned
+`{ ok: false, errors }` with no `status` field; `bin/shipping-mode.mjs`'s exit-code mapping reads
+`value.status` and defaults to exit 0 when it's absent — every other command that can fail
+(`checkSchema`, `changeset validate`) sets `status` on rejection, this was the one outlier. Fixed:
+`runDiscoverValidate` now returns `{ ...result, status: "INVALID" }` on rejection. Covered by a new
+`cli-e2e.test.mjs` block that runs the actual built binary and asserts exit code 1 — the gap existed
+specifically because nothing exercised `discover validate` above the lib/command layer.
+
+**Important — four additional step-4 reference/integrity checks, none present in the original 11
+tasks:**
+- `checkScopeProposals({ proposal, planningRoot, workspaceRoot })`: every `scopes[]` entry's `path`
+  is now routed through `confineScopePath` (`untrusted_scope_path`), and its `key` is rejected if it
+  collides with an already-confirmed scope's key (`scope_key_collision`). Previously `scopes[]` was
+  validated only at JSON-schema shape level — a proposal could carry a `scopes[].path` of
+  `../../../etc` and still validate as `ok: true`.
+- `resolveSourceReferences` now also resolves `scopeCommands[].scopeId` against the confirmed scope
+  catalog (`dangling_scope_ref`). A `scopeId` can only ever name an already-confirmed scope — a
+  proposal's own `scopes[]` entries have no `id` yet, minted only at apply time, same reasoning as
+  why `add` source entries are unreferenceable within their own proposal.
+- `checkSourcePathCollisions({ proposal, planningRoot })`: rejects `source_path_collision` when, after
+  this proposal is applied, two sources would occupy the same path — an `add` landing where an
+  untouched confirmed source already lives, or two `move`s landing on the same target. Undetected,
+  this would silently break `detectMoved`'s "exactly one match" uniqueness rule in every later scan.
+- `checkAlternativeKeyCollisions` (structural, step 1/2): a `scopeCommands[]` entry's selected
+  command and every `alternatives[]` entry must have pairwise-distinct `(command, sourceRefs-as-set)`
+  identity (`duplicate_alternative_key`) — closes the spec's invariant 5, previously unenforced by
+  both this plan and Plan 1's `scope.schema.json`/`check.mjs`.
+- `checkDuplicateScopeKeys` (structural): two `scopes[]` entries in the same proposal sharing a `key`
+  is now rejected (`duplicate_scope_key`), mirroring the existing `checkDuplicateSourceActions`.
+
+All five are wired into `validateDiscoveryProposal`'s step-4 batch (or step 1/2 for the two
+structural ones) alongside the original four, following the same "collect everything, don't
+short-circuit each other" pattern. Each has its own adversarial test:
+`runtime/src/lib/tests/discovery-proposal-catalog-integrity.test.mjs` (new file, scope-key-collision,
+untrusted-scope-path, source-path-collision), plus additions to
+`discovery-proposal-references.test.mjs` (dangling scope ref) and
+`discovery-proposal-structure.test.mjs` (duplicate scope key, duplicate alternative key).
+
+**Important — `checkDriftReconciliation`'s command-evidence check was a fail-open allowlist.**
+It used `NEEDS_RECONCILIATION = new Set([4 states])` and skipped reconciliation for anything not
+in that set — the inverse of the source-drift check three lines above it, which fails closed
+(`if (driftState !== "unchanged") ...`). Behaviorally identical today (`discoverScan.mjs` emits
+exactly six `evidenceState` values, and the four listed were exactly the ones needing
+reconciliation), but a future seventh state would silently bypass reconciliation. Fixed: inverted
+to `NO_RECONCILIATION_NEEDED = new Set(["current", "not-evidence-backed"])`, fail-closed like its
+neighbor.
+
+**Important — `readPayloadText`'s missing-argument error always said "changeset propose...".**
+`discover validate` reused `readPayloadText` (as originally specified in Task 10) but the function's
+`UsageError` message was hardcoded to the other caller. Fixed: `readPayloadText` now takes a
+`usage` parameter; each call site passes its own message.
+
+**Important — `schema_invalid` errors' `path` field collided in meaning with the filesystem-path
+`path` field used by every other error code.** Renamed to `pointer` (it's a JSON pointer into the
+proposal document, not a filesystem path) before Plan 3 depends on the error-object contract.
+
+**Minor — a stray "Econtinue" typo in `docs/superpowers/plans/2026-07-25-discovery-iteration-INDEX.md`**
+(introduced during this branch's own setup) was corrected to "E".
+
+**Deliberately not changed:** the reviewer's remaining Minor notes (`normalized.proposal` not being
+a defensive copy, `fingerprint_mismatch`'s reported fields when only `contentHash` differs, the
+`observation_race` diagnostic surfacing for a simple path typo, `--stdin` test coverage gaps, and
+`baseRevision.vcsRevision` being passed through unverified) were reviewed and left as-is — genuine
+polish, not correctness or security gaps, and out of proportion with this amendment's scope.
