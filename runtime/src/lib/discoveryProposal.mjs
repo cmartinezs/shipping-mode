@@ -1,5 +1,8 @@
+import fs from "node:fs";
 import { validate } from "./schema.mjs";
-import { findCommandFingerprintKeyMismatches, MIN_MAX_SOURCE_BYTES, MAX_MAX_SOURCE_BYTES, runDiscoverScan } from "./discoverScan.mjs";
+import { findCommandFingerprintKeyMismatches, MIN_MAX_SOURCE_BYTES, MAX_MAX_SOURCE_BYTES, runDiscoverScan, readConfirmedSources } from "./discoverScan.mjs";
+import { computeSourceFingerprint, FingerprintError } from "./fingerprint.mjs";
+import { confineScopePath, PathConfinementError } from "./paths.mjs";
 
 function checkScanParametersRange(proposal) {
   const bytes = proposal.scanParameters?.maxSourceBytes;
@@ -101,4 +104,81 @@ export function verifyWorkspaceConsistency({ proposal, planningRoot, workspaceRo
     };
   }
   return { ok: true, freshScan };
+}
+
+function verifyOneSourceAction(entry, { confirmedById, workspaceRoot, maxSourceBytes }) {
+  if (entry.action === "remove") return []; // no fingerprint claim to verify
+
+  if (entry.action === "add") {
+    return verifyClaimedFingerprint(entry, entry.path, workspaceRoot, maxSourceBytes);
+  }
+
+  const confirmed = confirmedById.get(entry.sourceId);
+  if (!confirmed) {
+    return [{ code: "unknown_source_id", sourceId: entry.sourceId, message: `sources[] entry references sourceId ${entry.sourceId}, which is not in the confirmed catalog` }];
+  }
+
+  if (entry.action === "update") {
+    return verifyClaimedFingerprint(entry, confirmed.path, workspaceRoot, maxSourceBytes);
+  }
+
+  // entry.action === "move"
+  const errors = [];
+  if (entry.fromPath !== confirmed.path) {
+    errors.push({ code: "move_frompath_mismatch", sourceId: entry.sourceId, message: `move claims fromPath ${entry.fromPath}, but the confirmed catalog has this source registered at ${confirmed.path}` });
+    return errors; // the rest of the move checks are meaningless if the identity claim is already wrong
+  }
+  let oldAbsolutePath;
+  try {
+    oldAbsolutePath = confineScopePath(workspaceRoot, entry.fromPath);
+  } catch (error) {
+    if (!(error instanceof PathConfinementError)) throw error;
+    return [{ code: "untrusted_source_path", sourceId: entry.sourceId, path: entry.fromPath, message: error.message }];
+  }
+  if (fs.existsSync(oldAbsolutePath)) {
+    errors.push({ code: "move_source_still_exists", sourceId: entry.sourceId, message: `move claims fromPath ${entry.fromPath} is now empty, but it still exists in the live workspace` });
+  }
+  if (entry.observedContentHash !== confirmed.confirmedContentHash) {
+    errors.push({ code: "move_content_mismatch", sourceId: entry.sourceId, message: "move's claimed contentHash does not match the confirmed source's contentHash -- this is not a content-preserving move" });
+  }
+  errors.push(...verifyClaimedFingerprint(entry, entry.path, workspaceRoot, maxSourceBytes));
+  return errors;
+}
+
+function verifyClaimedFingerprint(entry, relativePath, workspaceRoot, maxSourceBytes) {
+  let absolutePath;
+  try {
+    absolutePath = confineScopePath(workspaceRoot, relativePath);
+  } catch (error) {
+    if (!(error instanceof PathConfinementError)) throw error;
+    return [{ code: "untrusted_source_path", sourceId: entry.sourceId ?? null, path: relativePath, message: error.message }];
+  }
+  let observed;
+  try {
+    observed = computeSourceFingerprint(absolutePath, { maxBytes: maxSourceBytes });
+  } catch (error) {
+    if (!(error instanceof FingerprintError)) throw error;
+    return [{ code: error.code, sourceId: entry.sourceId ?? null, path: relativePath, message: error.message }];
+  }
+  const errors = [];
+  if (observed.fingerprint !== entry.observedFingerprint || observed.contentHash !== entry.observedContentHash) {
+    errors.push({
+      code: "fingerprint_mismatch",
+      sourceId: entry.sourceId ?? null,
+      path: relativePath,
+      message: "the proposal's claimed fingerprint does not match what is actually observed in the live workspace",
+      claimedFingerprint: entry.observedFingerprint,
+      observedFingerprint: observed.fingerprint
+    });
+  }
+  return errors;
+}
+
+export function verifySourceFingerprints({ proposal, planningRoot, workspaceRoot }) {
+  const confirmedById = new Map(readConfirmedSources(planningRoot).map((s) => [s.id, s]));
+  const errors = [];
+  for (const entry of proposal.sources || []) {
+    errors.push(...verifyOneSourceAction(entry, { confirmedById, workspaceRoot, maxSourceBytes: proposal.scanParameters.maxSourceBytes }));
+  }
+  return errors.length === 0 ? { ok: true } : { ok: false, errors };
 }
