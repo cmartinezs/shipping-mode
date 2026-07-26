@@ -5701,6 +5701,12 @@ function deleteWithinRoot(root, relativePath) {
   let targetPath = confineWritePath(root, relativePath);
   fs2.rmSync(targetPath, { force: !0 });
 }
+function removeEmptyParentDirectoryWithinRoot(root, relativePath) {
+  let parent = parentRelative(relativePath);
+  if (!parent) return !1;
+  let parentPath = confineWritePath(root, parent);
+  return !fs2.existsSync(parentPath) || !fs2.lstatSync(parentPath).isDirectory() || fs2.readdirSync(parentPath).length !== 0 ? !1 : (fs2.rmdirSync(parentPath), !0);
+}
 function copyFileAtomic(root, sourceRelativePath, targetRelativePath) {
   let sourcePath = confineWritePath(root, sourceRelativePath), contents = fs2.readFileSync(sourcePath);
   writeFileAtomic(root, targetRelativePath, contents);
@@ -9964,9 +9970,9 @@ function runRecovery({ operationsRoot, planningRoot, lock }) {
         }), divergent = !0;
         break;
       }
-      if (classification === "PENDING") {
+      if (entry.action === "delete" && classification === "APPLIED" && operation.kind === "discovery.propose" && removeEmptyParentDirectoryWithinRoot(planningRoot, entry.target), classification === "PENDING") {
         if (entry.action === "delete") {
-          deleteWithinRoot(planningRoot, entry.target);
+          deleteWithinRoot(planningRoot, entry.target), operation.kind === "discovery.propose" && removeEmptyParentDirectoryWithinRoot(planningRoot, entry.target);
           continue;
         }
         let stagedRelative = path6.join(runtimeOperationsRelative, operationId, "staged", entry.stagedRelativePath), stagedPath;
@@ -10776,7 +10782,7 @@ function applyOperation({ operationsRoot, planningRoot, operationId, render, act
       throw new StateError(`cannot apply operation in status ${operation.status}`);
     let { filePlan, expectedEvents, stagingRelative, runtimeOperationRelative } = prepareApply({ operationsRoot, planningRoot, operationId, render, actor }), files = [];
     for (let [index, entry] of filePlan.entries())
-      entry.action === "delete" ? deleteWithinRoot(planningRoot, entry.target) : renameWithinRoot(planningRoot, path9.join(stagingRelative, entry.stagedRelativePath), entry.target), files.push({ target: entry.target, action: entry.action, contentHash: entry.stagedContentHash }), index === 0 && checkpoint("AFTER_FIRST_RENAME");
+      entry.action === "delete" ? (deleteWithinRoot(planningRoot, entry.target), operation.kind === "discovery.propose" && removeEmptyParentDirectoryWithinRoot(planningRoot, entry.target)) : renameWithinRoot(planningRoot, path9.join(stagingRelative, entry.stagedRelativePath), entry.target), files.push({ target: entry.target, action: entry.action, contentHash: entry.stagedContentHash }), index === 0 && checkpoint("AFTER_FIRST_RENAME");
     checkpoint("AFTER_ALL_RENAMES");
     let result = { operationId, files }, resultSchemaCheck = validate("result", result);
     if (!resultSchemaCheck.valid)
@@ -10805,6 +10811,11 @@ function requireObjectPayload(rawPayload) {
     throw new UsageError("changeset payload must be a mapping/object");
   return rawPayload;
 }
+function requireExplicitBoolean(rawPayload, field) {
+  if (typeof rawPayload[field] != "boolean")
+    throw new UsageError(`scope.command.set ${field} must be an explicit boolean`);
+  return rawPayload[field];
+}
 function prepareProposal(kind, rawPayload, { operationId = null, actor = null, proposedAt = null } = {}) {
   if (!SUPPORTED_KINDS.has(kind)) throw new UsageError(`unsupported changeset kind: ${kind}`);
   if (requireObjectPayload(rawPayload), kind === "workspace.init")
@@ -10819,8 +10830,8 @@ function prepareProposal(kind, rawPayload, { operationId = null, actor = null, p
       scopeId: rawPayload.scopeId,
       role: rawPayload.role,
       command: rawPayload.command,
-      requiresEnvironment: !!rawPayload.requiresEnvironment,
-      requiresSecrets: !!rawPayload.requiresSecrets,
+      requiresEnvironment: requireExplicitBoolean(rawPayload, "requiresEnvironment"),
+      requiresSecrets: requireExplicitBoolean(rawPayload, "requiresSecrets"),
       declaredBy: actor,
       declaredAt: proposedAt
     };
@@ -11525,6 +11536,11 @@ function requireOperationId(value) {
   if (!isUuidV7(value)) throw new UsageError(`invalid operation id: ${value}`);
   return value;
 }
+function requireExplicitBooleanOption(value, flagName) {
+  if (value === "true") return !0;
+  if (value === "false") return !1;
+  throw new UsageError(`${flagName} requires explicit true or false`);
+}
 function readPayloadText(payloadFileArg, cwd, usage) {
   if (!payloadFileArg || payloadFileArg === !0) throw new UsageError(usage);
   if (payloadFileArg === "-") return fs13.readFileSync(0, "utf8");
@@ -11551,6 +11567,21 @@ function dispatch(command, args, cwd) {
       if (!options.key || !options.label || !options.kind || !options.path || !options.actor)
         throw new UsageError("config scope add requires --key, --label, --kind, --path, --actor");
       return runConfigScopeAdd({ planningRoot, args: { key: options.key, label: options.label, kind: options.kind, path: options.path, owner: options.owner, actor: options.actor } });
+    }
+    if (stage === "scope" && rest[0] === "set-command") {
+      let options = argsToOptions(rest.slice(1));
+      if (!options.scope_id || !options.role || !options.command || !options.actor)
+        throw new UsageError("config scope set-command requires --scope-id, --role, --command, --requires-environment, --requires-secrets, --actor");
+      if (options.requires_environment === void 0 || options.requires_secrets === void 0)
+        throw new UsageError("config scope set-command requires explicit --requires-environment true|false and --requires-secrets true|false");
+      let payloadText = JSON.stringify({
+        scopeId: options.scope_id,
+        role: options.role,
+        command: options.command,
+        requiresEnvironment: requireExplicitBooleanOption(options.requires_environment, "--requires-environment"),
+        requiresSecrets: requireExplicitBooleanOption(options.requires_secrets, "--requires-secrets")
+      });
+      return runChangesetPropose({ planningRoot, kind: "scope.command.set", payloadText, actor: options.actor });
     }
     return notImplemented(`config ${stage || ""}`.trim());
   }

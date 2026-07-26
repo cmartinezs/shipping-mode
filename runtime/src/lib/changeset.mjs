@@ -3,7 +3,7 @@ import path from "node:path";
 import { generateUuidV7 } from "./ids.mjs";
 import { revisionHash, contentHash, ABSENT } from "./canonical.mjs";
 import { confineRuntimeWritePath, ensureDirectoryTree } from "./paths.mjs";
-import { assertDistinctMutationTargets, copyFileAtomic, deleteWithinRoot, renameWithinRoot, writeFileAtomic } from "./safeFs.mjs";
+import { assertDistinctMutationTargets, copyFileAtomic, deleteWithinRoot, removeEmptyParentDirectoryWithinRoot, renameWithinRoot, writeFileAtomic } from "./safeFs.mjs";
 import { parseYaml } from "./yaml.mjs";
 import { withWorkspaceMutation } from "./mutation.mjs";
 import { writeOperation, readOperation, writeChangeSet, readChangeSet, writeResult } from "./operationStore.mjs";
@@ -368,6 +368,9 @@ export function applyOperation({ operationsRoot, planningRoot, operationId, rend
     for (const [index, entry] of filePlan.entries()) {
       if (entry.action === "delete") {
         deleteWithinRoot(planningRoot, entry.target);
+        if (operation.kind === "discovery.propose") {
+          removeEmptyParentDirectoryWithinRoot(planningRoot, entry.target);
+        }
       } else {
         renameWithinRoot(planningRoot, path.join(stagingRelative, entry.stagedRelativePath), entry.target);
       }

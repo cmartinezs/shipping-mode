@@ -10,6 +10,13 @@ function requireObjectPayload(rawPayload) {
   return rawPayload;
 }
 
+function requireExplicitBoolean(rawPayload, field) {
+  if (typeof rawPayload[field] !== "boolean") {
+    throw new UsageError(`scope.command.set ${field} must be an explicit boolean`);
+  }
+  return rawPayload[field];
+}
+
 export function prepareProposal(kind, rawPayload, { operationId = null, actor = null, proposedAt = null } = {}) {
   if (!SUPPORTED_KINDS.has(kind)) throw new UsageError(`unsupported changeset kind: ${kind}`);
   requireObjectPayload(rawPayload);
@@ -30,8 +37,8 @@ export function prepareProposal(kind, rawPayload, { operationId = null, actor = 
       scopeId: rawPayload.scopeId,
       role: rawPayload.role,
       command: rawPayload.command,
-      requiresEnvironment: Boolean(rawPayload.requiresEnvironment),
-      requiresSecrets: Boolean(rawPayload.requiresSecrets),
+      requiresEnvironment: requireExplicitBoolean(rawPayload, "requiresEnvironment"),
+      requiresSecrets: requireExplicitBoolean(rawPayload, "requiresSecrets"),
       declaredBy: actor,
       declaredAt: proposedAt
     };

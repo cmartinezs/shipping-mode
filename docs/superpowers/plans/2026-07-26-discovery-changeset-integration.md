@@ -202,7 +202,7 @@ The ChangeSet engine remains the only writer. `discover validate` stays read-onl
 
 - [x] Add `discover propose --file <path> | --stdin --actor <actor>` to the dispatcher.
 - [x] Keep `changeset propose --kind discovery.propose` not implemented for caller-supplied payloads; discovery proposal handoff must go through `discover propose`.
-- [x] Add `changeset propose --kind scope.command.set --payload-file <file|-> --actor <actor>` for manual declared command updates.
+- [x] Keep `scope.command.set` as the internal ChangeSet kind and expose manual declared command updates through public `config scope set-command --scope-id <id> --role <role> --command <cmd> --requires-environment true|false --requires-secrets true|false --actor <actor>`.
 - [x] Add `renderFor("discovery.propose")` in `changesetCommand.mjs`.
 - [x] Add `renderFor("scope.command.set")` in `changesetCommand.mjs`.
 - [x] Extend `runChangesetValidate()` and `runChangesetApply()` so discovery renderers receive current config, workspace root, confirmed source files, and confirmed scope files.
@@ -270,3 +270,9 @@ The original file names were placeholders. The final coverage is consolidated in
 - [x] Source removes are real deletes and recovery-safe.
 - [x] Plan 4 autonomy fields are not implemented.
 - [x] Git execution and Work Sources/Jira contracts do not expand this plan.
+
+## Post-review corrections
+
+- [x] `source remove` prunes the empty `sources/<uuid>/` directory in normal apply and recovery, and `check schema` remains `PASS`.
+- [x] `scope.command.set` rejects missing/non-boolean descriptive flags instead of coercing truthiness.
+- [x] The repo-facing API is `config scope set-command`; `scope.command.set` remains the underlying ChangeSet kind.

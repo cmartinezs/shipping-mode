@@ -4,7 +4,7 @@ import { readOperation, writeOperation, writeResult, readResult } from "./operat
 import { writeEventIdempotent, RecoveryRequiredError } from "./journal.mjs";
 import { contentHash, ABSENT } from "./canonical.mjs";
 import { confineRuntimeWritePath, confineWritePath } from "./paths.mjs";
-import { deleteWithinRoot, renameWithinRoot } from "./safeFs.mjs";
+import { deleteWithinRoot, removeEmptyParentDirectoryWithinRoot, renameWithinRoot } from "./safeFs.mjs";
 import { isUuidV7 } from "./ids.mjs";
 import { validate as validateSchema } from "./schema.mjs";
 
@@ -100,9 +100,16 @@ export function runRecovery({ operationsRoot, planningRoot, lock }) {
         break;
       }
 
+      if (entry.action === "delete" && classification === "APPLIED" && operation.kind === "discovery.propose") {
+        removeEmptyParentDirectoryWithinRoot(planningRoot, entry.target);
+      }
+
       if (classification === "PENDING") {
         if (entry.action === "delete") {
           deleteWithinRoot(planningRoot, entry.target);
+          if (operation.kind === "discovery.propose") {
+            removeEmptyParentDirectoryWithinRoot(planningRoot, entry.target);
+          }
           continue;
         }
         const stagedRelative = path.join(runtimeOperationsRelative, operationId, "staged", entry.stagedRelativePath);

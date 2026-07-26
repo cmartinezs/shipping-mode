@@ -63,6 +63,18 @@ export function deleteWithinRoot(root, relativePath) {
   fs.rmSync(targetPath, { force: true });
 }
 
+export function removeEmptyParentDirectoryWithinRoot(root, relativePath) {
+  const parent = parentRelative(relativePath);
+  if (!parent) return false;
+  const parentPath = confineWritePath(root, parent);
+  if (!fs.existsSync(parentPath)) return false;
+  const stat = fs.lstatSync(parentPath);
+  if (!stat.isDirectory()) return false;
+  if (fs.readdirSync(parentPath).length !== 0) return false;
+  fs.rmdirSync(parentPath);
+  return true;
+}
+
 export function copyFileAtomic(root, sourceRelativePath, targetRelativePath) {
   const sourcePath = confineWritePath(root, sourceRelativePath);
   const contents = fs.readFileSync(sourcePath);

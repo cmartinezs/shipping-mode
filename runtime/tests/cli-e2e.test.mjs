@@ -413,7 +413,7 @@ function fullyInit(cwd) {
   assert.equal(fs.existsSync(path.join(sourcesRoot, sourceIds[0], "source.yml")), true);
 }
 
-// changeset propose --kind scope.command.set: declared command update through the public binary
+// config scope set-command: public declared-command API backed by the internal ChangeSet kind
 {
   const cwd = freshWorkspace();
   fullyInit(cwd);
@@ -423,9 +423,12 @@ function fullyInit(cwd) {
   run(["changeset", "approve", scope.json.operationId, "--actor", "carlos", "--allow-self-approval"], cwd);
   run(["changeset", "apply", scope.json.operationId, "--actor", "carlos"], cwd);
 
-  const payloadFile = path.join(cwd, "scope-command.json");
-  fs.writeFileSync(payloadFile, JSON.stringify({ scopeId: scope.json.scopeId, role: "test", command: "npm test", requiresEnvironment: false, requiresSecrets: false, declaredBy: "caller" }));
-  const proposed = run(["changeset", "propose", "--kind", "scope.command.set", "--payload-file", payloadFile, "--actor", "carlos"], cwd);
+  const missingBoolean = run(["config", "scope", "set-command", "--scope-id", scope.json.scopeId, "--role", "test", "--command", "npm test", "--requires-environment", "false", "--actor", "carlos"], cwd);
+  assert.equal(missingBoolean.code, 1, "both descriptive booleans must be explicit");
+  const invalidBoolean = run(["config", "scope", "set-command", "--scope-id", scope.json.scopeId, "--role", "test", "--command", "npm test", "--requires-environment", "maybe", "--requires-secrets", "false", "--actor", "carlos"], cwd);
+  assert.equal(invalidBoolean.code, 1, "boolean options accept only literal true|false");
+
+  const proposed = run(["config", "scope", "set-command", "--scope-id", scope.json.scopeId, "--role", "test", "--command", "npm test", "--requires-environment", "false", "--requires-secrets", "false", "--actor", "carlos"], cwd);
   assert.equal(proposed.code, 0);
   run(["changeset", "validate", proposed.json.operationId], cwd);
   run(["changeset", "approve", proposed.json.operationId, "--actor", "carlos", "--allow-self-approval"], cwd);

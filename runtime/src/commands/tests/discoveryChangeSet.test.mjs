@@ -13,6 +13,7 @@ import { readChangeSet, readOperation, readResult, writeChangeSet } from "../../
 import { isUuidV7 } from "../../lib/ids.mjs";
 import { parseYaml } from "../../lib/yaml.mjs";
 import { StaleError } from "../../lib/errors.mjs";
+import { checkSchema } from "../check.mjs";
 
 function buildWorkspace() {
   const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "discovery-changeset-"));
@@ -249,7 +250,9 @@ function applyDiscoveryProposal({ planningRoot, workspaceRoot, operationsRoot, p
   const removed = applyDiscoveryProposal({ planningRoot, workspaceRoot, operationsRoot, proposal: buildRemoveProposal(planningRoot, workspaceRoot, sourceId) });
   assert.equal(removed.outcome.status, "APPLIED");
   assert.equal(fs.existsSync(path.join(planningRoot, sourceRelative)), false, "remove source action must delete source.yml through ChangeSet apply");
+  assert.equal(fs.existsSync(path.join(planningRoot, "sources", sourceId)), false, "remove source action must prune the now-empty source directory");
   assert.deepEqual(readResult(operationsRoot, removed.result.operationId).files, [{ target: sourceRelative, action: "delete", contentHash: "ABSENT" }]);
+  assert.equal(checkSchema({ planningRoot }).status, "PASS", "a successful source remove must leave the catalog schema-valid");
 }
 
 {
@@ -285,7 +288,9 @@ function applyDiscoveryProposal({ planningRoot, workspaceRoot, operationsRoot, p
   assert.equal(outcomes.find((entry) => entry.operationId === remove.operationId)?.outcome, "COMPLETED");
   assert.equal(readOperation(operationsRoot, remove.operationId).status, "APPLIED");
   assert.equal(fs.existsSync(path.join(planningRoot, sourceRelative)), false, "recovery must replay pending deletes");
+  assert.equal(fs.existsSync(path.join(planningRoot, "sources", sourceId)), false, "recovery must also prune the empty source directory");
   assert.deepEqual(readResult(operationsRoot, remove.operationId).files, [{ target: sourceRelative, action: "delete", contentHash: "ABSENT" }]);
+  assert.equal(checkSchema({ planningRoot }).status, "PASS", "recovered source removal must leave the catalog schema-valid");
 }
 
 {

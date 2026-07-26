@@ -27,6 +27,9 @@ assert.deepEqual(commandSet.targetFiles, [`scopes/${fixedId}/scope.yml`]);
 assert.equal(commandSet.payload.declaredBy, "runtime", "declared provenance comes from runtime actor, never caller payload");
 assert.equal(commandSet.payload.declaredAt, "2026-07-26T00:00:00.000Z");
 assert.equal(commandSet.payload.operationId, "018f0000-0000-7000-8000-000000000099");
+const commandRuntimeContext = { operationId: "018f0000-0000-7000-8000-000000000099", actor: "runtime", proposedAt: "2026-07-26T00:00:00.000Z" };
+assert.throws(() => prepareProposal("scope.command.set", { scopeId: fixedId, role: "test", command: "npm test" }, commandRuntimeContext), UsageError, "required booleans must not default implicitly");
+assert.throws(() => prepareProposal("scope.command.set", { scopeId: fixedId, role: "test", command: "npm test", requiresEnvironment: "false", requiresSecrets: false }, commandRuntimeContext), UsageError, "string booleans must not be truthiness-coerced");
 assert.throws(() => prepareProposal("scope.command.set", { scopeId: fixedId, role: "test", command: "npm test" }), UsageError);
 
 assert.throws(() => prepareProposal("release.create", {}), UsageError);

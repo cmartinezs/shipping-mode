@@ -40,6 +40,12 @@ function requireOperationId(value) {
   return value;
 }
 
+function requireExplicitBooleanOption(value, flagName) {
+  if (value === "true") return true;
+  if (value === "false") return false;
+  throw new UsageError(`${flagName} requires explicit true or false`);
+}
+
 function readPayloadText(payloadFileArg, cwd, usage) {
   if (!payloadFileArg || payloadFileArg === true) throw new UsageError(usage);
   if (payloadFileArg === "-") return fs.readFileSync(0, "utf8");
@@ -71,6 +77,23 @@ export function dispatch(command, args, cwd) {
         throw new UsageError("config scope add requires --key, --label, --kind, --path, --actor");
       }
       return runConfigScopeAdd({ planningRoot, args: { key: options.key, label: options.label, kind: options.kind, path: options.path, owner: options.owner, actor: options.actor } });
+    }
+    if (stage === "scope" && rest[0] === "set-command") {
+      const options = argsToOptions(rest.slice(1));
+      if (!options.scope_id || !options.role || !options.command || !options.actor) {
+        throw new UsageError("config scope set-command requires --scope-id, --role, --command, --requires-environment, --requires-secrets, --actor");
+      }
+      if (options.requires_environment === undefined || options.requires_secrets === undefined) {
+        throw new UsageError("config scope set-command requires explicit --requires-environment true|false and --requires-secrets true|false");
+      }
+      const payloadText = JSON.stringify({
+        scopeId: options.scope_id,
+        role: options.role,
+        command: options.command,
+        requiresEnvironment: requireExplicitBooleanOption(options.requires_environment, "--requires-environment"),
+        requiresSecrets: requireExplicitBooleanOption(options.requires_secrets, "--requires-secrets")
+      });
+      return runChangesetPropose({ planningRoot, kind: "scope.command.set", payloadText, actor: options.actor });
     }
     return notImplemented(`config ${stage || ""}`.trim());
   }
