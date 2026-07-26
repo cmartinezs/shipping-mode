@@ -287,3 +287,35 @@ export function checkRemovalReferentialIntegrity({ proposal, planningRoot }) {
   }
   return errors.length === 0 ? { ok: true } : { ok: false, errors };
 }
+
+export function validateDiscoveryProposal({ proposal, planningRoot, workspaceRoot }) {
+  const structure = validateProposalStructure(proposal);
+  if (!structure.ok) return structure;
+
+  const consistency = verifyWorkspaceConsistency({ proposal, planningRoot, workspaceRoot });
+  if (!consistency.ok) return consistency;
+  const { freshScan } = consistency;
+
+  const fingerprints = verifySourceFingerprints({ proposal, planningRoot, workspaceRoot });
+  const references = resolveSourceReferences({ proposal, planningRoot });
+  const drift = checkDriftReconciliation({ proposal, freshScan });
+  const removal = checkRemovalReferentialIntegrity({ proposal, planningRoot });
+
+  const stepFourErrors = [
+    ...(fingerprints.ok ? [] : fingerprints.errors),
+    ...(references.ok ? [] : references.errors),
+    ...(drift.ok ? [] : drift.errors),
+    ...(removal.ok ? [] : removal.errors)
+  ];
+  if (stepFourErrors.length > 0) return { ok: false, errors: stepFourErrors };
+
+  return {
+    ok: true,
+    normalized: {
+      proposal,
+      verifiedAt: new Date().toISOString(),
+      workspaceHash: freshScan.baseRevision.workspaceHash,
+      scanParameters: freshScan.scanParameters
+    }
+  };
+}
