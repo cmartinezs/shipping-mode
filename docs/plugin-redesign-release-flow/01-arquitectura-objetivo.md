@@ -53,12 +53,13 @@ El termino "Release Aggregate" no debe implicar atomicidad global sobre todo el 
 ```text
 ProjectContext Aggregate
 Scope Aggregate
-WorkSourceProvider Aggregate
 Release Aggregate
 ReleaseItem Aggregate
 WorkPackage Aggregate
 Task Aggregate
 ```
+
+`WorkSourceProvider` no es un agregado canonico del dominio. Es un adapter/configuracion registrada en `ProjectContext`, con capabilities y policy verificables. El estado persistente relevante vive en la configuracion del provider, `source_refs`, revisiones/fingerprints, findings de sync/drift y evidencia de operaciones externas; convertir el provider mismo en agregado introduciria lifecycle y consistencia fuerte innecesarios.
 
 Invariantes locales se validan transaccionalmente dentro de un agregado:
 

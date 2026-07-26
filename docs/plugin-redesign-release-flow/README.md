@@ -7,7 +7,10 @@ Fecha: 2026-07-22
 Reordenar el plugin bajo una identidad nueva y reconocible. El producto next-generation `1.0.0` es una implementacion nueva, no una version compatible del plugin 3.x. La unidad publica de entrega es la release, sin convertirla en una coleccion de comandos sueltos ni en una base de datos Markdown. `v4` es solo etiqueta historica de la iniciativa.
 
 ```text
-project context -> work source -> release -> release item -> scope work package -> task
+project context -> release -> release item -> scope work package -> task
+                           ^
+                           |
+                      work source
 ```
 
 El Release Item representa una unidad entregable tipada: user story, capability, defect, enabler, spike, compliance, migration u operational work. Cuando un item afecta varios frentes, no se divide en "historias hermanas"; se conserva como un solo item y se descompone en work packages por scope. Cada work package contiene el diseno, contratos, riesgos, gates, referencias de guia y tasks tecnicas del scope propietario.

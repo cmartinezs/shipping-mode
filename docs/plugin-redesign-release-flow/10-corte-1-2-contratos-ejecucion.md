@@ -213,12 +213,13 @@ Agregados canonicos:
 ```text
 ProjectContext Aggregate
 Scope Aggregate
-WorkSourceProvider Aggregate
 Release Aggregate
 ReleaseItem Aggregate
 WorkPackage Aggregate
 Task Aggregate
 ```
+
+`WorkSourceProvider` queda fuera de los agregados canonicos: es adapter/configuracion del Project Context. Sus capabilities, policy y connection refs se validan como contrato; `source_refs`, revisiones/fingerprints, findings y evidencia de operaciones externas contienen el estado persistente necesario para import/sync.
 
 Invariantes locales, con consistencia fuerte:
 
