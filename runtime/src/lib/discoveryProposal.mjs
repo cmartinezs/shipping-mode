@@ -1,5 +1,5 @@
 import { validate } from "./schema.mjs";
-import { findCommandFingerprintKeyMismatches, MIN_MAX_SOURCE_BYTES, MAX_MAX_SOURCE_BYTES } from "./discoverScan.mjs";
+import { findCommandFingerprintKeyMismatches, MIN_MAX_SOURCE_BYTES, MAX_MAX_SOURCE_BYTES, runDiscoverScan } from "./discoverScan.mjs";
 
 function checkScanParametersRange(proposal) {
   const bytes = proposal.scanParameters?.maxSourceBytes;
@@ -81,4 +81,24 @@ export function validateProposalStructure(proposal) {
   ];
 
   return errors.length === 0 ? { ok: true } : { ok: false, errors };
+}
+
+export function verifyWorkspaceConsistency({ proposal, planningRoot, workspaceRoot }) {
+  const freshScan = runDiscoverScan({
+    planningRoot,
+    workspaceRoot,
+    maxSourceBytes: proposal.scanParameters.maxSourceBytes
+  });
+  if (freshScan.baseRevision.workspaceHash !== proposal.baseRevision.workspaceHash) {
+    return {
+      ok: false,
+      errors: [{
+        code: "stale_proposal",
+        message: "the workspace has changed since this proposal was generated; rescan with discover scan and resubmit",
+        claimedWorkspaceHash: proposal.baseRevision.workspaceHash,
+        observedWorkspaceHash: freshScan.baseRevision.workspaceHash
+      }]
+    };
+  }
+  return { ok: true, freshScan };
 }
