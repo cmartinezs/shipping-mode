@@ -43,4 +43,17 @@ const discoverNotImplemented = dispatch("discover", ["nonsense"], cwd);
 assert.equal(discoverNotImplemented.status, "NOT_IMPLEMENTED");
 assert.equal(discoverNotImplemented.corte, "0");
 
+const validatePayload = path.join(cwd, "invalid-proposal.json");
+fs.writeFileSync(validatePayload, JSON.stringify({ schemaVersion: 1 }));
+const validateResult = dispatch("discover", ["validate", "--file", validatePayload], cwd);
+assert.equal(validateResult.ok, false);
+assert.equal(validateResult.status, "INVALID");
+assert.ok(validateResult.errors.some((e) => e.code === "schema_invalid"));
+
+assert.throws(
+  () => dispatch("discover", ["validate"], cwd),
+  (error) => error instanceof UsageError && error.message === "discover validate requires --file <path> or --stdin",
+  "discover validate requires --file or --stdin, not changeset propose's usage message"
+);
+
 console.log("dispatcher: all tests passed");

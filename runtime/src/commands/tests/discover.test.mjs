@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { runDiscoverScan } from "../discover.mjs";
+import { runDiscoverScan, runDiscoverValidate } from "../discover.mjs";
 import { UsageError } from "../../lib/errors.mjs";
 
 const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "discover-run-"));
@@ -42,4 +42,26 @@ assert.throws(() => runDiscoverScan({ planningRoot, workspaceRoot, maxSourceByte
 const withDefault = runDiscoverScan({ planningRoot, workspaceRoot });
 assert.equal(withDefault.scanParameters.maxSourceBytes, 536870912);
 
-console.log("discover command: full ScanResult assembly (with real candidate fingerprints and commit-SHA vcsRevision), range validation, and default all pass");
+// discover validate -- malformed JSON is a UsageError (exit 1), never an uncaught crash (exit 2)
+{
+  let threw = false;
+  try {
+    runDiscoverValidate({ planningRoot, workspaceRoot, proposalText: "{ not valid json" });
+  } catch (error) {
+    threw = true;
+    assert.ok(error instanceof UsageError, `expected UsageError, got ${error}`);
+  }
+  assert.ok(threw);
+}
+
+// discover validate -- a well-formed but structurally-invalid proposal returns {ok:false}, not a
+// thrown error, and carries a status the CLI's exit-code mapping (bin/shipping-mode.mjs) actually
+// understands -- a rejected proposal returning {ok:false} with no status silently exits 0
+{
+  const result = runDiscoverValidate({ planningRoot, workspaceRoot, proposalText: JSON.stringify({ schemaVersion: 1 }) });
+  assert.equal(result.ok, false);
+  assert.equal(result.status, "INVALID");
+  assert.ok(result.errors.some((e) => e.code === "schema_invalid"));
+}
+
+console.log("discover command: full ScanResult assembly (with real candidate fingerprints and commit-SHA vcsRevision), range validation, default, and validate's malformed-JSON/structurally-invalid/status handling all pass");
