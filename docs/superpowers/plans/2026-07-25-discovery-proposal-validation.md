@@ -469,7 +469,7 @@ Expected: FAIL with `unknown schema: discovery-proposal`.
     "commandRole": {
       "anyOf": [
         { "enum": ["build", "test", "smoke", "lint", "verify"] },
-        { "pattern": "^custom\\.[a-z][a-z0-9-]{0,63}$" }
+        { "type": "string", "pattern": "^custom\\.[a-z][a-z0-9-]{0,63}$" }
       ]
     },
     "scopeCommandEntry": {
