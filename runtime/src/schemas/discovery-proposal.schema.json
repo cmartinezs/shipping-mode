@@ -1,0 +1,169 @@
+{
+  "$id": "https://shipping-mode.dev/schemas/discovery-proposal.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "scanId", "baseRevision", "scanParameters", "scopes", "sources", "scopeCommands", "diagnostics"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "scanId": { "$ref": "#/$defs/uuid" },
+    "baseRevision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["vcsRevision", "workspaceHash"],
+      "properties": {
+        "vcsRevision": { "type": "string", "minLength": 1 },
+        "workspaceHash": { "$ref": "#/$defs/fingerprint" }
+      }
+    },
+    "scanParameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["maxSourceBytes"],
+      "properties": { "maxSourceBytes": { "type": "integer" } }
+    },
+    "scopes": { "type": "array", "items": { "$ref": "#/$defs/scopeProposal" } },
+    "sources": { "type": "array", "items": { "$ref": "#/$defs/sourceAction" } },
+    "scopeCommands": { "type": "array", "items": { "$ref": "#/$defs/scopeCommandEntry" } },
+    "diagnostics": { "type": "array", "items": { "type": "object" } }
+  },
+  "$defs": {
+    "uuid": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+    "fingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "confidence": { "enum": ["low", "medium", "high"] },
+    "sourceRefs": { "type": "array", "items": { "$ref": "#/$defs/uuid" }, "minItems": 1, "uniqueItems": true },
+    "sourceFamily": {
+      "enum": [
+        "product-sources", "functional-sources", "technical-sources", "agent-repository-instructions",
+        "project-module-manifests", "execution-commands", "quality-definitions", "local-runtime-environment",
+        "public-data-contracts", "delivery-ci-deployment", "ownership", "decision-sources", "developer-guides",
+        "engineering-standards", "repository-map", "evidence-contracts", "design-system", "prompt-sources",
+        "custom-automation"
+      ]
+    },
+    "sourceKind": {
+      "enum": [
+        "product", "requirements", "architecture", "decision", "developer-guide", "engineering-standard",
+        "agent-instructions", "repository-map", "api-contract", "data-contract", "database", "testing",
+        "quality", "security", "observability", "design-system", "i18n", "runtime", "environment",
+        "deployment", "ci", "ownership", "prompt", "generator", "evidence", "planning"
+      ]
+    },
+    "sourceRole": { "enum": ["canonical", "decision", "derived", "operational", "evidence", "generated", "historical", "reference"] },
+    "sourceAuthority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["standing", "force"],
+      "properties": {
+        "standing": { "enum": ["contextual", "supporting", "authoritative"] },
+        "force": { "enum": ["unknown", "informational", "advisory", "normative"] }
+      }
+    },
+    "sourceAvailability": { "enum": ["implemented", "partial", "planned", "deprecated", "historical", "mixed", "unknown"] },
+    "scopeProposal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "label", "kind", "path"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+        "label": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["code", "non_code"] },
+        "path": { "type": "string", "minLength": 1 },
+        "owner": { "type": ["string", "null"] }
+      }
+    },
+    "sourceAction": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["action", "path", "family", "kind", "role", "authority", "availability", "observedFingerprint", "observedContentHash"],
+          "properties": {
+            "action": { "const": "add" },
+            "path": { "type": "string", "minLength": 1 },
+            "family": { "$ref": "#/$defs/sourceFamily" },
+            "kind": { "$ref": "#/$defs/sourceKind" },
+            "role": { "$ref": "#/$defs/sourceRole" },
+            "authority": { "$ref": "#/$defs/sourceAuthority" },
+            "availability": { "$ref": "#/$defs/sourceAvailability" },
+            "observedFingerprint": { "$ref": "#/$defs/fingerprint" },
+            "observedContentHash": { "$ref": "#/$defs/fingerprint" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["action", "sourceId", "observedFingerprint", "observedContentHash"],
+          "properties": {
+            "action": { "const": "update" },
+            "sourceId": { "$ref": "#/$defs/uuid" },
+            "family": { "$ref": "#/$defs/sourceFamily" },
+            "kind": { "$ref": "#/$defs/sourceKind" },
+            "role": { "$ref": "#/$defs/sourceRole" },
+            "authority": { "$ref": "#/$defs/sourceAuthority" },
+            "availability": { "$ref": "#/$defs/sourceAvailability" },
+            "observedFingerprint": { "$ref": "#/$defs/fingerprint" },
+            "observedContentHash": { "$ref": "#/$defs/fingerprint" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["action", "sourceId", "fromPath", "path", "observedFingerprint", "observedContentHash"],
+          "properties": {
+            "action": { "const": "move" },
+            "sourceId": { "$ref": "#/$defs/uuid" },
+            "fromPath": { "type": "string", "minLength": 1 },
+            "path": { "type": "string", "minLength": 1 },
+            "observedFingerprint": { "$ref": "#/$defs/fingerprint" },
+            "observedContentHash": { "$ref": "#/$defs/fingerprint" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["action", "sourceId"],
+          "properties": {
+            "action": { "const": "remove" },
+            "sourceId": { "$ref": "#/$defs/uuid" }
+          }
+        }
+      ]
+    },
+    "alternative": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command", "sourceRefs", "sourceFingerprintAtSelection", "confidence", "requiresEnvironment", "requiresSecrets"],
+      "properties": {
+        "command": { "type": "string", "minLength": 1 },
+        "sourceRefs": { "$ref": "#/$defs/sourceRefs" },
+        "sourceFingerprintAtSelection": { "type": "object", "additionalProperties": { "$ref": "#/$defs/fingerprint" } },
+        "confidence": { "$ref": "#/$defs/confidence" },
+        "requiresEnvironment": { "type": "boolean" },
+        "requiresSecrets": { "type": "boolean" }
+      }
+    },
+    "commandRole": {
+      "anyOf": [
+        { "enum": ["build", "test", "smoke", "lint", "verify"] },
+        { "type": "string", "pattern": "^custom\\.[a-z][a-z0-9-]{0,63}$" }
+      ]
+    },
+    "scopeCommandEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scopeId", "role", "command", "method", "confidence", "sourceRefs", "sourceFingerprintAtSelection", "requiresEnvironment", "requiresSecrets", "alternatives"],
+      "properties": {
+        "scopeId": { "$ref": "#/$defs/uuid" },
+        "role": { "$ref": "#/$defs/commandRole" },
+        "command": { "type": "string", "minLength": 1 },
+        "method": { "enum": ["inferred", "reviewed"] },
+        "confidence": { "$ref": "#/$defs/confidence" },
+        "sourceRefs": { "$ref": "#/$defs/sourceRefs" },
+        "sourceFingerprintAtSelection": { "type": "object", "additionalProperties": { "$ref": "#/$defs/fingerprint" } },
+        "requiresEnvironment": { "type": "boolean" },
+        "requiresSecrets": { "type": "boolean" },
+        "alternatives": { "type": "array", "items": { "$ref": "#/$defs/alternative" } }
+      }
+    }
+  }
+}
