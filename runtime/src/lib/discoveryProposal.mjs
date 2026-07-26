@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { validate } from "./schema.mjs";
-import { findCommandFingerprintKeyMismatches, MIN_MAX_SOURCE_BYTES, MAX_MAX_SOURCE_BYTES, runDiscoverScan, readConfirmedSources } from "./discoverScan.mjs";
+import { findCommandFingerprintKeyMismatches, MIN_MAX_SOURCE_BYTES, MAX_MAX_SOURCE_BYTES, runDiscoverScan, readConfirmedSources, readConfirmedScopes, allCommandEntries } from "./discoverScan.mjs";
 import { computeSourceFingerprint, FingerprintError } from "./fingerprint.mjs";
 import { confineScopePath, PathConfinementError } from "./paths.mjs";
 
@@ -243,5 +243,47 @@ export function checkDriftReconciliation({ proposal, freshScan }) {
     }
   }
 
+  return errors.length === 0 ? { ok: true } : { ok: false, errors };
+}
+
+function allProposalSourceRefs(proposal) {
+  const refs = new Set();
+  for (const command of proposal.scopeCommands || []) {
+    for (const ref of command.sourceRefs || []) refs.add(ref);
+    for (const alternative of command.alternatives || []) {
+      for (const ref of alternative.sourceRefs || []) refs.add(ref);
+    }
+  }
+  return refs;
+}
+
+function confirmedSourceRefsExcludingTouchedCommands(planningRoot, touchedCommandKeys) {
+  const refs = new Set();
+  for (const scope of readConfirmedScopes(planningRoot)) {
+    for (const { role, entry } of allCommandEntries(scope)) {
+      if (touchedCommandKeys.has(`${scope.id}:${role}`)) continue; // this proposal already reconciles it
+      for (const ref of entry.sourceRefs || []) refs.add(ref);
+      for (const alternative of entry.alternatives || []) {
+        for (const ref of alternative.sourceRefs || []) refs.add(ref);
+      }
+    }
+  }
+  return refs;
+}
+
+export function checkRemovalReferentialIntegrity({ proposal, planningRoot }) {
+  const removedIds = (proposal.sources || []).filter((e) => e.action === "remove").map((e) => e.sourceId);
+  if (removedIds.length === 0) return { ok: true };
+
+  const inThisProposal = allProposalSourceRefs(proposal);
+  const touchedCommandKeys = new Set((proposal.scopeCommands || []).map((c) => `${c.scopeId}:${c.role}`));
+  const inConfirmedCatalog = confirmedSourceRefsExcludingTouchedCommands(planningRoot, touchedCommandKeys);
+
+  const errors = [];
+  for (const sourceId of removedIds) {
+    if (inThisProposal.has(sourceId) || inConfirmedCatalog.has(sourceId)) {
+      errors.push({ code: "remove_still_referenced", sourceId, message: `source ${sourceId} is marked for removal but is still referenced by a command (either in this proposal or the confirmed catalog)` });
+    }
+  }
   return errors.length === 0 ? { ok: true } : { ok: false, errors };
 }
