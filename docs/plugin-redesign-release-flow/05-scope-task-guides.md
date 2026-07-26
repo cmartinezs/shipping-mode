@@ -178,7 +178,9 @@ Una guia `generated`, `stale` o `rejected` no habilita atomizacion automatica en
 
 ## Fuentes
 
-Las guias se generan desde:
+Las guias se generan desde **Documentation Sources**, no desde Work Sources como si fueran knowledge base general. Una fuente local puede tener doble rol solo cuando el Project Context lo declara explicitamente.
+
+Documentation Sources candidatas:
 
 - documentacion funcional;
 - documentacion tecnica;
@@ -207,6 +209,15 @@ Reglas de seleccion:
 - si codigo/config/CI contradice una afirmacion de estado implementado, registrar drift; no asumir que el documento ni el codigo resuelven por si solos la intencion.
 
 El runtime guarda `Source Index` con metadata y fingerprints para detectar staleness.
+
+Work Sources, como backlog local o Jira, pueden aportar contexto funcional de un Release Item importado mediante `source_refs`, pero no reemplazan las guias de scope. El flujo correcto es:
+
+```text
+Work Source -> NormalizedWorkSourceItem -> Release Item
+Documentation Source -> task/test guide -> Work Package/Task rules
+```
+
+Al crear o atomizar work packages para un item importado, el runtime puede pasar campos normalizados del Release Item (`kind`, `acceptance_criteria`, tags, source refs) al evaluador de guias, pero la regla ejecutable sigue viniendo de `task-guide.yml`/`test-guide.yml` aprobados.
 
 ## Vigencia, navegabilidad y drift de fuentes
 
@@ -517,6 +528,7 @@ Los generadores custom deben tratarse como codigo ejecutable sujeto a politica:
 
 - lee guias de scope aprobadas antes de crear un work package;
 - registra la revision de guia usada por el work package y la agrega al indice de la release.
+- conserva `source_refs` del Release Item como contexto y trazabilidad, sin convertir payload provider-specific en reglas de guia.
 
 `item atomize`:
 
@@ -526,6 +538,11 @@ Los generadores custom deben tratarse como codigo ejecutable sujeto a politica:
 `check guides`:
 
 - valida frescura de guias, secciones requeridas, provenance y salida del generador.
+
+`check source-drift`:
+
+- valida que los `source_refs` de Release Items sigan resolviendo contra sus Work Sources configurados;
+- reporta `SOURCE_STALE`, `SOURCE_CONFLICT`, `SYNC_REQUIRED` o `MAPPING_OBSOLETE` sin mutar guias ni items.
 
 `check tests`:
 

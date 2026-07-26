@@ -219,6 +219,8 @@ WorkPackage Aggregate
 Task Aggregate
 ```
 
+`WorkSourceProvider` queda fuera de los agregados canonicos: es adapter/configuracion del Project Context. Sus capabilities, policy y connection refs se validan como contrato; `source_refs`, revisiones/fingerprints, findings y evidencia de operaciones externas contienen el estado persistente necesario para import/sync.
+
 Invariantes locales, con consistencia fuerte:
 
 - schema valido;
@@ -236,6 +238,7 @@ Invariantes transversales, recomputables:
 - grafo sin ciclos;
 - work packages obligatorios completados;
 - gates transversales aprobados.
+- source refs vigentes o conflictos declarados cuando un Release Item proviene de Work Source.
 
 Operaciones multiagregado declaran:
 

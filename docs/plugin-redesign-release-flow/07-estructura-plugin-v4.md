@@ -263,12 +263,12 @@ Scripts de dominio:
 | Script | Responsabilidad |
 |--------|-----------------|
 | `workspace-init.mjs` | Bootstrap del workspace, config inicial, plugin lock y estructura base. |
-| `config.mjs` | Scopes, fuentes, policies, comandos, autonomia, guias y generadores. |
+| `config.mjs` | Scopes, Documentation Sources, Work Sources, policies, comandos, autonomia, guias y generadores. |
 | `release.mjs` | Release aggregate, lifecycle, readiness, deployment events y finalization. |
-| `item.mjs` | Release Items tipados, criterios funcionales cuando apliquen, work packages y atomizacion. |
+| `item.mjs` | Release Items tipados, imports/sync desde Work Sources, criterios funcionales cuando apliquen, work packages y atomizacion. |
 | `task.mjs` | Inspect, start, verify, correction y closeout de tasks. |
-| `check.mjs` | Schemas, invariantes, guide freshness, gates, readiness y evidencia. |
-| `report.mjs` | Status, standup, history, traceability, release notes, docs y exports. |
+| `check.mjs` | Schemas, invariantes, guide freshness, Work Sources, source drift, gates, readiness y evidencia. |
+| `report.mjs` | Status, standup, history, source status, traceability, release notes, docs y exports. |
 | `decision.mjs` | Decision records, aceptacion/rechazo, waivers y enlaces. |
 | `update-version.mjs` | Migraciones futuras v4+ y actualizacion del template pack. |
 
@@ -290,6 +290,9 @@ release-item-store.mjs
 work-package-store.mjs
 task-store.mjs
 guide-store.mjs
+work-source-registry.mjs
+work-source-provider.mjs
+work-source-store.mjs
 render.mjs
 ```
 
@@ -311,6 +314,9 @@ Reglas:
 | `plugin-lock.schema.json` | Version del plugin, schema y template pack fingerprint. |
 | `scope.schema.json` | Scope catalog, kind, ownership, paths, guide revisions y provenance. |
 | `guide-metadata.schema.json` | Estado de guia, source fingerprints, generator y aprobacion. |
+| `work-source-provider.schema.json` | Provider id, transport seguro, capabilities, sync modes, policies soportadas y contract-test status. |
+| `normalized-work-source-item.schema.json` | Item normalizado independiente del provider antes de convertirse en Release Item. |
+| `source-ref.schema.json` | Referencias normalizadas desde Release Items hacia fuentes locales o externas, con revision/fingerprint y mapping version. |
 | `execution-context.schema.json` | Runners, commands, setup, teardown y evidencia de ejecucion. |
 | `environment.schema.json` | Targets desplegables, promotion, rollback, approvals, secrets refs y smoke verification. |
 | `release.schema.json` | Release aggregate, lifecycle, lane, release items, gates, deployment events y finalization. |
@@ -336,6 +342,9 @@ finalization.schema.json
 revision-ref.schema.json
 command-spec.schema.json
 provenance.schema.json
+source-ref.schema.json
+normalized-work-source-item.schema.json
+work-source-provider.schema.json
 resolution.schema.json
 ```
 

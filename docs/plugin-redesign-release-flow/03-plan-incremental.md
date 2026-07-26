@@ -13,12 +13,13 @@ Objetivo: definir el nucleo que hara segura la implementacion v4 antes de expone
 Entregables:
 
 - Modelo formal de `Release`, `Release Item`, `Scope Work Package`, `Task`, `Scope`, `Decision`, `Gate`, `Blocker`, `Waiver`, `Deployment Event` y `Finalization`.
-- JSON Schema o equivalente para `config`, `plugin.lock`, `scope`, `release`, `release-item`, `work-package`, `task`, `change-set`, `operation`, `event` y `guide metadata`.
+- JSON Schema o equivalente para `config`, `plugin.lock`, `scope`, `release`, `release-item`, `work-package`, `task`, `change-set`, `operation`, `event`, `guide metadata`, `work-source-provider`, `normalized-work-source-item` y `source-ref`.
 - Contrato de identidad estable: UUIDv7 como ID primario, `display_id` determinista e inmutable, slugs decorativos y referencias por ID primario.
 - Contrato de storage: YAML/JSON canonico, Markdown como proyeccion, eventos JSON inmutables bajo `.planning/events/YYYY/MM/<event-id>.json`.
 - Protocolo de mutacion: `inspect -> propose -> validate -> approve -> stage -> apply -> verify -> record`.
 - Modelo de concurrencia: `baseRevisions` por agregado, optimistic locking, operation locks, idempotency keys y comportamiento en worktrees.
 - Politicas configurables: release sequence, lanes, autonomy, approvals, gates, skip, cancelacion, deployment y finalizacion.
+- Politicas configurables para Work Sources: `import_only`, `pull`, `push`, `bidirectional`, `external_authoritative`, `shipping_mode_authoritative`, `import_snapshot` y `bidirectional_controlled`.
 - Contrato seguro de comandos y custom generators: estructura de comando, cwd, timeouts, allowlist, path boundaries y permisos.
 - Naming publico: el producto se expone exclusivamente mediante el namespace real del plugin y skills canonicas cortas.
 - Fixtures de arquitectura:
@@ -59,7 +60,7 @@ Cambios:
 - Mover el launcher interno estable del plugin a `bin/<product-cli>`.
 - Crear bundle self-contained en `runtime/dist/<product-cli>.mjs`.
 - Definir estrategia historica de template packs con `.planning/vendor/template-packs/<fingerprint>/`.
-- Agregar schemas faltantes: actor, approval, gate, blocker, risk, waiver, decision, deployment event, finalization, revision ref, command spec, provenance, resolution, release item y operation.
+- Agregar schemas faltantes: actor, approval, gate, blocker, risk, waiver, decision, deployment event, finalization, revision ref, command spec, provenance, source ref, normalized work source item, work source provider, resolution, release item y operation.
 
 Validacion:
 
@@ -161,6 +162,8 @@ Spikes obligatorios:
 
 Objetivo: hacer que `/<product-name>:init` configure lo necesario para que el plugin pueda trabajar agnosticamente en cualquier estructura.
 
+Este corte no implementa Jira ni adapters productivos de Work Sources. Tampoco se amplia el implementation plan actual ni se retrasa el inicio de Corte 0. Solo debe mantener `config.yml`, Project Context, revision refs, ChangeSet y storage suficientemente extensibles para que Work Sources se agreguen en cortes posteriores sin romper contratos.
+
 Cambios:
 
 - Crear exactamente:
@@ -188,6 +191,7 @@ Cambios:
 - Registrar autonomia: que puede inspeccionarse, proponerse, aplicarse o ejecutarse sin aprobacion.
 - Generar o marcar pendientes las guias iniciales estructuradas por scope.
 - Registrar plugin version, schema version y template pack fingerprint en `plugin.lock.yml`.
+- Verificar que ninguna decision de runtime impide registrar luego `work_sources`, provider registry, source refs o revision/fingerprint externo.
 
 Validacion:
 
@@ -208,6 +212,7 @@ Cambios:
 - Crear `.planning/scopes/<scope-id>/scope.yml`, `task-guide.yml`, `test-guide.yml`, `task-guide.md` y `test-guide.md`.
 - Definir estados de guia: `generated`, `reviewed`, `approved`, `stale`, `rejected`.
 - Guardar provenance: fuentes, fingerprints, generator version, model/prompt version cuando aplique, aprobador y fecha.
+- Separar explicitamente `Documentation Source` de `Work Source`: las primeras alimentan guides/gates/conocimiento, las segundas alimentan Release Items. Pueden compartir primitives de provenance/fingerprint, pero no semantica.
 - Hacer que una guia no aprobada bloquee atomizacion automatica en modo estricto.
 - Soportar generadores custom por scope con input/output estructurado y validacion de salida.
 - Detectar staleness cuando cambian las fuentes configuradas.
@@ -266,6 +271,7 @@ stateDiagram-v2
 | `reopen_release` | `VERIFYING` -> `ACTIVE` | La verificacion detecta fallas corregibles y permite remediacion. |
 | `cancel_release` | `DRAFT`, `PLANNED`, `ACTIVE` o `VERIFYING` -> `CANCELLED` | Cancelacion explicita con motivo y actor registrados. |
 - Registrar `scope_refs` con indice de `guide_revision` para reproducibilidad, sin reemplazar los `guide_refs` obligatorios de cada Work Package.
+- Preparar traceability de release para agregar provenance de Work Sources sin acoplar `Release` a Jira ni a otro provider. La release puede indexar source refs de sus items como proyeccion, pero la referencia canonica vive en cada `release-item.yml`.
 - Regenerar `TRACEABILITY.md`, `RELEASE-NOTES.md` y reportes desde YAML canonico.
 - Validar unicidad, formato y resolucion no ambigua de display IDs; no exigir continuidad sin saltos.
 
@@ -290,13 +296,31 @@ Cambios:
 - Reemplazar `SKIPPED` por resolucion con razon, aprobacion, riesgo aceptado y reemplazo cuando aplique.
 - Validar que un Release Item `DONE` requiere sus work packages requeridos `DONE` o una waiver/resolucion aceptada.
 - Registrar dependencias entre Release Items y work packages por ID estable, no por slug/ruta.
+- Incorporar `WorkSourceProvider` como contrato obligatorio del producto.
+- Implementar provider registry con activacion por config, capability discovery y contract-test gating.
+- Crear schema `NormalizedWorkSourceItem` independiente del provider.
+- Crear schema `source_refs`/provenance en `release-item.yml` con soporte para multiples referencias, mapping version, revision externa o content fingerprint.
+- Implementar `LocalRepositoryWorkSource` como provider real para backlog/docs locales, requirements, user stories y documentos configurados.
+- Implementar `JiraMcpWorkSource` como primer provider externo real mediante Atlassian MCP.
+- Demostrar que `LocalRepositoryWorkSource` y `JiraMcpWorkSource` usan el mismo contrato de provider y normalizacion.
+- Implementar import `Work Source -> NormalizedWorkSourceItem -> Release Item`.
+- Implementar refresh/sync controlado de Release Items contra source refs, sin asumir bidirectional sync.
+- Registrar revision/fingerprint externo inicial, revision actual y mapping version.
+- Detectar `SOURCE_UNAVAILABLE`, `SOURCE_MISCONFIGURED`, `SOURCE_CAPABILITY_MISSING`, `SOURCE_NOT_FOUND`, `SOURCE_STALE`, `SOURCE_CONFLICT`, `SYNC_REQUIRED` y `MAPPING_OBSOLETE`.
+- Agregar mappings versionados por provider y fixtures provider-specific.
+- Agregar contract tests compartidos por providers: connectivity, search determinism, get normalization, revision detection, idempotency, error normalization, mapping correctness, stale detection, safe retry y write verification segun capabilities declaradas.
+- Bloquear activacion de un provider cuando declara una capability y falla sus contract tests.
 
 Validacion:
 
 ```text
 <product-cli> item create propose REL-5F11 --kind user_story --format json
+<product-cli> item import propose REL-5F11 --source local-backlog --query <query> --format json
+<product-cli> item import propose REL-5F11 --source jira-gradeops --external-id GRADE-142 --format json
 <product-cli> item package add propose REL-5F11 ITEM-6041 --scope <scope-id> --format json
 <product-cli> check item REL-5F11 ITEM-6041 --format json
+<product-cli> check work-sources --format json
+<product-cli> check source-drift REL-5F11 --format json
 ```
 
 ## Corte 4: tasks y ejecucion atomica
@@ -313,6 +337,12 @@ Cambios:
 - Guardar comandos ejecutados como estructura y eventos observables.
 - Agregar rollback tecnico o compensacion cuando una operacion falla despues de escribir.
 - Implementar la mecanica Git del lifecycle (`task inspect/start/verify/closeout`) segun el [Git work execution contract](11-git-work-execution-contract.md): Git engine agnostico en Shipping Mode, policy del repositorio anfitrion en Project Context, refinamiento operacional en scope/task guides.
+- Integrar write-back opcional a Work Sources segun policy y capabilities. Ejemplos: progreso de Task/Work Package como comentario externo, completion de Release Item como transition externa.
+- No asumir que todos los proyectos quieren actualizar la fuente externa. `import_snapshot` e `import_only` no escriben de vuelta.
+- Modelar toda mutacion externa como saga `prepare -> execute -> verify -> record` con `compensate` cuando exista accion segura.
+- Exigir idempotency key, approval, policy, retries seguros, observabilidad, evidencia y resultado verificable para create/update/transition/comment externo.
+- Verificar revision externa antes de escribir; si `external_revision != recorded_revision`, no sobrescribir silenciosamente y producir `SOURCE_STALE` o `SOURCE_CONFLICT`.
+- Registrar evidencia de source item, revision inicial, operacion externa, resultado y revision final.
 
 Validacion:
 
@@ -330,6 +360,9 @@ Cambios:
 
 - Crear `/<product-name>:check` como wrapper query-only de invariantes, schemas, guide freshness, gates, readiness, links, dependencies y evidence.
 - Crear `/<product-name>:report` para status, standup, history, export, release notes, traceability, docs generadas y exports.
+- Agregar checks de Work Sources adaptados al naming real: `check work-sources`, `check source-drift` y `check sync` si esos stages sobreviven en el launcher.
+- Agregar reportes `report source-status` y `report traceability` con provenance agregado de Release Items.
+- Detectar conexion no disponible, provider mal configurado, capabilities faltantes, source desaparecida, source modificada externamente, Release Item desincronizado, conflictos y mappings obsoletos.
 - Reportar drift de Markdown y recomendar operaciones de regeneracion; no mutar desde checks.
 - Centralizar salida markdown/json.
 
@@ -350,6 +383,18 @@ Reemplazos v4:
 /doc-generate        -> /<product-name>:report docs
 ```
 
+Work Source stages conceptuales:
+
+```text
+check work-sources
+check source-drift
+check sync
+report source-status
+report traceability
+```
+
+No crear comandos innecesarios si `health`, `schema`, `readiness` o `traceability` absorben el caso sin perder semantica.
+
 ## Corte 6: skills publicas
 
 Objetivo: exponer la superficie v4 cuando el runtime ya tenga contrato, storage y pruebas.
@@ -366,6 +411,12 @@ Cambios:
 - Crear `skills/decision/SKILL.md`.
 - Crear `skills/update/SKILL.md` para mantenimiento del plugin/template pack.
 - No crear comandos avanzados hasta tener una necesidad real.
+- No crear una skill `/jira` ni skills por provider.
+- Exponer Work Sources mediante stages de skills existentes:
+  - `config work-source add|configure|remove`;
+  - `item import|sync|publish`;
+  - `check work-sources|source-drift|sync`;
+  - `report source-status|traceability`.
 
 Cada skill debe ser un wrapper pequeno: argumentos, precondiciones, llamada al launcher, punto de juicio del agente y criterios de aprobacion.
 
@@ -375,7 +426,7 @@ Objetivo: mover comandos secundarios fuera del flujo principal.
 
 Cambios:
 
-- Crear `/<product-name>:backlog` solo si se decide mantener backlog externo como capacidad explicita.
+- Crear `/<product-name>:backlog` solo si en el futuro hace falta una fachada especializada encima de Work Sources. Jira, GitHub Issues, Azure Boards, Linear y fuentes locales no requieren ni justifican una skill dedicada por provider.
 - Crear `/<product-name>:recover` solo si el event journal y ChangeSets ya soportan retry, rollback y compensacion.
 - Reubicar `plan-from-release` como etapa de `/<product-name>:release plan` o `/<product-name>:item import` si todavia aporta.
 - Mantener `decision` separado porque registra decisiones transversales reales.
@@ -422,7 +473,9 @@ init
   -> report
 ```
 
-Sin ejecucion autonoma, Git/gh mutante, recovery, backlog externo ni deployment en el primer vertical slice.
+Sin ejecucion autonoma, Git/gh mutante, recovery, providers externos productivos, write-back externo ni deployment en el primer vertical slice.
+
+Work Sources se implementan despues: Corte 3 incorpora el contrato y los providers principales; Corte 4 incorpora write-back opcional por policy; Corte 5 agrega checks/reportes de drift y traceability.
 
 ## Decisiones cerradas
 
@@ -431,6 +484,7 @@ Sin ejecucion autonoma, Git/gh mutante, recovery, backlog externo ni deployment 
 3. UUIDv7 es el unico ID primario.
 4. Display IDs deterministas e inmutables derivados del UUIDv7.
 5. Las relaciones padre-hijo son inmutables; trasladar trabajo crea un reemplazo.
+6. `ReleaseItem` es el modelo canonico interno; Work Sources locales o externas alimentan items mediante `NormalizedWorkSourceItem` y `source_refs`, sin acoplar el core a Jira.
 
 ## Criterio de exito
 

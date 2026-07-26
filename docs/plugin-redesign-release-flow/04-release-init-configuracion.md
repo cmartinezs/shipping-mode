@@ -46,6 +46,10 @@ policies:
   release:
     mode: strict_sequence
     default_lane: main
+  work_sources:
+    default_sync_mode: import_only
+    default_source_policy: import_snapshot
+    external_writes: approval_required
   autonomy:
     apply_changes: approval_required
     execute_commands: approval_required
@@ -75,6 +79,23 @@ scope_catalog:
     - web
     - legal
 
+work_sources:
+  - id: local-backlog
+    provider: local_repository
+    enabled: true
+    roots:
+      - docs/backlog/
+      - docs/requirements/
+    sync_mode: import_only
+    source_policy: import_snapshot
+  - id: jira-gradeops
+    provider: jira
+    transport: mcp
+    enabled: false
+    mcp_connection_ref: atlassian
+    sync_mode: pull
+    source_policy: external_authoritative
+
 runtime:
   event_store: .planning/events
   operation_store: .planning/operations
@@ -87,6 +108,8 @@ runtime:
 ```
 
 `execution-contexts/` describe donde se ejecutan validaciones (`local`, `ci`, `container`, `preview`). `environments/` describe targets desplegables (`beta`, `demo`, `staging`, `production`). No mezclar `ci` con un ambiente desplegable.
+
+`work_sources` referencia fuentes seguras y no secretos. Tokens, credenciales, OAuth state, PATs y refresh tokens pertenecen al host/connection layer, no a `.planning/**`. `mcp_connection_ref` es una referencia opaca a una conexion ya configurada fuera del Project Context.
 
 `config.yml` no duplica la definicion completa de scopes. Cada scope vive en `.planning/scopes/<scope-id>/scope.yml`.
 
@@ -167,6 +190,7 @@ La ausencia de una fuente no implica inventarla. `init`/`config` deben registrar
 | Familia | Origen | Ejemplos detectables | Uso por Shipping Mode |
 |---------|--------|----------------------|-----------------------|
 | Product sources | Diseno actual | backlog, user stories, master plan, product docs | Origen de Release Items, alcance y contexto de producto |
+| Work sources | Extension | backlog local, requirements importables, Jira/Atlassian MCP, GitHub Issues, Azure Boards, Linear | Origen normalizado de Release Items y sync/drift |
 | Functional sources | Diseno actual | `docs/product/`, requirements, reglas de negocio, criterios de aceptacion | Comportamiento esperado y acceptance context |
 | Technical sources | Diseno actual | arquitectura, technical design, contratos, coding/style, testing, logging, security | Construir task/test guides y restricciones tecnicas |
 | Agent/repository instructions | Diseno actual + extension | `README.md`, `AGENTS.md`, `CONTRIBUTING.md`, `CLAUDE.md` | Instrucciones del repo/agente y convenciones operativas |
@@ -191,6 +215,8 @@ La ausencia de una fuente no implica inventarla. `init`/`config` deben registrar
 ### Modelo de conocimiento del repositorio
 
 Shipping Mode no debe modelar una fuente unicamente por su path. Antes de usarla para planificar, generar guias o ejecutar trabajo debe resolver **que representa, que autoridad tiene, que scope gobierna y si sigue vigente**.
+
+Este modelo describe **Documentation Sources**: fuentes de conocimiento para guias, gates, reglas, evidencia y decisiones. Las **Work Sources** se configuran en `work_sources` y se normalizan mediante `WorkSourceProvider` hacia Release Items. Un mismo path puede aparecer en ambas familias solo si cumple ambos roles y queda declarado explicitamente; por ejemplo, `docs/requirements/` puede ser documentacion funcional y tambien fuente local de items importables.
 
 El modelo conceptual separa dos dimensiones principales:
 
@@ -391,23 +417,24 @@ El script debe inferir primero y preguntar despues. Preguntas esperadas:
 1. Git: existe repositorio git, cual es la branch base, se usara `gh`, y que acciones requieren aprobacion.
 2. Scopes: que frentes existen, que paths cubre cada uno, cual sera su id estable y que `kind` corresponde.
 3. Historias/producto: donde estan historias fuente, backlog, master plan, requirements o documentos de producto.
-4. Documentacion funcional: donde vive la definicion de comportamiento, reglas de negocio y criterios de aceptacion.
-5. Documentacion tecnica: donde viven arquitectura, technical design, contratos, guias de estilo/coding, testing, logging y seguridad.
-6. Entry point y fuentes canonicas: si existe un indice documental y que areas son fuente canonica, derivada, generada o historica.
-7. Decisiones durables: donde viven ADR/PDR/decision records, que status usan y cuales tienen autoridad vigente.
-8. Instrucciones del repositorio/agente: si existen `README.md`, `AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md`, instrucciones anidadas u otras reglas y cual es su alcance.
-9. Guias/standards: si existen developer guides, repository maps, engineering standards, AI-assisted-development guides o checklists operativos.
-10. Validacion: que comandos build/test/smoke se conocen por scope, de que artefacto nativo se derivan y cuales quedan pendientes.
-11. Quality: que lint, format, coverage, static analysis, Sonar u otros quality gates ya utiliza el proyecto.
-12. Runtime local: que Dockerfiles, Compose/devcontainers y templates de entorno permiten ejecutar el proyecto sin depender de secretos almacenados en `.planning`.
-13. Contratos y datos: si existen OpenAPI/AsyncAPI/protobuf/GraphQL/JSON Schema, migrations u otros contratos publicos o persistentes relevantes.
-14. Delivery y ambientes: que CI/CD, deployment definitions o IaC representan la ruta real de build/test/package/deploy y que evidencia existe para distinguir `defined`, `configured`, `deployed` y `verified`.
-15. Evidencia: si el proyecto define contratos de evidencia para releases, compliance, performance, despliegue, negocio u otros outcomes.
-16. UI/AI especializadas: si existen design systems, prompt sources versionados u otras fuentes especializadas condicionadas por el tipo de scope.
-17. Ownership: si `CODEOWNERS` u otra fuente permite inferir owners por scope/path.
-18. Guias operativas: si ya existe una guia rapida para crear work packages, tasks o tests por scope, o si debe generarse desde las fuentes.
-19. Generadores custom: si el proyecto tiene scripts propios para resumir guias, crear templates de task o generar test suites.
-20. Politicas/autonomia/runtime: modo de release, lanes, gates, deployment/finalizacion, que puede ejecutar el agente sin aprobacion y donde persiste Shipping Mode su estado operacional.
+4. Work Sources: que fuentes contienen unidades de trabajo importables, que provider usan (`local_repository`, `jira`, futuro `github_issues`, `azure_boards`, `linear`), que sync mode y que source-of-truth policy aplica.
+5. Documentacion funcional: donde vive la definicion de comportamiento, reglas de negocio y criterios de aceptacion.
+6. Documentacion tecnica: donde viven arquitectura, technical design, contratos, guias de estilo/coding, testing, logging y seguridad.
+7. Entry point y fuentes canonicas: si existe un indice documental y que areas son fuente canonica, derivada, generada o historica.
+8. Decisiones durables: donde viven ADR/PDR/decision records, que status usan y cuales tienen autoridad vigente.
+9. Instrucciones del repositorio/agente: si existen `README.md`, `AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md`, instrucciones anidadas u otras reglas y cual es su alcance.
+10. Guias/standards: si existen developer guides, repository maps, engineering standards, AI-assisted-development guides o checklists operativos.
+11. Validacion: que comandos build/test/smoke se conocen por scope, de que artefacto nativo se derivan y cuales quedan pendientes.
+12. Quality: que lint, format, coverage, static analysis, Sonar u otros quality gates ya utiliza el proyecto.
+13. Runtime local: que Dockerfiles, Compose/devcontainers y templates de entorno permiten ejecutar el proyecto sin depender de secretos almacenados en `.planning`.
+14. Contratos y datos: si existen OpenAPI/AsyncAPI/protobuf/GraphQL/JSON Schema, migrations u otros contratos publicos o persistentes relevantes.
+15. Delivery y ambientes: que CI/CD, deployment definitions o IaC representan la ruta real de build/test/package/deploy y que evidencia existe para distinguir `defined`, `configured`, `deployed` y `verified`.
+16. Evidencia: si el proyecto define contratos de evidencia para releases, compliance, performance, despliegue, negocio u otros outcomes.
+17. UI/AI especializadas: si existen design systems, prompt sources versionados u otras fuentes especializadas condicionadas por el tipo de scope.
+18. Ownership: si `CODEOWNERS` u otra fuente permite inferir owners por scope/path.
+19. Guias operativas: si ya existe una guia rapida para crear work packages, tasks o tests por scope, o si debe generarse desde las fuentes.
+20. Generadores custom: si el proyecto tiene scripts propios para resumir guias, crear templates de task o generar test suites.
+21. Politicas/autonomia/runtime: modo de release, lanes, gates, deployment/finalizacion, que puede ejecutar el agente sin aprobacion y donde persiste Shipping Mode su estado operacional.
 
 ## Preguntas de `config`
 
@@ -418,6 +445,7 @@ Stages esperados:
 ```text
 /<product-name>:config scopes
 /<product-name>:config sources
+/<product-name>:config work-source add|configure|remove
 /<product-name>:config policies
 /<product-name>:config git
 /<product-name>:config commands
@@ -437,6 +465,7 @@ El script puede detectar:
 - `README.md`, `docs/README.md` y otros candidatos a documentation entry point;
 - `AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md`, `CONTRIBUTING.md` y variantes anidadas por scope/path;
 - carpetas con nombres comunes de backlog, requirements o producto, sin tratarlas como obligatorias;
+- fuentes locales candidatas a Work Source como `docs/backlog/**`, `docs/requirements/**`, user stories y documentos configurados; detectarlas no las activa sin confirmacion/configuracion;
 - decision registries y ADR/PDR por patrones como `adr/`, `decisions/`, `99-decisions/` y templates asociados;
 - developer guides, repository maps, best practices, AI-assisted-development guides y checklists operativos;
 - archivos de guias por patrones como `*guideline*`, `*guide*`, `architecture`, `style`, `coding`, `testing`, `logging`, `security`, `product`;
@@ -460,6 +489,10 @@ La deteccion no decide sola el contrato final. Propone un ChangeSet y escribe so
 - Los artefactos nativos del repositorio son las fuentes de verdad. `.planning/**` guarda referencias, fingerprints, metadata operativa y proyecciones; no duplica innecesariamente reglas o configuracion ya expresadas por el proyecto.
 - La configuracion explicita aprobada por `config` prevalece sobre nuevas inferencias automaticas para seleccionar fuentes, pero debe conservar provenance hacia la fuente host original y no altera por si sola su autoridad semantica.
 - Una fuente se registra con `kind`, `role`, `scope`, `authority`, `freshness`, `availability`, fingerprint y provenance cuando esos datos puedan resolverse; path por si solo no es un contrato suficiente.
+- Documentation Sources y Work Sources se declaran por separado. Documentation Sources generan conocimiento/guia; Work Sources generan `NormalizedWorkSourceItem` y `ReleaseItem.source_refs`.
+- `work_sources` no persiste secretos. Providers externos usan transport/connection refs seguros del host; `.planning` solo guarda configuracion necesaria para seleccion, policy, capabilities y trazabilidad.
+- Un Work Source externo no es source of truth global por defecto. La policy decide entre `external_authoritative`, `shipping_mode_authoritative`, `import_snapshot` y `bidirectional_controlled`.
+- No hay sincronizacion bidireccional implicita. `import_only`, `pull`, `push` y `bidirectional` requieren capabilities declaradas y checks de revision.
 - Fuentes `generated`, `derived`, `historical` o `reference` no reemplazan automaticamente decisiones aceptadas o fuentes canonicas.
 - Cuando documentacion y estado real del repositorio divergen, registrar drift y resolverlo explicitamente; no confiar ciegamente en Markdown ni convertir el codigo en una redefinicion silenciosa de la intencion.
 - Si existe documentation entry point, validar links y alcanzabilidad de documentos activos; documentos activos huerfanos son un finding, no contexto invisible.

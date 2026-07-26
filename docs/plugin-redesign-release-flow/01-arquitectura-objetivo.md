@@ -15,6 +15,7 @@
 11. IA acotada: el agente interpreta producto, descompone trabajo, toma decisiones tecnicas justificadas, implementa codigo y revisa evidencia.
 12. Configuracion explicita: policies, lanes, gates, autonomia, comandos permitidos y generadores custom viven en configuracion versionada.
 13. Reproducibilidad: cada workspace registra plugin lock, schema, template pack, guide revisions y eventos.
+14. Work Sources agnosticos: fuentes locales y externas alimentan Release Items mediante providers normalizados; el core no depende de Jira ni de ningun proveedor concreto.
 
 ## Modelo de dominio
 
@@ -24,6 +25,8 @@ Project Context
 |   +-- Scope
 |   +-- Task Guide
 |   +-- Test Guide
++-- Work Sources
++-- Provider Registry
 +-- Policies
 +-- Decisions
 +-- Releases
@@ -38,8 +41,10 @@ Project Context
 Version corta:
 
 ```text
-release -> release item -> scope work package -> task
+work source -> release item -> scope work package -> task
 ```
+
+`ReleaseItem` es el modelo canonico interno. Una fuente de trabajo local o externa se transforma primero en `NormalizedWorkSourceItem`, luego en un Release Item con `source_refs` para conservar provenance, revision importada, mapping version y capacidad de detectar drift/sync. Work Sources no sustituyen Release, Release Item, Work Package ni Task.
 
 ## Limites de agregados
 
@@ -53,6 +58,8 @@ ReleaseItem Aggregate
 WorkPackage Aggregate
 Task Aggregate
 ```
+
+`WorkSourceProvider` no es un agregado canonico del dominio. Es un adapter/configuracion registrada en `ProjectContext`, con capabilities y policy verificables. El estado persistente relevante vive en la configuracion del provider, `source_refs`, revisiones/fingerprints, findings de sync/drift y evidencia de operaciones externas; convertir el provider mismo en agregado introduciria lifecycle y consistencia fuerte innecesarios.
 
 Invariantes locales se validan transaccionalmente dentro de un agregado:
 
@@ -130,6 +137,36 @@ Un Release Item funcional puede contener:
 - work packages requeridos u opcionales.
 
 Un Release Item no se divide artificialmente por componentes tecnicos. Si una capacidad afecta web, API, datos y documentacion, sigue siendo un solo item y contiene cuatro work packages.
+
+Un Release Item puede originarse desde descripcion humana directa, Work Source local o Work Source externo. Cuando existe fuente, debe conservar referencias normalizadas:
+
+```yaml
+source_refs:
+  - source_id: local-backlog
+    provider: local_repository
+    path: docs/backlog/item.md
+    content_revision: sha256:...
+    mapping_version: 1
+    role: primary
+```
+
+La lista puede contener multiples referencias. El schema no debe duplicar todo el payload externo ni exponer tipos provider-specific al core; los datos especificos viven dentro del adapter y fixtures de mapping. Ver [Work Source Provider contract](12-work-source-provider-contract.md).
+
+### Work Source
+
+Un Work Source es una fuente configurada de unidades de trabajo candidatas para import, refresh o sync controlado:
+
+```text
+LocalRepositoryWorkSource
+JiraMcpWorkSource
+GitHubIssuesWorkSource
+AzureBoardsWorkSource
+LinearWorkSource
+```
+
+El provider declara capabilities (`discover`, `search`, `get`, `create`, `update`, `transition`, `comment`), sync modes soportados y policies de source-of-truth. Shipping Mode solo ejecuta operaciones externas mediante ChangeSets aprobados, idempotency keys, revision checks, evidencia y verificacion posterior.
+
+Work Sources se distinguen de Documentation Sources. Documentation Sources alimentan guias, gates y conocimiento; Work Sources alimentan Release Items. Pueden compartir fingerprints y provenance, pero no el significado de dominio.
 
 ### Scope Work Package
 
