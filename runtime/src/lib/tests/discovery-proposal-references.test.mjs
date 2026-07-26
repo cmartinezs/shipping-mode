@@ -6,10 +6,17 @@ import path from "node:path";
 import { stringifyYaml } from "../yaml.mjs";
 import { resolveSourceReferences } from "../discoveryProposal.mjs";
 
-function makeWorkspace() {
+const scopeId = "018f4d1e-0000-7000-8000-000000000001";
+
+// scopeCommands[].scopeId can only ever be an already-confirmed scope (a proposal's own scopes[]
+// entries have no id yet), so every test below except the dedicated dangling-scope-ref case
+// writes scopeId into the confirmed catalog up front -- otherwise every one of them would fail
+// on the new scopeId check rather than on what it's actually testing.
+function makeWorkspace({ confirmScope = true } = {}) {
   const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "proposal-refs-"));
   const planningRoot = path.join(workspaceRoot, ".planning");
   fs.mkdirSync(path.join(planningRoot, "sources"), { recursive: true });
+  if (confirmScope) writeConfirmedScope(planningRoot, scopeId);
   return { planningRoot };
 }
 
@@ -24,7 +31,13 @@ function writeConfirmedSource(planningRoot, id) {
   }));
 }
 
-const scopeId = "018f4d1e-0000-7000-8000-000000000001";
+function writeConfirmedScope(planningRoot, id) {
+  const dir = path.join(planningRoot, "scopes", id);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, "scope.yml"), stringifyYaml({
+    schemaVersion: 1, id, key: "api", label: "API", kind: "code", path: "api/", owner: null, commands: {}
+  }));
+}
 const confirmedId = "018f4d1e-0000-7000-8000-000000000002";
 const updatedId = "018f4d1e-0000-7000-8000-000000000003";
 const danglingId = "018f4d1e-0000-7000-8000-000000000004";
@@ -113,4 +126,15 @@ function commandEntry(sourceId) {
   assert.ok(result.errors.some((e) => e.code === "dangling_source_ref" && e.sourceId === danglingId));
 }
 
-console.log("discovery-proposal-references: resolves against confirmed catalog and same-proposal update/move (both tested independently), rejects add (even with a stray sourceId attached) and truly dangling refs (including inside alternatives)");
+// scopeId naming a scope that doesn't exist in the confirmed catalog -> dangling, rejected,
+// even though every sourceRef in the command resolves fine
+{
+  const { planningRoot } = makeWorkspace({ confirmScope: false });
+  writeConfirmedSource(planningRoot, confirmedId);
+  const proposal = { sources: [], scopeCommands: [commandEntry(confirmedId)] };
+  const result = resolveSourceReferences({ proposal, planningRoot });
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((e) => e.code === "dangling_scope_ref" && e.scopeId === scopeId));
+}
+
+console.log("discovery-proposal-references: resolves against confirmed catalog and same-proposal update/move (both tested independently), rejects add (even with a stray sourceId attached), truly dangling source refs (including inside alternatives), and dangling scope refs");

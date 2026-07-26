@@ -54,11 +54,14 @@ assert.equal(withDefault.scanParameters.maxSourceBytes, 536870912);
   assert.ok(threw);
 }
 
-// discover validate -- a well-formed but structurally-invalid proposal returns {ok:false}, not a thrown error
+// discover validate -- a well-formed but structurally-invalid proposal returns {ok:false}, not a
+// thrown error, and carries a status the CLI's exit-code mapping (bin/shipping-mode.mjs) actually
+// understands -- a rejected proposal returning {ok:false} with no status silently exits 0
 {
   const result = runDiscoverValidate({ planningRoot, workspaceRoot, proposalText: JSON.stringify({ schemaVersion: 1 }) });
   assert.equal(result.ok, false);
+  assert.equal(result.status, "INVALID");
   assert.ok(result.errors.some((e) => e.code === "schema_invalid"));
 }
 
-console.log("discover command: full ScanResult assembly (with real candidate fingerprints and commit-SHA vcsRevision), range validation, and default all pass");
+console.log("discover command: full ScanResult assembly (with real candidate fingerprints and commit-SHA vcsRevision), range validation, default, and validate's malformed-JSON/structurally-invalid/status handling all pass");

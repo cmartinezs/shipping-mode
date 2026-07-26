@@ -9,5 +9,6 @@ export function runDiscoverValidate({ planningRoot, workspaceRoot, proposalText 
   } catch (error) {
     throw new UsageError(`invalid proposal JSON: ${error.message}`);
   }
-  return validateDiscoveryProposal({ proposal, planningRoot, workspaceRoot });
+  const result = validateDiscoveryProposal({ proposal, planningRoot, workspaceRoot });
+  return result.ok ? result : { ...result, status: "INVALID" };
 }

@@ -38,6 +38,41 @@ function checkDuplicateScopeCommands(proposal) {
   return errors;
 }
 
+function checkDuplicateScopeKeys(proposal) {
+  const errors = [];
+  const seen = new Set();
+  for (const entry of proposal.scopes || []) {
+    if (seen.has(entry.key)) {
+      errors.push({ code: "duplicate_scope_key", key: entry.key, message: `more than one scopes[] entry uses the key ${entry.key}` });
+    }
+    seen.add(entry.key);
+  }
+  return errors;
+}
+
+// A command's identity for the "alternatives must be genuinely distinct" invariant: the exact
+// command string plus its sourceRefs AS A SET (order must not matter -- two refs listed in a
+// different order are still the same selection). Selected command and every alternative must
+// have pairwise-distinct identities; this must fail closed, never silently dedupe.
+function commandKey(entry) {
+  return `${entry.command}::${[...new Set(entry.sourceRefs || [])].sort().join(",")}`;
+}
+
+function checkAlternativeKeyCollisions(proposal) {
+  const errors = [];
+  for (const command of proposal.scopeCommands || []) {
+    const seen = new Set([commandKey(command)]);
+    for (const alternative of command.alternatives || []) {
+      const key = commandKey(alternative);
+      if (seen.has(key)) {
+        errors.push({ code: "duplicate_alternative_key", scopeId: command.scopeId, role: command.role, message: `scopeCommands entry for scope ${command.scopeId} role ${command.role} has an alternative whose (command, sourceRefs) matches the selected command or another alternative` });
+      }
+      seen.add(key);
+    }
+  }
+  return errors;
+}
+
 // Builds a throwaway { commands: { <role>: entry, custom: { <name>: entry } } } object shaped
 // like a scope.yml document, specifically so this can reuse findCommandFingerprintKeyMismatches
 // (which expects that shape, via allCommandEntries) without duplicating its traversal logic.
@@ -72,7 +107,7 @@ export function validateProposalStructure(proposal) {
   if (!schemaResult.valid) {
     return {
       ok: false,
-      errors: schemaResult.errors.map((e) => ({ code: "schema_invalid", path: e.path, message: e.message }))
+      errors: schemaResult.errors.map((e) => ({ code: "schema_invalid", pointer: e.path, message: e.message }))
     };
   }
 
@@ -80,6 +115,8 @@ export function validateProposalStructure(proposal) {
     ...checkScanParametersRange(proposal),
     ...checkDuplicateSourceActions(proposal),
     ...checkDuplicateScopeCommands(proposal),
+    ...checkDuplicateScopeKeys(proposal),
+    ...checkAlternativeKeyCollisions(proposal),
     ...checkFingerprintKeyMismatches(proposal)
   ];
 
@@ -203,9 +240,16 @@ function resolvableSourceIds(proposal, confirmedIds) {
 export function resolveSourceReferences({ proposal, planningRoot }) {
   const confirmedIds = readConfirmedSources(planningRoot).map((s) => s.id);
   const resolvable = resolvableSourceIds(proposal, confirmedIds);
+  // scopeCommands[].scopeId can only ever name an already-confirmed scope: scopes[] entries in
+  // this same proposal have no id yet (minted only at apply time, same reasoning as "add" sources
+  // being unreferenceable within their own proposal).
+  const confirmedScopeIds = new Set(readConfirmedScopes(planningRoot).map((s) => s.id));
   const errors = [];
 
   for (const command of proposal.scopeCommands || []) {
+    if (!confirmedScopeIds.has(command.scopeId)) {
+      errors.push({ code: "dangling_scope_ref", scopeId: command.scopeId, role: command.role, message: `scopeId ${command.scopeId} does not resolve to a confirmed scope` });
+    }
     for (const ref of command.sourceRefs || []) {
       if (!resolvable.has(ref)) {
         errors.push({ code: "dangling_source_ref", scopeId: command.scopeId, role: command.role, sourceId: ref, message: `sourceRef ${ref} does not resolve to a confirmed source or an update/move in this same proposal` });
@@ -235,9 +279,12 @@ export function checkDriftReconciliation({ proposal, freshScan }) {
   }
 
   const addressedCommands = new Set((proposal.scopeCommands || []).map((c) => `${c.scopeId}:${c.role}`));
-  const NEEDS_RECONCILIATION = new Set(["evidence-missing", "evidence-drifted", "evidence-updated", "unknown"]);
+  // Fail closed like the source-drift check above: only these two states are known-fine and
+  // skip reconciliation. Any other value -- including one not yet invented -- blocks by default,
+  // rather than an allowlist of "bad" states that a future evidenceState could silently bypass.
+  const NO_RECONCILIATION_NEEDED = new Set(["current", "not-evidence-backed"]);
   for (const evidence of freshScan.knownCommandsEvidence) {
-    if (!NEEDS_RECONCILIATION.has(evidence.evidenceState)) continue;
+    if (NO_RECONCILIATION_NEEDED.has(evidence.evidenceState)) continue;
     if (!addressedCommands.has(`${evidence.scopeId}:${evidence.role}`)) {
       errors.push({ code: "unreconciled_command_evidence", scopeId: evidence.scopeId, role: evidence.role, evidenceState: evidence.evidenceState, message: `command ${evidence.scopeId}/${evidence.role} has unreconciled evidence (${evidence.evidenceState}) and is not addressed by any scopeCommands[] entry in this proposal` });
     }
@@ -288,6 +335,53 @@ export function checkRemovalReferentialIntegrity({ proposal, planningRoot }) {
   return errors.length === 0 ? { ok: true } : { ok: false, errors };
 }
 
+export function checkScopeProposals({ proposal, planningRoot, workspaceRoot }) {
+  const errors = [];
+  const confirmedKeys = new Set(readConfirmedScopes(planningRoot).map((s) => s.key));
+  for (const entry of proposal.scopes || []) {
+    if (confirmedKeys.has(entry.key)) {
+      errors.push({ code: "scope_key_collision", key: entry.key, message: `scopes[] entry key ${entry.key} already exists in the confirmed scope catalog` });
+    }
+    try {
+      confineScopePath(workspaceRoot, entry.path);
+    } catch (error) {
+      if (!(error instanceof PathConfinementError)) throw error;
+      errors.push({ code: "untrusted_scope_path", key: entry.key, path: entry.path, message: error.message });
+    }
+  }
+  return errors.length === 0 ? { ok: true } : { ok: false, errors };
+}
+
+// After this proposal is applied, no two sources may occupy the same path -- an "add" or "move"
+// landing on a path that's already occupied (by an untouched confirmed source, or by another
+// add/move in this same proposal) would break detectMoved's "exactly one match" uniqueness rule
+// in every subsequent scan.
+export function checkSourcePathCollisions({ proposal, planningRoot }) {
+  const displaced = new Set((proposal.sources || []).filter((e) => e.action === "move" || e.action === "remove").map((e) => e.sourceId));
+  const occupants = new Map();
+  const occupy = (path, sourceId) => {
+    if (!occupants.has(path)) occupants.set(path, []);
+    occupants.get(path).push(sourceId);
+  };
+
+  for (const source of readConfirmedSources(planningRoot)) {
+    if (displaced.has(source.id)) continue; // no longer occupies its old path after this proposal
+    occupy(source.path, source.id);
+  }
+  for (const entry of proposal.sources || []) {
+    if (entry.action === "add") occupy(entry.path, null);
+    if (entry.action === "move") occupy(entry.path, entry.sourceId);
+  }
+
+  const errors = [];
+  for (const [path, sourceIds] of occupants) {
+    if (sourceIds.length > 1) {
+      errors.push({ code: "source_path_collision", path, message: `more than one source would occupy path ${path} after this proposal is applied` });
+    }
+  }
+  return errors.length === 0 ? { ok: true } : { ok: false, errors };
+}
+
 export function validateDiscoveryProposal({ proposal, planningRoot, workspaceRoot }) {
   const structure = validateProposalStructure(proposal);
   if (!structure.ok) return structure;
@@ -300,12 +394,16 @@ export function validateDiscoveryProposal({ proposal, planningRoot, workspaceRoo
   const references = resolveSourceReferences({ proposal, planningRoot });
   const drift = checkDriftReconciliation({ proposal, freshScan });
   const removal = checkRemovalReferentialIntegrity({ proposal, planningRoot });
+  const scopeProposals = checkScopeProposals({ proposal, planningRoot, workspaceRoot });
+  const pathCollisions = checkSourcePathCollisions({ proposal, planningRoot });
 
   const stepFourErrors = [
     ...(fingerprints.ok ? [] : fingerprints.errors),
     ...(references.ok ? [] : references.errors),
     ...(drift.ok ? [] : drift.errors),
-    ...(removal.ok ? [] : removal.errors)
+    ...(removal.ok ? [] : removal.errors),
+    ...(scopeProposals.ok ? [] : scopeProposals.errors),
+    ...(pathCollisions.ok ? [] : pathCollisions.errors)
   ];
   if (stepFourErrors.length > 0) return { ok: false, errors: stepFourErrors };
 

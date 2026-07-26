@@ -330,4 +330,36 @@ function fullyInit(cwd) {
   assert.equal(checkAfterRecovery.json.pendingOperations.length, 0);
 }
 
+// discover validate: exercised through the actual built binary, not just the lib/command layer
+// -- this is the layer where a rejected result silently exiting 0 would otherwise slip through
+{
+  const cwd = freshWorkspace();
+  fs.mkdirSync(path.join(cwd, ".planning"), { recursive: true });
+
+  // missing --file/--stdin -> the command-specific usage message, exit 1 (not changeset propose's)
+  const missing = run(["discover", "validate"], cwd);
+  assert.equal(missing.code, 1);
+  assert.equal(missing.json.error, "discover validate requires --file <path> or --stdin");
+
+  // malformed JSON -> UsageError, exit 1
+  const badJsonFile = path.join(cwd, "bad.json");
+  fs.writeFileSync(badJsonFile, "{ not valid json");
+  const malformed = run(["discover", "validate", "--file", badJsonFile], cwd);
+  assert.equal(malformed.code, 1);
+
+  // structurally-invalid proposal -> {ok:false, status:"INVALID"}, exit 1 -- a rejected proposal
+  // must never look like success at the process-exit-code level
+  const invalidFile = path.join(cwd, "invalid.json");
+  fs.writeFileSync(invalidFile, JSON.stringify({ schemaVersion: 1 }));
+  const invalid = run(["discover", "validate", "--file", invalidFile], cwd);
+  assert.equal(invalid.code, 1);
+  assert.equal(invalid.json.ok, false);
+  assert.equal(invalid.json.status, "INVALID");
+
+  // --stdin reads the same way --file does
+  const viaStdin = run(["discover", "validate", "--stdin"], cwd, { input: JSON.stringify({ schemaVersion: 1 }) });
+  assert.equal(viaStdin.code, 1);
+  assert.equal(viaStdin.json.status, "INVALID");
+}
+
 console.log("cli-e2e: all tests passed");

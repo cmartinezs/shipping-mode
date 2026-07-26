@@ -39,8 +39,8 @@ function requireOperationId(value) {
   return value;
 }
 
-function readPayloadText(payloadFileArg, cwd) {
-  if (!payloadFileArg || payloadFileArg === true) throw new UsageError("changeset propose requires --payload-file <file|->");
+function readPayloadText(payloadFileArg, cwd, usage) {
+  if (!payloadFileArg || payloadFileArg === true) throw new UsageError(usage);
   if (payloadFileArg === "-") return fs.readFileSync(0, "utf8");
   const resolved = path.resolve(cwd, payloadFileArg);
   if (!fs.existsSync(resolved)) throw new UsageError(`payload file not found: ${payloadFileArg}`);
@@ -80,7 +80,7 @@ export function dispatch(command, args, cwd) {
       const options = argsToOptions(rest);
       if (!IN_SCOPE_KINDS.has(options.kind)) return notImplemented(`changeset propose --kind ${options.kind}`);
       if (!options.actor) throw new UsageError("changeset propose requires --actor");
-      const payloadText = readPayloadText(options.payload_file, cwd);
+      const payloadText = readPayloadText(options.payload_file, cwd, "changeset propose requires --payload-file <file|->");
       return runChangesetPropose({ planningRoot, kind: options.kind, payloadText, actor: options.actor });
     }
     if (stage === "validate") {
@@ -123,7 +123,7 @@ export function dispatch(command, args, cwd) {
     }
     if (stage === "validate") {
       const options = argsToOptions(rest);
-      const proposalText = readPayloadText(options.file || (options.stdin ? "-" : undefined), cwd);
+      const proposalText = readPayloadText(options.file || (options.stdin ? "-" : undefined), cwd, "discover validate requires --file <path> or --stdin");
       return runDiscoverValidate({ planningRoot, workspaceRoot: cwd, proposalText });
     }
     return notImplemented(`discover ${stage || ""}`.trim());

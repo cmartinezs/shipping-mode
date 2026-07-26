@@ -10458,6 +10458,26 @@ function checkDuplicateScopeCommands(proposal) {
   }
   return errors;
 }
+function checkDuplicateScopeKeys(proposal) {
+  let errors = [], seen = /* @__PURE__ */ new Set();
+  for (let entry of proposal.scopes || [])
+    seen.has(entry.key) && errors.push({ code: "duplicate_scope_key", key: entry.key, message: `more than one scopes[] entry uses the key ${entry.key}` }), seen.add(entry.key);
+  return errors;
+}
+function commandKey(entry) {
+  return `${entry.command}::${[...new Set(entry.sourceRefs || [])].sort().join(",")}`;
+}
+function checkAlternativeKeyCollisions(proposal) {
+  let errors = [];
+  for (let command of proposal.scopeCommands || []) {
+    let seen = /* @__PURE__ */ new Set([commandKey(command)]);
+    for (let alternative of command.alternatives || []) {
+      let key = commandKey(alternative);
+      seen.has(key) && errors.push({ code: "duplicate_alternative_key", scopeId: command.scopeId, role: command.role, message: `scopeCommands entry for scope ${command.scopeId} role ${command.role} has an alternative whose (command, sourceRefs) matches the selected command or another alternative` }), seen.add(key);
+    }
+  }
+  return errors;
+}
 function checkFingerprintKeyMismatches(proposal) {
   let errors = [];
   for (let entry of proposal.scopeCommands || []) {
@@ -10473,12 +10493,14 @@ function validateProposalStructure(proposal) {
   if (!schemaResult.valid)
     return {
       ok: !1,
-      errors: schemaResult.errors.map((e) => ({ code: "schema_invalid", path: e.path, message: e.message }))
+      errors: schemaResult.errors.map((e) => ({ code: "schema_invalid", pointer: e.path, message: e.message }))
     };
   let errors = [
     ...checkScanParametersRange(proposal),
     ...checkDuplicateSourceActions(proposal),
     ...checkDuplicateScopeCommands(proposal),
+    ...checkDuplicateScopeKeys(proposal),
+    ...checkAlternativeKeyCollisions(proposal),
     ...checkFingerprintKeyMismatches(proposal)
   ];
   return errors.length === 0 ? { ok: !0 } : { ok: !1, errors };
@@ -10558,8 +10580,9 @@ function resolvableSourceIds(proposal, confirmedIds) {
   return resolvable;
 }
 function resolveSourceReferences({ proposal, planningRoot }) {
-  let confirmedIds = readConfirmedSources(planningRoot).map((s) => s.id), resolvable = resolvableSourceIds(proposal, confirmedIds), errors = [];
+  let confirmedIds = readConfirmedSources(planningRoot).map((s) => s.id), resolvable = resolvableSourceIds(proposal, confirmedIds), confirmedScopeIds = new Set(readConfirmedScopes(planningRoot).map((s) => s.id)), errors = [];
   for (let command of proposal.scopeCommands || []) {
+    confirmedScopeIds.has(command.scopeId) || errors.push({ code: "dangling_scope_ref", scopeId: command.scopeId, role: command.role, message: `scopeId ${command.scopeId} does not resolve to a confirmed scope` });
     for (let ref of command.sourceRefs || [])
       resolvable.has(ref) || errors.push({ code: "dangling_source_ref", scopeId: command.scopeId, role: command.role, sourceId: ref, message: `sourceRef ${ref} does not resolve to a confirmed source or an update/move in this same proposal` });
     for (let alternative of command.alternatives || [])
@@ -10572,9 +10595,9 @@ function checkDriftReconciliation({ proposal, freshScan }) {
   let errors = [], addressedSourceIds = new Set((proposal.sources || []).filter((e) => e.action !== "add").map((e) => e.sourceId));
   for (let known of freshScan.knownSources)
     known.driftState !== "unchanged" && (addressedSourceIds.has(known.sourceId) || errors.push({ code: "unreconciled_source_drift", sourceId: known.sourceId, driftState: known.driftState, message: `source ${known.sourceId} has unreconciled drift (${known.driftState}) and is not addressed by any sources[] action in this proposal` }));
-  let addressedCommands = new Set((proposal.scopeCommands || []).map((c) => `${c.scopeId}:${c.role}`)), NEEDS_RECONCILIATION = /* @__PURE__ */ new Set(["evidence-missing", "evidence-drifted", "evidence-updated", "unknown"]);
+  let addressedCommands = new Set((proposal.scopeCommands || []).map((c) => `${c.scopeId}:${c.role}`)), NO_RECONCILIATION_NEEDED = /* @__PURE__ */ new Set(["current", "not-evidence-backed"]);
   for (let evidence of freshScan.knownCommandsEvidence)
-    NEEDS_RECONCILIATION.has(evidence.evidenceState) && (addressedCommands.has(`${evidence.scopeId}:${evidence.role}`) || errors.push({ code: "unreconciled_command_evidence", scopeId: evidence.scopeId, role: evidence.role, evidenceState: evidence.evidenceState, message: `command ${evidence.scopeId}/${evidence.role} has unreconciled evidence (${evidence.evidenceState}) and is not addressed by any scopeCommands[] entry in this proposal` }));
+    NO_RECONCILIATION_NEEDED.has(evidence.evidenceState) || addressedCommands.has(`${evidence.scopeId}:${evidence.role}`) || errors.push({ code: "unreconciled_command_evidence", scopeId: evidence.scopeId, role: evidence.role, evidenceState: evidence.evidenceState, message: `command ${evidence.scopeId}/${evidence.role} has unreconciled evidence (${evidence.evidenceState}) and is not addressed by any scopeCommands[] entry in this proposal` });
   return errors.length === 0 ? { ok: !0 } : { ok: !1, errors };
 }
 function allProposalSourceRefs(proposal) {
@@ -10605,16 +10628,44 @@ function checkRemovalReferentialIntegrity({ proposal, planningRoot }) {
     (inThisProposal.has(sourceId) || inConfirmedCatalog.has(sourceId)) && errors.push({ code: "remove_still_referenced", sourceId, message: `source ${sourceId} is marked for removal but is still referenced by a command (either in this proposal or the confirmed catalog)` });
   return errors.length === 0 ? { ok: !0 } : { ok: !1, errors };
 }
+function checkScopeProposals({ proposal, planningRoot, workspaceRoot }) {
+  let errors = [], confirmedKeys = new Set(readConfirmedScopes(planningRoot).map((s) => s.key));
+  for (let entry of proposal.scopes || []) {
+    confirmedKeys.has(entry.key) && errors.push({ code: "scope_key_collision", key: entry.key, message: `scopes[] entry key ${entry.key} already exists in the confirmed scope catalog` });
+    try {
+      confineScopePath(workspaceRoot, entry.path);
+    } catch (error) {
+      if (!(error instanceof PathConfinementError)) throw error;
+      errors.push({ code: "untrusted_scope_path", key: entry.key, path: entry.path, message: error.message });
+    }
+  }
+  return errors.length === 0 ? { ok: !0 } : { ok: !1, errors };
+}
+function checkSourcePathCollisions({ proposal, planningRoot }) {
+  let displaced = new Set((proposal.sources || []).filter((e) => e.action === "move" || e.action === "remove").map((e) => e.sourceId)), occupants = /* @__PURE__ */ new Map(), occupy = (path14, sourceId) => {
+    occupants.has(path14) || occupants.set(path14, []), occupants.get(path14).push(sourceId);
+  };
+  for (let source of readConfirmedSources(planningRoot))
+    displaced.has(source.id) || occupy(source.path, source.id);
+  for (let entry of proposal.sources || [])
+    entry.action === "add" && occupy(entry.path, null), entry.action === "move" && occupy(entry.path, entry.sourceId);
+  let errors = [];
+  for (let [path14, sourceIds] of occupants)
+    sourceIds.length > 1 && errors.push({ code: "source_path_collision", path: path14, message: `more than one source would occupy path ${path14} after this proposal is applied` });
+  return errors.length === 0 ? { ok: !0 } : { ok: !1, errors };
+}
 function validateDiscoveryProposal({ proposal, planningRoot, workspaceRoot }) {
   let structure = validateProposalStructure(proposal);
   if (!structure.ok) return structure;
   let consistency = verifyWorkspaceConsistency({ proposal, planningRoot, workspaceRoot });
   if (!consistency.ok) return consistency;
-  let { freshScan } = consistency, fingerprints = verifySourceFingerprints({ proposal, planningRoot, workspaceRoot }), references = resolveSourceReferences({ proposal, planningRoot }), drift = checkDriftReconciliation({ proposal, freshScan }), removal = checkRemovalReferentialIntegrity({ proposal, planningRoot }), stepFourErrors = [
+  let { freshScan } = consistency, fingerprints = verifySourceFingerprints({ proposal, planningRoot, workspaceRoot }), references = resolveSourceReferences({ proposal, planningRoot }), drift = checkDriftReconciliation({ proposal, freshScan }), removal = checkRemovalReferentialIntegrity({ proposal, planningRoot }), scopeProposals = checkScopeProposals({ proposal, planningRoot, workspaceRoot }), pathCollisions = checkSourcePathCollisions({ proposal, planningRoot }), stepFourErrors = [
     ...fingerprints.ok ? [] : fingerprints.errors,
     ...references.ok ? [] : references.errors,
     ...drift.ok ? [] : drift.errors,
-    ...removal.ok ? [] : removal.errors
+    ...removal.ok ? [] : removal.errors,
+    ...scopeProposals.ok ? [] : scopeProposals.errors,
+    ...pathCollisions.ok ? [] : pathCollisions.errors
   ];
   return stepFourErrors.length > 0 ? { ok: !1, errors: stepFourErrors } : {
     ok: !0,
@@ -10635,7 +10686,8 @@ function runDiscoverValidate({ planningRoot, workspaceRoot, proposalText }) {
   } catch (error) {
     throw new UsageError(`invalid proposal JSON: ${error.message}`);
   }
-  return validateDiscoveryProposal({ proposal, planningRoot, workspaceRoot });
+  let result = validateDiscoveryProposal({ proposal, planningRoot, workspaceRoot });
+  return result.ok ? result : { ...result, status: "INVALID" };
 }
 
 // runtime/src/index.mjs
@@ -10661,8 +10713,8 @@ function requireOperationId(value) {
   if (!isUuidV7(value)) throw new UsageError(`invalid operation id: ${value}`);
   return value;
 }
-function readPayloadText(payloadFileArg, cwd) {
-  if (!payloadFileArg || payloadFileArg === !0) throw new UsageError("changeset propose requires --payload-file <file|->");
+function readPayloadText(payloadFileArg, cwd, usage) {
+  if (!payloadFileArg || payloadFileArg === !0) throw new UsageError(usage);
   if (payloadFileArg === "-") return fs13.readFileSync(0, "utf8");
   let resolved = path13.resolve(cwd, payloadFileArg);
   if (!fs13.existsSync(resolved)) throw new UsageError(`payload file not found: ${payloadFileArg}`);
@@ -10696,7 +10748,7 @@ function dispatch(command, args, cwd) {
       let options = argsToOptions(rest);
       if (!IN_SCOPE_KINDS.has(options.kind)) return notImplemented(`changeset propose --kind ${options.kind}`);
       if (!options.actor) throw new UsageError("changeset propose requires --actor");
-      let payloadText = readPayloadText(options.payload_file, cwd);
+      let payloadText = readPayloadText(options.payload_file, cwd, "changeset propose requires --payload-file <file|->");
       return runChangesetPropose({ planningRoot, kind: options.kind, payloadText, actor: options.actor });
     }
     if (stage === "validate") {
@@ -10731,7 +10783,7 @@ function dispatch(command, args, cwd) {
       return runDiscoverScan(scanArgs);
     }
     if (stage === "validate") {
-      let options = argsToOptions(rest), proposalText = readPayloadText(options.file || (options.stdin ? "-" : void 0), cwd);
+      let options = argsToOptions(rest), proposalText = readPayloadText(options.file || (options.stdin ? "-" : void 0), cwd, "discover validate requires --file <path> or --stdin");
       return runDiscoverValidate({ planningRoot, workspaceRoot: cwd, proposalText });
     }
     return notImplemented(`discover ${stage || ""}`.trim());

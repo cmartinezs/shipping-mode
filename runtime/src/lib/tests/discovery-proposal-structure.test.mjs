@@ -102,6 +102,60 @@ function baseProposal(overrides = {}) {
   assert.ok(mismatches.some((e) => e.extra.includes(srcC)));
 }
 
+// duplicate key across two scopes[] entries -> rejected
+{
+  const scopeEntry = { key: "api", label: "API", kind: "code", path: "api/", owner: null };
+  const result = validateProposalStructure(baseProposal({ scopes: [scopeEntry, { ...scopeEntry, label: "API again" }] }));
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((e) => e.code === "duplicate_scope_key" && e.key === "api"));
+}
+
+// an alternative whose (command, sourceRefs) matches the SELECTED command -> rejected
+{
+  const result = validateProposalStructure(baseProposal({
+    scopeCommands: [{
+      scopeId, role: "build", command: "./x", method: "reviewed", confidence: "high",
+      sourceRefs: [srcA], sourceFingerprintAtSelection: { [srcA]: "c".repeat(64) },
+      requiresEnvironment: false, requiresSecrets: false,
+      alternatives: [{ command: "./x", sourceRefs: [srcA], sourceFingerprintAtSelection: { [srcA]: "c".repeat(64) }, confidence: "medium", requiresEnvironment: false, requiresSecrets: false }]
+    }]
+  }));
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((e) => e.code === "duplicate_alternative_key" && e.scopeId === scopeId && e.role === "build"));
+}
+
+// two alternatives sharing (command, sourceRefs) with each other (not with the selected command) -> rejected
+{
+  const result = validateProposalStructure(baseProposal({
+    scopeCommands: [{
+      scopeId, role: "build", command: "./x", method: "reviewed", confidence: "high",
+      sourceRefs: [srcA], sourceFingerprintAtSelection: { [srcA]: "c".repeat(64) },
+      requiresEnvironment: false, requiresSecrets: false,
+      alternatives: [
+        { command: "./alt", sourceRefs: [srcB], sourceFingerprintAtSelection: { [srcB]: "c".repeat(64) }, confidence: "medium", requiresEnvironment: false, requiresSecrets: false },
+        { command: "./alt", sourceRefs: [srcB], sourceFingerprintAtSelection: { [srcB]: "c".repeat(64) }, confidence: "low", requiresEnvironment: false, requiresSecrets: false }
+      ]
+    }]
+  }));
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((e) => e.code === "duplicate_alternative_key" && e.scopeId === scopeId && e.role === "build"));
+}
+
+// an alternative with the same command string but DIFFERENT sourceRefs as the selected command
+// (or another alternative) is a genuinely distinct choice, not a collision -> ok
+{
+  const result = validateProposalStructure(baseProposal({
+    sources: [{ action: "update", sourceId: srcA, observedFingerprint: "c".repeat(64), observedContentHash: "d".repeat(64) }],
+    scopeCommands: [{
+      scopeId, role: "build", command: "./x", method: "reviewed", confidence: "high",
+      sourceRefs: [srcA], sourceFingerprintAtSelection: { [srcA]: "c".repeat(64) },
+      requiresEnvironment: false, requiresSecrets: false,
+      alternatives: [{ command: "./x", sourceRefs: [srcB], sourceFingerprintAtSelection: { [srcB]: "c".repeat(64) }, confidence: "medium", requiresEnvironment: false, requiresSecrets: false }]
+    }]
+  }));
+  assert.deepEqual(result, { ok: true });
+}
+
 // multiple simultaneous DIFFERENT relational violations -> both codes come back together,
 // proving "collects everything" isn't just true by inspection of a single-violation case
 {
@@ -130,4 +184,4 @@ function baseProposal(overrides = {}) {
   assert.deepEqual(result, { ok: true });
 }
 
-console.log("discovery-proposal-structure: schema errors, scanParameters range, duplicate detection, and fingerprint-key mismatch all pass, collecting every error rather than stopping at the first");
+console.log("discovery-proposal-structure: schema errors, scanParameters range, duplicate detection (sources, scopeCommands, scope keys, alternative keys), and fingerprint-key mismatch all pass, collecting every error rather than stopping at the first");
