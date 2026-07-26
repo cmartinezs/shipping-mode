@@ -107,16 +107,20 @@ export function verifyWorkspaceConsistency({ proposal, planningRoot, workspaceRo
 }
 
 function verifyOneSourceAction(entry, { confirmedById, workspaceRoot, maxSourceBytes }) {
-  if (entry.action === "remove") return []; // no fingerprint claim to verify
-
   if (entry.action === "add") {
     return verifyClaimedFingerprint(entry, entry.path, workspaceRoot, maxSourceBytes);
   }
 
+  // update, move, and remove all reference an existing sourceId -- confirm it's real before
+  // doing anything else. Without this, "remove" was the only action type that could target a
+  // completely fictitious sourceId and pass validation (update/move already reject via
+  // unknown_source_id below; remove used to skip this lookup entirely).
   const confirmed = confirmedById.get(entry.sourceId);
   if (!confirmed) {
     return [{ code: "unknown_source_id", sourceId: entry.sourceId, message: `sources[] entry references sourceId ${entry.sourceId}, which is not in the confirmed catalog` }];
   }
+
+  if (entry.action === "remove") return []; // existence already confirmed above; no fingerprint claim to verify
 
   if (entry.action === "update") {
     return verifyClaimedFingerprint(entry, confirmed.path, workspaceRoot, maxSourceBytes);

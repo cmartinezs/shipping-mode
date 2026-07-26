@@ -166,12 +166,22 @@ const idMove = "018f4d1e-0000-7000-8000-000000000003";
   assert.equal(result.ok, true);
 }
 
-// remove: no fingerprint claim to verify at all -- always structurally fine at this step
+// remove: no fingerprint claim to verify -- but the sourceId must still be a real, confirmed source
+{
+  const { workspaceRoot, planningRoot } = makeWorkspace();
+  writeConfirmedSource(planningRoot, idMove);
+  const proposal = { scanParameters: { maxSourceBytes: 1024 * 1024 }, sources: [{ action: "remove", sourceId: idMove }] };
+  const result = verifySourceFingerprints({ proposal, planningRoot, workspaceRoot });
+  assert.equal(result.ok, true);
+}
+
+// remove: sourceId does not exist in the confirmed catalog at all -- rejected, not silently accepted
 {
   const { workspaceRoot, planningRoot } = makeWorkspace();
   const proposal = { scanParameters: { maxSourceBytes: 1024 * 1024 }, sources: [{ action: "remove", sourceId: idMove }] };
   const result = verifySourceFingerprints({ proposal, planningRoot, workspaceRoot });
-  assert.equal(result.ok, true);
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((e) => e.code === "unknown_source_id" && e.sourceId === idMove));
 }
 
 console.log("discovery-proposal-fingerprints: add/update/move/remove fingerprint re-verification, path confinement, and move identity checks all pass");
