@@ -6,6 +6,7 @@ import { execFileSync, execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { parseYaml } from "../src/lib/yaml.mjs";
+import { isUuidV7 } from "../src/lib/ids.mjs";
 import { PLUGIN_VERSION, TEMPLATE_PACK_FINGERPRINT } from "../src/generated/build-meta.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -360,6 +361,84 @@ function fullyInit(cwd) {
   const viaStdin = run(["discover", "validate", "--stdin"], cwd, { input: JSON.stringify({ schemaVersion: 1 }) });
   assert.equal(viaStdin.code, 1);
   assert.equal(viaStdin.json.status, "INVALID");
+}
+
+// discover propose: validated proposal -> real ChangeSet lifecycle through the public binary
+{
+  const cwd = freshWorkspace();
+  fullyInit(cwd);
+  fs.mkdirSync(path.join(cwd, "api"), { recursive: true });
+  fs.writeFileSync(path.join(cwd, "api", "package.json"), "{}\n");
+
+  const scan = run(["discover", "scan", "--max-source-bytes", "1048576"], cwd).json;
+  const candidate = scan.sourceCandidates.find((entry) => entry.path === "api/package.json");
+  assert.ok(candidate);
+  const proposal = {
+    schemaVersion: 1,
+    scanId: scan.scanId,
+    baseRevision: scan.baseRevision,
+    scanParameters: scan.scanParameters,
+    scopes: [{ key: "api", label: "API", kind: "code", path: "api/", owner: null }],
+    sources: [{
+      action: "add",
+      path: candidate.path,
+      family: "project-module-manifests",
+      kind: "repository-map",
+      role: "evidence",
+      authority: { standing: "supporting", force: "informational" },
+      availability: "implemented",
+      observedFingerprint: candidate.observedFingerprint,
+      observedContentHash: candidate.observedContentHash
+    }],
+    scopeCommands: [],
+    diagnostics: []
+  };
+  const proposalFile = path.join(cwd, "discovery-proposal.json");
+  fs.writeFileSync(proposalFile, JSON.stringify(proposal));
+  const proposed = run(["discover", "propose", "--file", proposalFile, "--actor", "carlos"], cwd);
+  assert.equal(proposed.code, 0);
+  assert.ok(isUuidV7(proposed.json.operationId));
+  run(["changeset", "validate", proposed.json.operationId], cwd);
+  run(["changeset", "approve", proposed.json.operationId, "--actor", "carlos", "--allow-self-approval"], cwd);
+  const applied = run(["changeset", "apply", proposed.json.operationId, "--actor", "carlos"], cwd);
+  assert.equal(applied.code, 0);
+  assert.equal(applied.json.status, "APPLIED");
+  const config = parseYaml(fs.readFileSync(path.join(cwd, ".planning", "config.yml"), "utf8"));
+  const scopeRef = config.scopeRefs.find((entry) => entry.key === "api");
+  assert.ok(scopeRef);
+  assert.equal(fs.existsSync(path.join(cwd, ".planning", "scopes", scopeRef.id, "scope.yml")), true);
+  const sourcesRoot = path.join(cwd, ".planning", "sources");
+  const sourceIds = fs.readdirSync(sourcesRoot).filter(isUuidV7);
+  assert.equal(sourceIds.length, 1);
+  assert.equal(fs.existsSync(path.join(sourcesRoot, sourceIds[0], "source.yml")), true);
+}
+
+// config scope set-command: public declared-command API backed by the internal ChangeSet kind
+{
+  const cwd = freshWorkspace();
+  fullyInit(cwd);
+  fs.mkdirSync(path.join(cwd, "api"), { recursive: true });
+  const scope = run(["config", "scope", "add", "--key", "backend", "--label", "Backend", "--kind", "code", "--path", "api/", "--actor", "carlos"], cwd);
+  run(["changeset", "validate", scope.json.operationId], cwd);
+  run(["changeset", "approve", scope.json.operationId, "--actor", "carlos", "--allow-self-approval"], cwd);
+  run(["changeset", "apply", scope.json.operationId, "--actor", "carlos"], cwd);
+
+  const missingBoolean = run(["config", "scope", "set-command", "--scope-id", scope.json.scopeId, "--role", "test", "--command", "npm test", "--requires-environment", "false", "--actor", "carlos"], cwd);
+  assert.equal(missingBoolean.code, 1, "both descriptive booleans must be explicit");
+  const invalidBoolean = run(["config", "scope", "set-command", "--scope-id", scope.json.scopeId, "--role", "test", "--command", "npm test", "--requires-environment", "maybe", "--requires-secrets", "false", "--actor", "carlos"], cwd);
+  assert.equal(invalidBoolean.code, 1, "boolean options accept only literal true|false");
+
+  const proposed = run(["config", "scope", "set-command", "--scope-id", scope.json.scopeId, "--role", "test", "--command", "npm test", "--requires-environment", "false", "--requires-secrets", "false", "--actor", "carlos"], cwd);
+  assert.equal(proposed.code, 0);
+  run(["changeset", "validate", proposed.json.operationId], cwd);
+  run(["changeset", "approve", proposed.json.operationId, "--actor", "carlos", "--allow-self-approval"], cwd);
+  run(["changeset", "apply", proposed.json.operationId, "--actor", "carlos"], cwd);
+
+  const scopeDoc = parseYaml(fs.readFileSync(path.join(cwd, ".planning", "scopes", scope.json.scopeId, "scope.yml"), "utf8"));
+  assert.equal(scopeDoc.commands.test.method, "declared");
+  assert.equal(scopeDoc.commands.test.declaredBy, "carlos");
+  assert.equal(scopeDoc.commands.test.declaredOperationId, proposed.json.operationId);
+  assert.deepEqual(scopeDoc.commands.test.alternatives, []);
 }
 
 console.log("cli-e2e: all tests passed");

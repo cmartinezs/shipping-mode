@@ -26,6 +26,10 @@ fs.mkdirSync(path.join(root, "prompts"));
 fs.mkdirSync(path.join(root, "migrations"));
 fs.writeFileSync(path.join(root, "openapi.yaml"), "openapi: 3.0.0");
 fs.writeFileSync(path.join(root, ".eslintrc.json"), "{}");
+fs.mkdirSync(path.join(root, ".planning", "scopes", "018f0000-0000-7000-8000-000000000000"), { recursive: true });
+fs.writeFileSync(path.join(root, ".planning", "scopes", "018f0000-0000-7000-8000-000000000000", "scope.yml"), "schemaVersion: 1\n");
+fs.mkdirSync(path.join(root, ".planning", "sources", "018f0000-0000-7000-8000-000000000001"), { recursive: true });
+fs.writeFileSync(path.join(root, ".planning", "sources", "018f0000-0000-7000-8000-000000000001", "source.yml"), "schemaVersion: 1\n");
 
 const result = enumerateCandidates(root);
 
@@ -62,6 +66,8 @@ assert.ok(byPath(".eslintrc.json")?.candidateFamilies.includes("quality-definiti
 const webManifestSource = byPath("web/package.json");
 assert.ok(webManifestSource, "package.json should also be registered as its own source candidate");
 assert.ok(webManifestSource.candidateFamilies.includes("project-module-manifests"));
+assert.equal(byPath(".planning/scopes/018f0000-0000-7000-8000-000000000000/scope.yml"), undefined, ".planning is runtime state and must not be a discovery candidate");
+assert.equal(result.scopeCandidates.find((c) => c.path.startsWith(".planning/")), undefined, ".planning must not create scope candidates");
 
 // scripts/ carries BOTH execution-commands and custom-automation -- one path, two families
 const scriptsSource = byPath("scripts/");

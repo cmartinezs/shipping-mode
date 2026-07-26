@@ -4,6 +4,7 @@ import { runInit, runConfigSet, runConfigScopeAdd } from "./commands/init.mjs";
 import { runChangesetPropose, runChangesetValidate, runChangesetApprove, runChangesetApply } from "./commands/changesetCommand.mjs";
 import { checkSchema } from "./commands/check.mjs";
 import { runDiscoverScan, runDiscoverValidate } from "./commands/discover.mjs";
+import { runDiscoveryPropose } from "./commands/discoveryChangeSet.mjs";
 import { isUuidV7 } from "./lib/ids.mjs";
 import { UsageError, StateError, StaleError } from "./lib/errors.mjs";
 import { RecoveryRequiredError } from "./lib/journal.mjs";
@@ -12,7 +13,7 @@ import { PathConfinementError } from "./lib/paths.mjs";
 
 export { UsageError, StateError, StaleError, RecoveryRequiredError, LockHeldError, PathConfinementError };
 
-const IN_SCOPE_KINDS = new Set(["workspace.init", "config.update", "scope.add"]);
+const IN_SCOPE_KINDS = new Set(["workspace.init", "config.update", "scope.add", "scope.command.set"]);
 
 function notImplemented(command) {
   return {
@@ -37,6 +38,12 @@ function argsToOptions(args) {
 function requireOperationId(value) {
   if (!isUuidV7(value)) throw new UsageError(`invalid operation id: ${value}`);
   return value;
+}
+
+function requireExplicitBooleanOption(value, flagName) {
+  if (value === "true") return true;
+  if (value === "false") return false;
+  throw new UsageError(`${flagName} requires explicit true or false`);
 }
 
 function readPayloadText(payloadFileArg, cwd, usage) {
@@ -70,6 +77,23 @@ export function dispatch(command, args, cwd) {
         throw new UsageError("config scope add requires --key, --label, --kind, --path, --actor");
       }
       return runConfigScopeAdd({ planningRoot, args: { key: options.key, label: options.label, kind: options.kind, path: options.path, owner: options.owner, actor: options.actor } });
+    }
+    if (stage === "scope" && rest[0] === "set-command") {
+      const options = argsToOptions(rest.slice(1));
+      if (!options.scope_id || !options.role || !options.command || !options.actor) {
+        throw new UsageError("config scope set-command requires --scope-id, --role, --command, --requires-environment, --requires-secrets, --actor");
+      }
+      if (options.requires_environment === undefined || options.requires_secrets === undefined) {
+        throw new UsageError("config scope set-command requires explicit --requires-environment true|false and --requires-secrets true|false");
+      }
+      const payloadText = JSON.stringify({
+        scopeId: options.scope_id,
+        role: options.role,
+        command: options.command,
+        requiresEnvironment: requireExplicitBooleanOption(options.requires_environment, "--requires-environment"),
+        requiresSecrets: requireExplicitBooleanOption(options.requires_secrets, "--requires-secrets")
+      });
+      return runChangesetPropose({ planningRoot, kind: "scope.command.set", payloadText, actor: options.actor });
     }
     return notImplemented(`config ${stage || ""}`.trim());
   }
@@ -125,6 +149,12 @@ export function dispatch(command, args, cwd) {
       const options = argsToOptions(rest);
       const proposalText = readPayloadText(options.file || (options.stdin ? "-" : undefined), cwd, "discover validate requires --file <path> or --stdin");
       return runDiscoverValidate({ planningRoot, workspaceRoot: cwd, proposalText });
+    }
+    if (stage === "propose") {
+      const options = argsToOptions(rest);
+      if (!options.actor) throw new UsageError("discover propose requires --actor");
+      const proposalText = readPayloadText(options.file || (options.stdin ? "-" : undefined), cwd, "discover propose requires --file <path> or --stdin");
+      return runDiscoveryPropose({ planningRoot, workspaceRoot: cwd, proposalText, actor: options.actor });
     }
     return notImplemented(`discover ${stage || ""}`.trim());
   }

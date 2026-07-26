@@ -5,7 +5,7 @@
   "required": ["id", "kind", "status", "proposedBy", "proposedAt", "reservedEvents", "history"],
   "properties": {
     "id": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
-    "kind": { "enum": ["workspace.init", "config.update", "scope.add"] },
+    "kind": { "enum": ["workspace.init", "config.update", "scope.add", "scope.command.set", "discovery.propose"] },
     "status": { "enum": ["PROPOSED", "VALIDATED", "APPROVED", "APPLYING", "APPLIED", "INVALID", "STALE", "RECOVERY_REQUIRED"] },
     "proposedBy": { "type": "string" },
     "proposedAt": { "type": "string" },
@@ -46,16 +46,35 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["target", "stagedRelativePath", "expectedBefore", "beforeContentHash", "beforeRevisionHash", "stagedContentHash", "stagedRevisionHash"],
-        "properties": {
-          "target": { "type": "string" },
+          "required": ["target", "action", "expectedBefore", "beforeContentHash", "beforeRevisionHash", "stagedContentHash", "stagedRevisionHash"],
+          "properties": {
+            "target": { "type": "string" },
+          "action": { "enum": ["write", "delete"] },
           "stagedRelativePath": { "type": "string" },
           "expectedBefore": { "enum": ["ABSENT", "PRESENT"] },
           "beforeContentHash": { "type": "string", "pattern": "^([0-9a-f]{64}|ABSENT)$" },
           "beforeRevisionHash": { "type": "string", "pattern": "^([0-9a-f]{64}|ABSENT)$" },
-          "stagedContentHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-          "stagedRevisionHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
-        }
+          "stagedContentHash": { "type": "string", "pattern": "^([0-9a-f]{64}|ABSENT)$" },
+          "stagedRevisionHash": { "type": "string", "pattern": "^([0-9a-f]{64}|ABSENT)$" }
+        },
+        "allOf": [
+          {
+            "if": { "properties": { "action": { "const": "write" } } },
+            "then": {
+              "required": ["stagedRelativePath"],
+              "properties": { "stagedRelativePath": { "type": "string" } }
+            }
+          },
+          {
+            "if": { "properties": { "action": { "const": "delete" } } },
+            "then": {
+              "properties": {
+                "stagedContentHash": { "const": "ABSENT" },
+                "stagedRevisionHash": { "const": "ABSENT" }
+              }
+            }
+          }
+        ]
       }
     },
     "expectedEvents": {

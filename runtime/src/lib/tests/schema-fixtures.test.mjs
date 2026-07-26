@@ -41,7 +41,7 @@ const cases = {
     invalid: { eventId: "018f0000-0000-7000-8000-000000000000", schemaVersion: 1, type: "workspace.initialized", occurredAt: "2026-07-24T00:00:00.000Z", actor: "carlos", operationId: "018f0000-0000-7000-8000-000000000000", idempotencyKey: "k1", payload: {} }
   },
   result: {
-    valid: { operationId: "018f0000-0000-7000-8000-000000000000", files: [{ target: "config.yml", contentHash: "a".repeat(64) }] },
+    valid: { operationId: "018f0000-0000-7000-8000-000000000000", files: [{ target: "config.yml", action: "write", contentHash: "a".repeat(64) }] },
     invalid: { operationId: "018f0000-0000-7000-8000-000000000000", files: [{ target: "config.yml" }] }
   }
 };
@@ -65,7 +65,7 @@ const opBase = {
 };
 const validation = { validatedAt: "2026-07-24T00:00:01.000Z", changeSetHash: "a".repeat(64), errors: [] };
 const approval = { actor: "carlos", approvedAt: "2026-07-24T00:00:02.000Z", changeSetHash: "a".repeat(64), selfApproval: true };
-const filePlan = [{ target: "config.yml", stagedRelativePath: "config.yml", expectedBefore: "ABSENT", beforeContentHash: "ABSENT", beforeRevisionHash: "ABSENT", stagedContentHash: "b".repeat(64), stagedRevisionHash: "c".repeat(64) }];
+const filePlan = [{ target: "config.yml", action: "write", stagedRelativePath: "config.yml", expectedBefore: "ABSENT", beforeContentHash: "ABSENT", beforeRevisionHash: "ABSENT", stagedContentHash: "b".repeat(64), stagedRevisionHash: "c".repeat(64) }];
 const expectedEvents = [{ eventId: "018f0000-0000-7000-8000-000000000001", relativePath: "2026/07/018f0000-0000-7000-8000-000000000001.json", contentHash: "d".repeat(64), document: {} }];
 
 const lifecycleInvalid = [
@@ -80,5 +80,56 @@ for (const fixture of lifecycleInvalid) {
   const result = validate("operation", fixture);
   assert.equal(result.valid, false, `operation ${fixture.status} fixture missing required state metadata must fail`);
 }
+
+const discoveryChangeSet = {
+  schemaVersion: 1,
+  operationId: "018f0000-0000-7000-8000-000000000000",
+  kind: "discovery.propose",
+  target: {},
+  baseRevisions: {},
+  preconditions: { discoveryWorkspace: { workspaceHash: "a".repeat(64), scanParameters: { maxSourceBytes: 1048576 } } },
+  payload: {
+    operationId: "018f0000-0000-7000-8000-000000000000",
+    proposal: { schemaVersion: 1 },
+    sourceIdAssignments: [{ sourceActionIndex: 0, sourceId: "018f0000-0000-7000-8000-000000000002" }],
+    scopeIdAssignments: [{ scopeIndex: 0, scopeId: "018f0000-0000-7000-8000-000000000003" }],
+    confirmedBy: "carlos",
+    confirmedAt: "2026-07-24T00:00:00.000Z"
+  },
+  hash: "a".repeat(64)
+};
+assert.equal(validate("change-set", discoveryChangeSet).valid, true, "discovery.propose fixture must pass");
+assert.equal(validate("change-set", { ...discoveryChangeSet, preconditions: undefined }).valid, false, "discovery.propose requires discovery workspace preconditions");
+
+const scopeCommandSetChangeSet = {
+  schemaVersion: 1,
+  operationId: "018f0000-0000-7000-8000-000000000000",
+  kind: "scope.command.set",
+  target: {},
+  baseRevisions: {},
+  payload: {
+    operationId: "018f0000-0000-7000-8000-000000000000",
+    scopeId: "018f0000-0000-7000-8000-000000000003",
+    role: "custom.e2e",
+    command: "npm run test:e2e",
+    requiresEnvironment: true,
+    requiresSecrets: false,
+    declaredBy: "carlos",
+    declaredAt: "2026-07-24T00:00:00.000Z"
+  },
+  hash: "a".repeat(64)
+};
+assert.equal(validate("change-set", scopeCommandSetChangeSet).valid, true, "scope.command.set fixture must pass");
+
+const deleteFilePlanOperation = {
+  ...opBase,
+  status: "APPLYING",
+  validation,
+  approval,
+  filePlan: [{ target: "sources/018f0000-0000-7000-8000-000000000002/source.yml", action: "delete", expectedBefore: "PRESENT", beforeContentHash: "a".repeat(64), beforeRevisionHash: "b".repeat(64), stagedContentHash: "ABSENT", stagedRevisionHash: "ABSENT" }],
+  expectedEvents
+};
+assert.equal(validate("operation", deleteFilePlanOperation).valid, true, "delete filePlan entries must be schema-valid");
+assert.equal(validate("result", { operationId: opBase.id, files: [{ target: "sources/018f0000-0000-7000-8000-000000000002/source.yml", action: "delete", contentHash: "ABSENT" }] }).valid, true, "delete result entries must be schema-valid");
 
 console.log("schema fixtures: valid/invalid cases behave correctly for all 7 schemas, including kind-conditional payloads and operation state invariants");
