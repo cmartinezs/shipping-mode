@@ -5,7 +5,9 @@ import { computeSourceFingerprint, detectMoved, FingerprintError } from "./finge
 import { confineWritePath, confineScopePath, PathConfinementError } from "./paths.mjs";
 import { parseYaml } from "./yaml.mjs";
 import { isUuidV7 } from "./ids.mjs";
+import { generateUuidV7 } from "./ids.mjs";
 import { contentHash as sha256Hex } from "./canonical.mjs";
+import { UsageError } from "./errors.mjs";
 
 function defaultExecFile(command, args, options) {
   return execFileSync(command, args, { encoding: "utf8", ...options });
@@ -144,7 +146,7 @@ export function enumerateCandidates(workspaceRoot, { readdirFn = fs.readdirSync,
   return { scopeCandidates, sourceCandidates, diagnostics };
 }
 
-function readConfirmedSources(planningRoot) {
+export function readConfirmedSources(planningRoot) {
   const sourcesRoot = path.join(planningRoot, "sources");
   if (!fs.existsSync(sourcesRoot)) return [];
   const sources = [];
@@ -253,7 +255,7 @@ export function computeKnownSourceDrift({ planningRoot, workspaceRoot, sourceCan
   return { results, diagnostics, fingerprintedSourceCandidates };
 }
 
-function readConfirmedScopes(planningRoot) {
+export function readConfirmedScopes(planningRoot) {
   const scopesRoot = path.join(planningRoot, "scopes");
   if (!fs.existsSync(scopesRoot)) return [];
   const scopes = [];
@@ -266,7 +268,7 @@ function readConfirmedScopes(planningRoot) {
   return scopes;
 }
 
-function allCommandEntries(scope) {
+export function allCommandEntries(scope) {
   if (!scope.commands) return [];
   const entries = [];
   for (const role of ["build", "test", "smoke", "lint", "verify"]) {
@@ -276,6 +278,29 @@ function allCommandEntries(scope) {
     entries.push({ role: `custom.${role}`, entry });
   }
   return entries;
+}
+
+function fingerprintKeyMismatch(label, entry) {
+  if (!entry.sourceRefs) return null; // declared entries carry no sourceRefs/sourceFingerprintAtSelection at all
+  const refSet = new Set(entry.sourceRefs);
+  const keySet = new Set(Object.keys(entry.sourceFingerprintAtSelection || {}));
+  const missing = [...refSet].filter((r) => !keySet.has(r));
+  const extra = [...keySet].filter((k) => !refSet.has(k));
+  if (missing.length === 0 && extra.length === 0) return null;
+  return { label, missing, extra };
+}
+
+export function findCommandFingerprintKeyMismatches(scope) {
+  const mismatches = [];
+  for (const { role, entry } of allCommandEntries(scope)) {
+    const selfMismatch = fingerprintKeyMismatch(role, entry);
+    if (selfMismatch) mismatches.push(selfMismatch);
+    for (const [index, alternative] of (entry.alternatives || []).entries()) {
+      const altMismatch = fingerprintKeyMismatch(`${role}.alternatives[${index}]`, alternative);
+      if (altMismatch) mismatches.push(altMismatch);
+    }
+  }
+  return mismatches;
 }
 
 function evaluateCommandEvidence(commandEntry, knownSourceDrift) {
@@ -359,4 +384,45 @@ export function computeWorkspaceHash({ scopeCandidates, sourceCandidates, knownS
 
   lines.sort();
   return sha256Hex(Buffer.from(lines.join(""), "utf8"));
+}
+
+export const DEFAULT_MAX_SOURCE_BYTES = 536870912; // 512 MiB
+export const MIN_MAX_SOURCE_BYTES = 1048576; // 1 MiB
+export const MAX_MAX_SOURCE_BYTES = 2147483648; // 2 GiB
+
+export function runDiscoverScan({ planningRoot, workspaceRoot, maxSourceBytes = DEFAULT_MAX_SOURCE_BYTES }) {
+  if (maxSourceBytes < MIN_MAX_SOURCE_BYTES || maxSourceBytes > MAX_MAX_SOURCE_BYTES) {
+    throw new UsageError(`--max-source-bytes must be between ${MIN_MAX_SOURCE_BYTES} and ${MAX_MAX_SOURCE_BYTES}, got ${maxSourceBytes}`);
+  }
+
+  const git = detectGit(workspaceRoot);
+  const { scopeCandidates, sourceCandidates: rawSourceCandidates, diagnostics: enumerationDiagnostics } = enumerateCandidates(workspaceRoot);
+  const {
+    results: knownSources,
+    diagnostics: driftDiagnostics,
+    fingerprintedSourceCandidates
+  } = computeKnownSourceDrift({ planningRoot, workspaceRoot, sourceCandidates: rawSourceCandidates, maxSourceBytes });
+  const knownCommandsEvidence = computeCommandEvidence({ planningRoot, knownSourceDrift: knownSources });
+
+  const diagnostics = [...enumerationDiagnostics, ...driftDiagnostics];
+  const workspaceHash = computeWorkspaceHash({
+    scopeCandidates,
+    sourceCandidates: fingerprintedSourceCandidates,
+    knownSources,
+    knownCommandsEvidence
+  });
+
+  return {
+    schemaVersion: 1,
+    scanId: generateUuidV7(),
+    generatedAt: new Date().toISOString(),
+    baseRevision: { vcsRevision: git.enabled ? `git:${git.revision}` : "none", workspaceHash },
+    scanParameters: { maxSourceBytes },
+    git,
+    scopeCandidates,
+    sourceCandidates: fingerprintedSourceCandidates,
+    knownSources,
+    knownCommandsEvidence,
+    diagnostics
+  };
 }

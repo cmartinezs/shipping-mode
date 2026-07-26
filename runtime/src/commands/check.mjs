@@ -5,41 +5,7 @@ import { parseYaml } from "../lib/yaml.mjs";
 import { readOperation } from "../lib/operationStore.mjs";
 import { isUuidV7 } from "../lib/ids.mjs";
 import { assertTrustedRoots, confineWritePath } from "../lib/paths.mjs";
-
-function commandRoleEntries(scope) {
-  if (!scope.commands) return [];
-  const entries = [];
-  for (const role of ["build", "test", "smoke", "lint", "verify"]) {
-    if (scope.commands[role]) entries.push({ label: role, entry: scope.commands[role] });
-  }
-  for (const [role, entry] of Object.entries(scope.commands.custom || {})) {
-    entries.push({ label: `custom.${role}`, entry });
-  }
-  return entries;
-}
-
-function fingerprintKeyMismatch(label, entry) {
-  if (!entry.sourceRefs) return null; // declared entries carry no sourceRefs/sourceFingerprintAtSelection at all
-  const refSet = new Set(entry.sourceRefs);
-  const keySet = new Set(Object.keys(entry.sourceFingerprintAtSelection || {}));
-  const missing = [...refSet].filter((r) => !keySet.has(r));
-  const extra = [...keySet].filter((k) => !refSet.has(k));
-  if (missing.length === 0 && extra.length === 0) return null;
-  return { label, missing, extra };
-}
-
-function findCommandFingerprintKeyMismatches(scope) {
-  const mismatches = [];
-  for (const { label, entry } of commandRoleEntries(scope)) {
-    const selfMismatch = fingerprintKeyMismatch(label, entry);
-    if (selfMismatch) mismatches.push(selfMismatch);
-    for (const [index, alternative] of (entry.alternatives || []).entries()) {
-      const altMismatch = fingerprintKeyMismatch(`${label}.alternatives[${index}]`, alternative);
-      if (altMismatch) mismatches.push(altMismatch);
-    }
-  }
-  return mismatches;
-}
+import { findCommandFingerprintKeyMismatches } from "../lib/discoverScan.mjs";
 
 function checkRequiredFile(planningRoot, relativePath, schemaName, findings) {
   let filePath;
