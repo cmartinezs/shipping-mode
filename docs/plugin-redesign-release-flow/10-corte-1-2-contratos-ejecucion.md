@@ -213,6 +213,7 @@ Agregados canonicos:
 ```text
 ProjectContext Aggregate
 Scope Aggregate
+WorkSourceProvider Aggregate
 Release Aggregate
 ReleaseItem Aggregate
 WorkPackage Aggregate
@@ -236,6 +237,7 @@ Invariantes transversales, recomputables:
 - grafo sin ciclos;
 - work packages obligatorios completados;
 - gates transversales aprobados.
+- source refs vigentes o conflictos declarados cuando un Release Item proviene de Work Source.
 
 Operaciones multiagregado declaran:
 

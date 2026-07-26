@@ -329,7 +329,7 @@ La matriz de fallas del Corte -1.2 debe cubrir crash despues de `APPLIED`, event
 
 ## 9. Comandos externos como saga
 
-Git, GitHub, deployments, test environments y APIs externas no son atomicamente reversibles.
+Git, GitHub, deployments, test environments, MCP/API providers y Work Source writes externos no son atomicamente reversibles.
 
 Se modelan como saga:
 
@@ -338,6 +338,8 @@ prepare -> execute -> verify -> compensate
 ```
 
 El ChangeSet debe declarar rollback tecnico, compensacion logica o rollback imposible.
+
+Crear, modificar, transicionar o comentar una fuente externa requiere capability declarada por el `WorkSourceProvider`, policy que permita la direccion/campo, revision externa vigente, idempotency key, aprobacion vinculada al ChangeSet, evidencia y verificacion posterior. Permisos MCP del host no sustituyen approvals de Shipping Mode.
 
 ## 10. Approval binding
 
@@ -440,6 +442,9 @@ finalization.schema.json
 revision-ref.schema.json
 command-spec.schema.json
 provenance.schema.json
+source-ref.schema.json
+normalized-work-source-item.schema.json
+work-source-provider.schema.json
 resolution.schema.json
 release-item.schema.json
 operation.schema.json

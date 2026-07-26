@@ -25,12 +25,12 @@ Comandos publicos base:
 | Skill canonica | Forma visible esperada | Responsabilidad publica | Use cases internos | Script/launcher |
 |----------------|------------------------|--------------------------|--------------------|-----------------|
 | `init` | `/<product-name>:init` | Bootstrap completo del workspace actual: estructura, deteccion inicial, config base y plugin lock. | `workspace.bootstrap`, `config.detect`, `lock.create` | `<product-cli> workspace init` |
-| `config` | `/<product-name>:config` | Administrar scopes, fuentes, politicas, Git, comandos permitidos, autonomia, guias y generadores custom. | `scope.configure`, `policy.configure`, `guide.refresh`, `command.configure` | `<product-cli> config <stage>` |
+| `config` | `/<product-name>:config` | Administrar scopes, Documentation Sources, Work Sources, politicas, Git, comandos permitidos, autonomia, guias y generadores custom. | `scope.configure`, `work-source.configure`, `policy.configure`, `guide.refresh`, `command.configure` | `<product-cli> config <stage>` |
 | `release` | `/<product-name>:release` | Router publico del lifecycle de release: crear, planificar, consultar readiness, liberar, registrar deployment y finalizar. | `release.create`, `release.plan`, `release.query`, `release.transition`, `deployment.record`, `release.finalize` | `<product-cli> release <stage>` |
-| `item` | `/<product-name>:item` | Crear/enriquecer Release Items tipados, validar criterios funcionales, crear work packages y atomizarlos por scope. | `release-item.create`, `release-item.enrich`, `work-package.create`, `work-package.atomize` | `<product-cli> item <stage>` |
+| `item` | `/<product-name>:item` | Crear/enriquecer/importar/sincronizar Release Items tipados, validar criterios funcionales, crear work packages y atomizarlos por scope. | `release-item.create`, `release-item.import`, `release-item.sync`, `release-item.enrich`, `work-package.create`, `work-package.atomize` | `<product-cli> item <stage>` |
 | `task` | `/<product-name>:task` | Inspeccionar, preparar, ejecutar, validar, corregir y cerrar tasks atomicas. | `task.inspect`, `task.start`, `task.verify`, `task.correction`, `task.closeout` | `<product-cli> task <stage>` |
-| `check` | `/<product-name>:check` | Validar invariantes, schemas, links, dependencias, guias, gates, readiness y evidencia sin mutar. | `check.health`, `check.schema`, `check.guides`, `check.gates`, `check.readiness` | `<product-cli> check <stage>` |
-| `report` | `/<product-name>:report` | Generar summary, status, standup, history, release notes, traceability, docs y exports. | `report.status`, `report.standup`, `report.history`, `report.release-notes`, `report.export` | `<product-cli> report <stage>` |
+| `check` | `/<product-name>:check` | Validar invariantes, schemas, links, dependencias, guias, gates, Work Sources, sync/drift, readiness y evidencia sin mutar. | `check.health`, `check.schema`, `check.guides`, `check.work-sources`, `check.source-drift`, `check.sync`, `check.gates`, `check.readiness` | `<product-cli> check <stage>` |
+| `report` | `/<product-name>:report` | Generar summary, status, standup, history, source status, traceability, release notes, docs y exports. | `report.status`, `report.source-status`, `report.traceability`, `report.standup`, `report.history`, `report.release-notes`, `report.export` | `<product-cli> report <stage>` |
 | `decision` | `/<product-name>:decision` | Registrar, actualizar, aceptar o rechazar decisiones y vincularlas con releases, release items, scopes o gates. | `decision.propose`, `decision.accept`, `decision.reject`, `decision.link` | `<product-cli> decision <stage>` |
 
 Ocho comandos bien definidos son preferibles a un comando unico sobrecargado. `release` puede ser fachada publica, pero su `SKILL.md` no debe contener todo el lifecycle.
@@ -51,7 +51,7 @@ Solo implementar cuando exista una necesidad real y evidencia de uso:
 |----------------|------------------------|-----|
 | `run` | `/<product-name>:run` | Orquestador end-to-end encima de release/release-item/task/check. No pertenece al primer vertical slice. |
 | `recover` | `/<product-name>:recover` | Retry, rollback, clone, merge, compensaciones y fallas de operacion con stages explicitos. |
-| `backlog` | `/<product-name>:backlog` | Importar o mantener backlog externo cuando no hay release directa. |
+| `backlog` | `/<product-name>:backlog` | Solo si en el futuro hace falta una fachada especializada encima de Work Sources. No se usa para Jira ni para el contrato principal. |
 
 No se implementan por anticipacion para evitar reconstruir la explosion de comandos v3.
 
@@ -65,10 +65,10 @@ Estos comandos no se preservan como aliases en v4. La tabla sirve para decidir q
 | `plan-status`, `plan-standup`, `plan-history`, `plan-export` | `/<product-name>:report` con stages `status`, `standup`, `history`, `export` | Borrar wrappers separados. | Son vistas/proyecciones, no checks. |
 | `plan-health`, `plan-validate`, `plan-task-validate`, `plan-audit-docs`, `plan-doctor` | `/<product-name>:check` con stages `health`, `schema`, `task`, `docs`, `doctor`, `readiness` | Borrar skills v3 o reimplementar solo `check`. | Todos validan invariantes, schemas, gates o evidencia. |
 | `doc-generate`, `doc-story`, `doc-task` | `/<product-name>:report docs --level` con niveles `release`, `release-item`, `work-package`, `task` | Borrar wrappers separados. | Markdown es proyeccion generada desde estado canonico. |
-| `us-new`, `us-enrich`, `us-split`, `us-status`, `epic-enrich` | `/<product-name>:backlog` con stages `new`, `enrich`, `split`, `status`, `import`, si se justifica | Borrar por defecto. | Backlog externo no debe competir con release activa. |
+| `us-new`, `us-enrich`, `us-split`, `us-status`, `epic-enrich` | `/<product-name>:item` con stages `import`, `sync`, `enrich`, `split`, `status` respaldados por Work Sources | Borrar por defecto. | Backlog local o externo entra por `WorkSourceProvider` y normaliza a Release Items; no se crea una API publica separada para Jira/backlog. |
 | `plan-enrich-epic`, `plan-enrich-story`, `plan-split-story` | `/<product-name>:item` con stages `enrich`, `split`, `package add`, `atomize` | Borrar skills v3. | El Release Item es unidad de alcance; los slices tecnicos son work packages. |
 | `plan-merge`, `plan-story-skip` | Crear el agregado reemplazante mediante `item add` y cerrar el anterior mediante `item resolve --resolution SUPERSEDED --replacement <id>` | Borrar skills v3. | `recover` queda reservado para recuperación de operaciones; skip requiere resolución/waiver, no estado principal. |
-| `plan-from-epic`, `plan-from-release`, `plan-template`, `plan-new`, `plan-expand` | `/<product-name>:release plan` o `/<product-name>:item import` | Borrar flujo INITIAL/EXPANSION como API publica. | El flujo INITIAL/EXPANSION desaparece del contrato v4. |
+| `plan-from-epic`, `plan-from-release`, `plan-template`, `plan-new`, `plan-expand` | `/<product-name>:release plan` o `/<product-name>:item import --source <work-source-id>` | Borrar flujo INITIAL/EXPANSION como API publica. | El flujo INITIAL/EXPANSION desaparece; imports se hacen desde Work Sources normalizados. |
 | `plan-agent-plan`, `plan-agent-execute`, `plan-agent-validate`, `plan-run` | `/<product-name>:run` solo si se justifica | Borrar agentes por fase. | Un orquestador avanzado no debe formar parte del primer corte. |
 | `plan-retry`, `plan-rollback`, `plan-clone` | `/<product-name>:recover` con stages `retry`, `rollback`, `clone`, si se justifica | Borrar skills sueltas. | Recuperacion debe operar sobre eventos y ChangeSets. |
 | `plan-smoke-config`, `plan-git-config` | `/<product-name>:config` con stages `commands`, `git`, `policies` | Borrar config commands sueltos. | Configuracion pertenece al Project Context. |
@@ -132,6 +132,17 @@ namespace del plugin:
 No se crearan skills duplicadas con prefijos por acronimo.
 El Spike Host Integration valida discovery, autocomplete, ayuda y
 presentacion, pero no altera esta convencion.
+
+No existe skill `/jira`. Jira, GitHub Issues, Azure Boards, Linear y fuentes locales se configuran como Work Sources:
+
+```text
+/<plugin-name>:config work-source add|configure|remove
+/<plugin-name>:item import|sync|publish
+/<plugin-name>:check work-sources|source-drift|sync
+/<plugin-name>:report source-status|traceability
+```
+
+Los nombres exactos de stage deben alinearse con el launcher real. La regla estable es no crear comandos por provider y no permitir writes externos fuera de ChangeSets aprobados.
 
 `allowed-tools` debe restringirse por comando exacto. `check` puede usar
 `Bash(<product-cli> check *)`; `report` solo puede preaprobar
@@ -211,6 +222,8 @@ runtime/src/lib/
   work-package-store.mjs # ownership tecnico, gates y tasks
   task-store.mjs      # task metadata, dependencias, evidencia
   guide-store.mjs     # guide status, fingerprints, provenance
+  work-source-registry.mjs # providers, capabilities y activacion segura
+  work-source-store.mjs    # source refs, sync state y findings normalizados
   render.mjs          # proyecciones Markdown/json
 ```
 
