@@ -86,18 +86,43 @@ const srcB = "018f4d1e-0000-7000-8000-000000000003";
 
 // two "move" actions landing on the same target path -> rejected
 {
-  const { planningRoot } = makeWorkspace();
+  const { workspaceRoot, planningRoot } = makeWorkspace();
   writeConfirmedSource(planningRoot, srcA, "docs/a/");
   writeConfirmedSource(planningRoot, srcB, "docs/b/");
+  fs.mkdirSync(path.join(workspaceRoot, "docs", "merged"), { recursive: true });
   const proposal = {
     sources: [
       { action: "move", sourceId: srcA, fromPath: "docs/a/", path: "docs/merged/", observedFingerprint: "a".repeat(64), observedContentHash: "b".repeat(64) },
-      { action: "move", sourceId: srcB, fromPath: "docs/b/", path: "docs/merged/", observedFingerprint: "c".repeat(64), observedContentHash: "d".repeat(64) }
+      { action: "move", sourceId: srcB, fromPath: "docs/b/", path: "docs/./merged", observedFingerprint: "c".repeat(64), observedContentHash: "d".repeat(64) }
     ]
   };
-  const result = checkSourcePathCollisions({ proposal, planningRoot });
+  const result = checkSourcePathCollisions({ proposal, planningRoot, workspaceRoot });
   assert.equal(result.ok, false);
   assert.ok(result.errors.some((e) => e.code === "source_path_collision" && e.path === "docs/merged/"));
+}
+
+// aliases of the same live path (including an in-workspace symlink) are one occupancy, not
+// independent source paths. Comparing raw catalog strings would accept this and break the
+// uniqueness invariant used by later move detection.
+{
+  const { workspaceRoot, planningRoot } = makeWorkspace();
+  fs.mkdirSync(path.join(workspaceRoot, "docs", "adr"), { recursive: true });
+  fs.symlinkSync("adr", path.join(workspaceRoot, "docs", "decisions"));
+  writeConfirmedSource(planningRoot, srcA, "docs/adr/");
+  const proposal = {
+    sources: [{
+      action: "add", path: "docs/decisions/", family: "decision-sources", kind: "decision", role: "decision",
+      authority: { standing: "authoritative", force: "normative" }, availability: "implemented",
+      observedFingerprint: "a".repeat(64), observedContentHash: "b".repeat(64)
+    }]
+  };
+  const result = checkSourcePathCollisions({ proposal, planningRoot, workspaceRoot });
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((e) =>
+    e.code === "source_path_collision"
+    && e.paths.includes("docs/adr/")
+    && e.paths.includes("docs/decisions/")
+  ));
 }
 
 // a "move" does not collide with its OWN previous occupancy, since the source's old path is
@@ -128,4 +153,4 @@ const srcB = "018f4d1e-0000-7000-8000-000000000003";
   assert.equal(checkSourcePathCollisions({ proposal, planningRoot }).ok, true);
 }
 
-console.log("discovery-proposal-catalog-integrity: scope key collisions and path escapes are rejected, source path collisions (add-onto-confirmed, move-onto-move) are rejected, and legitimate reuse of a freed path is not");
+console.log("discovery-proposal-catalog-integrity: scope key collisions and path escapes are rejected, source path collisions (including lexical/symlink aliases) are rejected, and legitimate reuse of a freed path is not");

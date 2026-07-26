@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import path from "node:path";
 import { validate } from "./schema.mjs";
 import { findCommandFingerprintKeyMismatches, MIN_MAX_SOURCE_BYTES, MAX_MAX_SOURCE_BYTES, runDiscoverScan, readConfirmedSources, readConfirmedScopes, allCommandEntries } from "./discoverScan.mjs";
 import { computeSourceFingerprint, FingerprintError } from "./fingerprint.mjs";
@@ -356,12 +357,23 @@ export function checkScopeProposals({ proposal, planningRoot, workspaceRoot }) {
 // landing on a path that's already occupied (by an untouched confirmed source, or by another
 // add/move in this same proposal) would break detectMoved's "exactly one match" uniqueness rule
 // in every subsequent scan.
-export function checkSourcePathCollisions({ proposal, planningRoot }) {
+export function checkSourcePathCollisions({ proposal, planningRoot, workspaceRoot = path.dirname(planningRoot) }) {
   const displaced = new Set((proposal.sources || []).filter((e) => e.action === "move" || e.action === "remove").map((e) => e.sourceId));
   const occupants = new Map();
-  const occupy = (path, sourceId) => {
-    if (!occupants.has(path)) occupants.set(path, []);
-    occupants.get(path).push(sourceId);
+  const occupy = (relativePath, sourceId) => {
+    let identity;
+    try {
+      // Catalog paths are semantic workspace locations, not opaque labels. Resolve lexical
+      // variants and existing in-workspace symlinks so aliases cannot evade uniqueness checks.
+      identity = confineScopePath(workspaceRoot, relativePath);
+    } catch (error) {
+      if (!(error instanceof PathConfinementError)) throw error;
+      // Other step-4 checks report the untrusted path. Keep this check total so one bad path
+      // does not prevent the remaining independent validation errors from being collected.
+      identity = `untrusted:${relativePath}`;
+    }
+    if (!occupants.has(identity)) occupants.set(identity, []);
+    occupants.get(identity).push({ sourceId, path: relativePath });
   };
 
   for (const source of readConfirmedSources(planningRoot)) {
@@ -374,9 +386,15 @@ export function checkSourcePathCollisions({ proposal, planningRoot }) {
   }
 
   const errors = [];
-  for (const [path, sourceIds] of occupants) {
-    if (sourceIds.length > 1) {
-      errors.push({ code: "source_path_collision", path, message: `more than one source would occupy path ${path} after this proposal is applied` });
+  for (const entries of occupants.values()) {
+    if (entries.length > 1) {
+      const paths = [...new Set(entries.map((entry) => entry.path))];
+      errors.push({
+        code: "source_path_collision",
+        path: paths[0],
+        paths,
+        message: `more than one source would occupy the same workspace path after this proposal is applied: ${paths.join(", ")}`
+      });
     }
   }
   return errors.length === 0 ? { ok: true } : { ok: false, errors };
@@ -395,7 +413,7 @@ export function validateDiscoveryProposal({ proposal, planningRoot, workspaceRoo
   const drift = checkDriftReconciliation({ proposal, freshScan });
   const removal = checkRemovalReferentialIntegrity({ proposal, planningRoot });
   const scopeProposals = checkScopeProposals({ proposal, planningRoot, workspaceRoot });
-  const pathCollisions = checkSourcePathCollisions({ proposal, planningRoot });
+  const pathCollisions = checkSourcePathCollisions({ proposal, planningRoot, workspaceRoot });
 
   const stepFourErrors = [
     ...(fingerprints.ok ? [] : fingerprints.errors),

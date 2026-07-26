@@ -89,15 +89,15 @@ var require_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    function visit_(key, node, visitor, path14) {
-      let ctrl = callVisitor(key, node, visitor, path14);
+    function visit_(key, node, visitor, path15) {
+      let ctrl = callVisitor(key, node, visitor, path15);
       if (identity.isNode(ctrl) || identity.isPair(ctrl))
-        return replaceNode(key, path14, ctrl), visit_(key, ctrl, visitor, path14);
+        return replaceNode(key, path15, ctrl), visit_(key, ctrl, visitor, path15);
       if (typeof ctrl != "symbol") {
         if (identity.isCollection(node)) {
-          path14 = Object.freeze(path14.concat(node));
+          path15 = Object.freeze(path15.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
-            let ci = visit_(i, node.items[i], visitor, path14);
+            let ci = visit_(i, node.items[i], visitor, path15);
             if (typeof ci == "number")
               i = ci - 1;
             else {
@@ -107,12 +107,12 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path14 = Object.freeze(path14.concat(node));
-          let ck = visit_("key", node.key, visitor, path14);
+          path15 = Object.freeze(path15.concat(node));
+          let ck = visit_("key", node.key, visitor, path15);
           if (ck === BREAK)
             return BREAK;
           ck === REMOVE && (node.key = null);
-          let cv = visit_("value", node.value, visitor, path14);
+          let cv = visit_("value", node.value, visitor, path15);
           if (cv === BREAK)
             return BREAK;
           cv === REMOVE && (node.value = null);
@@ -127,15 +127,15 @@ var require_visit = __commonJS({
     visitAsync.BREAK = BREAK;
     visitAsync.SKIP = SKIP;
     visitAsync.REMOVE = REMOVE;
-    async function visitAsync_(key, node, visitor, path14) {
-      let ctrl = await callVisitor(key, node, visitor, path14);
+    async function visitAsync_(key, node, visitor, path15) {
+      let ctrl = await callVisitor(key, node, visitor, path15);
       if (identity.isNode(ctrl) || identity.isPair(ctrl))
-        return replaceNode(key, path14, ctrl), visitAsync_(key, ctrl, visitor, path14);
+        return replaceNode(key, path15, ctrl), visitAsync_(key, ctrl, visitor, path15);
       if (typeof ctrl != "symbol") {
         if (identity.isCollection(node)) {
-          path14 = Object.freeze(path14.concat(node));
+          path15 = Object.freeze(path15.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
-            let ci = await visitAsync_(i, node.items[i], visitor, path14);
+            let ci = await visitAsync_(i, node.items[i], visitor, path15);
             if (typeof ci == "number")
               i = ci - 1;
             else {
@@ -145,12 +145,12 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path14 = Object.freeze(path14.concat(node));
-          let ck = await visitAsync_("key", node.key, visitor, path14);
+          path15 = Object.freeze(path15.concat(node));
+          let ck = await visitAsync_("key", node.key, visitor, path15);
           if (ck === BREAK)
             return BREAK;
           ck === REMOVE && (node.key = null);
-          let cv = await visitAsync_("value", node.value, visitor, path14);
+          let cv = await visitAsync_("value", node.value, visitor, path15);
           if (cv === BREAK)
             return BREAK;
           cv === REMOVE && (node.value = null);
@@ -173,22 +173,22 @@ var require_visit = __commonJS({
         Seq: visitor.Collection
       }, visitor) : visitor;
     }
-    function callVisitor(key, node, visitor, path14) {
+    function callVisitor(key, node, visitor, path15) {
       if (typeof visitor == "function")
-        return visitor(key, node, path14);
+        return visitor(key, node, path15);
       if (identity.isMap(node))
-        return visitor.Map?.(key, node, path14);
+        return visitor.Map?.(key, node, path15);
       if (identity.isSeq(node))
-        return visitor.Seq?.(key, node, path14);
+        return visitor.Seq?.(key, node, path15);
       if (identity.isPair(node))
-        return visitor.Pair?.(key, node, path14);
+        return visitor.Pair?.(key, node, path15);
       if (identity.isScalar(node))
-        return visitor.Scalar?.(key, node, path14);
+        return visitor.Scalar?.(key, node, path15);
       if (identity.isAlias(node))
-        return visitor.Alias?.(key, node, path14);
+        return visitor.Alias?.(key, node, path15);
     }
-    function replaceNode(key, path14, node) {
-      let parent = path14[path14.length - 1];
+    function replaceNode(key, path15, node) {
+      let parent = path15[path15.length - 1];
       if (identity.isCollection(parent))
         parent.items[key] = node;
       else if (identity.isPair(parent))
@@ -642,10 +642,10 @@ var require_Collection = __commonJS({
   "node_modules/yaml/dist/nodes/Collection.js"(exports) {
     "use strict";
     var createNode = require_createNode(), identity = require_identity(), Node = require_Node();
-    function collectionFromPath(schema, path14, value) {
+    function collectionFromPath(schema, path15, value) {
       let v = value;
-      for (let i = path14.length - 1; i >= 0; --i) {
-        let k = path14[i];
+      for (let i = path15.length - 1; i >= 0; --i) {
+        let k = path15[i];
         if (typeof k == "number" && Number.isInteger(k) && k >= 0) {
           let a = [];
           a[k] = v, v = a;
@@ -662,7 +662,7 @@ var require_Collection = __commonJS({
         sourceObjects: /* @__PURE__ */ new Map()
       });
     }
-    var isEmptyPath = (path14) => path14 == null || typeof path14 == "object" && !!path14[Symbol.iterator]().next().done, Collection = class extends Node.NodeBase {
+    var isEmptyPath = (path15) => path15 == null || typeof path15 == "object" && !!path15[Symbol.iterator]().next().done, Collection = class extends Node.NodeBase {
       constructor(type, schema) {
         super(type), Object.defineProperty(this, "schema", {
           value: schema,
@@ -685,11 +685,11 @@ var require_Collection = __commonJS({
        * be a Pair instance or a `{ key, value }` object, which may not have a key
        * that already exists in the map.
        */
-      addIn(path14, value) {
-        if (isEmptyPath(path14))
+      addIn(path15, value) {
+        if (isEmptyPath(path15))
           this.add(value);
         else {
-          let [key, ...rest] = path14, node = this.get(key, !0);
+          let [key, ...rest] = path15, node = this.get(key, !0);
           if (identity.isCollection(node))
             node.addIn(rest, value);
           else if (node === void 0 && this.schema)
@@ -702,8 +702,8 @@ var require_Collection = __commonJS({
        * Removes a value from the collection.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path14) {
-        let [key, ...rest] = path14;
+      deleteIn(path15) {
+        let [key, ...rest] = path15;
         if (rest.length === 0)
           return this.delete(key);
         let node = this.get(key, !0);
@@ -716,8 +716,8 @@ var require_Collection = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path14, keepScalar) {
-        let [key, ...rest] = path14, node = this.get(key, !0);
+      getIn(path15, keepScalar) {
+        let [key, ...rest] = path15, node = this.get(key, !0);
         return rest.length === 0 ? !keepScalar && identity.isScalar(node) ? node.value : node : identity.isCollection(node) ? node.getIn(rest, keepScalar) : void 0;
       }
       hasAllNullValues(allowScalar) {
@@ -731,8 +731,8 @@ var require_Collection = __commonJS({
       /**
        * Checks if the collection includes a value with the key `key`.
        */
-      hasIn(path14) {
-        let [key, ...rest] = path14;
+      hasIn(path15) {
+        let [key, ...rest] = path15;
         if (rest.length === 0)
           return this.has(key);
         let node = this.get(key, !0);
@@ -742,8 +742,8 @@ var require_Collection = __commonJS({
        * Sets a value in this collection. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path14, value) {
-        let [key, ...rest] = path14;
+      setIn(path15, value) {
+        let [key, ...rest] = path15;
         if (rest.length === 0)
           this.set(key, value);
         else {
@@ -2616,8 +2616,8 @@ var require_Document = __commonJS({
         assertCollection(this.contents) && this.contents.add(value);
       }
       /** Adds a value to the document. */
-      addIn(path14, value) {
-        assertCollection(this.contents) && this.contents.addIn(path14, value);
+      addIn(path15, value) {
+        assertCollection(this.contents) && this.contents.addIn(path15, value);
       }
       /**
        * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
@@ -2678,8 +2678,8 @@ var require_Document = __commonJS({
        * Removes a value from the document.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path14) {
-        return Collection.isEmptyPath(path14) ? this.contents == null ? !1 : (this.contents = null, !0) : assertCollection(this.contents) ? this.contents.deleteIn(path14) : !1;
+      deleteIn(path15) {
+        return Collection.isEmptyPath(path15) ? this.contents == null ? !1 : (this.contents = null, !0) : assertCollection(this.contents) ? this.contents.deleteIn(path15) : !1;
       }
       /**
        * Returns item at `key`, or `undefined` if not found. By default unwraps
@@ -2694,8 +2694,8 @@ var require_Document = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path14, keepScalar) {
-        return Collection.isEmptyPath(path14) ? !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents : identity.isCollection(this.contents) ? this.contents.getIn(path14, keepScalar) : void 0;
+      getIn(path15, keepScalar) {
+        return Collection.isEmptyPath(path15) ? !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents : identity.isCollection(this.contents) ? this.contents.getIn(path15, keepScalar) : void 0;
       }
       /**
        * Checks if the document includes a value with the key `key`.
@@ -2706,8 +2706,8 @@ var require_Document = __commonJS({
       /**
        * Checks if the document includes a value at `path`.
        */
-      hasIn(path14) {
-        return Collection.isEmptyPath(path14) ? this.contents !== void 0 : identity.isCollection(this.contents) ? this.contents.hasIn(path14) : !1;
+      hasIn(path15) {
+        return Collection.isEmptyPath(path15) ? this.contents !== void 0 : identity.isCollection(this.contents) ? this.contents.hasIn(path15) : !1;
       }
       /**
        * Sets a value in this document. For `!!set`, `value` needs to be a
@@ -2720,8 +2720,8 @@ var require_Document = __commonJS({
        * Sets a value in this document. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path14, value) {
-        Collection.isEmptyPath(path14) ? this.contents = value : this.contents == null ? this.contents = Collection.collectionFromPath(this.schema, Array.from(path14), value) : assertCollection(this.contents) && this.contents.setIn(path14, value);
+      setIn(path15, value) {
+        Collection.isEmptyPath(path15) ? this.contents = value : this.contents == null ? this.contents = Collection.collectionFromPath(this.schema, Array.from(path15), value) : assertCollection(this.contents) && this.contents.setIn(path15, value);
       }
       /**
        * Change the YAML version and schema used by the document.
@@ -4116,9 +4116,9 @@ var require_cst_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    visit.itemAtPath = (cst, path14) => {
+    visit.itemAtPath = (cst, path15) => {
       let item = cst;
-      for (let [field, index] of path14) {
+      for (let [field, index] of path15) {
         let tok = item?.[field];
         if (tok && "items" in tok)
           item = tok.items[index];
@@ -4127,21 +4127,21 @@ var require_cst_visit = __commonJS({
       }
       return item;
     };
-    visit.parentCollection = (cst, path14) => {
-      let parent = visit.itemAtPath(cst, path14.slice(0, -1)), field = path14[path14.length - 1][0], coll = parent?.[field];
+    visit.parentCollection = (cst, path15) => {
+      let parent = visit.itemAtPath(cst, path15.slice(0, -1)), field = path15[path15.length - 1][0], coll = parent?.[field];
       if (coll && "items" in coll)
         return coll;
       throw new Error("Parent collection not found");
     };
-    function _visit(path14, item, visitor) {
-      let ctrl = visitor(item, path14);
+    function _visit(path15, item, visitor) {
+      let ctrl = visitor(item, path15);
       if (typeof ctrl == "symbol")
         return ctrl;
       for (let field of ["key", "value"]) {
         let token = item[field];
         if (token && "items" in token) {
           for (let i = 0; i < token.items.length; ++i) {
-            let ci = _visit(Object.freeze(path14.concat([[field, i]])), token.items[i], visitor);
+            let ci = _visit(Object.freeze(path15.concat([[field, i]])), token.items[i], visitor);
             if (typeof ci == "number")
               i = ci - 1;
             else {
@@ -4150,10 +4150,10 @@ var require_cst_visit = __commonJS({
               ci === REMOVE && (token.items.splice(i, 1), i -= 1);
             }
           }
-          typeof ctrl == "function" && field === "key" && (ctrl = ctrl(item, path14));
+          typeof ctrl == "function" && field === "key" && (ctrl = ctrl(item, path15));
         }
       }
-      return typeof ctrl == "function" ? ctrl(item, path14) : ctrl;
+      return typeof ctrl == "function" ? ctrl(item, path15) : ctrl;
     }
     exports.visit = visit;
   }
@@ -5485,7 +5485,7 @@ var require_dist = __commonJS({
 
 // runtime/src/index.mjs
 import fs13 from "node:fs";
-import path13 from "node:path";
+import path14 from "node:path";
 
 // runtime/src/commands/init.mjs
 import path8 from "node:path";
@@ -10438,6 +10438,7 @@ function checkSchema({ planningRoot }) {
 
 // runtime/src/lib/discoveryProposal.mjs
 import fs12 from "node:fs";
+import path13 from "node:path";
 function checkScanParametersRange(proposal) {
   let bytes = proposal.scanParameters?.maxSourceBytes;
   return typeof bytes != "number" || bytes < MIN_MAX_SOURCE_BYTES || bytes > MAX_MAX_SOURCE_BYTES ? [{ code: "scan_parameters_out_of_range", message: `scanParameters.maxSourceBytes must be between ${MIN_MAX_SOURCE_BYTES} and ${MAX_MAX_SOURCE_BYTES}, got ${bytes}` }] : [];
@@ -10641,17 +10642,32 @@ function checkScopeProposals({ proposal, planningRoot, workspaceRoot }) {
   }
   return errors.length === 0 ? { ok: !0 } : { ok: !1, errors };
 }
-function checkSourcePathCollisions({ proposal, planningRoot }) {
-  let displaced = new Set((proposal.sources || []).filter((e) => e.action === "move" || e.action === "remove").map((e) => e.sourceId)), occupants = /* @__PURE__ */ new Map(), occupy = (path14, sourceId) => {
-    occupants.has(path14) || occupants.set(path14, []), occupants.get(path14).push(sourceId);
+function checkSourcePathCollisions({ proposal, planningRoot, workspaceRoot = path13.dirname(planningRoot) }) {
+  let displaced = new Set((proposal.sources || []).filter((e) => e.action === "move" || e.action === "remove").map((e) => e.sourceId)), occupants = /* @__PURE__ */ new Map(), occupy = (relativePath, sourceId) => {
+    let identity;
+    try {
+      identity = confineScopePath(workspaceRoot, relativePath);
+    } catch (error) {
+      if (!(error instanceof PathConfinementError)) throw error;
+      identity = `untrusted:${relativePath}`;
+    }
+    occupants.has(identity) || occupants.set(identity, []), occupants.get(identity).push({ sourceId, path: relativePath });
   };
   for (let source of readConfirmedSources(planningRoot))
     displaced.has(source.id) || occupy(source.path, source.id);
   for (let entry of proposal.sources || [])
     entry.action === "add" && occupy(entry.path, null), entry.action === "move" && occupy(entry.path, entry.sourceId);
   let errors = [];
-  for (let [path14, sourceIds] of occupants)
-    sourceIds.length > 1 && errors.push({ code: "source_path_collision", path: path14, message: `more than one source would occupy path ${path14} after this proposal is applied` });
+  for (let entries of occupants.values())
+    if (entries.length > 1) {
+      let paths = [...new Set(entries.map((entry) => entry.path))];
+      errors.push({
+        code: "source_path_collision",
+        path: paths[0],
+        paths,
+        message: `more than one source would occupy the same workspace path after this proposal is applied: ${paths.join(", ")}`
+      });
+    }
   return errors.length === 0 ? { ok: !0 } : { ok: !1, errors };
 }
 function validateDiscoveryProposal({ proposal, planningRoot, workspaceRoot }) {
@@ -10659,7 +10675,7 @@ function validateDiscoveryProposal({ proposal, planningRoot, workspaceRoot }) {
   if (!structure.ok) return structure;
   let consistency = verifyWorkspaceConsistency({ proposal, planningRoot, workspaceRoot });
   if (!consistency.ok) return consistency;
-  let { freshScan } = consistency, fingerprints = verifySourceFingerprints({ proposal, planningRoot, workspaceRoot }), references = resolveSourceReferences({ proposal, planningRoot }), drift = checkDriftReconciliation({ proposal, freshScan }), removal = checkRemovalReferentialIntegrity({ proposal, planningRoot }), scopeProposals = checkScopeProposals({ proposal, planningRoot, workspaceRoot }), pathCollisions = checkSourcePathCollisions({ proposal, planningRoot }), stepFourErrors = [
+  let { freshScan } = consistency, fingerprints = verifySourceFingerprints({ proposal, planningRoot, workspaceRoot }), references = resolveSourceReferences({ proposal, planningRoot }), drift = checkDriftReconciliation({ proposal, freshScan }), removal = checkRemovalReferentialIntegrity({ proposal, planningRoot }), scopeProposals = checkScopeProposals({ proposal, planningRoot, workspaceRoot }), pathCollisions = checkSourcePathCollisions({ proposal, planningRoot, workspaceRoot }), stepFourErrors = [
     ...fingerprints.ok ? [] : fingerprints.errors,
     ...references.ok ? [] : references.errors,
     ...drift.ok ? [] : drift.errors,
@@ -10716,12 +10732,12 @@ function requireOperationId(value) {
 function readPayloadText(payloadFileArg, cwd, usage) {
   if (!payloadFileArg || payloadFileArg === !0) throw new UsageError(usage);
   if (payloadFileArg === "-") return fs13.readFileSync(0, "utf8");
-  let resolved = path13.resolve(cwd, payloadFileArg);
+  let resolved = path14.resolve(cwd, payloadFileArg);
   if (!fs13.existsSync(resolved)) throw new UsageError(`payload file not found: ${payloadFileArg}`);
   return fs13.readFileSync(resolved, "utf8");
 }
 function dispatch(command, args, cwd) {
-  let planningRoot = path13.join(cwd, ".planning"), operationsRoot = path13.join(planningRoot, "operations");
+  let planningRoot = path14.join(cwd, ".planning"), operationsRoot = path14.join(planningRoot, "operations");
   if (command === "init") {
     let options = argsToOptions(args);
     if (!options.name || !options.actor) throw new UsageError("init requires --name and --actor");
