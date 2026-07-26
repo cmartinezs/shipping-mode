@@ -6,7 +6,7 @@
   "properties": {
     "schemaVersion": { "const": 1 },
     "operationId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
-    "kind": { "enum": ["workspace.init", "config.update", "scope.add"] },
+    "kind": { "enum": ["workspace.init", "config.update", "scope.add", "scope.command.set", "discovery.propose"] },
     "target": { "type": "object" },
     "baseRevisions": {
       "type": "object",
@@ -21,6 +21,26 @@
       }
     },
     "payload": { "type": "object" },
+    "preconditions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "discoveryWorkspace": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["workspaceHash", "scanParameters"],
+          "properties": {
+            "workspaceHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "scanParameters": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["maxSourceBytes"],
+              "properties": { "maxSourceBytes": { "type": "integer" } }
+            }
+          }
+        }
+      }
+    },
     "hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
   },
   "allOf": [
@@ -71,6 +91,77 @@
               "kind": { "enum": ["code", "non_code"] },
               "path": { "type": "string", "minLength": 1 },
               "owner": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "scope.command.set" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["operationId", "scopeId", "role", "command", "requiresEnvironment", "requiresSecrets", "declaredBy", "declaredAt"],
+            "properties": {
+              "operationId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+              "scopeId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+              "role": {
+                "anyOf": [
+                  { "enum": ["build", "test", "smoke", "lint", "verify"] },
+                  { "type": "string", "pattern": "^custom\\.[a-z][a-z0-9-]{0,63}$" }
+                ]
+              },
+              "command": { "type": "string", "minLength": 1 },
+              "requiresEnvironment": { "type": "boolean" },
+              "requiresSecrets": { "type": "boolean" },
+              "declaredBy": { "type": "string", "minLength": 1 },
+              "declaredAt": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "discovery.propose" } } },
+      "then": {
+        "required": ["preconditions"],
+        "properties": {
+          "preconditions": { "$ref": "#/properties/preconditions" },
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["operationId", "proposal", "sourceIdAssignments", "scopeIdAssignments", "confirmedBy", "confirmedAt"],
+            "properties": {
+              "operationId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+              "proposal": { "type": "object" },
+              "sourceIdAssignments": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["sourceActionIndex", "sourceId"],
+                  "properties": {
+                    "sourceActionIndex": { "type": "integer", "minimum": 0 },
+                    "sourceId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }
+                  }
+                }
+              },
+              "scopeIdAssignments": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["scopeIndex", "scopeId"],
+                  "properties": {
+                    "scopeIndex": { "type": "integer", "minimum": 0 },
+                    "scopeId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }
+                  }
+                }
+              },
+              "confirmedBy": { "type": "string", "minLength": 1 },
+              "confirmedAt": { "type": "string", "minLength": 1 }
             }
           }
         }

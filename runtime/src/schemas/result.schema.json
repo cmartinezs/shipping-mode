@@ -10,10 +10,11 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["target", "contentHash"],
+        "required": ["target", "action", "contentHash"],
         "properties": {
           "target": { "type": "string" },
-          "contentHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+          "action": { "enum": ["write", "delete"] },
+          "contentHash": { "type": "string", "pattern": "^([0-9a-f]{64}|ABSENT)$" }
         }
       }
     }
