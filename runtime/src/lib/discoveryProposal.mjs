@@ -222,3 +222,26 @@ export function resolveSourceReferences({ proposal, planningRoot }) {
 
   return errors.length === 0 ? { ok: true } : { ok: false, errors };
 }
+
+export function checkDriftReconciliation({ proposal, freshScan }) {
+  const errors = [];
+
+  const addressedSourceIds = new Set((proposal.sources || []).filter((e) => e.action !== "add").map((e) => e.sourceId));
+  for (const known of freshScan.knownSources) {
+    if (known.driftState === "unchanged") continue;
+    if (!addressedSourceIds.has(known.sourceId)) {
+      errors.push({ code: "unreconciled_source_drift", sourceId: known.sourceId, driftState: known.driftState, message: `source ${known.sourceId} has unreconciled drift (${known.driftState}) and is not addressed by any sources[] action in this proposal` });
+    }
+  }
+
+  const addressedCommands = new Set((proposal.scopeCommands || []).map((c) => `${c.scopeId}:${c.role}`));
+  const NEEDS_RECONCILIATION = new Set(["evidence-missing", "evidence-drifted", "evidence-updated", "unknown"]);
+  for (const evidence of freshScan.knownCommandsEvidence) {
+    if (!NEEDS_RECONCILIATION.has(evidence.evidenceState)) continue;
+    if (!addressedCommands.has(`${evidence.scopeId}:${evidence.role}`)) {
+      errors.push({ code: "unreconciled_command_evidence", scopeId: evidence.scopeId, role: evidence.role, evidenceState: evidence.evidenceState, message: `command ${evidence.scopeId}/${evidence.role} has unreconciled evidence (${evidence.evidenceState}) and is not addressed by any scopeCommands[] entry in this proposal` });
+    }
+  }
+
+  return errors.length === 0 ? { ok: true } : { ok: false, errors };
+}
