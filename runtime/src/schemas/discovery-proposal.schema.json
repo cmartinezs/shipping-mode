@@ -24,13 +24,25 @@
     "scopes": { "type": "array", "items": { "$ref": "#/$defs/scopeProposal" } },
     "sources": { "type": "array", "items": { "$ref": "#/$defs/sourceAction" } },
     "scopeCommands": { "type": "array", "items": { "$ref": "#/$defs/scopeCommandEntry" } },
-    "diagnostics": { "type": "array", "items": { "type": "object" } }
+    "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/diagnosticEntry" } }
   },
   "$defs": {
     "uuid": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
     "fingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
     "confidence": { "enum": ["low", "medium", "high"] },
     "sourceRefs": { "type": "array", "items": { "$ref": "#/$defs/uuid" }, "minItems": 1, "uniqueItems": true },
+    "diagnosticEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "severity", "message"],
+      "properties": {
+        "code": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-z][a-z0-9_]*$" },
+        "severity": { "enum": ["info", "warning", "error"] },
+        "message": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "itemRef": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "details": { "type": "object" }
+      }
+    },
     "sourceFamily": {
       "enum": [
         "product-sources", "functional-sources", "technical-sources", "agent-repository-instructions",

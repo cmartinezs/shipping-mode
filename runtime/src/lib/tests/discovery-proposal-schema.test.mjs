@@ -100,4 +100,21 @@ assert.equal(validate("discovery-proposal", baseProposal({
   }]
 })).valid, false);
 
-console.log("discovery-proposal-schema: envelope, 4-way source action union, and inferred|reviewed-only scopeCommands all pass");
+// diagnostics[]
+assert.equal(validate("discovery-proposal", baseProposal({
+  diagnostics: [{ code: "some_code", severity: "info", message: "An informational message" }]
+})).valid, true, "a valid diagnostics entry must be valid");
+assert.equal(validate("discovery-proposal", baseProposal({
+  diagnostics: [{ code: "detailed_issue", severity: "warning", message: "A warning message", itemRef: "file.js:42", details: { lineNumber: 42, column: 10 } }]
+})).valid, true, "a diagnostics entry with optional itemRef and details fields must be valid");
+assert.equal(validate("discovery-proposal", baseProposal({
+  diagnostics: [{ code: "missing_severity", message: "No severity provided" }]
+})).valid, false, "a diagnostics entry missing required severity must be invalid");
+assert.equal(validate("discovery-proposal", baseProposal({
+  diagnostics: [{ code: "bad_severity", severity: "critical", message: "Invalid severity value" }]
+})).valid, false, "a diagnostics entry with invalid severity value must be invalid");
+assert.equal(validate("discovery-proposal", baseProposal({
+  diagnostics: [{ code: "extra_prop", severity: "error", message: "Has extra property", path: "x" }]
+})).valid, false, "a diagnostics entry with unexpected top-level property must be invalid due to additionalProperties: false");
+
+console.log("discovery-proposal-schema: envelope, 4-way source action union, inferred|reviewed-only scopeCommands, and diagnostics shape all pass");
