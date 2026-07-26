@@ -132,7 +132,7 @@ export function enumerateCandidates(workspaceRoot, { readdirFn = fs.readdirSync,
       }
 
       if (child.stat.isDirectory()) {
-        if (child.name === "node_modules" || child.name === ".git") continue;
+        if (child.name === "node_modules" || child.name === ".git" || child.name === ".planning") continue;
         const dirRule = SOURCE_DIRECTORY_RULES.find((r) =>
           r.relativePath ? childRelative === r.relativePath : (r.dirName === child.name && (!r.underDocs || relativeDir === "docs"))
         );

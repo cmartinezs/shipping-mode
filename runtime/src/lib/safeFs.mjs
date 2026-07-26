@@ -58,6 +58,11 @@ export function renameWithinRoot(root, fromRelativePath, toRelativePath) {
   fs.renameSync(fromPath, toPath);
 }
 
+export function deleteWithinRoot(root, relativePath) {
+  const targetPath = confineWritePath(root, relativePath);
+  fs.rmSync(targetPath, { force: true });
+}
+
 export function copyFileAtomic(root, sourceRelativePath, targetRelativePath) {
   const sourcePath = confineWritePath(root, sourceRelativePath);
   const contents = fs.readFileSync(sourcePath);

@@ -39,3 +39,126 @@ export function renderScopeAdd({ id, key, label, kind, path: scopePath, owner = 
     [`scopes/${id}/scope.yml`, stringifyYaml(scope)]
   ]);
 }
+
+function setCommand(scope, role, entry) {
+  const next = { ...scope, commands: { ...(scope.commands || {}) } };
+  if (role.startsWith("custom.")) {
+    next.commands.custom = { ...(next.commands.custom || {}), [role.slice("custom.".length)]: entry };
+  } else {
+    next.commands[role] = entry;
+  }
+  return next;
+}
+
+function renderInferredCommand(entry) {
+  return {
+    command: entry.command,
+    method: entry.method,
+    confidence: entry.confidence,
+    sourceRefs: entry.sourceRefs,
+    sourceFingerprintAtSelection: entry.sourceFingerprintAtSelection,
+    requiresEnvironment: entry.requiresEnvironment,
+    requiresSecrets: entry.requiresSecrets,
+    alternatives: entry.alternatives || []
+  };
+}
+
+export function renderScopeCommandSet({ operationId, scopeId, role, command, requiresEnvironment, requiresSecrets, declaredBy, declaredAt }, currentScope) {
+  if (!currentScope || currentScope.id !== scopeId) {
+    throw new Error(`scope not found for scope.command.set: ${scopeId}`);
+  }
+  const nextScope = setCommand(currentScope, role, {
+    command,
+    method: "declared",
+    declaredBy,
+    declaredAt,
+    declaredOperationId: operationId,
+    requiresEnvironment,
+    requiresSecrets,
+    alternatives: []
+  });
+  return new Map([[`scopes/${scopeId}/scope.yml`, stringifyYaml(nextScope)]]);
+}
+
+function sourceIdForAction(index, entry, assignments) {
+  if (entry.action === "add") {
+    const assigned = assignments.find((candidate) => candidate.sourceActionIndex === index);
+    if (!assigned) throw new Error(`missing source id assignment for sources[${index}]`);
+    return assigned.sourceId;
+  }
+  return entry.sourceId;
+}
+
+function scopeIdForProposal(index, assignments) {
+  const assigned = assignments.find((candidate) => candidate.scopeIndex === index);
+  if (!assigned) throw new Error(`missing scope id assignment for scopes[${index}]`);
+  return assigned.scopeId;
+}
+
+function renderSource(entry, existing, { id, operationId, confirmedBy, confirmedAt }) {
+  if (entry.action === "remove") return null;
+  const next = {
+    ...(existing || {}),
+    schemaVersion: 1,
+    id,
+    path: entry.path || existing?.path,
+    family: entry.family || existing?.family,
+    kind: entry.kind || existing?.kind,
+    role: entry.role || existing?.role,
+    authority: entry.authority || existing?.authority,
+    availability: entry.availability || existing?.availability,
+    confirmedFingerprint: entry.observedFingerprint,
+    confirmedContentHash: entry.observedContentHash,
+    provenance: {
+      discoveredBy: "discovery.propose",
+      confirmedBy,
+      confirmedAt,
+      confirmedOperationId: operationId
+    }
+  };
+  return next;
+}
+
+export function renderDiscoveryPropose({ operationId, proposal, sourceIdAssignments, scopeIdAssignments, confirmedBy, confirmedAt }, currentConfig, workspaceRoot, { currentSources = [], currentScopes = [] } = {}) {
+  const rendered = new Map();
+  const sourcesById = new Map(currentSources.map((source) => [source.id, source]));
+  const scopesById = new Map(currentScopes.map((scope) => [scope.id, scope]));
+
+  for (const [index, entry] of (proposal.sources || []).entries()) {
+    const sourceId = sourceIdForAction(index, entry, sourceIdAssignments);
+    const existing = sourcesById.get(sourceId);
+    const nextSource = renderSource(entry, existing, { id: sourceId, operationId, confirmedBy, confirmedAt });
+    rendered.set(`sources/${sourceId}/source.yml`, nextSource === null ? null : stringifyYaml(nextSource));
+  }
+
+  let nextConfig = currentConfig;
+  for (const [index, entry] of (proposal.scopes || []).entries()) {
+    confineScopePath(workspaceRoot, entry.path);
+    const scopeId = scopeIdForProposal(index, scopeIdAssignments);
+    const scope = {
+      schemaVersion: 1,
+      id: scopeId,
+      key: toKebabCase(entry.key),
+      label: entry.label,
+      kind: entry.kind,
+      path: entry.path,
+      owner: entry.owner ?? null
+    };
+    rendered.set(`scopes/${scopeId}/scope.yml`, stringifyYaml(scope));
+    nextConfig = {
+      ...nextConfig,
+      scopeRefs: [...(nextConfig.scopeRefs || []), { id: scopeId, key: scope.key }]
+    };
+  }
+  if ((proposal.scopes || []).length > 0) rendered.set("config.yml", stringifyYaml(nextConfig));
+
+  for (const entry of proposal.scopeCommands || []) {
+    const currentScope = scopesById.get(entry.scopeId);
+    if (!currentScope) throw new Error(`scope not found for discovery command: ${entry.scopeId}`);
+    const nextScope = setCommand(currentScope, entry.role, renderInferredCommand(entry));
+    rendered.set(`scopes/${entry.scopeId}/scope.yml`, stringifyYaml(nextScope));
+    scopesById.set(entry.scopeId, nextScope);
+  }
+
+  return rendered;
+}

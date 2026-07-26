@@ -36,4 +36,30 @@ assert.equal(changeSet.baseRevisions["config.yml"].contentHash, "ABSENT");
 assert.ok(changeSet.hash);
 assert.equal(computePersistedChangeSetHash(changeSet), changeSet.hash, "recomputing the hash from the persisted change-set (hash field included, stripped internally) must reproduce the same value");
 
+const suppliedOperationId = "018f0000-0000-7000-8000-000000000099";
+const suppliedProposedAt = "2026-07-26T00:00:00.000Z";
+const preconditions = { discoveryWorkspace: { workspaceHash: "a".repeat(64), scanParameters: { maxSourceBytes: 1048576 } } };
+const supplied = propose({
+  operationsRoot,
+  planningRoot,
+  kind: "discovery.propose",
+  target: {},
+  payload: {
+    operationId: suppliedOperationId,
+    proposal: { schemaVersion: 1 },
+    sourceIdAssignments: [],
+    scopeIdAssignments: [],
+    confirmedBy: "carlos",
+    confirmedAt: suppliedProposedAt
+  },
+  targetFiles: [],
+  actor: "carlos",
+  operationId: suppliedOperationId,
+  proposedAt: suppliedProposedAt,
+  preconditions
+});
+assert.equal(supplied, suppliedOperationId, "runtime callers may supply the definitive operation id when payload/provenance needs it");
+assert.deepEqual(readChangeSet(operationsRoot, suppliedOperationId).preconditions, preconditions);
+assert.equal(readOperation(operationsRoot, suppliedOperationId).proposedAt, suppliedProposedAt);
+
 console.log("changeset-propose: all tests passed");

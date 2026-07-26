@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { parseYaml } from "../../lib/yaml.mjs";
 import { PathConfinementError } from "../../lib/paths.mjs";
-import { renderWorkspaceInit, renderConfigUpdate, renderScopeAdd } from "../renderers.mjs";
+import { renderWorkspaceInit, renderConfigUpdate, renderScopeAdd, renderScopeCommandSet, renderDiscoveryPropose } from "../renderers.mjs";
 
 const init = renderWorkspaceInit({ name: "demo", baseBranch: "main", vcs: "git", pluginVersion: "1.0.0", templatePackFingerprint: `sha256:${"a".repeat(64)}` });
 assert.ok(init.has("config.yml"));
@@ -37,5 +37,88 @@ assert.throws(() => renderScopeAdd({ id: scopeId, key: "backend", label: "Backen
 
 const configWithExistingScope = { ...parsedConfig, scopeRefs: [{ id: scopeId, key: "backend-service" }] };
 assert.throws(() => renderScopeAdd({ id: "018f0000-0000-7000-8000-000000000001", key: "Backend-Service", label: "Dup", kind: "code", path: "api/", owner: null }, configWithExistingScope, workspace), /already exists/i, "key uniqueness must be case-insensitive");
+
+const commandSet = renderScopeCommandSet({
+  operationId: "018f0000-0000-7000-8000-000000000009",
+  scopeId,
+  role: "custom.e2e",
+  command: "npm run test:e2e",
+  requiresEnvironment: true,
+  requiresSecrets: false,
+  declaredBy: "carlos",
+  declaredAt: "2026-07-26T00:00:00.000Z"
+}, parsedScope);
+const declaredScope = parseYaml(commandSet.get(`scopes/${scopeId}/scope.yml`));
+assert.equal(declaredScope.commands.custom.e2e.method, "declared");
+assert.equal(declaredScope.commands.custom.e2e.declaredOperationId, "018f0000-0000-7000-8000-000000000009");
+assert.deepEqual(declaredScope.commands.custom.e2e.alternatives, []);
+
+const sourceId = "018f0000-0000-7000-8000-000000000010";
+const removedSourceId = "018f0000-0000-7000-8000-000000000011";
+const commandSourceId = "018f0000-0000-7000-8000-000000000013";
+const newScopeId = "018f0000-0000-7000-8000-000000000012";
+const discoveryFiles = renderDiscoveryPropose({
+  operationId: "018f0000-0000-7000-8000-000000000020",
+  confirmedBy: "runtime-actor",
+  confirmedAt: "2026-07-26T01:00:00.000Z",
+  sourceIdAssignments: [{ sourceActionIndex: 0, sourceId }],
+  scopeIdAssignments: [{ scopeIndex: 0, scopeId: newScopeId }],
+  proposal: {
+    sources: [
+      {
+        action: "add",
+        path: "api/package.json",
+        family: "project-module-manifests",
+        kind: "repository-map",
+        role: "evidence",
+        authority: { standing: "supporting", force: "informational" },
+        availability: "implemented",
+        observedFingerprint: "a".repeat(64),
+        observedContentHash: "b".repeat(64)
+      },
+      { action: "remove", sourceId: removedSourceId }
+    ],
+    scopes: [{ key: "new api", label: "New API", kind: "code", path: "api/", owner: null }],
+    scopeCommands: [{
+      scopeId,
+      role: "test",
+      command: "npm test",
+      method: "reviewed",
+      confidence: "high",
+      sourceRefs: [commandSourceId],
+      sourceFingerprintAtSelection: { [commandSourceId]: "c".repeat(64) },
+      requiresEnvironment: false,
+      requiresSecrets: false,
+      alternatives: []
+    }, {
+      scopeId,
+      role: "build",
+      command: "npm run build",
+      method: "reviewed",
+      confidence: "high",
+      sourceRefs: [commandSourceId],
+      sourceFingerprintAtSelection: { [commandSourceId]: "c".repeat(64) },
+      requiresEnvironment: false,
+      requiresSecrets: false,
+      alternatives: []
+    }]
+  }
+}, parsedConfig, workspace, {
+  currentSources: [
+    { schemaVersion: 1, id: removedSourceId, path: "old.md", family: "product-sources", kind: "product", role: "canonical", authority: { standing: "authoritative", force: "normative" }, availability: "implemented", confirmedFingerprint: "c".repeat(64), confirmedContentHash: "d".repeat(64), provenance: { discoveredBy: "old", confirmedBy: "old", confirmedAt: "old", confirmedOperationId: "018f0000-0000-7000-8000-000000000099" } },
+    { schemaVersion: 1, id: commandSourceId, path: "package.json", family: "project-module-manifests", kind: "repository-map", role: "evidence", authority: { standing: "supporting", force: "informational" }, availability: "implemented", confirmedFingerprint: "c".repeat(64), confirmedContentHash: "e".repeat(64), provenance: { discoveredBy: "old", confirmedBy: "old", confirmedAt: "old", confirmedOperationId: "018f0000-0000-7000-8000-000000000099" } }
+  ],
+  currentScopes: [parsedScope]
+});
+const addedSource = parseYaml(discoveryFiles.get(`sources/${sourceId}/source.yml`));
+assert.equal(addedSource.id, sourceId);
+assert.equal(addedSource.provenance.discoveredBy, "discovery.propose");
+assert.equal(addedSource.provenance.confirmedBy, "runtime-actor");
+assert.equal(addedSource.provenance.confirmedOperationId, "018f0000-0000-7000-8000-000000000020");
+assert.equal(discoveryFiles.get(`sources/${removedSourceId}/source.yml`), null);
+assert.equal(parseYaml(discoveryFiles.get("config.yml")).scopeRefs[0].id, newScopeId);
+const scopeWithDiscoveryCommands = parseYaml(discoveryFiles.get(`scopes/${scopeId}/scope.yml`));
+assert.equal(scopeWithDiscoveryCommands.commands.test.method, "reviewed");
+assert.equal(scopeWithDiscoveryCommands.commands.build.method, "reviewed");
 
 console.log("renderers: all tests passed");

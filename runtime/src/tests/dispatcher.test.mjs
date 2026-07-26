@@ -16,6 +16,9 @@ assert.equal(outOfScope.corte, "0");
 const outOfScopeChangeset = dispatch("changeset", ["propose", "--kind", "task.create", "--payload-file", "-"], cwd);
 assert.equal(outOfScopeChangeset.status, "NOT_IMPLEMENTED");
 
+const discoveryProposeIsDiscoverOnly = dispatch("changeset", ["propose", "--kind", "discovery.propose", "--payload-file", "-"], cwd);
+assert.equal(discoveryProposeIsDiscoverOnly.status, "NOT_IMPLEMENTED");
+
 const checkResult = dispatch("check", ["schema"], cwd);
 assert.ok(["NOT_INITIALIZED", "PASS", "FAIL"].includes(checkResult.status));
 

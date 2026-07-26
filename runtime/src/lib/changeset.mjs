@@ -3,7 +3,7 @@ import path from "node:path";
 import { generateUuidV7 } from "./ids.mjs";
 import { revisionHash, contentHash, ABSENT } from "./canonical.mjs";
 import { confineRuntimeWritePath, ensureDirectoryTree } from "./paths.mjs";
-import { assertDistinctMutationTargets, copyFileAtomic, renameWithinRoot, writeFileAtomic } from "./safeFs.mjs";
+import { assertDistinctMutationTargets, copyFileAtomic, deleteWithinRoot, renameWithinRoot, writeFileAtomic } from "./safeFs.mjs";
 import { parseYaml } from "./yaml.mjs";
 import { withWorkspaceMutation } from "./mutation.mjs";
 import { writeOperation, readOperation, writeChangeSet, readChangeSet, writeResult } from "./operationStore.mjs";
@@ -11,6 +11,7 @@ import { validate as validateSchema } from "./schema.mjs";
 import { StateError, StaleError } from "./errors.mjs";
 import { buildExpectedEvent, writeEventIdempotent } from "./journal.mjs";
 import { checkpoint } from "./faultInjection.mjs";
+import { runDiscoverScan } from "./discoverScan.mjs";
 
 export function readFileState(planningRoot, relativePath) {
   const absolutePath = confineRuntimeWritePath(planningRoot, relativePath);
@@ -34,12 +35,18 @@ export function computePersistedChangeSetHash(changeSet) {
 }
 
 export function eventTypeFor(kind) {
-  return { "workspace.init": "workspace.initialized", "config.update": "config.updated", "scope.add": "scope.added" }[kind];
+  return {
+    "workspace.init": "workspace.initialized",
+    "config.update": "config.updated",
+    "scope.add": "scope.added",
+    "scope.command.set": "scope.command.set",
+    "discovery.propose": "discovery.proposed"
+  }[kind];
 }
 
-export function propose({ operationsRoot, planningRoot, kind, target, payload, targetFiles, actor }) {
+export function propose({ operationsRoot, planningRoot, kind, target, payload, targetFiles, actor, operationId = null, proposedAt = null, preconditions = null }) {
   return withWorkspaceMutation({ planningRoot, operationsRoot, operationId: null }, () => {
-    const operationId = generateUuidV7();
+    operationId ??= generateUuidV7();
     assertDistinctMutationTargets(planningRoot, targetFiles);
 
     const baseRevisions = {};
@@ -48,11 +55,12 @@ export function propose({ operationsRoot, planningRoot, kind, target, payload, t
     }
 
     const changeSetWithoutHash = { schemaVersion: 1, operationId, kind, target, baseRevisions, payload };
+    if (preconditions) changeSetWithoutHash.preconditions = preconditions;
     const hash = computePersistedChangeSetHash(changeSetWithoutHash);
     writeChangeSet(operationsRoot, operationId, { ...changeSetWithoutHash, hash });
 
     const reservedEvents = [{ eventId: generateUuidV7(), type: eventTypeFor(kind) }];
-    const proposedAt = new Date().toISOString();
+    proposedAt ??= new Date().toISOString();
     writeOperation(operationsRoot, operationId, {
       id: operationId,
       kind,
@@ -72,6 +80,7 @@ export function propose({ operationsRoot, planningRoot, kind, target, payload, t
 function schemaNameForRenderedPath(relativePath) {
   if (relativePath === "config.yml") return "config";
   if (relativePath === "plugin.lock.yml") return "plugin-lock";
+  if (/^sources\/[^/]+\/source\.yml$/.test(relativePath)) return "source";
   if (/^scopes\/[^/]+\/scope\.yml$/.test(relativePath)) return "scope";
   return null;
 }
@@ -148,6 +157,7 @@ function revalidateChangeSet({ operationsRoot, planningRoot, operationId, render
 
   const renderErrors = [];
   for (const [relativePath, content] of rendered) {
+    if (content === null) continue;
     const schemaName = schemaNameForRenderedPath(relativePath);
     if (!schemaName) continue;
     const value = parseYaml(content);
@@ -246,6 +256,18 @@ function prepareApply({ operationsRoot, planningRoot, operationId, render, actor
     transitionToStale(operationsRoot, operationId, operation, "changeSetHash no longer matches validate/approve; the change-set has drifted since approval");
   }
 
+  const discoveryWorkspace = changeSet.preconditions?.discoveryWorkspace;
+  if (discoveryWorkspace) {
+    const freshScan = runDiscoverScan({
+      planningRoot,
+      workspaceRoot: path.dirname(planningRoot),
+      maxSourceBytes: discoveryWorkspace.scanParameters.maxSourceBytes
+    });
+    if (freshScan.baseRevision.workspaceHash !== discoveryWorkspace.workspaceHash) {
+      transitionToStale(operationsRoot, operationId, operation, "discovery workspace changed since validation; rescan and create a new operation");
+    }
+  }
+
   const rendered = revalidation.rendered;
   const runtimeOperationRelative = path.join(".runtime", "operations", operationId);
   const stagingRelative = path.join(runtimeOperationRelative, "staged");
@@ -261,19 +283,33 @@ function prepareApply({ operationsRoot, planningRoot, operationId, render, actor
     if (before.contentHash !== ABSENT) {
       copyFileAtomic(planningRoot, relativePath, path.join(beforeRelative, relativePath));
     }
-    filePlan.push({
-      target: relativePath,
-      stagedRelativePath: relativePath,
-      expectedBefore: before.contentHash === ABSENT ? "ABSENT" : "PRESENT",
-      beforeContentHash: before.contentHash,
-      beforeRevisionHash: before.revisionHash,
-      stagedContentHash: contentHash(newContent),
-      stagedRevisionHash: relativePath.endsWith(".gitignore") ? contentHash(newContent) : revisionHash(parseYaml(newContent))
-    });
+    if (newContent === null) {
+      filePlan.push({
+        target: relativePath,
+        action: "delete",
+        expectedBefore: before.contentHash === ABSENT ? "ABSENT" : "PRESENT",
+        beforeContentHash: before.contentHash,
+        beforeRevisionHash: before.revisionHash,
+        stagedContentHash: ABSENT,
+        stagedRevisionHash: ABSENT
+      });
+    } else {
+      filePlan.push({
+        target: relativePath,
+        action: "write",
+        stagedRelativePath: relativePath,
+        expectedBefore: before.contentHash === ABSENT ? "ABSENT" : "PRESENT",
+        beforeContentHash: before.contentHash,
+        beforeRevisionHash: before.revisionHash,
+        stagedContentHash: contentHash(newContent),
+        stagedRevisionHash: relativePath.endsWith(".gitignore") ? contentHash(newContent) : revisionHash(parseYaml(newContent))
+      });
+    }
   }
   checkpoint("AFTER_BEFORE");
 
   for (const [relativePath, newContent] of rendered) {
+    if (newContent === null) continue;
     writeFileAtomic(planningRoot, path.join(stagingRelative, relativePath), newContent);
   }
   checkpoint("AFTER_STAGED");
@@ -330,8 +366,12 @@ export function applyOperation({ operationsRoot, planningRoot, operationId, rend
 
     const files = [];
     for (const [index, entry] of filePlan.entries()) {
-      renameWithinRoot(planningRoot, path.join(stagingRelative, entry.stagedRelativePath), entry.target);
-      files.push({ target: entry.target, contentHash: entry.stagedContentHash });
+      if (entry.action === "delete") {
+        deleteWithinRoot(planningRoot, entry.target);
+      } else {
+        renameWithinRoot(planningRoot, path.join(stagingRelative, entry.stagedRelativePath), entry.target);
+      }
+      files.push({ target: entry.target, action: entry.action, contentHash: entry.stagedContentHash });
       if (index === 0) checkpoint("AFTER_FIRST_RENAME");
     }
     checkpoint("AFTER_ALL_RENAMES");

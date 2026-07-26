@@ -89,15 +89,15 @@ var require_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    function visit_(key, node, visitor, path15) {
-      let ctrl = callVisitor(key, node, visitor, path15);
+    function visit_(key, node, visitor, path16) {
+      let ctrl = callVisitor(key, node, visitor, path16);
       if (identity.isNode(ctrl) || identity.isPair(ctrl))
-        return replaceNode(key, path15, ctrl), visit_(key, ctrl, visitor, path15);
+        return replaceNode(key, path16, ctrl), visit_(key, ctrl, visitor, path16);
       if (typeof ctrl != "symbol") {
         if (identity.isCollection(node)) {
-          path15 = Object.freeze(path15.concat(node));
+          path16 = Object.freeze(path16.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
-            let ci = visit_(i, node.items[i], visitor, path15);
+            let ci = visit_(i, node.items[i], visitor, path16);
             if (typeof ci == "number")
               i = ci - 1;
             else {
@@ -107,12 +107,12 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path15 = Object.freeze(path15.concat(node));
-          let ck = visit_("key", node.key, visitor, path15);
+          path16 = Object.freeze(path16.concat(node));
+          let ck = visit_("key", node.key, visitor, path16);
           if (ck === BREAK)
             return BREAK;
           ck === REMOVE && (node.key = null);
-          let cv = visit_("value", node.value, visitor, path15);
+          let cv = visit_("value", node.value, visitor, path16);
           if (cv === BREAK)
             return BREAK;
           cv === REMOVE && (node.value = null);
@@ -127,15 +127,15 @@ var require_visit = __commonJS({
     visitAsync.BREAK = BREAK;
     visitAsync.SKIP = SKIP;
     visitAsync.REMOVE = REMOVE;
-    async function visitAsync_(key, node, visitor, path15) {
-      let ctrl = await callVisitor(key, node, visitor, path15);
+    async function visitAsync_(key, node, visitor, path16) {
+      let ctrl = await callVisitor(key, node, visitor, path16);
       if (identity.isNode(ctrl) || identity.isPair(ctrl))
-        return replaceNode(key, path15, ctrl), visitAsync_(key, ctrl, visitor, path15);
+        return replaceNode(key, path16, ctrl), visitAsync_(key, ctrl, visitor, path16);
       if (typeof ctrl != "symbol") {
         if (identity.isCollection(node)) {
-          path15 = Object.freeze(path15.concat(node));
+          path16 = Object.freeze(path16.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
-            let ci = await visitAsync_(i, node.items[i], visitor, path15);
+            let ci = await visitAsync_(i, node.items[i], visitor, path16);
             if (typeof ci == "number")
               i = ci - 1;
             else {
@@ -145,12 +145,12 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path15 = Object.freeze(path15.concat(node));
-          let ck = await visitAsync_("key", node.key, visitor, path15);
+          path16 = Object.freeze(path16.concat(node));
+          let ck = await visitAsync_("key", node.key, visitor, path16);
           if (ck === BREAK)
             return BREAK;
           ck === REMOVE && (node.key = null);
-          let cv = await visitAsync_("value", node.value, visitor, path15);
+          let cv = await visitAsync_("value", node.value, visitor, path16);
           if (cv === BREAK)
             return BREAK;
           cv === REMOVE && (node.value = null);
@@ -173,22 +173,22 @@ var require_visit = __commonJS({
         Seq: visitor.Collection
       }, visitor) : visitor;
     }
-    function callVisitor(key, node, visitor, path15) {
+    function callVisitor(key, node, visitor, path16) {
       if (typeof visitor == "function")
-        return visitor(key, node, path15);
+        return visitor(key, node, path16);
       if (identity.isMap(node))
-        return visitor.Map?.(key, node, path15);
+        return visitor.Map?.(key, node, path16);
       if (identity.isSeq(node))
-        return visitor.Seq?.(key, node, path15);
+        return visitor.Seq?.(key, node, path16);
       if (identity.isPair(node))
-        return visitor.Pair?.(key, node, path15);
+        return visitor.Pair?.(key, node, path16);
       if (identity.isScalar(node))
-        return visitor.Scalar?.(key, node, path15);
+        return visitor.Scalar?.(key, node, path16);
       if (identity.isAlias(node))
-        return visitor.Alias?.(key, node, path15);
+        return visitor.Alias?.(key, node, path16);
     }
-    function replaceNode(key, path15, node) {
-      let parent = path15[path15.length - 1];
+    function replaceNode(key, path16, node) {
+      let parent = path16[path16.length - 1];
       if (identity.isCollection(parent))
         parent.items[key] = node;
       else if (identity.isPair(parent))
@@ -642,10 +642,10 @@ var require_Collection = __commonJS({
   "node_modules/yaml/dist/nodes/Collection.js"(exports) {
     "use strict";
     var createNode = require_createNode(), identity = require_identity(), Node = require_Node();
-    function collectionFromPath(schema, path15, value) {
+    function collectionFromPath(schema, path16, value) {
       let v = value;
-      for (let i = path15.length - 1; i >= 0; --i) {
-        let k = path15[i];
+      for (let i = path16.length - 1; i >= 0; --i) {
+        let k = path16[i];
         if (typeof k == "number" && Number.isInteger(k) && k >= 0) {
           let a = [];
           a[k] = v, v = a;
@@ -662,7 +662,7 @@ var require_Collection = __commonJS({
         sourceObjects: /* @__PURE__ */ new Map()
       });
     }
-    var isEmptyPath = (path15) => path15 == null || typeof path15 == "object" && !!path15[Symbol.iterator]().next().done, Collection = class extends Node.NodeBase {
+    var isEmptyPath = (path16) => path16 == null || typeof path16 == "object" && !!path16[Symbol.iterator]().next().done, Collection = class extends Node.NodeBase {
       constructor(type, schema) {
         super(type), Object.defineProperty(this, "schema", {
           value: schema,
@@ -685,11 +685,11 @@ var require_Collection = __commonJS({
        * be a Pair instance or a `{ key, value }` object, which may not have a key
        * that already exists in the map.
        */
-      addIn(path15, value) {
-        if (isEmptyPath(path15))
+      addIn(path16, value) {
+        if (isEmptyPath(path16))
           this.add(value);
         else {
-          let [key, ...rest] = path15, node = this.get(key, !0);
+          let [key, ...rest] = path16, node = this.get(key, !0);
           if (identity.isCollection(node))
             node.addIn(rest, value);
           else if (node === void 0 && this.schema)
@@ -702,8 +702,8 @@ var require_Collection = __commonJS({
        * Removes a value from the collection.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path15) {
-        let [key, ...rest] = path15;
+      deleteIn(path16) {
+        let [key, ...rest] = path16;
         if (rest.length === 0)
           return this.delete(key);
         let node = this.get(key, !0);
@@ -716,8 +716,8 @@ var require_Collection = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path15, keepScalar) {
-        let [key, ...rest] = path15, node = this.get(key, !0);
+      getIn(path16, keepScalar) {
+        let [key, ...rest] = path16, node = this.get(key, !0);
         return rest.length === 0 ? !keepScalar && identity.isScalar(node) ? node.value : node : identity.isCollection(node) ? node.getIn(rest, keepScalar) : void 0;
       }
       hasAllNullValues(allowScalar) {
@@ -731,8 +731,8 @@ var require_Collection = __commonJS({
       /**
        * Checks if the collection includes a value with the key `key`.
        */
-      hasIn(path15) {
-        let [key, ...rest] = path15;
+      hasIn(path16) {
+        let [key, ...rest] = path16;
         if (rest.length === 0)
           return this.has(key);
         let node = this.get(key, !0);
@@ -742,8 +742,8 @@ var require_Collection = __commonJS({
        * Sets a value in this collection. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path15, value) {
-        let [key, ...rest] = path15;
+      setIn(path16, value) {
+        let [key, ...rest] = path16;
         if (rest.length === 0)
           this.set(key, value);
         else {
@@ -2616,8 +2616,8 @@ var require_Document = __commonJS({
         assertCollection(this.contents) && this.contents.add(value);
       }
       /** Adds a value to the document. */
-      addIn(path15, value) {
-        assertCollection(this.contents) && this.contents.addIn(path15, value);
+      addIn(path16, value) {
+        assertCollection(this.contents) && this.contents.addIn(path16, value);
       }
       /**
        * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
@@ -2678,8 +2678,8 @@ var require_Document = __commonJS({
        * Removes a value from the document.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path15) {
-        return Collection.isEmptyPath(path15) ? this.contents == null ? !1 : (this.contents = null, !0) : assertCollection(this.contents) ? this.contents.deleteIn(path15) : !1;
+      deleteIn(path16) {
+        return Collection.isEmptyPath(path16) ? this.contents == null ? !1 : (this.contents = null, !0) : assertCollection(this.contents) ? this.contents.deleteIn(path16) : !1;
       }
       /**
        * Returns item at `key`, or `undefined` if not found. By default unwraps
@@ -2694,8 +2694,8 @@ var require_Document = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path15, keepScalar) {
-        return Collection.isEmptyPath(path15) ? !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents : identity.isCollection(this.contents) ? this.contents.getIn(path15, keepScalar) : void 0;
+      getIn(path16, keepScalar) {
+        return Collection.isEmptyPath(path16) ? !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents : identity.isCollection(this.contents) ? this.contents.getIn(path16, keepScalar) : void 0;
       }
       /**
        * Checks if the document includes a value with the key `key`.
@@ -2706,8 +2706,8 @@ var require_Document = __commonJS({
       /**
        * Checks if the document includes a value at `path`.
        */
-      hasIn(path15) {
-        return Collection.isEmptyPath(path15) ? this.contents !== void 0 : identity.isCollection(this.contents) ? this.contents.hasIn(path15) : !1;
+      hasIn(path16) {
+        return Collection.isEmptyPath(path16) ? this.contents !== void 0 : identity.isCollection(this.contents) ? this.contents.hasIn(path16) : !1;
       }
       /**
        * Sets a value in this document. For `!!set`, `value` needs to be a
@@ -2720,8 +2720,8 @@ var require_Document = __commonJS({
        * Sets a value in this document. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path15, value) {
-        Collection.isEmptyPath(path15) ? this.contents = value : this.contents == null ? this.contents = Collection.collectionFromPath(this.schema, Array.from(path15), value) : assertCollection(this.contents) && this.contents.setIn(path15, value);
+      setIn(path16, value) {
+        Collection.isEmptyPath(path16) ? this.contents = value : this.contents == null ? this.contents = Collection.collectionFromPath(this.schema, Array.from(path16), value) : assertCollection(this.contents) && this.contents.setIn(path16, value);
       }
       /**
        * Change the YAML version and schema used by the document.
@@ -4116,9 +4116,9 @@ var require_cst_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    visit.itemAtPath = (cst, path15) => {
+    visit.itemAtPath = (cst, path16) => {
       let item = cst;
-      for (let [field, index] of path15) {
+      for (let [field, index] of path16) {
         let tok = item?.[field];
         if (tok && "items" in tok)
           item = tok.items[index];
@@ -4127,21 +4127,21 @@ var require_cst_visit = __commonJS({
       }
       return item;
     };
-    visit.parentCollection = (cst, path15) => {
-      let parent = visit.itemAtPath(cst, path15.slice(0, -1)), field = path15[path15.length - 1][0], coll = parent?.[field];
+    visit.parentCollection = (cst, path16) => {
+      let parent = visit.itemAtPath(cst, path16.slice(0, -1)), field = path16[path16.length - 1][0], coll = parent?.[field];
       if (coll && "items" in coll)
         return coll;
       throw new Error("Parent collection not found");
     };
-    function _visit(path15, item, visitor) {
-      let ctrl = visitor(item, path15);
+    function _visit(path16, item, visitor) {
+      let ctrl = visitor(item, path16);
       if (typeof ctrl == "symbol")
         return ctrl;
       for (let field of ["key", "value"]) {
         let token = item[field];
         if (token && "items" in token) {
           for (let i = 0; i < token.items.length; ++i) {
-            let ci = _visit(Object.freeze(path15.concat([[field, i]])), token.items[i], visitor);
+            let ci = _visit(Object.freeze(path16.concat([[field, i]])), token.items[i], visitor);
             if (typeof ci == "number")
               i = ci - 1;
             else {
@@ -4150,10 +4150,10 @@ var require_cst_visit = __commonJS({
               ci === REMOVE && (token.items.splice(i, 1), i -= 1);
             }
           }
-          typeof ctrl == "function" && field === "key" && (ctrl = ctrl(item, path15));
+          typeof ctrl == "function" && field === "key" && (ctrl = ctrl(item, path16));
         }
       }
-      return typeof ctrl == "function" ? ctrl(item, path15) : ctrl;
+      return typeof ctrl == "function" ? ctrl(item, path16) : ctrl;
     }
     exports.visit = visit;
   }
@@ -5485,14 +5485,14 @@ var require_dist = __commonJS({
 
 // runtime/src/index.mjs
 import fs13 from "node:fs";
-import path14 from "node:path";
+import path15 from "node:path";
 
 // runtime/src/commands/init.mjs
-import path8 from "node:path";
+import path10 from "node:path";
 
 // runtime/src/lib/changeset.mjs
-import fs7 from "node:fs";
-import path7 from "node:path";
+import fs9 from "node:fs";
+import path9 from "node:path";
 
 // runtime/src/lib/ids.mjs
 import crypto from "node:crypto";
@@ -5696,6 +5696,10 @@ function renameWithinRoot(root, fromRelativePath, toRelativePath) {
   ensureDirectoryTree(root, parentRelative(toRelativePath));
   let fromPath = confineWritePath(root, fromRelativePath), toPath = confineWritePath(root, toRelativePath);
   fs2.renameSync(fromPath, toPath);
+}
+function deleteWithinRoot(root, relativePath) {
+  let targetPath = confineWritePath(root, relativePath);
+  fs2.rmSync(targetPath, { force: !0 });
 }
 function copyFileAtomic(root, sourceRelativePath, targetRelativePath) {
   let sourcePath = confineWritePath(root, sourceRelativePath), contents = fs2.readFileSync(sourcePath);
@@ -5906,7 +5910,8 @@ function __deepEqual(a, b) {
   }
   return a !== a && b !== b;
 }
-var validate_change_set = validate10, schema11 = { $id: "https://shipping-mode.dev/schemas/change-set.schema.json", type: "object", additionalProperties: !1, required: ["schemaVersion", "operationId", "kind", "target", "baseRevisions", "payload", "hash"], properties: { schemaVersion: { const: 1 }, operationId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, kind: { enum: ["workspace.init", "config.update", "scope.add"] }, target: { type: "object" }, baseRevisions: { type: "object", additionalProperties: { type: "object", additionalProperties: !1, required: ["revisionHash", "contentHash"], properties: { revisionHash: { type: "string", pattern: "^([0-9a-f]{64}|ABSENT)$" }, contentHash: { type: "string", pattern: "^([0-9a-f]{64}|ABSENT)$" } } } }, payload: { type: "object" }, hash: { type: "string", pattern: "^[0-9a-f]{64}$" } }, allOf: [{ if: { properties: { kind: { const: "workspace.init" } } }, then: { properties: { payload: { type: "object", additionalProperties: !1, required: ["name", "vcs", "pluginVersion", "templatePackFingerprint"], properties: { name: { type: "string", minLength: 1 }, baseBranch: { type: ["string", "null"] }, vcs: { enum: ["git", "none"] }, pluginVersion: { type: "string", minLength: 1 }, templatePackFingerprint: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" } } } } } }, { if: { properties: { kind: { const: "config.update" } } }, then: { properties: { payload: { type: "object", additionalProperties: !1, required: ["name"], properties: { name: { type: "string", minLength: 1 } } } } } }, { if: { properties: { kind: { const: "scope.add" } } }, then: { properties: { payload: { type: "object", additionalProperties: !1, required: ["id", "key", "label", "kind", "path"], properties: { id: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, key: { type: "string", minLength: 1 }, label: { type: "string", minLength: 1 }, kind: { enum: ["code", "non_code"] }, path: { type: "string", minLength: 1 }, owner: { type: ["string", "null"] } } } } } }] }, func2 = __ucs2length, pattern0 = new RegExp("^sha256:[0-9a-f]{64}$", "u"), pattern1 = new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", "u"), pattern3 = new RegExp("^([0-9a-f]{64}|ABSENT)$", "u"), pattern5 = new RegExp("^[0-9a-f]{64}$", "u");
+var validate_change_set = validate10, schema11 = { $id: "https://shipping-mode.dev/schemas/change-set.schema.json", type: "object", additionalProperties: !1, required: ["schemaVersion", "operationId", "kind", "target", "baseRevisions", "payload", "hash"], properties: { schemaVersion: { const: 1 }, operationId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, kind: { enum: ["workspace.init", "config.update", "scope.add", "scope.command.set", "discovery.propose"] }, target: { type: "object" }, baseRevisions: { type: "object", additionalProperties: { type: "object", additionalProperties: !1, required: ["revisionHash", "contentHash"], properties: { revisionHash: { type: "string", pattern: "^([0-9a-f]{64}|ABSENT)$" }, contentHash: { type: "string", pattern: "^([0-9a-f]{64}|ABSENT)$" } } } }, payload: { type: "object" }, preconditions: { type: "object", additionalProperties: !1, properties: { discoveryWorkspace: { type: "object", additionalProperties: !1, required: ["workspaceHash", "scanParameters"], properties: { workspaceHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, scanParameters: { type: "object", additionalProperties: !1, required: ["maxSourceBytes"], properties: { maxSourceBytes: { type: "integer" } } } } } } }, hash: { type: "string", pattern: "^[0-9a-f]{64}$" } }, allOf: [{ if: { properties: { kind: { const: "workspace.init" } } }, then: { properties: { payload: { type: "object", additionalProperties: !1, required: ["name", "vcs", "pluginVersion", "templatePackFingerprint"], properties: { name: { type: "string", minLength: 1 }, baseBranch: { type: ["string", "null"] }, vcs: { enum: ["git", "none"] }, pluginVersion: { type: "string", minLength: 1 }, templatePackFingerprint: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" } } } } } }, { if: { properties: { kind: { const: "config.update" } } }, then: { properties: { payload: { type: "object", additionalProperties: !1, required: ["name"], properties: { name: { type: "string", minLength: 1 } } } } } }, { if: { properties: { kind: { const: "scope.add" } } }, then: { properties: { payload: { type: "object", additionalProperties: !1, required: ["id", "key", "label", "kind", "path"], properties: { id: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, key: { type: "string", minLength: 1 }, label: { type: "string", minLength: 1 }, kind: { enum: ["code", "non_code"] }, path: { type: "string", minLength: 1 }, owner: { type: ["string", "null"] } } } } } }, { if: { properties: { kind: { const: "scope.command.set" } } }, then: { properties: { payload: { type: "object", additionalProperties: !1, required: ["operationId", "scopeId", "role", "command", "requiresEnvironment", "requiresSecrets", "declaredBy", "declaredAt"], properties: { operationId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, scopeId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, role: { anyOf: [{ enum: ["build", "test", "smoke", "lint", "verify"] }, { type: "string", pattern: "^custom\\.[a-z][a-z0-9-]{0,63}$" }] }, command: { type: "string", minLength: 1 }, requiresEnvironment: { type: "boolean" }, requiresSecrets: { type: "boolean" }, declaredBy: { type: "string", minLength: 1 }, declaredAt: { type: "string", minLength: 1 } } } } } }, { if: { properties: { kind: { const: "discovery.propose" } } }, then: { required: ["preconditions"], properties: { preconditions: { $ref: "#/properties/preconditions" }, payload: { type: "object", additionalProperties: !1, required: ["operationId", "proposal", "sourceIdAssignments", "scopeIdAssignments", "confirmedBy", "confirmedAt"], properties: { operationId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, proposal: { type: "object" }, sourceIdAssignments: { type: "array", items: { type: "object", additionalProperties: !1, required: ["sourceActionIndex", "sourceId"], properties: { sourceActionIndex: { type: "integer", minimum: 0 }, sourceId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" } } } }, scopeIdAssignments: { type: "array", items: { type: "object", additionalProperties: !1, required: ["scopeIndex", "scopeId"], properties: { scopeIndex: { type: "integer", minimum: 0 }, scopeId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" } } } }, confirmedBy: { type: "string", minLength: 1 }, confirmedAt: { type: "string", minLength: 1 } } } } } }] };
+var func2 = __ucs2length, pattern0 = new RegExp("^sha256:[0-9a-f]{64}$", "u"), pattern1 = new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", "u"), pattern4 = new RegExp("^custom\\.[a-z][a-z0-9-]{0,63}$", "u"), pattern5 = new RegExp("^[0-9a-f]{64}$", "u"), pattern10 = new RegExp("^([0-9a-f]{64}|ABSENT)$", "u");
 function validate10(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
   let vErrors = null, errors = 0, _errs2 = errors, valid1 = !0, _errs3 = errors;
   if (data && typeof data == "object" && !Array.isArray(data) && data.kind !== void 0 && data.kind !== "workspace.init") {
@@ -6156,149 +6161,652 @@ function validate10(data, { instancePath = "", parentData, parentDataProperty, r
     let err41 = { instancePath, schemaPath: "#/allOf/2/if", keyword: "if", params: { failingKeyword: "then" }, message: 'must match "then" schema' };
     vErrors === null ? vErrors = [err41] : vErrors.push(err41), errors++;
   }
-  if (data && typeof data == "object" && !Array.isArray(data)) {
-    if (data.schemaVersion === void 0) {
-      let err42 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "schemaVersion" }, message: "must have required property 'schemaVersion'" };
-      vErrors === null ? vErrors = [err42] : vErrors.push(err42), errors++;
-    }
-    if (data.operationId === void 0) {
-      let err43 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "operationId" }, message: "must have required property 'operationId'" };
-      vErrors === null ? vErrors = [err43] : vErrors.push(err43), errors++;
-    }
-    if (data.kind === void 0) {
-      let err44 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "kind" }, message: "must have required property 'kind'" };
-      vErrors === null ? vErrors = [err44] : vErrors.push(err44), errors++;
-    }
-    if (data.target === void 0) {
-      let err45 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "target" }, message: "must have required property 'target'" };
-      vErrors === null ? vErrors = [err45] : vErrors.push(err45), errors++;
-    }
-    if (data.baseRevisions === void 0) {
-      let err46 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "baseRevisions" }, message: "must have required property 'baseRevisions'" };
-      vErrors === null ? vErrors = [err46] : vErrors.push(err46), errors++;
-    }
-    if (data.payload === void 0) {
-      let err47 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "payload" }, message: "must have required property 'payload'" };
-      vErrors === null ? vErrors = [err47] : vErrors.push(err47), errors++;
-    }
-    if (data.hash === void 0) {
-      let err48 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "hash" }, message: "must have required property 'hash'" };
-      vErrors === null ? vErrors = [err48] : vErrors.push(err48), errors++;
-    }
-    for (let key3 in data)
-      if (!(key3 === "schemaVersion" || key3 === "operationId" || key3 === "kind" || key3 === "target" || key3 === "baseRevisions" || key3 === "payload" || key3 === "hash")) {
-        let err49 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key3 }, message: "must NOT have additional properties" };
-        vErrors === null ? vErrors = [err49] : vErrors.push(err49), errors++;
-      }
-    if (data.schemaVersion !== void 0 && data.schemaVersion !== 1) {
-      let err50 = { instancePath: instancePath + "/schemaVersion", schemaPath: "#/properties/schemaVersion/const", keyword: "const", params: { allowedValue: 1 }, message: "must be equal to constant" };
-      vErrors === null ? vErrors = [err50] : vErrors.push(err50), errors++;
-    }
-    if (data.operationId !== void 0) {
-      let data19 = data.operationId;
-      if (typeof data19 == "string") {
-        if (!pattern1.test(data19)) {
-          let err51 = { instancePath: instancePath + "/operationId", schemaPath: "#/properties/operationId/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, message: 'must match pattern "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"' };
-          vErrors === null ? vErrors = [err51] : vErrors.push(err51), errors++;
+  let _errs48 = errors, valid13 = !0, _errs49 = errors;
+  if (data && typeof data == "object" && !Array.isArray(data) && data.kind !== void 0 && data.kind !== "scope.command.set") {
+    let err42 = {};
+    vErrors === null ? vErrors = [err42] : vErrors.push(err42), errors++;
+  }
+  var _valid3 = _errs49 === errors;
+  if (errors = _errs48, vErrors !== null && (_errs48 ? vErrors.length = _errs48 : vErrors = null), _valid3) {
+    let _errs51 = errors;
+    if (data && typeof data == "object" && !Array.isArray(data) && data.payload !== void 0) {
+      let data19 = data.payload;
+      if (data19 && typeof data19 == "object" && !Array.isArray(data19)) {
+        if (data19.operationId === void 0) {
+          let err43 = { instancePath: instancePath + "/payload", schemaPath: "#/allOf/3/then/properties/payload/required", keyword: "required", params: { missingProperty: "operationId" }, message: "must have required property 'operationId'" };
+          vErrors === null ? vErrors = [err43] : vErrors.push(err43), errors++;
+        }
+        if (data19.scopeId === void 0) {
+          let err44 = { instancePath: instancePath + "/payload", schemaPath: "#/allOf/3/then/properties/payload/required", keyword: "required", params: { missingProperty: "scopeId" }, message: "must have required property 'scopeId'" };
+          vErrors === null ? vErrors = [err44] : vErrors.push(err44), errors++;
+        }
+        if (data19.role === void 0) {
+          let err45 = { instancePath: instancePath + "/payload", schemaPath: "#/allOf/3/then/properties/payload/required", keyword: "required", params: { missingProperty: "role" }, message: "must have required property 'role'" };
+          vErrors === null ? vErrors = [err45] : vErrors.push(err45), errors++;
+        }
+        if (data19.command === void 0) {
+          let err46 = { instancePath: instancePath + "/payload", schemaPath: "#/allOf/3/then/properties/payload/required", keyword: "required", params: { missingProperty: "command" }, message: "must have required property 'command'" };
+          vErrors === null ? vErrors = [err46] : vErrors.push(err46), errors++;
+        }
+        if (data19.requiresEnvironment === void 0) {
+          let err47 = { instancePath: instancePath + "/payload", schemaPath: "#/allOf/3/then/properties/payload/required", keyword: "required", params: { missingProperty: "requiresEnvironment" }, message: "must have required property 'requiresEnvironment'" };
+          vErrors === null ? vErrors = [err47] : vErrors.push(err47), errors++;
+        }
+        if (data19.requiresSecrets === void 0) {
+          let err48 = { instancePath: instancePath + "/payload", schemaPath: "#/allOf/3/then/properties/payload/required", keyword: "required", params: { missingProperty: "requiresSecrets" }, message: "must have required property 'requiresSecrets'" };
+          vErrors === null ? vErrors = [err48] : vErrors.push(err48), errors++;
+        }
+        if (data19.declaredBy === void 0) {
+          let err49 = { instancePath: instancePath + "/payload", schemaPath: "#/allOf/3/then/properties/payload/required", keyword: "required", params: { missingProperty: "declaredBy" }, message: "must have required property 'declaredBy'" };
+          vErrors === null ? vErrors = [err49] : vErrors.push(err49), errors++;
+        }
+        if (data19.declaredAt === void 0) {
+          let err50 = { instancePath: instancePath + "/payload", schemaPath: "#/allOf/3/then/properties/payload/required", keyword: "required", params: { missingProperty: "declaredAt" }, message: "must have required property 'declaredAt'" };
+          vErrors === null ? vErrors = [err50] : vErrors.push(err50), errors++;
+        }
+        for (let key3 in data19)
+          if (!(key3 === "operationId" || key3 === "scopeId" || key3 === "role" || key3 === "command" || key3 === "requiresEnvironment" || key3 === "requiresSecrets" || key3 === "declaredBy" || key3 === "declaredAt")) {
+            let err51 = { instancePath: instancePath + "/payload", schemaPath: "#/allOf/3/then/properties/payload/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key3 }, message: "must NOT have additional properties" };
+            vErrors === null ? vErrors = [err51] : vErrors.push(err51), errors++;
+          }
+        if (data19.operationId !== void 0) {
+          let data20 = data19.operationId;
+          if (typeof data20 == "string") {
+            if (!pattern1.test(data20)) {
+              let err52 = { instancePath: instancePath + "/payload/operationId", schemaPath: "#/allOf/3/then/properties/payload/properties/operationId/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, message: 'must match pattern "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"' };
+              vErrors === null ? vErrors = [err52] : vErrors.push(err52), errors++;
+            }
+          } else {
+            let err53 = { instancePath: instancePath + "/payload/operationId", schemaPath: "#/allOf/3/then/properties/payload/properties/operationId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            vErrors === null ? vErrors = [err53] : vErrors.push(err53), errors++;
+          }
+        }
+        if (data19.scopeId !== void 0) {
+          let data21 = data19.scopeId;
+          if (typeof data21 == "string") {
+            if (!pattern1.test(data21)) {
+              let err54 = { instancePath: instancePath + "/payload/scopeId", schemaPath: "#/allOf/3/then/properties/payload/properties/scopeId/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, message: 'must match pattern "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"' };
+              vErrors === null ? vErrors = [err54] : vErrors.push(err54), errors++;
+            }
+          } else {
+            let err55 = { instancePath: instancePath + "/payload/scopeId", schemaPath: "#/allOf/3/then/properties/payload/properties/scopeId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            vErrors === null ? vErrors = [err55] : vErrors.push(err55), errors++;
+          }
+        }
+        if (data19.role !== void 0) {
+          let data22 = data19.role, _errs60 = errors, valid17 = !1, _errs61 = errors;
+          if (!(data22 === "build" || data22 === "test" || data22 === "smoke" || data22 === "lint" || data22 === "verify")) {
+            let err56 = { instancePath: instancePath + "/payload/role", schemaPath: "#/allOf/3/then/properties/payload/properties/role/anyOf/0/enum", keyword: "enum", params: { allowedValues: schema11.allOf[3].then.properties.payload.properties.role.anyOf[0].enum }, message: "must be equal to one of the allowed values" };
+            vErrors === null ? vErrors = [err56] : vErrors.push(err56), errors++;
+          }
+          var _valid4 = _errs61 === errors;
+          if (valid17 = valid17 || _valid4, !valid17) {
+            let _errs62 = errors;
+            if (typeof data22 == "string") {
+              if (!pattern4.test(data22)) {
+                let err57 = { instancePath: instancePath + "/payload/role", schemaPath: "#/allOf/3/then/properties/payload/properties/role/anyOf/1/pattern", keyword: "pattern", params: { pattern: "^custom\\.[a-z][a-z0-9-]{0,63}$" }, message: 'must match pattern "^custom\\.[a-z][a-z0-9-]{0,63}$"' };
+                vErrors === null ? vErrors = [err57] : vErrors.push(err57), errors++;
+              }
+            } else {
+              let err58 = { instancePath: instancePath + "/payload/role", schemaPath: "#/allOf/3/then/properties/payload/properties/role/anyOf/1/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+              vErrors === null ? vErrors = [err58] : vErrors.push(err58), errors++;
+            }
+            var _valid4 = _errs62 === errors;
+            valid17 = valid17 || _valid4;
+          }
+          if (valid17)
+            errors = _errs60, vErrors !== null && (_errs60 ? vErrors.length = _errs60 : vErrors = null);
+          else {
+            let err59 = { instancePath: instancePath + "/payload/role", schemaPath: "#/allOf/3/then/properties/payload/properties/role/anyOf", keyword: "anyOf", params: {}, message: "must match a schema in anyOf" };
+            vErrors === null ? vErrors = [err59] : vErrors.push(err59), errors++;
+          }
+        }
+        if (data19.command !== void 0) {
+          let data23 = data19.command;
+          if (typeof data23 == "string") {
+            if (func2(data23) < 1) {
+              let err60 = { instancePath: instancePath + "/payload/command", schemaPath: "#/allOf/3/then/properties/payload/properties/command/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+              vErrors === null ? vErrors = [err60] : vErrors.push(err60), errors++;
+            }
+          } else {
+            let err61 = { instancePath: instancePath + "/payload/command", schemaPath: "#/allOf/3/then/properties/payload/properties/command/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            vErrors === null ? vErrors = [err61] : vErrors.push(err61), errors++;
+          }
+        }
+        if (data19.requiresEnvironment !== void 0 && typeof data19.requiresEnvironment != "boolean") {
+          let err62 = { instancePath: instancePath + "/payload/requiresEnvironment", schemaPath: "#/allOf/3/then/properties/payload/properties/requiresEnvironment/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+          vErrors === null ? vErrors = [err62] : vErrors.push(err62), errors++;
+        }
+        if (data19.requiresSecrets !== void 0 && typeof data19.requiresSecrets != "boolean") {
+          let err63 = { instancePath: instancePath + "/payload/requiresSecrets", schemaPath: "#/allOf/3/then/properties/payload/properties/requiresSecrets/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+          vErrors === null ? vErrors = [err63] : vErrors.push(err63), errors++;
+        }
+        if (data19.declaredBy !== void 0) {
+          let data26 = data19.declaredBy;
+          if (typeof data26 == "string") {
+            if (func2(data26) < 1) {
+              let err64 = { instancePath: instancePath + "/payload/declaredBy", schemaPath: "#/allOf/3/then/properties/payload/properties/declaredBy/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+              vErrors === null ? vErrors = [err64] : vErrors.push(err64), errors++;
+            }
+          } else {
+            let err65 = { instancePath: instancePath + "/payload/declaredBy", schemaPath: "#/allOf/3/then/properties/payload/properties/declaredBy/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            vErrors === null ? vErrors = [err65] : vErrors.push(err65), errors++;
+          }
+        }
+        if (data19.declaredAt !== void 0) {
+          let data27 = data19.declaredAt;
+          if (typeof data27 == "string") {
+            if (func2(data27) < 1) {
+              let err66 = { instancePath: instancePath + "/payload/declaredAt", schemaPath: "#/allOf/3/then/properties/payload/properties/declaredAt/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+              vErrors === null ? vErrors = [err66] : vErrors.push(err66), errors++;
+            }
+          } else {
+            let err67 = { instancePath: instancePath + "/payload/declaredAt", schemaPath: "#/allOf/3/then/properties/payload/properties/declaredAt/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            vErrors === null ? vErrors = [err67] : vErrors.push(err67), errors++;
+          }
         }
       } else {
-        let err52 = { instancePath: instancePath + "/operationId", schemaPath: "#/properties/operationId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        vErrors === null ? vErrors = [err52] : vErrors.push(err52), errors++;
+        let err68 = { instancePath: instancePath + "/payload", schemaPath: "#/allOf/3/then/properties/payload/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        vErrors === null ? vErrors = [err68] : vErrors.push(err68), errors++;
+      }
+    }
+    var _valid3 = _errs51 === errors;
+    valid13 = _valid3;
+  }
+  if (!valid13) {
+    let err69 = { instancePath, schemaPath: "#/allOf/3/if", keyword: "if", params: { failingKeyword: "then" }, message: 'must match "then" schema' };
+    vErrors === null ? vErrors = [err69] : vErrors.push(err69), errors++;
+  }
+  let _errs75 = errors, valid18 = !0, _errs76 = errors;
+  if (data && typeof data == "object" && !Array.isArray(data) && data.kind !== void 0 && data.kind !== "discovery.propose") {
+    let err70 = {};
+    vErrors === null ? vErrors = [err70] : vErrors.push(err70), errors++;
+  }
+  var _valid5 = _errs76 === errors;
+  if (errors = _errs75, vErrors !== null && (_errs75 ? vErrors.length = _errs75 : vErrors = null), _valid5) {
+    let _errs78 = errors;
+    if (data && typeof data == "object" && !Array.isArray(data)) {
+      if (data.preconditions === void 0) {
+        let err71 = { instancePath, schemaPath: "#/allOf/4/then/required", keyword: "required", params: { missingProperty: "preconditions" }, message: "must have required property 'preconditions'" };
+        vErrors === null ? vErrors = [err71] : vErrors.push(err71), errors++;
+      }
+      if (data.preconditions !== void 0) {
+        let data29 = data.preconditions;
+        if (data29 && typeof data29 == "object" && !Array.isArray(data29)) {
+          for (let key4 in data29)
+            if (key4 !== "discoveryWorkspace") {
+              let err72 = { instancePath: instancePath + "/preconditions", schemaPath: "#/properties/preconditions/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key4 }, message: "must NOT have additional properties" };
+              vErrors === null ? vErrors = [err72] : vErrors.push(err72), errors++;
+            }
+          if (data29.discoveryWorkspace !== void 0) {
+            let data30 = data29.discoveryWorkspace;
+            if (data30 && typeof data30 == "object" && !Array.isArray(data30)) {
+              if (data30.workspaceHash === void 0) {
+                let err73 = { instancePath: instancePath + "/preconditions/discoveryWorkspace", schemaPath: "#/properties/preconditions/properties/discoveryWorkspace/required", keyword: "required", params: { missingProperty: "workspaceHash" }, message: "must have required property 'workspaceHash'" };
+                vErrors === null ? vErrors = [err73] : vErrors.push(err73), errors++;
+              }
+              if (data30.scanParameters === void 0) {
+                let err74 = { instancePath: instancePath + "/preconditions/discoveryWorkspace", schemaPath: "#/properties/preconditions/properties/discoveryWorkspace/required", keyword: "required", params: { missingProperty: "scanParameters" }, message: "must have required property 'scanParameters'" };
+                vErrors === null ? vErrors = [err74] : vErrors.push(err74), errors++;
+              }
+              for (let key5 in data30)
+                if (!(key5 === "workspaceHash" || key5 === "scanParameters")) {
+                  let err75 = { instancePath: instancePath + "/preconditions/discoveryWorkspace", schemaPath: "#/properties/preconditions/properties/discoveryWorkspace/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key5 }, message: "must NOT have additional properties" };
+                  vErrors === null ? vErrors = [err75] : vErrors.push(err75), errors++;
+                }
+              if (data30.workspaceHash !== void 0) {
+                let data31 = data30.workspaceHash;
+                if (typeof data31 == "string") {
+                  if (!pattern5.test(data31)) {
+                    let err76 = { instancePath: instancePath + "/preconditions/discoveryWorkspace/workspaceHash", schemaPath: "#/properties/preconditions/properties/discoveryWorkspace/properties/workspaceHash/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
+                    vErrors === null ? vErrors = [err76] : vErrors.push(err76), errors++;
+                  }
+                } else {
+                  let err77 = { instancePath: instancePath + "/preconditions/discoveryWorkspace/workspaceHash", schemaPath: "#/properties/preconditions/properties/discoveryWorkspace/properties/workspaceHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                  vErrors === null ? vErrors = [err77] : vErrors.push(err77), errors++;
+                }
+              }
+              if (data30.scanParameters !== void 0) {
+                let data32 = data30.scanParameters;
+                if (data32 && typeof data32 == "object" && !Array.isArray(data32)) {
+                  if (data32.maxSourceBytes === void 0) {
+                    let err78 = { instancePath: instancePath + "/preconditions/discoveryWorkspace/scanParameters", schemaPath: "#/properties/preconditions/properties/discoveryWorkspace/properties/scanParameters/required", keyword: "required", params: { missingProperty: "maxSourceBytes" }, message: "must have required property 'maxSourceBytes'" };
+                    vErrors === null ? vErrors = [err78] : vErrors.push(err78), errors++;
+                  }
+                  for (let key6 in data32)
+                    if (key6 !== "maxSourceBytes") {
+                      let err79 = { instancePath: instancePath + "/preconditions/discoveryWorkspace/scanParameters", schemaPath: "#/properties/preconditions/properties/discoveryWorkspace/properties/scanParameters/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key6 }, message: "must NOT have additional properties" };
+                      vErrors === null ? vErrors = [err79] : vErrors.push(err79), errors++;
+                    }
+                  if (data32.maxSourceBytes !== void 0) {
+                    let data33 = data32.maxSourceBytes;
+                    if (!(typeof data33 == "number" && !(data33 % 1) && !isNaN(data33) && isFinite(data33))) {
+                      let err80 = { instancePath: instancePath + "/preconditions/discoveryWorkspace/scanParameters/maxSourceBytes", schemaPath: "#/properties/preconditions/properties/discoveryWorkspace/properties/scanParameters/properties/maxSourceBytes/type", keyword: "type", params: { type: "integer" }, message: "must be integer" };
+                      vErrors === null ? vErrors = [err80] : vErrors.push(err80), errors++;
+                    }
+                  }
+                } else {
+                  let err81 = { instancePath: instancePath + "/preconditions/discoveryWorkspace/scanParameters", schemaPath: "#/properties/preconditions/properties/discoveryWorkspace/properties/scanParameters/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+                  vErrors === null ? vErrors = [err81] : vErrors.push(err81), errors++;
+                }
+              }
+            } else {
+              let err82 = { instancePath: instancePath + "/preconditions/discoveryWorkspace", schemaPath: "#/properties/preconditions/properties/discoveryWorkspace/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+              vErrors === null ? vErrors = [err82] : vErrors.push(err82), errors++;
+            }
+          }
+        } else {
+          let err83 = { instancePath: instancePath + "/preconditions", schemaPath: "#/properties/preconditions/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+          vErrors === null ? vErrors = [err83] : vErrors.push(err83), errors++;
+        }
+      }
+      if (data.payload !== void 0) {
+        let data34 = data.payload;
+        if (data34 && typeof data34 == "object" && !Array.isArray(data34)) {
+          if (data34.operationId === void 0) {
+            let err84 = { instancePath: instancePath + "/payload", schemaPath: "#/allOf/4/then/properties/payload/required", keyword: "required", params: { missingProperty: "operationId" }, message: "must have required property 'operationId'" };
+            vErrors === null ? vErrors = [err84] : vErrors.push(err84), errors++;
+          }
+          if (data34.proposal === void 0) {
+            let err85 = { instancePath: instancePath + "/payload", schemaPath: "#/allOf/4/then/properties/payload/required", keyword: "required", params: { missingProperty: "proposal" }, message: "must have required property 'proposal'" };
+            vErrors === null ? vErrors = [err85] : vErrors.push(err85), errors++;
+          }
+          if (data34.sourceIdAssignments === void 0) {
+            let err86 = { instancePath: instancePath + "/payload", schemaPath: "#/allOf/4/then/properties/payload/required", keyword: "required", params: { missingProperty: "sourceIdAssignments" }, message: "must have required property 'sourceIdAssignments'" };
+            vErrors === null ? vErrors = [err86] : vErrors.push(err86), errors++;
+          }
+          if (data34.scopeIdAssignments === void 0) {
+            let err87 = { instancePath: instancePath + "/payload", schemaPath: "#/allOf/4/then/properties/payload/required", keyword: "required", params: { missingProperty: "scopeIdAssignments" }, message: "must have required property 'scopeIdAssignments'" };
+            vErrors === null ? vErrors = [err87] : vErrors.push(err87), errors++;
+          }
+          if (data34.confirmedBy === void 0) {
+            let err88 = { instancePath: instancePath + "/payload", schemaPath: "#/allOf/4/then/properties/payload/required", keyword: "required", params: { missingProperty: "confirmedBy" }, message: "must have required property 'confirmedBy'" };
+            vErrors === null ? vErrors = [err88] : vErrors.push(err88), errors++;
+          }
+          if (data34.confirmedAt === void 0) {
+            let err89 = { instancePath: instancePath + "/payload", schemaPath: "#/allOf/4/then/properties/payload/required", keyword: "required", params: { missingProperty: "confirmedAt" }, message: "must have required property 'confirmedAt'" };
+            vErrors === null ? vErrors = [err89] : vErrors.push(err89), errors++;
+          }
+          for (let key7 in data34)
+            if (!(key7 === "operationId" || key7 === "proposal" || key7 === "sourceIdAssignments" || key7 === "scopeIdAssignments" || key7 === "confirmedBy" || key7 === "confirmedAt")) {
+              let err90 = { instancePath: instancePath + "/payload", schemaPath: "#/allOf/4/then/properties/payload/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key7 }, message: "must NOT have additional properties" };
+              vErrors === null ? vErrors = [err90] : vErrors.push(err90), errors++;
+            }
+          if (data34.operationId !== void 0) {
+            let data35 = data34.operationId;
+            if (typeof data35 == "string") {
+              if (!pattern1.test(data35)) {
+                let err91 = { instancePath: instancePath + "/payload/operationId", schemaPath: "#/allOf/4/then/properties/payload/properties/operationId/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, message: 'must match pattern "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"' };
+                vErrors === null ? vErrors = [err91] : vErrors.push(err91), errors++;
+              }
+            } else {
+              let err92 = { instancePath: instancePath + "/payload/operationId", schemaPath: "#/allOf/4/then/properties/payload/properties/operationId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+              vErrors === null ? vErrors = [err92] : vErrors.push(err92), errors++;
+            }
+          }
+          if (data34.proposal !== void 0) {
+            let data36 = data34.proposal;
+            if (!(data36 && typeof data36 == "object" && !Array.isArray(data36))) {
+              let err93 = { instancePath: instancePath + "/payload/proposal", schemaPath: "#/allOf/4/then/properties/payload/properties/proposal/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+              vErrors === null ? vErrors = [err93] : vErrors.push(err93), errors++;
+            }
+          }
+          if (data34.sourceIdAssignments !== void 0) {
+            let data37 = data34.sourceIdAssignments;
+            if (Array.isArray(data37)) {
+              let len0 = data37.length;
+              for (let i0 = 0; i0 < len0; i0++) {
+                let data38 = data37[i0];
+                if (data38 && typeof data38 == "object" && !Array.isArray(data38)) {
+                  if (data38.sourceActionIndex === void 0) {
+                    let err94 = { instancePath: instancePath + "/payload/sourceIdAssignments/" + i0, schemaPath: "#/allOf/4/then/properties/payload/properties/sourceIdAssignments/items/required", keyword: "required", params: { missingProperty: "sourceActionIndex" }, message: "must have required property 'sourceActionIndex'" };
+                    vErrors === null ? vErrors = [err94] : vErrors.push(err94), errors++;
+                  }
+                  if (data38.sourceId === void 0) {
+                    let err95 = { instancePath: instancePath + "/payload/sourceIdAssignments/" + i0, schemaPath: "#/allOf/4/then/properties/payload/properties/sourceIdAssignments/items/required", keyword: "required", params: { missingProperty: "sourceId" }, message: "must have required property 'sourceId'" };
+                    vErrors === null ? vErrors = [err95] : vErrors.push(err95), errors++;
+                  }
+                  for (let key8 in data38)
+                    if (!(key8 === "sourceActionIndex" || key8 === "sourceId")) {
+                      let err96 = { instancePath: instancePath + "/payload/sourceIdAssignments/" + i0, schemaPath: "#/allOf/4/then/properties/payload/properties/sourceIdAssignments/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key8 }, message: "must NOT have additional properties" };
+                      vErrors === null ? vErrors = [err96] : vErrors.push(err96), errors++;
+                    }
+                  if (data38.sourceActionIndex !== void 0) {
+                    let data39 = data38.sourceActionIndex;
+                    if (!(typeof data39 == "number" && !(data39 % 1) && !isNaN(data39) && isFinite(data39))) {
+                      let err97 = { instancePath: instancePath + "/payload/sourceIdAssignments/" + i0 + "/sourceActionIndex", schemaPath: "#/allOf/4/then/properties/payload/properties/sourceIdAssignments/items/properties/sourceActionIndex/type", keyword: "type", params: { type: "integer" }, message: "must be integer" };
+                      vErrors === null ? vErrors = [err97] : vErrors.push(err97), errors++;
+                    }
+                    if (typeof data39 == "number" && isFinite(data39) && (data39 < 0 || isNaN(data39))) {
+                      let err98 = { instancePath: instancePath + "/payload/sourceIdAssignments/" + i0 + "/sourceActionIndex", schemaPath: "#/allOf/4/then/properties/payload/properties/sourceIdAssignments/items/properties/sourceActionIndex/minimum", keyword: "minimum", params: { comparison: ">=", limit: 0 }, message: "must be >= 0" };
+                      vErrors === null ? vErrors = [err98] : vErrors.push(err98), errors++;
+                    }
+                  }
+                  if (data38.sourceId !== void 0) {
+                    let data40 = data38.sourceId;
+                    if (typeof data40 == "string") {
+                      if (!pattern1.test(data40)) {
+                        let err99 = { instancePath: instancePath + "/payload/sourceIdAssignments/" + i0 + "/sourceId", schemaPath: "#/allOf/4/then/properties/payload/properties/sourceIdAssignments/items/properties/sourceId/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, message: 'must match pattern "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"' };
+                        vErrors === null ? vErrors = [err99] : vErrors.push(err99), errors++;
+                      }
+                    } else {
+                      let err100 = { instancePath: instancePath + "/payload/sourceIdAssignments/" + i0 + "/sourceId", schemaPath: "#/allOf/4/then/properties/payload/properties/sourceIdAssignments/items/properties/sourceId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                      vErrors === null ? vErrors = [err100] : vErrors.push(err100), errors++;
+                    }
+                  }
+                } else {
+                  let err101 = { instancePath: instancePath + "/payload/sourceIdAssignments/" + i0, schemaPath: "#/allOf/4/then/properties/payload/properties/sourceIdAssignments/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+                  vErrors === null ? vErrors = [err101] : vErrors.push(err101), errors++;
+                }
+              }
+            } else {
+              let err102 = { instancePath: instancePath + "/payload/sourceIdAssignments", schemaPath: "#/allOf/4/then/properties/payload/properties/sourceIdAssignments/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+              vErrors === null ? vErrors = [err102] : vErrors.push(err102), errors++;
+            }
+          }
+          if (data34.scopeIdAssignments !== void 0) {
+            let data41 = data34.scopeIdAssignments;
+            if (Array.isArray(data41)) {
+              let len1 = data41.length;
+              for (let i1 = 0; i1 < len1; i1++) {
+                let data42 = data41[i1];
+                if (data42 && typeof data42 == "object" && !Array.isArray(data42)) {
+                  if (data42.scopeIndex === void 0) {
+                    let err103 = { instancePath: instancePath + "/payload/scopeIdAssignments/" + i1, schemaPath: "#/allOf/4/then/properties/payload/properties/scopeIdAssignments/items/required", keyword: "required", params: { missingProperty: "scopeIndex" }, message: "must have required property 'scopeIndex'" };
+                    vErrors === null ? vErrors = [err103] : vErrors.push(err103), errors++;
+                  }
+                  if (data42.scopeId === void 0) {
+                    let err104 = { instancePath: instancePath + "/payload/scopeIdAssignments/" + i1, schemaPath: "#/allOf/4/then/properties/payload/properties/scopeIdAssignments/items/required", keyword: "required", params: { missingProperty: "scopeId" }, message: "must have required property 'scopeId'" };
+                    vErrors === null ? vErrors = [err104] : vErrors.push(err104), errors++;
+                  }
+                  for (let key9 in data42)
+                    if (!(key9 === "scopeIndex" || key9 === "scopeId")) {
+                      let err105 = { instancePath: instancePath + "/payload/scopeIdAssignments/" + i1, schemaPath: "#/allOf/4/then/properties/payload/properties/scopeIdAssignments/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key9 }, message: "must NOT have additional properties" };
+                      vErrors === null ? vErrors = [err105] : vErrors.push(err105), errors++;
+                    }
+                  if (data42.scopeIndex !== void 0) {
+                    let data43 = data42.scopeIndex;
+                    if (!(typeof data43 == "number" && !(data43 % 1) && !isNaN(data43) && isFinite(data43))) {
+                      let err106 = { instancePath: instancePath + "/payload/scopeIdAssignments/" + i1 + "/scopeIndex", schemaPath: "#/allOf/4/then/properties/payload/properties/scopeIdAssignments/items/properties/scopeIndex/type", keyword: "type", params: { type: "integer" }, message: "must be integer" };
+                      vErrors === null ? vErrors = [err106] : vErrors.push(err106), errors++;
+                    }
+                    if (typeof data43 == "number" && isFinite(data43) && (data43 < 0 || isNaN(data43))) {
+                      let err107 = { instancePath: instancePath + "/payload/scopeIdAssignments/" + i1 + "/scopeIndex", schemaPath: "#/allOf/4/then/properties/payload/properties/scopeIdAssignments/items/properties/scopeIndex/minimum", keyword: "minimum", params: { comparison: ">=", limit: 0 }, message: "must be >= 0" };
+                      vErrors === null ? vErrors = [err107] : vErrors.push(err107), errors++;
+                    }
+                  }
+                  if (data42.scopeId !== void 0) {
+                    let data44 = data42.scopeId;
+                    if (typeof data44 == "string") {
+                      if (!pattern1.test(data44)) {
+                        let err108 = { instancePath: instancePath + "/payload/scopeIdAssignments/" + i1 + "/scopeId", schemaPath: "#/allOf/4/then/properties/payload/properties/scopeIdAssignments/items/properties/scopeId/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, message: 'must match pattern "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"' };
+                        vErrors === null ? vErrors = [err108] : vErrors.push(err108), errors++;
+                      }
+                    } else {
+                      let err109 = { instancePath: instancePath + "/payload/scopeIdAssignments/" + i1 + "/scopeId", schemaPath: "#/allOf/4/then/properties/payload/properties/scopeIdAssignments/items/properties/scopeId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                      vErrors === null ? vErrors = [err109] : vErrors.push(err109), errors++;
+                    }
+                  }
+                } else {
+                  let err110 = { instancePath: instancePath + "/payload/scopeIdAssignments/" + i1, schemaPath: "#/allOf/4/then/properties/payload/properties/scopeIdAssignments/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+                  vErrors === null ? vErrors = [err110] : vErrors.push(err110), errors++;
+                }
+              }
+            } else {
+              let err111 = { instancePath: instancePath + "/payload/scopeIdAssignments", schemaPath: "#/allOf/4/then/properties/payload/properties/scopeIdAssignments/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+              vErrors === null ? vErrors = [err111] : vErrors.push(err111), errors++;
+            }
+          }
+          if (data34.confirmedBy !== void 0) {
+            let data45 = data34.confirmedBy;
+            if (typeof data45 == "string") {
+              if (func2(data45) < 1) {
+                let err112 = { instancePath: instancePath + "/payload/confirmedBy", schemaPath: "#/allOf/4/then/properties/payload/properties/confirmedBy/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+                vErrors === null ? vErrors = [err112] : vErrors.push(err112), errors++;
+              }
+            } else {
+              let err113 = { instancePath: instancePath + "/payload/confirmedBy", schemaPath: "#/allOf/4/then/properties/payload/properties/confirmedBy/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+              vErrors === null ? vErrors = [err113] : vErrors.push(err113), errors++;
+            }
+          }
+          if (data34.confirmedAt !== void 0) {
+            let data46 = data34.confirmedAt;
+            if (typeof data46 == "string") {
+              if (func2(data46) < 1) {
+                let err114 = { instancePath: instancePath + "/payload/confirmedAt", schemaPath: "#/allOf/4/then/properties/payload/properties/confirmedAt/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+                vErrors === null ? vErrors = [err114] : vErrors.push(err114), errors++;
+              }
+            } else {
+              let err115 = { instancePath: instancePath + "/payload/confirmedAt", schemaPath: "#/allOf/4/then/properties/payload/properties/confirmedAt/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+              vErrors === null ? vErrors = [err115] : vErrors.push(err115), errors++;
+            }
+          }
+        } else {
+          let err116 = { instancePath: instancePath + "/payload", schemaPath: "#/allOf/4/then/properties/payload/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+          vErrors === null ? vErrors = [err116] : vErrors.push(err116), errors++;
+        }
+      }
+    }
+    var _valid5 = _errs78 === errors;
+    valid18 = _valid5;
+  }
+  if (!valid18) {
+    let err117 = { instancePath, schemaPath: "#/allOf/4/if", keyword: "if", params: { failingKeyword: "then" }, message: 'must match "then" schema' };
+    vErrors === null ? vErrors = [err117] : vErrors.push(err117), errors++;
+  }
+  if (data && typeof data == "object" && !Array.isArray(data)) {
+    if (data.schemaVersion === void 0) {
+      let err118 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "schemaVersion" }, message: "must have required property 'schemaVersion'" };
+      vErrors === null ? vErrors = [err118] : vErrors.push(err118), errors++;
+    }
+    if (data.operationId === void 0) {
+      let err119 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "operationId" }, message: "must have required property 'operationId'" };
+      vErrors === null ? vErrors = [err119] : vErrors.push(err119), errors++;
+    }
+    if (data.kind === void 0) {
+      let err120 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "kind" }, message: "must have required property 'kind'" };
+      vErrors === null ? vErrors = [err120] : vErrors.push(err120), errors++;
+    }
+    if (data.target === void 0) {
+      let err121 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "target" }, message: "must have required property 'target'" };
+      vErrors === null ? vErrors = [err121] : vErrors.push(err121), errors++;
+    }
+    if (data.baseRevisions === void 0) {
+      let err122 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "baseRevisions" }, message: "must have required property 'baseRevisions'" };
+      vErrors === null ? vErrors = [err122] : vErrors.push(err122), errors++;
+    }
+    if (data.payload === void 0) {
+      let err123 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "payload" }, message: "must have required property 'payload'" };
+      vErrors === null ? vErrors = [err123] : vErrors.push(err123), errors++;
+    }
+    if (data.hash === void 0) {
+      let err124 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "hash" }, message: "must have required property 'hash'" };
+      vErrors === null ? vErrors = [err124] : vErrors.push(err124), errors++;
+    }
+    for (let key10 in data)
+      if (!(key10 === "schemaVersion" || key10 === "operationId" || key10 === "kind" || key10 === "target" || key10 === "baseRevisions" || key10 === "payload" || key10 === "preconditions" || key10 === "hash")) {
+        let err125 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key10 }, message: "must NOT have additional properties" };
+        vErrors === null ? vErrors = [err125] : vErrors.push(err125), errors++;
+      }
+    if (data.schemaVersion !== void 0 && data.schemaVersion !== 1) {
+      let err126 = { instancePath: instancePath + "/schemaVersion", schemaPath: "#/properties/schemaVersion/const", keyword: "const", params: { allowedValue: 1 }, message: "must be equal to constant" };
+      vErrors === null ? vErrors = [err126] : vErrors.push(err126), errors++;
+    }
+    if (data.operationId !== void 0) {
+      let data48 = data.operationId;
+      if (typeof data48 == "string") {
+        if (!pattern1.test(data48)) {
+          let err127 = { instancePath: instancePath + "/operationId", schemaPath: "#/properties/operationId/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, message: 'must match pattern "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"' };
+          vErrors === null ? vErrors = [err127] : vErrors.push(err127), errors++;
+        }
+      } else {
+        let err128 = { instancePath: instancePath + "/operationId", schemaPath: "#/properties/operationId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        vErrors === null ? vErrors = [err128] : vErrors.push(err128), errors++;
       }
     }
     if (data.kind !== void 0) {
-      let data20 = data.kind;
-      if (!(data20 === "workspace.init" || data20 === "config.update" || data20 === "scope.add")) {
-        let err53 = { instancePath: instancePath + "/kind", schemaPath: "#/properties/kind/enum", keyword: "enum", params: { allowedValues: schema11.properties.kind.enum }, message: "must be equal to one of the allowed values" };
-        vErrors === null ? vErrors = [err53] : vErrors.push(err53), errors++;
+      let data49 = data.kind;
+      if (!(data49 === "workspace.init" || data49 === "config.update" || data49 === "scope.add" || data49 === "scope.command.set" || data49 === "discovery.propose")) {
+        let err129 = { instancePath: instancePath + "/kind", schemaPath: "#/properties/kind/enum", keyword: "enum", params: { allowedValues: schema11.properties.kind.enum }, message: "must be equal to one of the allowed values" };
+        vErrors === null ? vErrors = [err129] : vErrors.push(err129), errors++;
       }
     }
     if (data.target !== void 0) {
-      let data21 = data.target;
-      if (!(data21 && typeof data21 == "object" && !Array.isArray(data21))) {
-        let err54 = { instancePath: instancePath + "/target", schemaPath: "#/properties/target/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-        vErrors === null ? vErrors = [err54] : vErrors.push(err54), errors++;
+      let data50 = data.target;
+      if (!(data50 && typeof data50 == "object" && !Array.isArray(data50))) {
+        let err130 = { instancePath: instancePath + "/target", schemaPath: "#/properties/target/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        vErrors === null ? vErrors = [err130] : vErrors.push(err130), errors++;
       }
     }
     if (data.baseRevisions !== void 0) {
-      let data22 = data.baseRevisions;
-      if (data22 && typeof data22 == "object" && !Array.isArray(data22))
-        for (let key4 in data22) {
-          let data23 = data22[key4];
-          if (data23 && typeof data23 == "object" && !Array.isArray(data23)) {
-            if (data23.revisionHash === void 0) {
-              let err55 = { instancePath: instancePath + "/baseRevisions/" + key4.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/baseRevisions/additionalProperties/required", keyword: "required", params: { missingProperty: "revisionHash" }, message: "must have required property 'revisionHash'" };
-              vErrors === null ? vErrors = [err55] : vErrors.push(err55), errors++;
+      let data51 = data.baseRevisions;
+      if (data51 && typeof data51 == "object" && !Array.isArray(data51))
+        for (let key11 in data51) {
+          let data52 = data51[key11];
+          if (data52 && typeof data52 == "object" && !Array.isArray(data52)) {
+            if (data52.revisionHash === void 0) {
+              let err131 = { instancePath: instancePath + "/baseRevisions/" + key11.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/baseRevisions/additionalProperties/required", keyword: "required", params: { missingProperty: "revisionHash" }, message: "must have required property 'revisionHash'" };
+              vErrors === null ? vErrors = [err131] : vErrors.push(err131), errors++;
             }
-            if (data23.contentHash === void 0) {
-              let err56 = { instancePath: instancePath + "/baseRevisions/" + key4.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/baseRevisions/additionalProperties/required", keyword: "required", params: { missingProperty: "contentHash" }, message: "must have required property 'contentHash'" };
-              vErrors === null ? vErrors = [err56] : vErrors.push(err56), errors++;
+            if (data52.contentHash === void 0) {
+              let err132 = { instancePath: instancePath + "/baseRevisions/" + key11.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/baseRevisions/additionalProperties/required", keyword: "required", params: { missingProperty: "contentHash" }, message: "must have required property 'contentHash'" };
+              vErrors === null ? vErrors = [err132] : vErrors.push(err132), errors++;
             }
-            for (let key5 in data23)
-              if (!(key5 === "revisionHash" || key5 === "contentHash")) {
-                let err57 = { instancePath: instancePath + "/baseRevisions/" + key4.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/baseRevisions/additionalProperties/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key5 }, message: "must NOT have additional properties" };
-                vErrors === null ? vErrors = [err57] : vErrors.push(err57), errors++;
+            for (let key12 in data52)
+              if (!(key12 === "revisionHash" || key12 === "contentHash")) {
+                let err133 = { instancePath: instancePath + "/baseRevisions/" + key11.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/baseRevisions/additionalProperties/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key12 }, message: "must NOT have additional properties" };
+                vErrors === null ? vErrors = [err133] : vErrors.push(err133), errors++;
               }
-            if (data23.revisionHash !== void 0) {
-              let data24 = data23.revisionHash;
-              if (typeof data24 == "string") {
-                if (!pattern3.test(data24)) {
-                  let err58 = { instancePath: instancePath + "/baseRevisions/" + key4.replace(/~/g, "~0").replace(/\//g, "~1") + "/revisionHash", schemaPath: "#/properties/baseRevisions/additionalProperties/properties/revisionHash/pattern", keyword: "pattern", params: { pattern: "^([0-9a-f]{64}|ABSENT)$" }, message: 'must match pattern "^([0-9a-f]{64}|ABSENT)$"' };
-                  vErrors === null ? vErrors = [err58] : vErrors.push(err58), errors++;
+            if (data52.revisionHash !== void 0) {
+              let data53 = data52.revisionHash;
+              if (typeof data53 == "string") {
+                if (!pattern10.test(data53)) {
+                  let err134 = { instancePath: instancePath + "/baseRevisions/" + key11.replace(/~/g, "~0").replace(/\//g, "~1") + "/revisionHash", schemaPath: "#/properties/baseRevisions/additionalProperties/properties/revisionHash/pattern", keyword: "pattern", params: { pattern: "^([0-9a-f]{64}|ABSENT)$" }, message: 'must match pattern "^([0-9a-f]{64}|ABSENT)$"' };
+                  vErrors === null ? vErrors = [err134] : vErrors.push(err134), errors++;
                 }
               } else {
-                let err59 = { instancePath: instancePath + "/baseRevisions/" + key4.replace(/~/g, "~0").replace(/\//g, "~1") + "/revisionHash", schemaPath: "#/properties/baseRevisions/additionalProperties/properties/revisionHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                vErrors === null ? vErrors = [err59] : vErrors.push(err59), errors++;
+                let err135 = { instancePath: instancePath + "/baseRevisions/" + key11.replace(/~/g, "~0").replace(/\//g, "~1") + "/revisionHash", schemaPath: "#/properties/baseRevisions/additionalProperties/properties/revisionHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                vErrors === null ? vErrors = [err135] : vErrors.push(err135), errors++;
               }
             }
-            if (data23.contentHash !== void 0) {
-              let data25 = data23.contentHash;
-              if (typeof data25 == "string") {
-                if (!pattern3.test(data25)) {
-                  let err60 = { instancePath: instancePath + "/baseRevisions/" + key4.replace(/~/g, "~0").replace(/\//g, "~1") + "/contentHash", schemaPath: "#/properties/baseRevisions/additionalProperties/properties/contentHash/pattern", keyword: "pattern", params: { pattern: "^([0-9a-f]{64}|ABSENT)$" }, message: 'must match pattern "^([0-9a-f]{64}|ABSENT)$"' };
-                  vErrors === null ? vErrors = [err60] : vErrors.push(err60), errors++;
+            if (data52.contentHash !== void 0) {
+              let data54 = data52.contentHash;
+              if (typeof data54 == "string") {
+                if (!pattern10.test(data54)) {
+                  let err136 = { instancePath: instancePath + "/baseRevisions/" + key11.replace(/~/g, "~0").replace(/\//g, "~1") + "/contentHash", schemaPath: "#/properties/baseRevisions/additionalProperties/properties/contentHash/pattern", keyword: "pattern", params: { pattern: "^([0-9a-f]{64}|ABSENT)$" }, message: 'must match pattern "^([0-9a-f]{64}|ABSENT)$"' };
+                  vErrors === null ? vErrors = [err136] : vErrors.push(err136), errors++;
                 }
               } else {
-                let err61 = { instancePath: instancePath + "/baseRevisions/" + key4.replace(/~/g, "~0").replace(/\//g, "~1") + "/contentHash", schemaPath: "#/properties/baseRevisions/additionalProperties/properties/contentHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                vErrors === null ? vErrors = [err61] : vErrors.push(err61), errors++;
+                let err137 = { instancePath: instancePath + "/baseRevisions/" + key11.replace(/~/g, "~0").replace(/\//g, "~1") + "/contentHash", schemaPath: "#/properties/baseRevisions/additionalProperties/properties/contentHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                vErrors === null ? vErrors = [err137] : vErrors.push(err137), errors++;
               }
             }
           } else {
-            let err62 = { instancePath: instancePath + "/baseRevisions/" + key4.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/baseRevisions/additionalProperties/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-            vErrors === null ? vErrors = [err62] : vErrors.push(err62), errors++;
+            let err138 = { instancePath: instancePath + "/baseRevisions/" + key11.replace(/~/g, "~0").replace(/\//g, "~1"), schemaPath: "#/properties/baseRevisions/additionalProperties/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            vErrors === null ? vErrors = [err138] : vErrors.push(err138), errors++;
           }
         }
       else {
-        let err63 = { instancePath: instancePath + "/baseRevisions", schemaPath: "#/properties/baseRevisions/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-        vErrors === null ? vErrors = [err63] : vErrors.push(err63), errors++;
+        let err139 = { instancePath: instancePath + "/baseRevisions", schemaPath: "#/properties/baseRevisions/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        vErrors === null ? vErrors = [err139] : vErrors.push(err139), errors++;
       }
     }
     if (data.payload !== void 0) {
-      let data26 = data.payload;
-      if (!(data26 && typeof data26 == "object" && !Array.isArray(data26))) {
-        let err64 = { instancePath: instancePath + "/payload", schemaPath: "#/properties/payload/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-        vErrors === null ? vErrors = [err64] : vErrors.push(err64), errors++;
+      let data55 = data.payload;
+      if (!(data55 && typeof data55 == "object" && !Array.isArray(data55))) {
+        let err140 = { instancePath: instancePath + "/payload", schemaPath: "#/properties/payload/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        vErrors === null ? vErrors = [err140] : vErrors.push(err140), errors++;
+      }
+    }
+    if (data.preconditions !== void 0) {
+      let data56 = data.preconditions;
+      if (data56 && typeof data56 == "object" && !Array.isArray(data56)) {
+        for (let key13 in data56)
+          if (key13 !== "discoveryWorkspace") {
+            let err141 = { instancePath: instancePath + "/preconditions", schemaPath: "#/properties/preconditions/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key13 }, message: "must NOT have additional properties" };
+            vErrors === null ? vErrors = [err141] : vErrors.push(err141), errors++;
+          }
+        if (data56.discoveryWorkspace !== void 0) {
+          let data57 = data56.discoveryWorkspace;
+          if (data57 && typeof data57 == "object" && !Array.isArray(data57)) {
+            if (data57.workspaceHash === void 0) {
+              let err142 = { instancePath: instancePath + "/preconditions/discoveryWorkspace", schemaPath: "#/properties/preconditions/properties/discoveryWorkspace/required", keyword: "required", params: { missingProperty: "workspaceHash" }, message: "must have required property 'workspaceHash'" };
+              vErrors === null ? vErrors = [err142] : vErrors.push(err142), errors++;
+            }
+            if (data57.scanParameters === void 0) {
+              let err143 = { instancePath: instancePath + "/preconditions/discoveryWorkspace", schemaPath: "#/properties/preconditions/properties/discoveryWorkspace/required", keyword: "required", params: { missingProperty: "scanParameters" }, message: "must have required property 'scanParameters'" };
+              vErrors === null ? vErrors = [err143] : vErrors.push(err143), errors++;
+            }
+            for (let key14 in data57)
+              if (!(key14 === "workspaceHash" || key14 === "scanParameters")) {
+                let err144 = { instancePath: instancePath + "/preconditions/discoveryWorkspace", schemaPath: "#/properties/preconditions/properties/discoveryWorkspace/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key14 }, message: "must NOT have additional properties" };
+                vErrors === null ? vErrors = [err144] : vErrors.push(err144), errors++;
+              }
+            if (data57.workspaceHash !== void 0) {
+              let data58 = data57.workspaceHash;
+              if (typeof data58 == "string") {
+                if (!pattern5.test(data58)) {
+                  let err145 = { instancePath: instancePath + "/preconditions/discoveryWorkspace/workspaceHash", schemaPath: "#/properties/preconditions/properties/discoveryWorkspace/properties/workspaceHash/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
+                  vErrors === null ? vErrors = [err145] : vErrors.push(err145), errors++;
+                }
+              } else {
+                let err146 = { instancePath: instancePath + "/preconditions/discoveryWorkspace/workspaceHash", schemaPath: "#/properties/preconditions/properties/discoveryWorkspace/properties/workspaceHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                vErrors === null ? vErrors = [err146] : vErrors.push(err146), errors++;
+              }
+            }
+            if (data57.scanParameters !== void 0) {
+              let data59 = data57.scanParameters;
+              if (data59 && typeof data59 == "object" && !Array.isArray(data59)) {
+                if (data59.maxSourceBytes === void 0) {
+                  let err147 = { instancePath: instancePath + "/preconditions/discoveryWorkspace/scanParameters", schemaPath: "#/properties/preconditions/properties/discoveryWorkspace/properties/scanParameters/required", keyword: "required", params: { missingProperty: "maxSourceBytes" }, message: "must have required property 'maxSourceBytes'" };
+                  vErrors === null ? vErrors = [err147] : vErrors.push(err147), errors++;
+                }
+                for (let key15 in data59)
+                  if (key15 !== "maxSourceBytes") {
+                    let err148 = { instancePath: instancePath + "/preconditions/discoveryWorkspace/scanParameters", schemaPath: "#/properties/preconditions/properties/discoveryWorkspace/properties/scanParameters/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key15 }, message: "must NOT have additional properties" };
+                    vErrors === null ? vErrors = [err148] : vErrors.push(err148), errors++;
+                  }
+                if (data59.maxSourceBytes !== void 0) {
+                  let data60 = data59.maxSourceBytes;
+                  if (!(typeof data60 == "number" && !(data60 % 1) && !isNaN(data60) && isFinite(data60))) {
+                    let err149 = { instancePath: instancePath + "/preconditions/discoveryWorkspace/scanParameters/maxSourceBytes", schemaPath: "#/properties/preconditions/properties/discoveryWorkspace/properties/scanParameters/properties/maxSourceBytes/type", keyword: "type", params: { type: "integer" }, message: "must be integer" };
+                    vErrors === null ? vErrors = [err149] : vErrors.push(err149), errors++;
+                  }
+                }
+              } else {
+                let err150 = { instancePath: instancePath + "/preconditions/discoveryWorkspace/scanParameters", schemaPath: "#/properties/preconditions/properties/discoveryWorkspace/properties/scanParameters/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+                vErrors === null ? vErrors = [err150] : vErrors.push(err150), errors++;
+              }
+            }
+          } else {
+            let err151 = { instancePath: instancePath + "/preconditions/discoveryWorkspace", schemaPath: "#/properties/preconditions/properties/discoveryWorkspace/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            vErrors === null ? vErrors = [err151] : vErrors.push(err151), errors++;
+          }
+        }
+      } else {
+        let err152 = { instancePath: instancePath + "/preconditions", schemaPath: "#/properties/preconditions/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        vErrors === null ? vErrors = [err152] : vErrors.push(err152), errors++;
       }
     }
     if (data.hash !== void 0) {
-      let data27 = data.hash;
-      if (typeof data27 == "string") {
-        if (!pattern5.test(data27)) {
-          let err65 = { instancePath: instancePath + "/hash", schemaPath: "#/properties/hash/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
-          vErrors === null ? vErrors = [err65] : vErrors.push(err65), errors++;
+      let data61 = data.hash;
+      if (typeof data61 == "string") {
+        if (!pattern5.test(data61)) {
+          let err153 = { instancePath: instancePath + "/hash", schemaPath: "#/properties/hash/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
+          vErrors === null ? vErrors = [err153] : vErrors.push(err153), errors++;
         }
       } else {
-        let err66 = { instancePath: instancePath + "/hash", schemaPath: "#/properties/hash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        vErrors === null ? vErrors = [err66] : vErrors.push(err66), errors++;
+        let err154 = { instancePath: instancePath + "/hash", schemaPath: "#/properties/hash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        vErrors === null ? vErrors = [err154] : vErrors.push(err154), errors++;
       }
     }
   } else {
-    let err67 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    vErrors === null ? vErrors = [err67] : vErrors.push(err67), errors++;
+    let err155 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    vErrors === null ? vErrors = [err155] : vErrors.push(err155), errors++;
   }
   return validate10.errors = vErrors, errors === 0;
 }
-var validate_config = validate11, schema12 = { $id: "https://shipping-mode.dev/schemas/config.schema.json", type: "object", additionalProperties: !1, required: ["schemaVersion", "name", "vcs", "scopeRefs"], properties: { schemaVersion: { const: 1 }, name: { type: "string", minLength: 1 }, baseBranch: { type: ["string", "null"] }, vcs: { enum: ["git", "none"] }, scopeRefs: { type: "array", items: { type: "object", additionalProperties: !1, required: ["id", "key"], properties: { id: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, key: { type: "string", pattern: "^[a-z0-9]+(-[a-z0-9]+)*$" } } } } } }, pattern7 = new RegExp("^[a-z0-9]+(-[a-z0-9]+)*$", "u");
+var validate_config = validate11, schema13 = { $id: "https://shipping-mode.dev/schemas/config.schema.json", type: "object", additionalProperties: !1, required: ["schemaVersion", "name", "vcs", "scopeRefs"], properties: { schemaVersion: { const: 1 }, name: { type: "string", minLength: 1 }, baseBranch: { type: ["string", "null"] }, vcs: { enum: ["git", "none"] }, scopeRefs: { type: "array", items: { type: "object", additionalProperties: !1, required: ["id", "key"], properties: { id: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, key: { type: "string", pattern: "^[a-z0-9]+(-[a-z0-9]+)*$" } } } } } }, pattern15 = new RegExp("^[a-z0-9]+(-[a-z0-9]+)*$", "u");
 function validate11(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
   let vErrors = null, errors = 0;
   if (data && typeof data == "object" && !Array.isArray(data)) {
@@ -6342,14 +6850,14 @@ function validate11(data, { instancePath = "", parentData, parentDataProperty, r
     if (data.baseBranch !== void 0) {
       let data2 = data.baseBranch;
       if (typeof data2 != "string" && data2 !== null) {
-        let err8 = { instancePath: instancePath + "/baseBranch", schemaPath: "#/properties/baseBranch/type", keyword: "type", params: { type: schema12.properties.baseBranch.type }, message: "must be string,null" };
+        let err8 = { instancePath: instancePath + "/baseBranch", schemaPath: "#/properties/baseBranch/type", keyword: "type", params: { type: schema13.properties.baseBranch.type }, message: "must be string,null" };
         vErrors === null ? vErrors = [err8] : vErrors.push(err8), errors++;
       }
     }
     if (data.vcs !== void 0) {
       let data3 = data.vcs;
       if (!(data3 === "git" || data3 === "none")) {
-        let err9 = { instancePath: instancePath + "/vcs", schemaPath: "#/properties/vcs/enum", keyword: "enum", params: { allowedValues: schema12.properties.vcs.enum }, message: "must be equal to one of the allowed values" };
+        let err9 = { instancePath: instancePath + "/vcs", schemaPath: "#/properties/vcs/enum", keyword: "enum", params: { allowedValues: schema13.properties.vcs.enum }, message: "must be equal to one of the allowed values" };
         vErrors === null ? vErrors = [err9] : vErrors.push(err9), errors++;
       }
     }
@@ -6388,7 +6896,7 @@ function validate11(data, { instancePath = "", parentData, parentDataProperty, r
             if (data5.key !== void 0) {
               let data7 = data5.key;
               if (typeof data7 == "string") {
-                if (!pattern7.test(data7)) {
+                if (!pattern15.test(data7)) {
                   let err15 = { instancePath: instancePath + "/scopeRefs/" + i0 + "/key", schemaPath: "#/properties/scopeRefs/items/properties/key/pattern", keyword: "pattern", params: { pattern: "^[a-z0-9]+(-[a-z0-9]+)*$" }, message: 'must match pattern "^[a-z0-9]+(-[a-z0-9]+)*$"' };
                   vErrors === null ? vErrors = [err15] : vErrors.push(err15), errors++;
                 }
@@ -6414,7 +6922,7 @@ function validate11(data, { instancePath = "", parentData, parentDataProperty, r
   return validate11.errors = vErrors, errors === 0;
 }
 var validate_discovery_proposal = validate12;
-var schema16 = { type: "object", additionalProperties: !1, required: ["key", "label", "kind", "path"], properties: { key: { type: "string", pattern: "^[a-z0-9]+(-[a-z0-9]+)*$" }, label: { type: "string", minLength: 1 }, kind: { enum: ["code", "non_code"] }, path: { type: "string", minLength: 1 }, owner: { type: ["string", "null"] } } }, schema47 = { type: "object", additionalProperties: !1, required: ["code", "severity", "message"], properties: { code: { type: "string", minLength: 1, maxLength: 128, pattern: "^[a-z][a-z0-9_]*$" }, severity: { enum: ["info", "warning", "error"] }, message: { type: "string", minLength: 1, maxLength: 4096 }, itemRef: { type: "string", minLength: 1, maxLength: 512 }, details: { type: "object" } } }, pattern25 = new RegExp("^[a-z][a-z0-9_]*$", "u"), schema17 = { oneOf: [{ type: "object", additionalProperties: !1, required: ["action", "path", "family", "kind", "role", "authority", "availability", "observedFingerprint", "observedContentHash"], properties: { action: { const: "add" }, path: { type: "string", minLength: 1 }, family: { $ref: "#/$defs/sourceFamily" }, kind: { $ref: "#/$defs/sourceKind" }, role: { $ref: "#/$defs/sourceRole" }, authority: { $ref: "#/$defs/sourceAuthority" }, availability: { $ref: "#/$defs/sourceAvailability" }, observedFingerprint: { $ref: "#/$defs/fingerprint" }, observedContentHash: { $ref: "#/$defs/fingerprint" } } }, { type: "object", additionalProperties: !1, required: ["action", "sourceId", "observedFingerprint", "observedContentHash"], properties: { action: { const: "update" }, sourceId: { $ref: "#/$defs/uuid" }, family: { $ref: "#/$defs/sourceFamily" }, kind: { $ref: "#/$defs/sourceKind" }, role: { $ref: "#/$defs/sourceRole" }, authority: { $ref: "#/$defs/sourceAuthority" }, availability: { $ref: "#/$defs/sourceAvailability" }, observedFingerprint: { $ref: "#/$defs/fingerprint" }, observedContentHash: { $ref: "#/$defs/fingerprint" } } }, { type: "object", additionalProperties: !1, required: ["action", "sourceId", "fromPath", "path", "observedFingerprint", "observedContentHash"], properties: { action: { const: "move" }, sourceId: { $ref: "#/$defs/uuid" }, fromPath: { type: "string", minLength: 1 }, path: { type: "string", minLength: 1 }, observedFingerprint: { $ref: "#/$defs/fingerprint" }, observedContentHash: { $ref: "#/$defs/fingerprint" } } }, { type: "object", additionalProperties: !1, required: ["action", "sourceId"], properties: { action: { const: "remove" }, sourceId: { $ref: "#/$defs/uuid" } } }] }, schema18 = { enum: ["product-sources", "functional-sources", "technical-sources", "agent-repository-instructions", "project-module-manifests", "execution-commands", "quality-definitions", "local-runtime-environment", "public-data-contracts", "delivery-ci-deployment", "ownership", "decision-sources", "developer-guides", "engineering-standards", "repository-map", "evidence-contracts", "design-system", "prompt-sources", "custom-automation"] }, schema19 = { enum: ["product", "requirements", "architecture", "decision", "developer-guide", "engineering-standard", "agent-instructions", "repository-map", "api-contract", "data-contract", "database", "testing", "quality", "security", "observability", "design-system", "i18n", "runtime", "environment", "deployment", "ci", "ownership", "prompt", "generator", "evidence", "planning"] }, schema20 = { enum: ["canonical", "decision", "derived", "operational", "evidence", "generated", "historical", "reference"] }, schema21 = { type: "object", additionalProperties: !1, required: ["standing", "force"], properties: { standing: { enum: ["contextual", "supporting", "authoritative"] }, force: { enum: ["unknown", "informational", "advisory", "normative"] } } }, schema22 = { enum: ["implemented", "partial", "planned", "deprecated", "historical", "mixed", "unknown"] }, func12 = Object.prototype.hasOwnProperty;
+var schema17 = { type: "object", additionalProperties: !1, required: ["key", "label", "kind", "path"], properties: { key: { type: "string", pattern: "^[a-z0-9]+(-[a-z0-9]+)*$" }, label: { type: "string", minLength: 1 }, kind: { enum: ["code", "non_code"] }, path: { type: "string", minLength: 1 }, owner: { type: ["string", "null"] } } }, schema48 = { type: "object", additionalProperties: !1, required: ["code", "severity", "message"], properties: { code: { type: "string", minLength: 1, maxLength: 128, pattern: "^[a-z][a-z0-9_]*$" }, severity: { enum: ["info", "warning", "error"] }, message: { type: "string", minLength: 1, maxLength: 4096 }, itemRef: { type: "string", minLength: 1, maxLength: 512 }, details: { type: "object" } } }, pattern33 = new RegExp("^[a-z][a-z0-9_]*$", "u"), schema18 = { oneOf: [{ type: "object", additionalProperties: !1, required: ["action", "path", "family", "kind", "role", "authority", "availability", "observedFingerprint", "observedContentHash"], properties: { action: { const: "add" }, path: { type: "string", minLength: 1 }, family: { $ref: "#/$defs/sourceFamily" }, kind: { $ref: "#/$defs/sourceKind" }, role: { $ref: "#/$defs/sourceRole" }, authority: { $ref: "#/$defs/sourceAuthority" }, availability: { $ref: "#/$defs/sourceAvailability" }, observedFingerprint: { $ref: "#/$defs/fingerprint" }, observedContentHash: { $ref: "#/$defs/fingerprint" } } }, { type: "object", additionalProperties: !1, required: ["action", "sourceId", "observedFingerprint", "observedContentHash"], properties: { action: { const: "update" }, sourceId: { $ref: "#/$defs/uuid" }, family: { $ref: "#/$defs/sourceFamily" }, kind: { $ref: "#/$defs/sourceKind" }, role: { $ref: "#/$defs/sourceRole" }, authority: { $ref: "#/$defs/sourceAuthority" }, availability: { $ref: "#/$defs/sourceAvailability" }, observedFingerprint: { $ref: "#/$defs/fingerprint" }, observedContentHash: { $ref: "#/$defs/fingerprint" } } }, { type: "object", additionalProperties: !1, required: ["action", "sourceId", "fromPath", "path", "observedFingerprint", "observedContentHash"], properties: { action: { const: "move" }, sourceId: { $ref: "#/$defs/uuid" }, fromPath: { type: "string", minLength: 1 }, path: { type: "string", minLength: 1 }, observedFingerprint: { $ref: "#/$defs/fingerprint" }, observedContentHash: { $ref: "#/$defs/fingerprint" } } }, { type: "object", additionalProperties: !1, required: ["action", "sourceId"], properties: { action: { const: "remove" }, sourceId: { $ref: "#/$defs/uuid" } } }] }, schema19 = { enum: ["product-sources", "functional-sources", "technical-sources", "agent-repository-instructions", "project-module-manifests", "execution-commands", "quality-definitions", "local-runtime-environment", "public-data-contracts", "delivery-ci-deployment", "ownership", "decision-sources", "developer-guides", "engineering-standards", "repository-map", "evidence-contracts", "design-system", "prompt-sources", "custom-automation"] }, schema20 = { enum: ["product", "requirements", "architecture", "decision", "developer-guide", "engineering-standard", "agent-instructions", "repository-map", "api-contract", "data-contract", "database", "testing", "quality", "security", "observability", "design-system", "i18n", "runtime", "environment", "deployment", "ci", "ownership", "prompt", "generator", "evidence", "planning"] }, schema21 = { enum: ["canonical", "decision", "derived", "operational", "evidence", "generated", "historical", "reference"] }, schema22 = { type: "object", additionalProperties: !1, required: ["standing", "force"], properties: { standing: { enum: ["contextual", "supporting", "authoritative"] }, force: { enum: ["unknown", "informational", "advisory", "normative"] } } }, schema23 = { enum: ["implemented", "partial", "planned", "deprecated", "historical", "mixed", "unknown"] }, func17 = Object.prototype.hasOwnProperty;
 function validate13(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
   let vErrors = null, errors = 0, _errs0 = errors, valid0 = !1, passing0 = null, _errs1 = errors;
   if (data && typeof data == "object" && !Array.isArray(data)) {
@@ -6455,7 +6963,7 @@ function validate13(data, { instancePath = "", parentData, parentDataProperty, r
       vErrors === null ? vErrors = [err8] : vErrors.push(err8), errors++;
     }
     for (let key0 in data)
-      if (!func12.call(schema17.oneOf[0].properties, key0)) {
+      if (!func17.call(schema18.oneOf[0].properties, key0)) {
         let err9 = { instancePath, schemaPath: "#/oneOf/0/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
         vErrors === null ? vErrors = [err9] : vErrors.push(err9), errors++;
       }
@@ -6478,21 +6986,21 @@ function validate13(data, { instancePath = "", parentData, parentDataProperty, r
     if (data.family !== void 0) {
       let data2 = data.family;
       if (!(data2 === "product-sources" || data2 === "functional-sources" || data2 === "technical-sources" || data2 === "agent-repository-instructions" || data2 === "project-module-manifests" || data2 === "execution-commands" || data2 === "quality-definitions" || data2 === "local-runtime-environment" || data2 === "public-data-contracts" || data2 === "delivery-ci-deployment" || data2 === "ownership" || data2 === "decision-sources" || data2 === "developer-guides" || data2 === "engineering-standards" || data2 === "repository-map" || data2 === "evidence-contracts" || data2 === "design-system" || data2 === "prompt-sources" || data2 === "custom-automation")) {
-        let err13 = { instancePath: instancePath + "/family", schemaPath: "#/$defs/sourceFamily/enum", keyword: "enum", params: { allowedValues: schema18.enum }, message: "must be equal to one of the allowed values" };
+        let err13 = { instancePath: instancePath + "/family", schemaPath: "#/$defs/sourceFamily/enum", keyword: "enum", params: { allowedValues: schema19.enum }, message: "must be equal to one of the allowed values" };
         vErrors === null ? vErrors = [err13] : vErrors.push(err13), errors++;
       }
     }
     if (data.kind !== void 0) {
       let data3 = data.kind;
       if (!(data3 === "product" || data3 === "requirements" || data3 === "architecture" || data3 === "decision" || data3 === "developer-guide" || data3 === "engineering-standard" || data3 === "agent-instructions" || data3 === "repository-map" || data3 === "api-contract" || data3 === "data-contract" || data3 === "database" || data3 === "testing" || data3 === "quality" || data3 === "security" || data3 === "observability" || data3 === "design-system" || data3 === "i18n" || data3 === "runtime" || data3 === "environment" || data3 === "deployment" || data3 === "ci" || data3 === "ownership" || data3 === "prompt" || data3 === "generator" || data3 === "evidence" || data3 === "planning")) {
-        let err14 = { instancePath: instancePath + "/kind", schemaPath: "#/$defs/sourceKind/enum", keyword: "enum", params: { allowedValues: schema19.enum }, message: "must be equal to one of the allowed values" };
+        let err14 = { instancePath: instancePath + "/kind", schemaPath: "#/$defs/sourceKind/enum", keyword: "enum", params: { allowedValues: schema20.enum }, message: "must be equal to one of the allowed values" };
         vErrors === null ? vErrors = [err14] : vErrors.push(err14), errors++;
       }
     }
     if (data.role !== void 0) {
       let data4 = data.role;
       if (!(data4 === "canonical" || data4 === "decision" || data4 === "derived" || data4 === "operational" || data4 === "evidence" || data4 === "generated" || data4 === "historical" || data4 === "reference")) {
-        let err15 = { instancePath: instancePath + "/role", schemaPath: "#/$defs/sourceRole/enum", keyword: "enum", params: { allowedValues: schema20.enum }, message: "must be equal to one of the allowed values" };
+        let err15 = { instancePath: instancePath + "/role", schemaPath: "#/$defs/sourceRole/enum", keyword: "enum", params: { allowedValues: schema21.enum }, message: "must be equal to one of the allowed values" };
         vErrors === null ? vErrors = [err15] : vErrors.push(err15), errors++;
       }
     }
@@ -6515,14 +7023,14 @@ function validate13(data, { instancePath = "", parentData, parentDataProperty, r
         if (data5.standing !== void 0) {
           let data6 = data5.standing;
           if (!(data6 === "contextual" || data6 === "supporting" || data6 === "authoritative")) {
-            let err19 = { instancePath: instancePath + "/authority/standing", schemaPath: "#/$defs/sourceAuthority/properties/standing/enum", keyword: "enum", params: { allowedValues: schema21.properties.standing.enum }, message: "must be equal to one of the allowed values" };
+            let err19 = { instancePath: instancePath + "/authority/standing", schemaPath: "#/$defs/sourceAuthority/properties/standing/enum", keyword: "enum", params: { allowedValues: schema22.properties.standing.enum }, message: "must be equal to one of the allowed values" };
             vErrors === null ? vErrors = [err19] : vErrors.push(err19), errors++;
           }
         }
         if (data5.force !== void 0) {
           let data7 = data5.force;
           if (!(data7 === "unknown" || data7 === "informational" || data7 === "advisory" || data7 === "normative")) {
-            let err20 = { instancePath: instancePath + "/authority/force", schemaPath: "#/$defs/sourceAuthority/properties/force/enum", keyword: "enum", params: { allowedValues: schema21.properties.force.enum }, message: "must be equal to one of the allowed values" };
+            let err20 = { instancePath: instancePath + "/authority/force", schemaPath: "#/$defs/sourceAuthority/properties/force/enum", keyword: "enum", params: { allowedValues: schema22.properties.force.enum }, message: "must be equal to one of the allowed values" };
             vErrors === null ? vErrors = [err20] : vErrors.push(err20), errors++;
           }
         }
@@ -6534,7 +7042,7 @@ function validate13(data, { instancePath = "", parentData, parentDataProperty, r
     if (data.availability !== void 0) {
       let data8 = data.availability;
       if (!(data8 === "implemented" || data8 === "partial" || data8 === "planned" || data8 === "deprecated" || data8 === "historical" || data8 === "mixed" || data8 === "unknown")) {
-        let err22 = { instancePath: instancePath + "/availability", schemaPath: "#/$defs/sourceAvailability/enum", keyword: "enum", params: { allowedValues: schema22.enum }, message: "must be equal to one of the allowed values" };
+        let err22 = { instancePath: instancePath + "/availability", schemaPath: "#/$defs/sourceAvailability/enum", keyword: "enum", params: { allowedValues: schema23.enum }, message: "must be equal to one of the allowed values" };
         vErrors === null ? vErrors = [err22] : vErrors.push(err22), errors++;
       }
     }
@@ -6587,7 +7095,7 @@ function validate13(data, { instancePath = "", parentData, parentDataProperty, r
       vErrors === null ? vErrors = [err31] : vErrors.push(err31), errors++;
     }
     for (let key2 in data)
-      if (!func12.call(schema17.oneOf[1].properties, key2)) {
+      if (!func17.call(schema18.oneOf[1].properties, key2)) {
         let err32 = { instancePath, schemaPath: "#/oneOf/1/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key2 }, message: "must NOT have additional properties" };
         vErrors === null ? vErrors = [err32] : vErrors.push(err32), errors++;
       }
@@ -6610,21 +7118,21 @@ function validate13(data, { instancePath = "", parentData, parentDataProperty, r
     if (data.family !== void 0) {
       let data13 = data.family;
       if (!(data13 === "product-sources" || data13 === "functional-sources" || data13 === "technical-sources" || data13 === "agent-repository-instructions" || data13 === "project-module-manifests" || data13 === "execution-commands" || data13 === "quality-definitions" || data13 === "local-runtime-environment" || data13 === "public-data-contracts" || data13 === "delivery-ci-deployment" || data13 === "ownership" || data13 === "decision-sources" || data13 === "developer-guides" || data13 === "engineering-standards" || data13 === "repository-map" || data13 === "evidence-contracts" || data13 === "design-system" || data13 === "prompt-sources" || data13 === "custom-automation")) {
-        let err36 = { instancePath: instancePath + "/family", schemaPath: "#/$defs/sourceFamily/enum", keyword: "enum", params: { allowedValues: schema18.enum }, message: "must be equal to one of the allowed values" };
+        let err36 = { instancePath: instancePath + "/family", schemaPath: "#/$defs/sourceFamily/enum", keyword: "enum", params: { allowedValues: schema19.enum }, message: "must be equal to one of the allowed values" };
         vErrors === null ? vErrors = [err36] : vErrors.push(err36), errors++;
       }
     }
     if (data.kind !== void 0) {
       let data14 = data.kind;
       if (!(data14 === "product" || data14 === "requirements" || data14 === "architecture" || data14 === "decision" || data14 === "developer-guide" || data14 === "engineering-standard" || data14 === "agent-instructions" || data14 === "repository-map" || data14 === "api-contract" || data14 === "data-contract" || data14 === "database" || data14 === "testing" || data14 === "quality" || data14 === "security" || data14 === "observability" || data14 === "design-system" || data14 === "i18n" || data14 === "runtime" || data14 === "environment" || data14 === "deployment" || data14 === "ci" || data14 === "ownership" || data14 === "prompt" || data14 === "generator" || data14 === "evidence" || data14 === "planning")) {
-        let err37 = { instancePath: instancePath + "/kind", schemaPath: "#/$defs/sourceKind/enum", keyword: "enum", params: { allowedValues: schema19.enum }, message: "must be equal to one of the allowed values" };
+        let err37 = { instancePath: instancePath + "/kind", schemaPath: "#/$defs/sourceKind/enum", keyword: "enum", params: { allowedValues: schema20.enum }, message: "must be equal to one of the allowed values" };
         vErrors === null ? vErrors = [err37] : vErrors.push(err37), errors++;
       }
     }
     if (data.role !== void 0) {
       let data15 = data.role;
       if (!(data15 === "canonical" || data15 === "decision" || data15 === "derived" || data15 === "operational" || data15 === "evidence" || data15 === "generated" || data15 === "historical" || data15 === "reference")) {
-        let err38 = { instancePath: instancePath + "/role", schemaPath: "#/$defs/sourceRole/enum", keyword: "enum", params: { allowedValues: schema20.enum }, message: "must be equal to one of the allowed values" };
+        let err38 = { instancePath: instancePath + "/role", schemaPath: "#/$defs/sourceRole/enum", keyword: "enum", params: { allowedValues: schema21.enum }, message: "must be equal to one of the allowed values" };
         vErrors === null ? vErrors = [err38] : vErrors.push(err38), errors++;
       }
     }
@@ -6647,14 +7155,14 @@ function validate13(data, { instancePath = "", parentData, parentDataProperty, r
         if (data16.standing !== void 0) {
           let data17 = data16.standing;
           if (!(data17 === "contextual" || data17 === "supporting" || data17 === "authoritative")) {
-            let err42 = { instancePath: instancePath + "/authority/standing", schemaPath: "#/$defs/sourceAuthority/properties/standing/enum", keyword: "enum", params: { allowedValues: schema21.properties.standing.enum }, message: "must be equal to one of the allowed values" };
+            let err42 = { instancePath: instancePath + "/authority/standing", schemaPath: "#/$defs/sourceAuthority/properties/standing/enum", keyword: "enum", params: { allowedValues: schema22.properties.standing.enum }, message: "must be equal to one of the allowed values" };
             vErrors === null ? vErrors = [err42] : vErrors.push(err42), errors++;
           }
         }
         if (data16.force !== void 0) {
           let data18 = data16.force;
           if (!(data18 === "unknown" || data18 === "informational" || data18 === "advisory" || data18 === "normative")) {
-            let err43 = { instancePath: instancePath + "/authority/force", schemaPath: "#/$defs/sourceAuthority/properties/force/enum", keyword: "enum", params: { allowedValues: schema21.properties.force.enum }, message: "must be equal to one of the allowed values" };
+            let err43 = { instancePath: instancePath + "/authority/force", schemaPath: "#/$defs/sourceAuthority/properties/force/enum", keyword: "enum", params: { allowedValues: schema22.properties.force.enum }, message: "must be equal to one of the allowed values" };
             vErrors === null ? vErrors = [err43] : vErrors.push(err43), errors++;
           }
         }
@@ -6666,7 +7174,7 @@ function validate13(data, { instancePath = "", parentData, parentDataProperty, r
     if (data.availability !== void 0) {
       let data19 = data.availability;
       if (!(data19 === "implemented" || data19 === "partial" || data19 === "planned" || data19 === "deprecated" || data19 === "historical" || data19 === "mixed" || data19 === "unknown")) {
-        let err45 = { instancePath: instancePath + "/availability", schemaPath: "#/$defs/sourceAvailability/enum", keyword: "enum", params: { allowedValues: schema22.enum }, message: "must be equal to one of the allowed values" };
+        let err45 = { instancePath: instancePath + "/availability", schemaPath: "#/$defs/sourceAvailability/enum", keyword: "enum", params: { allowedValues: schema23.enum }, message: "must be equal to one of the allowed values" };
         vErrors === null ? vErrors = [err45] : vErrors.push(err45), errors++;
       }
     }
@@ -6854,7 +7362,7 @@ function validate13(data, { instancePath = "", parentData, parentDataProperty, r
   }
   return validate13.errors = vErrors, errors === 0;
 }
-var schema37 = { type: "object", additionalProperties: !1, required: ["scopeId", "role", "command", "method", "confidence", "sourceRefs", "sourceFingerprintAtSelection", "requiresEnvironment", "requiresSecrets", "alternatives"], properties: { scopeId: { $ref: "#/$defs/uuid" }, role: { $ref: "#/$defs/commandRole" }, command: { type: "string", minLength: 1 }, method: { enum: ["inferred", "reviewed"] }, confidence: { $ref: "#/$defs/confidence" }, sourceRefs: { $ref: "#/$defs/sourceRefs" }, sourceFingerprintAtSelection: { type: "object", additionalProperties: { $ref: "#/$defs/fingerprint" } }, requiresEnvironment: { type: "boolean" }, requiresSecrets: { type: "boolean" }, alternatives: { type: "array", items: { $ref: "#/$defs/alternative" } } } }, schema39 = { anyOf: [{ enum: ["build", "test", "smoke", "lint", "verify"] }, { type: "string", pattern: "^custom\\.[a-z][a-z0-9-]{0,63}$" }] }, schema40 = { enum: ["low", "medium", "high"] }, pattern21 = new RegExp("^custom\\.[a-z][a-z0-9-]{0,63}$", "u");
+var schema38 = { type: "object", additionalProperties: !1, required: ["scopeId", "role", "command", "method", "confidence", "sourceRefs", "sourceFingerprintAtSelection", "requiresEnvironment", "requiresSecrets", "alternatives"], properties: { scopeId: { $ref: "#/$defs/uuid" }, role: { $ref: "#/$defs/commandRole" }, command: { type: "string", minLength: 1 }, method: { enum: ["inferred", "reviewed"] }, confidence: { $ref: "#/$defs/confidence" }, sourceRefs: { $ref: "#/$defs/sourceRefs" }, sourceFingerprintAtSelection: { type: "object", additionalProperties: { $ref: "#/$defs/fingerprint" } }, requiresEnvironment: { type: "boolean" }, requiresSecrets: { type: "boolean" }, alternatives: { type: "array", items: { $ref: "#/$defs/alternative" } } } }, schema40 = { anyOf: [{ enum: ["build", "test", "smoke", "lint", "verify"] }, { type: "string", pattern: "^custom\\.[a-z][a-z0-9-]{0,63}$" }] }, schema41 = { enum: ["low", "medium", "high"] };
 var func0 = __deepEqual;
 function validate16(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
   let vErrors = null, errors = 0;
@@ -6959,7 +7467,7 @@ function validate18(data, { instancePath = "", parentData, parentDataProperty, r
     if (data.confidence !== void 0) {
       let data4 = data.confidence;
       if (!(data4 === "low" || data4 === "medium" || data4 === "high")) {
-        let err12 = { instancePath: instancePath + "/confidence", schemaPath: "#/$defs/confidence/enum", keyword: "enum", params: { allowedValues: schema40.enum }, message: "must be equal to one of the allowed values" };
+        let err12 = { instancePath: instancePath + "/confidence", schemaPath: "#/$defs/confidence/enum", keyword: "enum", params: { allowedValues: schema41.enum }, message: "must be equal to one of the allowed values" };
         vErrors === null ? vErrors = [err12] : vErrors.push(err12), errors++;
       }
     }
@@ -7021,7 +7529,7 @@ function validate15(data, { instancePath = "", parentData, parentDataProperty, r
       vErrors === null ? vErrors = [err9] : vErrors.push(err9), errors++;
     }
     for (let key0 in data)
-      if (!func12.call(schema37.properties, key0)) {
+      if (!func17.call(schema38.properties, key0)) {
         let err10 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
         vErrors === null ? vErrors = [err10] : vErrors.push(err10), errors++;
       }
@@ -7040,14 +7548,14 @@ function validate15(data, { instancePath = "", parentData, parentDataProperty, r
     if (data.role !== void 0) {
       let data1 = data.role, _errs7 = errors, valid3 = !1, _errs8 = errors;
       if (!(data1 === "build" || data1 === "test" || data1 === "smoke" || data1 === "lint" || data1 === "verify")) {
-        let err13 = { instancePath: instancePath + "/role", schemaPath: "#/$defs/commandRole/anyOf/0/enum", keyword: "enum", params: { allowedValues: schema39.anyOf[0].enum }, message: "must be equal to one of the allowed values" };
+        let err13 = { instancePath: instancePath + "/role", schemaPath: "#/$defs/commandRole/anyOf/0/enum", keyword: "enum", params: { allowedValues: schema40.anyOf[0].enum }, message: "must be equal to one of the allowed values" };
         vErrors === null ? vErrors = [err13] : vErrors.push(err13), errors++;
       }
       var _valid0 = _errs8 === errors;
       if (valid3 = valid3 || _valid0, !valid3) {
         let _errs9 = errors;
         if (typeof data1 == "string") {
-          if (!pattern21.test(data1)) {
+          if (!pattern4.test(data1)) {
             let err14 = { instancePath: instancePath + "/role", schemaPath: "#/$defs/commandRole/anyOf/1/pattern", keyword: "pattern", params: { pattern: "^custom\\.[a-z][a-z0-9-]{0,63}$" }, message: 'must match pattern "^custom\\.[a-z][a-z0-9-]{0,63}$"' };
             vErrors === null ? vErrors = [err14] : vErrors.push(err14), errors++;
           }
@@ -7080,14 +7588,14 @@ function validate15(data, { instancePath = "", parentData, parentDataProperty, r
     if (data.method !== void 0) {
       let data3 = data.method;
       if (!(data3 === "inferred" || data3 === "reviewed")) {
-        let err19 = { instancePath: instancePath + "/method", schemaPath: "#/properties/method/enum", keyword: "enum", params: { allowedValues: schema37.properties.method.enum }, message: "must be equal to one of the allowed values" };
+        let err19 = { instancePath: instancePath + "/method", schemaPath: "#/properties/method/enum", keyword: "enum", params: { allowedValues: schema38.properties.method.enum }, message: "must be equal to one of the allowed values" };
         vErrors === null ? vErrors = [err19] : vErrors.push(err19), errors++;
       }
     }
     if (data.confidence !== void 0) {
       let data4 = data.confidence;
       if (!(data4 === "low" || data4 === "medium" || data4 === "high")) {
-        let err20 = { instancePath: instancePath + "/confidence", schemaPath: "#/$defs/confidence/enum", keyword: "enum", params: { allowedValues: schema40.enum }, message: "must be equal to one of the allowed values" };
+        let err20 = { instancePath: instancePath + "/confidence", schemaPath: "#/$defs/confidence/enum", keyword: "enum", params: { allowedValues: schema41.enum }, message: "must be equal to one of the allowed values" };
         vErrors === null ? vErrors = [err20] : vErrors.push(err20), errors++;
       }
     }
@@ -7292,7 +7800,7 @@ function validate12(data, { instancePath = "", parentData, parentDataProperty, r
             if (data8.key !== void 0) {
               let data9 = data8.key;
               if (typeof data9 == "string") {
-                if (!pattern7.test(data9)) {
+                if (!pattern15.test(data9)) {
                   let err29 = { instancePath: instancePath + "/scopes/" + i0 + "/key", schemaPath: "#/$defs/scopeProposal/properties/key/pattern", keyword: "pattern", params: { pattern: "^[a-z0-9]+(-[a-z0-9]+)*$" }, message: 'must match pattern "^[a-z0-9]+(-[a-z0-9]+)*$"' };
                   vErrors === null ? vErrors = [err29] : vErrors.push(err29), errors++;
                 }
@@ -7316,7 +7824,7 @@ function validate12(data, { instancePath = "", parentData, parentDataProperty, r
             if (data8.kind !== void 0) {
               let data11 = data8.kind;
               if (!(data11 === "code" || data11 === "non_code")) {
-                let err33 = { instancePath: instancePath + "/scopes/" + i0 + "/kind", schemaPath: "#/$defs/scopeProposal/properties/kind/enum", keyword: "enum", params: { allowedValues: schema16.properties.kind.enum }, message: "must be equal to one of the allowed values" };
+                let err33 = { instancePath: instancePath + "/scopes/" + i0 + "/kind", schemaPath: "#/$defs/scopeProposal/properties/kind/enum", keyword: "enum", params: { allowedValues: schema17.properties.kind.enum }, message: "must be equal to one of the allowed values" };
                 vErrors === null ? vErrors = [err33] : vErrors.push(err33), errors++;
               }
             }
@@ -7335,7 +7843,7 @@ function validate12(data, { instancePath = "", parentData, parentDataProperty, r
             if (data8.owner !== void 0) {
               let data13 = data8.owner;
               if (typeof data13 != "string" && data13 !== null) {
-                let err36 = { instancePath: instancePath + "/scopes/" + i0 + "/owner", schemaPath: "#/$defs/scopeProposal/properties/owner/type", keyword: "type", params: { type: schema16.properties.owner.type }, message: "must be string,null" };
+                let err36 = { instancePath: instancePath + "/scopes/" + i0 + "/owner", schemaPath: "#/$defs/scopeProposal/properties/owner/type", keyword: "type", params: { type: schema17.properties.owner.type }, message: "must be string,null" };
                 vErrors === null ? vErrors = [err36] : vErrors.push(err36), errors++;
               }
             }
@@ -7406,7 +7914,7 @@ function validate12(data, { instancePath = "", parentData, parentDataProperty, r
                   let err46 = { instancePath: instancePath + "/diagnostics/" + i3 + "/code", schemaPath: "#/$defs/diagnosticEntry/properties/code/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
                   vErrors === null ? vErrors = [err46] : vErrors.push(err46), errors++;
                 }
-                if (!pattern25.test(data20)) {
+                if (!pattern33.test(data20)) {
                   let err47 = { instancePath: instancePath + "/diagnostics/" + i3 + "/code", schemaPath: "#/$defs/diagnosticEntry/properties/code/pattern", keyword: "pattern", params: { pattern: "^[a-z][a-z0-9_]*$" }, message: 'must match pattern "^[a-z][a-z0-9_]*$"' };
                   vErrors === null ? vErrors = [err47] : vErrors.push(err47), errors++;
                 }
@@ -7418,7 +7926,7 @@ function validate12(data, { instancePath = "", parentData, parentDataProperty, r
             if (data19.severity !== void 0) {
               let data21 = data19.severity;
               if (!(data21 === "info" || data21 === "warning" || data21 === "error")) {
-                let err49 = { instancePath: instancePath + "/diagnostics/" + i3 + "/severity", schemaPath: "#/$defs/diagnosticEntry/properties/severity/enum", keyword: "enum", params: { allowedValues: schema47.properties.severity.enum }, message: "must be equal to one of the allowed values" };
+                let err49 = { instancePath: instancePath + "/diagnostics/" + i3 + "/severity", schemaPath: "#/$defs/diagnosticEntry/properties/severity/enum", keyword: "enum", params: { allowedValues: schema48.properties.severity.enum }, message: "must be equal to one of the allowed values" };
                 vErrors === null ? vErrors = [err49] : vErrors.push(err49), errors++;
               }
             }
@@ -7477,7 +7985,7 @@ function validate12(data, { instancePath = "", parentData, parentDataProperty, r
   }
   return validate12.errors = vErrors, errors === 0;
 }
-var validate_event = validate22, schema48 = { $id: "https://shipping-mode.dev/schemas/event.schema.json", type: "object", additionalProperties: !1, required: ["eventId", "schemaVersion", "type", "aggregate", "occurredAt", "actor", "operationId", "idempotencyKey", "payload"], properties: { eventId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, schemaVersion: { const: 1 }, type: { type: "string", minLength: 1 }, aggregate: { type: "object", additionalProperties: !1, required: ["type", "id"], properties: { type: { type: "string" }, id: { type: "string" } } }, occurredAt: { type: "string" }, actor: { type: "string" }, operationId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, idempotencyKey: { type: "string" }, payload: { type: "object" }, inputHash: { type: ["string", "null"], pattern: "^[0-9a-f]{64}$" }, outputHash: { type: ["string", "null"], pattern: "^[0-9a-f]{64}$" } } };
+var validate_event = validate22, schema49 = { $id: "https://shipping-mode.dev/schemas/event.schema.json", type: "object", additionalProperties: !1, required: ["eventId", "schemaVersion", "type", "aggregate", "occurredAt", "actor", "operationId", "idempotencyKey", "payload"], properties: { eventId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, schemaVersion: { const: 1 }, type: { type: "string", minLength: 1 }, aggregate: { type: "object", additionalProperties: !1, required: ["type", "id"], properties: { type: { type: "string" }, id: { type: "string" } } }, occurredAt: { type: "string" }, actor: { type: "string" }, operationId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, idempotencyKey: { type: "string" }, payload: { type: "object" }, inputHash: { type: ["string", "null"], pattern: "^[0-9a-f]{64}$" }, outputHash: { type: ["string", "null"], pattern: "^[0-9a-f]{64}$" } } };
 function validate22(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
   let vErrors = null, errors = 0;
   if (data && typeof data == "object" && !Array.isArray(data)) {
@@ -7518,7 +8026,7 @@ function validate22(data, { instancePath = "", parentData, parentDataProperty, r
       vErrors === null ? vErrors = [err8] : vErrors.push(err8), errors++;
     }
     for (let key0 in data)
-      if (!func12.call(schema48.properties, key0)) {
+      if (!func17.call(schema49.properties, key0)) {
         let err9 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
         vErrors === null ? vErrors = [err9] : vErrors.push(err9), errors++;
       }
@@ -7613,7 +8121,7 @@ function validate22(data, { instancePath = "", parentData, parentDataProperty, r
     if (data.inputHash !== void 0) {
       let data11 = data.inputHash;
       if (typeof data11 != "string" && data11 !== null) {
-        let err27 = { instancePath: instancePath + "/inputHash", schemaPath: "#/properties/inputHash/type", keyword: "type", params: { type: schema48.properties.inputHash.type }, message: "must be string,null" };
+        let err27 = { instancePath: instancePath + "/inputHash", schemaPath: "#/properties/inputHash/type", keyword: "type", params: { type: schema49.properties.inputHash.type }, message: "must be string,null" };
         vErrors === null ? vErrors = [err27] : vErrors.push(err27), errors++;
       }
       if (typeof data11 == "string" && !pattern5.test(data11)) {
@@ -7624,7 +8132,7 @@ function validate22(data, { instancePath = "", parentData, parentDataProperty, r
     if (data.outputHash !== void 0) {
       let data12 = data.outputHash;
       if (typeof data12 != "string" && data12 !== null) {
-        let err29 = { instancePath: instancePath + "/outputHash", schemaPath: "#/properties/outputHash/type", keyword: "type", params: { type: schema48.properties.outputHash.type }, message: "must be string,null" };
+        let err29 = { instancePath: instancePath + "/outputHash", schemaPath: "#/properties/outputHash/type", keyword: "type", params: { type: schema49.properties.outputHash.type }, message: "must be string,null" };
         vErrors === null ? vErrors = [err29] : vErrors.push(err29), errors++;
       }
       if (typeof data12 == "string" && !pattern5.test(data12)) {
@@ -7638,7 +8146,7 @@ function validate22(data, { instancePath = "", parentData, parentDataProperty, r
   }
   return validate22.errors = vErrors, errors === 0;
 }
-var validate_operation = validate23, schema49 = { $id: "https://shipping-mode.dev/schemas/operation.schema.json", type: "object", additionalProperties: !1, required: ["id", "kind", "status", "proposedBy", "proposedAt", "reservedEvents", "history"], properties: { id: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, kind: { enum: ["workspace.init", "config.update", "scope.add"] }, status: { enum: ["PROPOSED", "VALIDATED", "APPROVED", "APPLYING", "APPLIED", "INVALID", "STALE", "RECOVERY_REQUIRED"] }, proposedBy: { type: "string" }, proposedAt: { type: "string" }, reservedEvents: { type: "array", minItems: 1, items: { type: "object", additionalProperties: !1, required: ["eventId", "type"], properties: { eventId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, type: { type: "string", minLength: 1 } } } }, validation: { type: "object", additionalProperties: !1, properties: { validatedAt: { type: ["string", "null"] }, changeSetHash: { type: ["string", "null"], pattern: "^[0-9a-f]{64}$" }, errors: { type: "array", items: { type: "string" } } } }, approval: { type: "object", additionalProperties: !1, properties: { actor: { type: ["string", "null"] }, approvedAt: { type: ["string", "null"] }, changeSetHash: { type: ["string", "null"], pattern: "^[0-9a-f]{64}$" }, selfApproval: { type: ["boolean", "null"] } } }, filePlan: { type: "array", items: { type: "object", additionalProperties: !1, required: ["target", "stagedRelativePath", "expectedBefore", "beforeContentHash", "beforeRevisionHash", "stagedContentHash", "stagedRevisionHash"], properties: { target: { type: "string" }, stagedRelativePath: { type: "string" }, expectedBefore: { enum: ["ABSENT", "PRESENT"] }, beforeContentHash: { type: "string", pattern: "^([0-9a-f]{64}|ABSENT)$" }, beforeRevisionHash: { type: "string", pattern: "^([0-9a-f]{64}|ABSENT)$" }, stagedContentHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, stagedRevisionHash: { type: "string", pattern: "^[0-9a-f]{64}$" } } } }, expectedEvents: { type: "array", items: { type: "object", additionalProperties: !1, required: ["eventId", "relativePath", "contentHash", "document"], properties: { eventId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, relativePath: { type: "string" }, contentHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, document: { type: "object" } } } }, appliedAt: { type: ["string", "null"] }, conflict: { type: ["object", "null"] }, history: { type: "array", items: { type: "object", additionalProperties: !1, required: ["at", "to", "actor"], properties: { at: { type: "string" }, from: { type: ["string", "null"] }, to: { type: "string" }, actor: { type: "string" }, reason: { type: ["string", "null"] } } } } }, allOf: [{ if: { properties: { status: { enum: ["VALIDATED", "APPROVED", "APPLYING", "APPLIED"] } } }, then: { required: ["validation"], properties: { validation: { type: "object", required: ["validatedAt", "changeSetHash"], properties: { validatedAt: { type: "string" }, changeSetHash: { type: "string", pattern: "^[0-9a-f]{64}$" } } } } } }, { if: { properties: { status: { enum: ["APPROVED", "APPLYING", "APPLIED"] } } }, then: { required: ["approval"], properties: { approval: { type: "object", required: ["actor", "approvedAt", "changeSetHash", "selfApproval"], properties: { actor: { type: "string" }, approvedAt: { type: "string" }, changeSetHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, selfApproval: { type: "boolean" } } } } } }, { if: { properties: { status: { enum: ["APPLYING", "APPLIED"] } } }, then: { required: ["filePlan", "expectedEvents"], properties: { filePlan: { type: "array", minItems: 1 }, expectedEvents: { type: "array", minItems: 1 } } } }, { if: { properties: { status: { const: "APPLIED" } } }, then: { required: ["appliedAt"], properties: { appliedAt: { type: "string" } } } }, { if: { properties: { status: { const: "RECOVERY_REQUIRED" } } }, then: { required: ["conflict"], properties: { conflict: { type: "object" } } } }] };
+var validate_operation = validate23, schema50 = { $id: "https://shipping-mode.dev/schemas/operation.schema.json", type: "object", additionalProperties: !1, required: ["id", "kind", "status", "proposedBy", "proposedAt", "reservedEvents", "history"], properties: { id: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, kind: { enum: ["workspace.init", "config.update", "scope.add", "scope.command.set", "discovery.propose"] }, status: { enum: ["PROPOSED", "VALIDATED", "APPROVED", "APPLYING", "APPLIED", "INVALID", "STALE", "RECOVERY_REQUIRED"] }, proposedBy: { type: "string" }, proposedAt: { type: "string" }, reservedEvents: { type: "array", minItems: 1, items: { type: "object", additionalProperties: !1, required: ["eventId", "type"], properties: { eventId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, type: { type: "string", minLength: 1 } } } }, validation: { type: "object", additionalProperties: !1, properties: { validatedAt: { type: ["string", "null"] }, changeSetHash: { type: ["string", "null"], pattern: "^[0-9a-f]{64}$" }, errors: { type: "array", items: { type: "string" } } } }, approval: { type: "object", additionalProperties: !1, properties: { actor: { type: ["string", "null"] }, approvedAt: { type: ["string", "null"] }, changeSetHash: { type: ["string", "null"], pattern: "^[0-9a-f]{64}$" }, selfApproval: { type: ["boolean", "null"] } } }, filePlan: { type: "array", items: { type: "object", additionalProperties: !1, required: ["target", "action", "expectedBefore", "beforeContentHash", "beforeRevisionHash", "stagedContentHash", "stagedRevisionHash"], properties: { target: { type: "string" }, action: { enum: ["write", "delete"] }, stagedRelativePath: { type: "string" }, expectedBefore: { enum: ["ABSENT", "PRESENT"] }, beforeContentHash: { type: "string", pattern: "^([0-9a-f]{64}|ABSENT)$" }, beforeRevisionHash: { type: "string", pattern: "^([0-9a-f]{64}|ABSENT)$" }, stagedContentHash: { type: "string", pattern: "^([0-9a-f]{64}|ABSENT)$" }, stagedRevisionHash: { type: "string", pattern: "^([0-9a-f]{64}|ABSENT)$" } }, allOf: [{ if: { properties: { action: { const: "write" } } }, then: { required: ["stagedRelativePath"], properties: { stagedRelativePath: { type: "string" } } } }, { if: { properties: { action: { const: "delete" } } }, then: { properties: { stagedContentHash: { const: "ABSENT" }, stagedRevisionHash: { const: "ABSENT" } } } }] } }, expectedEvents: { type: "array", items: { type: "object", additionalProperties: !1, required: ["eventId", "relativePath", "contentHash", "document"], properties: { eventId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, relativePath: { type: "string" }, contentHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, document: { type: "object" } } } }, appliedAt: { type: ["string", "null"] }, conflict: { type: ["object", "null"] }, history: { type: "array", items: { type: "object", additionalProperties: !1, required: ["at", "to", "actor"], properties: { at: { type: "string" }, from: { type: ["string", "null"] }, to: { type: "string" }, actor: { type: "string" }, reason: { type: ["string", "null"] } } } } }, allOf: [{ if: { properties: { status: { enum: ["VALIDATED", "APPROVED", "APPLYING", "APPLIED"] } } }, then: { required: ["validation"], properties: { validation: { type: "object", required: ["validatedAt", "changeSetHash"], properties: { validatedAt: { type: "string" }, changeSetHash: { type: "string", pattern: "^[0-9a-f]{64}$" } } } } } }, { if: { properties: { status: { enum: ["APPROVED", "APPLYING", "APPLIED"] } } }, then: { required: ["approval"], properties: { approval: { type: "object", required: ["actor", "approvedAt", "changeSetHash", "selfApproval"], properties: { actor: { type: "string" }, approvedAt: { type: "string" }, changeSetHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, selfApproval: { type: "boolean" } } } } } }, { if: { properties: { status: { enum: ["APPLYING", "APPLIED"] } } }, then: { required: ["filePlan", "expectedEvents"], properties: { filePlan: { type: "array", minItems: 1 }, expectedEvents: { type: "array", minItems: 1 } } } }, { if: { properties: { status: { const: "APPLIED" } } }, then: { required: ["appliedAt"], properties: { appliedAt: { type: "string" } } } }, { if: { properties: { status: { const: "RECOVERY_REQUIRED" } } }, then: { required: ["conflict"], properties: { conflict: { type: "object" } } } }] };
 function validate23(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
   let vErrors = null, errors = 0, _errs2 = errors, valid1 = !0, _errs3 = errors;
   if (data && typeof data == "object" && !Array.isArray(data) && data.status !== void 0) {
@@ -7903,7 +8411,7 @@ function validate23(data, { instancePath = "", parentData, parentDataProperty, r
       vErrors === null ? vErrors = [err44] : vErrors.push(err44), errors++;
     }
     for (let key0 in data)
-      if (!func12.call(schema49.properties, key0)) {
+      if (!func17.call(schema50.properties, key0)) {
         let err45 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
         vErrors === null ? vErrors = [err45] : vErrors.push(err45), errors++;
       }
@@ -7921,15 +8429,15 @@ function validate23(data, { instancePath = "", parentData, parentDataProperty, r
     }
     if (data.kind !== void 0) {
       let data18 = data.kind;
-      if (!(data18 === "workspace.init" || data18 === "config.update" || data18 === "scope.add")) {
-        let err48 = { instancePath: instancePath + "/kind", schemaPath: "#/properties/kind/enum", keyword: "enum", params: { allowedValues: schema49.properties.kind.enum }, message: "must be equal to one of the allowed values" };
+      if (!(data18 === "workspace.init" || data18 === "config.update" || data18 === "scope.add" || data18 === "scope.command.set" || data18 === "discovery.propose")) {
+        let err48 = { instancePath: instancePath + "/kind", schemaPath: "#/properties/kind/enum", keyword: "enum", params: { allowedValues: schema50.properties.kind.enum }, message: "must be equal to one of the allowed values" };
         vErrors === null ? vErrors = [err48] : vErrors.push(err48), errors++;
       }
     }
     if (data.status !== void 0) {
       let data19 = data.status;
       if (!(data19 === "PROPOSED" || data19 === "VALIDATED" || data19 === "APPROVED" || data19 === "APPLYING" || data19 === "APPLIED" || data19 === "INVALID" || data19 === "STALE" || data19 === "RECOVERY_REQUIRED")) {
-        let err49 = { instancePath: instancePath + "/status", schemaPath: "#/properties/status/enum", keyword: "enum", params: { allowedValues: schema49.properties.status.enum }, message: "must be equal to one of the allowed values" };
+        let err49 = { instancePath: instancePath + "/status", schemaPath: "#/properties/status/enum", keyword: "enum", params: { allowedValues: schema50.properties.status.enum }, message: "must be equal to one of the allowed values" };
         vErrors === null ? vErrors = [err49] : vErrors.push(err49), errors++;
       }
     }
@@ -8010,14 +8518,14 @@ function validate23(data, { instancePath = "", parentData, parentDataProperty, r
         if (data26.validatedAt !== void 0) {
           let data27 = data26.validatedAt;
           if (typeof data27 != "string" && data27 !== null) {
-            let err63 = { instancePath: instancePath + "/validation/validatedAt", schemaPath: "#/properties/validation/properties/validatedAt/type", keyword: "type", params: { type: schema49.properties.validation.properties.validatedAt.type }, message: "must be string,null" };
+            let err63 = { instancePath: instancePath + "/validation/validatedAt", schemaPath: "#/properties/validation/properties/validatedAt/type", keyword: "type", params: { type: schema50.properties.validation.properties.validatedAt.type }, message: "must be string,null" };
             vErrors === null ? vErrors = [err63] : vErrors.push(err63), errors++;
           }
         }
         if (data26.changeSetHash !== void 0) {
           let data28 = data26.changeSetHash;
           if (typeof data28 != "string" && data28 !== null) {
-            let err64 = { instancePath: instancePath + "/validation/changeSetHash", schemaPath: "#/properties/validation/properties/changeSetHash/type", keyword: "type", params: { type: schema49.properties.validation.properties.changeSetHash.type }, message: "must be string,null" };
+            let err64 = { instancePath: instancePath + "/validation/changeSetHash", schemaPath: "#/properties/validation/properties/changeSetHash/type", keyword: "type", params: { type: schema50.properties.validation.properties.changeSetHash.type }, message: "must be string,null" };
             vErrors === null ? vErrors = [err64] : vErrors.push(err64), errors++;
           }
           if (typeof data28 == "string" && !pattern5.test(data28)) {
@@ -8055,21 +8563,21 @@ function validate23(data, { instancePath = "", parentData, parentDataProperty, r
         if (data31.actor !== void 0) {
           let data32 = data31.actor;
           if (typeof data32 != "string" && data32 !== null) {
-            let err70 = { instancePath: instancePath + "/approval/actor", schemaPath: "#/properties/approval/properties/actor/type", keyword: "type", params: { type: schema49.properties.approval.properties.actor.type }, message: "must be string,null" };
+            let err70 = { instancePath: instancePath + "/approval/actor", schemaPath: "#/properties/approval/properties/actor/type", keyword: "type", params: { type: schema50.properties.approval.properties.actor.type }, message: "must be string,null" };
             vErrors === null ? vErrors = [err70] : vErrors.push(err70), errors++;
           }
         }
         if (data31.approvedAt !== void 0) {
           let data33 = data31.approvedAt;
           if (typeof data33 != "string" && data33 !== null) {
-            let err71 = { instancePath: instancePath + "/approval/approvedAt", schemaPath: "#/properties/approval/properties/approvedAt/type", keyword: "type", params: { type: schema49.properties.approval.properties.approvedAt.type }, message: "must be string,null" };
+            let err71 = { instancePath: instancePath + "/approval/approvedAt", schemaPath: "#/properties/approval/properties/approvedAt/type", keyword: "type", params: { type: schema50.properties.approval.properties.approvedAt.type }, message: "must be string,null" };
             vErrors === null ? vErrors = [err71] : vErrors.push(err71), errors++;
           }
         }
         if (data31.changeSetHash !== void 0) {
           let data34 = data31.changeSetHash;
           if (typeof data34 != "string" && data34 !== null) {
-            let err72 = { instancePath: instancePath + "/approval/changeSetHash", schemaPath: "#/properties/approval/properties/changeSetHash/type", keyword: "type", params: { type: schema49.properties.approval.properties.changeSetHash.type }, message: "must be string,null" };
+            let err72 = { instancePath: instancePath + "/approval/changeSetHash", schemaPath: "#/properties/approval/properties/changeSetHash/type", keyword: "type", params: { type: schema50.properties.approval.properties.changeSetHash.type }, message: "must be string,null" };
             vErrors === null ? vErrors = [err72] : vErrors.push(err72), errors++;
           }
           if (typeof data34 == "string" && !pattern5.test(data34)) {
@@ -8080,7 +8588,7 @@ function validate23(data, { instancePath = "", parentData, parentDataProperty, r
         if (data31.selfApproval !== void 0) {
           let data35 = data31.selfApproval;
           if (typeof data35 != "boolean" && data35 !== null) {
-            let err74 = { instancePath: instancePath + "/approval/selfApproval", schemaPath: "#/properties/approval/properties/selfApproval/type", keyword: "type", params: { type: schema49.properties.approval.properties.selfApproval.type }, message: "must be boolean,null" };
+            let err74 = { instancePath: instancePath + "/approval/selfApproval", schemaPath: "#/properties/approval/properties/selfApproval/type", keyword: "type", params: { type: schema50.properties.approval.properties.selfApproval.type }, message: "must be boolean,null" };
             vErrors === null ? vErrors = [err74] : vErrors.push(err74), errors++;
           }
         }
@@ -8094,264 +8602,320 @@ function validate23(data, { instancePath = "", parentData, parentDataProperty, r
       if (Array.isArray(data36)) {
         let len2 = data36.length;
         for (let i2 = 0; i2 < len2; i2++) {
-          let data37 = data36[i2];
+          let data37 = data36[i2], _errs95 = errors, valid29 = !0, _errs96 = errors;
+          if (data37 && typeof data37 == "object" && !Array.isArray(data37) && data37.action !== void 0 && data37.action !== "write") {
+            let err76 = {};
+            vErrors === null ? vErrors = [err76] : vErrors.push(err76), errors++;
+          }
+          var _valid5 = _errs96 === errors;
+          if (errors = _errs95, vErrors !== null && (_errs95 ? vErrors.length = _errs95 : vErrors = null), _valid5) {
+            let _errs98 = errors;
+            if (data37 && typeof data37 == "object" && !Array.isArray(data37)) {
+              if (data37.stagedRelativePath === void 0) {
+                let err77 = { instancePath: instancePath + "/filePlan/" + i2, schemaPath: "#/properties/filePlan/items/allOf/0/then/required", keyword: "required", params: { missingProperty: "stagedRelativePath" }, message: "must have required property 'stagedRelativePath'" };
+                vErrors === null ? vErrors = [err77] : vErrors.push(err77), errors++;
+              }
+              if (data37.stagedRelativePath !== void 0 && typeof data37.stagedRelativePath != "string") {
+                let err78 = { instancePath: instancePath + "/filePlan/" + i2 + "/stagedRelativePath", schemaPath: "#/properties/filePlan/items/allOf/0/then/properties/stagedRelativePath/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                vErrors === null ? vErrors = [err78] : vErrors.push(err78), errors++;
+              }
+            }
+            var _valid5 = _errs98 === errors;
+            valid29 = _valid5;
+          }
+          if (!valid29) {
+            let err79 = { instancePath: instancePath + "/filePlan/" + i2, schemaPath: "#/properties/filePlan/items/allOf/0/if", keyword: "if", params: { failingKeyword: "then" }, message: 'must match "then" schema' };
+            vErrors === null ? vErrors = [err79] : vErrors.push(err79), errors++;
+          }
+          let _errs102 = errors, valid32 = !0, _errs103 = errors;
+          if (data37 && typeof data37 == "object" && !Array.isArray(data37) && data37.action !== void 0 && data37.action !== "delete") {
+            let err80 = {};
+            vErrors === null ? vErrors = [err80] : vErrors.push(err80), errors++;
+          }
+          var _valid6 = _errs103 === errors;
+          if (errors = _errs102, vErrors !== null && (_errs102 ? vErrors.length = _errs102 : vErrors = null), _valid6) {
+            let _errs105 = errors;
+            if (data37 && typeof data37 == "object" && !Array.isArray(data37)) {
+              if (data37.stagedContentHash !== void 0 && data37.stagedContentHash !== "ABSENT") {
+                let err81 = { instancePath: instancePath + "/filePlan/" + i2 + "/stagedContentHash", schemaPath: "#/properties/filePlan/items/allOf/1/then/properties/stagedContentHash/const", keyword: "const", params: { allowedValue: "ABSENT" }, message: "must be equal to constant" };
+                vErrors === null ? vErrors = [err81] : vErrors.push(err81), errors++;
+              }
+              if (data37.stagedRevisionHash !== void 0 && data37.stagedRevisionHash !== "ABSENT") {
+                let err82 = { instancePath: instancePath + "/filePlan/" + i2 + "/stagedRevisionHash", schemaPath: "#/properties/filePlan/items/allOf/1/then/properties/stagedRevisionHash/const", keyword: "const", params: { allowedValue: "ABSENT" }, message: "must be equal to constant" };
+                vErrors === null ? vErrors = [err82] : vErrors.push(err82), errors++;
+              }
+            }
+            var _valid6 = _errs105 === errors;
+            valid32 = _valid6;
+          }
+          if (!valid32) {
+            let err83 = { instancePath: instancePath + "/filePlan/" + i2, schemaPath: "#/properties/filePlan/items/allOf/1/if", keyword: "if", params: { failingKeyword: "then" }, message: 'must match "then" schema' };
+            vErrors === null ? vErrors = [err83] : vErrors.push(err83), errors++;
+          }
           if (data37 && typeof data37 == "object" && !Array.isArray(data37)) {
             if (data37.target === void 0) {
-              let err76 = { instancePath: instancePath + "/filePlan/" + i2, schemaPath: "#/properties/filePlan/items/required", keyword: "required", params: { missingProperty: "target" }, message: "must have required property 'target'" };
-              vErrors === null ? vErrors = [err76] : vErrors.push(err76), errors++;
-            }
-            if (data37.stagedRelativePath === void 0) {
-              let err77 = { instancePath: instancePath + "/filePlan/" + i2, schemaPath: "#/properties/filePlan/items/required", keyword: "required", params: { missingProperty: "stagedRelativePath" }, message: "must have required property 'stagedRelativePath'" };
-              vErrors === null ? vErrors = [err77] : vErrors.push(err77), errors++;
-            }
-            if (data37.expectedBefore === void 0) {
-              let err78 = { instancePath: instancePath + "/filePlan/" + i2, schemaPath: "#/properties/filePlan/items/required", keyword: "required", params: { missingProperty: "expectedBefore" }, message: "must have required property 'expectedBefore'" };
-              vErrors === null ? vErrors = [err78] : vErrors.push(err78), errors++;
-            }
-            if (data37.beforeContentHash === void 0) {
-              let err79 = { instancePath: instancePath + "/filePlan/" + i2, schemaPath: "#/properties/filePlan/items/required", keyword: "required", params: { missingProperty: "beforeContentHash" }, message: "must have required property 'beforeContentHash'" };
-              vErrors === null ? vErrors = [err79] : vErrors.push(err79), errors++;
-            }
-            if (data37.beforeRevisionHash === void 0) {
-              let err80 = { instancePath: instancePath + "/filePlan/" + i2, schemaPath: "#/properties/filePlan/items/required", keyword: "required", params: { missingProperty: "beforeRevisionHash" }, message: "must have required property 'beforeRevisionHash'" };
-              vErrors === null ? vErrors = [err80] : vErrors.push(err80), errors++;
-            }
-            if (data37.stagedContentHash === void 0) {
-              let err81 = { instancePath: instancePath + "/filePlan/" + i2, schemaPath: "#/properties/filePlan/items/required", keyword: "required", params: { missingProperty: "stagedContentHash" }, message: "must have required property 'stagedContentHash'" };
-              vErrors === null ? vErrors = [err81] : vErrors.push(err81), errors++;
-            }
-            if (data37.stagedRevisionHash === void 0) {
-              let err82 = { instancePath: instancePath + "/filePlan/" + i2, schemaPath: "#/properties/filePlan/items/required", keyword: "required", params: { missingProperty: "stagedRevisionHash" }, message: "must have required property 'stagedRevisionHash'" };
-              vErrors === null ? vErrors = [err82] : vErrors.push(err82), errors++;
-            }
-            for (let key4 in data37)
-              if (!(key4 === "target" || key4 === "stagedRelativePath" || key4 === "expectedBefore" || key4 === "beforeContentHash" || key4 === "beforeRevisionHash" || key4 === "stagedContentHash" || key4 === "stagedRevisionHash")) {
-                let err83 = { instancePath: instancePath + "/filePlan/" + i2, schemaPath: "#/properties/filePlan/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key4 }, message: "must NOT have additional properties" };
-                vErrors === null ? vErrors = [err83] : vErrors.push(err83), errors++;
-              }
-            if (data37.target !== void 0 && typeof data37.target != "string") {
-              let err84 = { instancePath: instancePath + "/filePlan/" + i2 + "/target", schemaPath: "#/properties/filePlan/items/properties/target/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+              let err84 = { instancePath: instancePath + "/filePlan/" + i2, schemaPath: "#/properties/filePlan/items/required", keyword: "required", params: { missingProperty: "target" }, message: "must have required property 'target'" };
               vErrors === null ? vErrors = [err84] : vErrors.push(err84), errors++;
             }
-            if (data37.stagedRelativePath !== void 0 && typeof data37.stagedRelativePath != "string") {
-              let err85 = { instancePath: instancePath + "/filePlan/" + i2 + "/stagedRelativePath", schemaPath: "#/properties/filePlan/items/properties/stagedRelativePath/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (data37.action === void 0) {
+              let err85 = { instancePath: instancePath + "/filePlan/" + i2, schemaPath: "#/properties/filePlan/items/required", keyword: "required", params: { missingProperty: "action" }, message: "must have required property 'action'" };
               vErrors === null ? vErrors = [err85] : vErrors.push(err85), errors++;
             }
+            if (data37.expectedBefore === void 0) {
+              let err86 = { instancePath: instancePath + "/filePlan/" + i2, schemaPath: "#/properties/filePlan/items/required", keyword: "required", params: { missingProperty: "expectedBefore" }, message: "must have required property 'expectedBefore'" };
+              vErrors === null ? vErrors = [err86] : vErrors.push(err86), errors++;
+            }
+            if (data37.beforeContentHash === void 0) {
+              let err87 = { instancePath: instancePath + "/filePlan/" + i2, schemaPath: "#/properties/filePlan/items/required", keyword: "required", params: { missingProperty: "beforeContentHash" }, message: "must have required property 'beforeContentHash'" };
+              vErrors === null ? vErrors = [err87] : vErrors.push(err87), errors++;
+            }
+            if (data37.beforeRevisionHash === void 0) {
+              let err88 = { instancePath: instancePath + "/filePlan/" + i2, schemaPath: "#/properties/filePlan/items/required", keyword: "required", params: { missingProperty: "beforeRevisionHash" }, message: "must have required property 'beforeRevisionHash'" };
+              vErrors === null ? vErrors = [err88] : vErrors.push(err88), errors++;
+            }
+            if (data37.stagedContentHash === void 0) {
+              let err89 = { instancePath: instancePath + "/filePlan/" + i2, schemaPath: "#/properties/filePlan/items/required", keyword: "required", params: { missingProperty: "stagedContentHash" }, message: "must have required property 'stagedContentHash'" };
+              vErrors === null ? vErrors = [err89] : vErrors.push(err89), errors++;
+            }
+            if (data37.stagedRevisionHash === void 0) {
+              let err90 = { instancePath: instancePath + "/filePlan/" + i2, schemaPath: "#/properties/filePlan/items/required", keyword: "required", params: { missingProperty: "stagedRevisionHash" }, message: "must have required property 'stagedRevisionHash'" };
+              vErrors === null ? vErrors = [err90] : vErrors.push(err90), errors++;
+            }
+            for (let key4 in data37)
+              if (!(key4 === "target" || key4 === "action" || key4 === "stagedRelativePath" || key4 === "expectedBefore" || key4 === "beforeContentHash" || key4 === "beforeRevisionHash" || key4 === "stagedContentHash" || key4 === "stagedRevisionHash")) {
+                let err91 = { instancePath: instancePath + "/filePlan/" + i2, schemaPath: "#/properties/filePlan/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key4 }, message: "must NOT have additional properties" };
+                vErrors === null ? vErrors = [err91] : vErrors.push(err91), errors++;
+              }
+            if (data37.target !== void 0 && typeof data37.target != "string") {
+              let err92 = { instancePath: instancePath + "/filePlan/" + i2 + "/target", schemaPath: "#/properties/filePlan/items/properties/target/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+              vErrors === null ? vErrors = [err92] : vErrors.push(err92), errors++;
+            }
+            if (data37.action !== void 0) {
+              let data44 = data37.action;
+              if (!(data44 === "write" || data44 === "delete")) {
+                let err93 = { instancePath: instancePath + "/filePlan/" + i2 + "/action", schemaPath: "#/properties/filePlan/items/properties/action/enum", keyword: "enum", params: { allowedValues: schema50.properties.filePlan.items.properties.action.enum }, message: "must be equal to one of the allowed values" };
+                vErrors === null ? vErrors = [err93] : vErrors.push(err93), errors++;
+              }
+            }
+            if (data37.stagedRelativePath !== void 0 && typeof data37.stagedRelativePath != "string") {
+              let err94 = { instancePath: instancePath + "/filePlan/" + i2 + "/stagedRelativePath", schemaPath: "#/properties/filePlan/items/properties/stagedRelativePath/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+              vErrors === null ? vErrors = [err94] : vErrors.push(err94), errors++;
+            }
             if (data37.expectedBefore !== void 0) {
-              let data40 = data37.expectedBefore;
-              if (!(data40 === "ABSENT" || data40 === "PRESENT")) {
-                let err86 = { instancePath: instancePath + "/filePlan/" + i2 + "/expectedBefore", schemaPath: "#/properties/filePlan/items/properties/expectedBefore/enum", keyword: "enum", params: { allowedValues: schema49.properties.filePlan.items.properties.expectedBefore.enum }, message: "must be equal to one of the allowed values" };
-                vErrors === null ? vErrors = [err86] : vErrors.push(err86), errors++;
+              let data46 = data37.expectedBefore;
+              if (!(data46 === "ABSENT" || data46 === "PRESENT")) {
+                let err95 = { instancePath: instancePath + "/filePlan/" + i2 + "/expectedBefore", schemaPath: "#/properties/filePlan/items/properties/expectedBefore/enum", keyword: "enum", params: { allowedValues: schema50.properties.filePlan.items.properties.expectedBefore.enum }, message: "must be equal to one of the allowed values" };
+                vErrors === null ? vErrors = [err95] : vErrors.push(err95), errors++;
               }
             }
             if (data37.beforeContentHash !== void 0) {
-              let data41 = data37.beforeContentHash;
-              if (typeof data41 == "string") {
-                if (!pattern3.test(data41)) {
-                  let err87 = { instancePath: instancePath + "/filePlan/" + i2 + "/beforeContentHash", schemaPath: "#/properties/filePlan/items/properties/beforeContentHash/pattern", keyword: "pattern", params: { pattern: "^([0-9a-f]{64}|ABSENT)$" }, message: 'must match pattern "^([0-9a-f]{64}|ABSENT)$"' };
-                  vErrors === null ? vErrors = [err87] : vErrors.push(err87), errors++;
+              let data47 = data37.beforeContentHash;
+              if (typeof data47 == "string") {
+                if (!pattern10.test(data47)) {
+                  let err96 = { instancePath: instancePath + "/filePlan/" + i2 + "/beforeContentHash", schemaPath: "#/properties/filePlan/items/properties/beforeContentHash/pattern", keyword: "pattern", params: { pattern: "^([0-9a-f]{64}|ABSENT)$" }, message: 'must match pattern "^([0-9a-f]{64}|ABSENT)$"' };
+                  vErrors === null ? vErrors = [err96] : vErrors.push(err96), errors++;
                 }
               } else {
-                let err88 = { instancePath: instancePath + "/filePlan/" + i2 + "/beforeContentHash", schemaPath: "#/properties/filePlan/items/properties/beforeContentHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                vErrors === null ? vErrors = [err88] : vErrors.push(err88), errors++;
+                let err97 = { instancePath: instancePath + "/filePlan/" + i2 + "/beforeContentHash", schemaPath: "#/properties/filePlan/items/properties/beforeContentHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                vErrors === null ? vErrors = [err97] : vErrors.push(err97), errors++;
               }
             }
             if (data37.beforeRevisionHash !== void 0) {
-              let data42 = data37.beforeRevisionHash;
-              if (typeof data42 == "string") {
-                if (!pattern3.test(data42)) {
-                  let err89 = { instancePath: instancePath + "/filePlan/" + i2 + "/beforeRevisionHash", schemaPath: "#/properties/filePlan/items/properties/beforeRevisionHash/pattern", keyword: "pattern", params: { pattern: "^([0-9a-f]{64}|ABSENT)$" }, message: 'must match pattern "^([0-9a-f]{64}|ABSENT)$"' };
-                  vErrors === null ? vErrors = [err89] : vErrors.push(err89), errors++;
+              let data48 = data37.beforeRevisionHash;
+              if (typeof data48 == "string") {
+                if (!pattern10.test(data48)) {
+                  let err98 = { instancePath: instancePath + "/filePlan/" + i2 + "/beforeRevisionHash", schemaPath: "#/properties/filePlan/items/properties/beforeRevisionHash/pattern", keyword: "pattern", params: { pattern: "^([0-9a-f]{64}|ABSENT)$" }, message: 'must match pattern "^([0-9a-f]{64}|ABSENT)$"' };
+                  vErrors === null ? vErrors = [err98] : vErrors.push(err98), errors++;
                 }
               } else {
-                let err90 = { instancePath: instancePath + "/filePlan/" + i2 + "/beforeRevisionHash", schemaPath: "#/properties/filePlan/items/properties/beforeRevisionHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                vErrors === null ? vErrors = [err90] : vErrors.push(err90), errors++;
+                let err99 = { instancePath: instancePath + "/filePlan/" + i2 + "/beforeRevisionHash", schemaPath: "#/properties/filePlan/items/properties/beforeRevisionHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                vErrors === null ? vErrors = [err99] : vErrors.push(err99), errors++;
               }
             }
             if (data37.stagedContentHash !== void 0) {
-              let data43 = data37.stagedContentHash;
-              if (typeof data43 == "string") {
-                if (!pattern5.test(data43)) {
-                  let err91 = { instancePath: instancePath + "/filePlan/" + i2 + "/stagedContentHash", schemaPath: "#/properties/filePlan/items/properties/stagedContentHash/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
-                  vErrors === null ? vErrors = [err91] : vErrors.push(err91), errors++;
+              let data49 = data37.stagedContentHash;
+              if (typeof data49 == "string") {
+                if (!pattern10.test(data49)) {
+                  let err100 = { instancePath: instancePath + "/filePlan/" + i2 + "/stagedContentHash", schemaPath: "#/properties/filePlan/items/properties/stagedContentHash/pattern", keyword: "pattern", params: { pattern: "^([0-9a-f]{64}|ABSENT)$" }, message: 'must match pattern "^([0-9a-f]{64}|ABSENT)$"' };
+                  vErrors === null ? vErrors = [err100] : vErrors.push(err100), errors++;
                 }
               } else {
-                let err92 = { instancePath: instancePath + "/filePlan/" + i2 + "/stagedContentHash", schemaPath: "#/properties/filePlan/items/properties/stagedContentHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                vErrors === null ? vErrors = [err92] : vErrors.push(err92), errors++;
+                let err101 = { instancePath: instancePath + "/filePlan/" + i2 + "/stagedContentHash", schemaPath: "#/properties/filePlan/items/properties/stagedContentHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                vErrors === null ? vErrors = [err101] : vErrors.push(err101), errors++;
               }
             }
             if (data37.stagedRevisionHash !== void 0) {
-              let data44 = data37.stagedRevisionHash;
-              if (typeof data44 == "string") {
-                if (!pattern5.test(data44)) {
-                  let err93 = { instancePath: instancePath + "/filePlan/" + i2 + "/stagedRevisionHash", schemaPath: "#/properties/filePlan/items/properties/stagedRevisionHash/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
-                  vErrors === null ? vErrors = [err93] : vErrors.push(err93), errors++;
-                }
-              } else {
-                let err94 = { instancePath: instancePath + "/filePlan/" + i2 + "/stagedRevisionHash", schemaPath: "#/properties/filePlan/items/properties/stagedRevisionHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                vErrors === null ? vErrors = [err94] : vErrors.push(err94), errors++;
-              }
-            }
-          } else {
-            let err95 = { instancePath: instancePath + "/filePlan/" + i2, schemaPath: "#/properties/filePlan/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-            vErrors === null ? vErrors = [err95] : vErrors.push(err95), errors++;
-          }
-        }
-      } else {
-        let err96 = { instancePath: instancePath + "/filePlan", schemaPath: "#/properties/filePlan/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        vErrors === null ? vErrors = [err96] : vErrors.push(err96), errors++;
-      }
-    }
-    if (data.expectedEvents !== void 0) {
-      let data45 = data.expectedEvents;
-      if (Array.isArray(data45)) {
-        let len3 = data45.length;
-        for (let i3 = 0; i3 < len3; i3++) {
-          let data46 = data45[i3];
-          if (data46 && typeof data46 == "object" && !Array.isArray(data46)) {
-            if (data46.eventId === void 0) {
-              let err97 = { instancePath: instancePath + "/expectedEvents/" + i3, schemaPath: "#/properties/expectedEvents/items/required", keyword: "required", params: { missingProperty: "eventId" }, message: "must have required property 'eventId'" };
-              vErrors === null ? vErrors = [err97] : vErrors.push(err97), errors++;
-            }
-            if (data46.relativePath === void 0) {
-              let err98 = { instancePath: instancePath + "/expectedEvents/" + i3, schemaPath: "#/properties/expectedEvents/items/required", keyword: "required", params: { missingProperty: "relativePath" }, message: "must have required property 'relativePath'" };
-              vErrors === null ? vErrors = [err98] : vErrors.push(err98), errors++;
-            }
-            if (data46.contentHash === void 0) {
-              let err99 = { instancePath: instancePath + "/expectedEvents/" + i3, schemaPath: "#/properties/expectedEvents/items/required", keyword: "required", params: { missingProperty: "contentHash" }, message: "must have required property 'contentHash'" };
-              vErrors === null ? vErrors = [err99] : vErrors.push(err99), errors++;
-            }
-            if (data46.document === void 0) {
-              let err100 = { instancePath: instancePath + "/expectedEvents/" + i3, schemaPath: "#/properties/expectedEvents/items/required", keyword: "required", params: { missingProperty: "document" }, message: "must have required property 'document'" };
-              vErrors === null ? vErrors = [err100] : vErrors.push(err100), errors++;
-            }
-            for (let key5 in data46)
-              if (!(key5 === "eventId" || key5 === "relativePath" || key5 === "contentHash" || key5 === "document")) {
-                let err101 = { instancePath: instancePath + "/expectedEvents/" + i3, schemaPath: "#/properties/expectedEvents/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key5 }, message: "must NOT have additional properties" };
-                vErrors === null ? vErrors = [err101] : vErrors.push(err101), errors++;
-              }
-            if (data46.eventId !== void 0) {
-              let data47 = data46.eventId;
-              if (typeof data47 == "string") {
-                if (!pattern1.test(data47)) {
-                  let err102 = { instancePath: instancePath + "/expectedEvents/" + i3 + "/eventId", schemaPath: "#/properties/expectedEvents/items/properties/eventId/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, message: 'must match pattern "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"' };
+              let data50 = data37.stagedRevisionHash;
+              if (typeof data50 == "string") {
+                if (!pattern10.test(data50)) {
+                  let err102 = { instancePath: instancePath + "/filePlan/" + i2 + "/stagedRevisionHash", schemaPath: "#/properties/filePlan/items/properties/stagedRevisionHash/pattern", keyword: "pattern", params: { pattern: "^([0-9a-f]{64}|ABSENT)$" }, message: 'must match pattern "^([0-9a-f]{64}|ABSENT)$"' };
                   vErrors === null ? vErrors = [err102] : vErrors.push(err102), errors++;
                 }
               } else {
-                let err103 = { instancePath: instancePath + "/expectedEvents/" + i3 + "/eventId", schemaPath: "#/properties/expectedEvents/items/properties/eventId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                let err103 = { instancePath: instancePath + "/filePlan/" + i2 + "/stagedRevisionHash", schemaPath: "#/properties/filePlan/items/properties/stagedRevisionHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
                 vErrors === null ? vErrors = [err103] : vErrors.push(err103), errors++;
               }
             }
-            if (data46.relativePath !== void 0 && typeof data46.relativePath != "string") {
-              let err104 = { instancePath: instancePath + "/expectedEvents/" + i3 + "/relativePath", schemaPath: "#/properties/expectedEvents/items/properties/relativePath/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-              vErrors === null ? vErrors = [err104] : vErrors.push(err104), errors++;
-            }
-            if (data46.contentHash !== void 0) {
-              let data49 = data46.contentHash;
-              if (typeof data49 == "string") {
-                if (!pattern5.test(data49)) {
-                  let err105 = { instancePath: instancePath + "/expectedEvents/" + i3 + "/contentHash", schemaPath: "#/properties/expectedEvents/items/properties/contentHash/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
-                  vErrors === null ? vErrors = [err105] : vErrors.push(err105), errors++;
-                }
-              } else {
-                let err106 = { instancePath: instancePath + "/expectedEvents/" + i3 + "/contentHash", schemaPath: "#/properties/expectedEvents/items/properties/contentHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                vErrors === null ? vErrors = [err106] : vErrors.push(err106), errors++;
-              }
-            }
-            if (data46.document !== void 0) {
-              let data50 = data46.document;
-              if (!(data50 && typeof data50 == "object" && !Array.isArray(data50))) {
-                let err107 = { instancePath: instancePath + "/expectedEvents/" + i3 + "/document", schemaPath: "#/properties/expectedEvents/items/properties/document/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-                vErrors === null ? vErrors = [err107] : vErrors.push(err107), errors++;
-              }
-            }
           } else {
-            let err108 = { instancePath: instancePath + "/expectedEvents/" + i3, schemaPath: "#/properties/expectedEvents/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-            vErrors === null ? vErrors = [err108] : vErrors.push(err108), errors++;
+            let err104 = { instancePath: instancePath + "/filePlan/" + i2, schemaPath: "#/properties/filePlan/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            vErrors === null ? vErrors = [err104] : vErrors.push(err104), errors++;
           }
         }
       } else {
-        let err109 = { instancePath: instancePath + "/expectedEvents", schemaPath: "#/properties/expectedEvents/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        vErrors === null ? vErrors = [err109] : vErrors.push(err109), errors++;
+        let err105 = { instancePath: instancePath + "/filePlan", schemaPath: "#/properties/filePlan/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        vErrors === null ? vErrors = [err105] : vErrors.push(err105), errors++;
+      }
+    }
+    if (data.expectedEvents !== void 0) {
+      let data51 = data.expectedEvents;
+      if (Array.isArray(data51)) {
+        let len3 = data51.length;
+        for (let i3 = 0; i3 < len3; i3++) {
+          let data52 = data51[i3];
+          if (data52 && typeof data52 == "object" && !Array.isArray(data52)) {
+            if (data52.eventId === void 0) {
+              let err106 = { instancePath: instancePath + "/expectedEvents/" + i3, schemaPath: "#/properties/expectedEvents/items/required", keyword: "required", params: { missingProperty: "eventId" }, message: "must have required property 'eventId'" };
+              vErrors === null ? vErrors = [err106] : vErrors.push(err106), errors++;
+            }
+            if (data52.relativePath === void 0) {
+              let err107 = { instancePath: instancePath + "/expectedEvents/" + i3, schemaPath: "#/properties/expectedEvents/items/required", keyword: "required", params: { missingProperty: "relativePath" }, message: "must have required property 'relativePath'" };
+              vErrors === null ? vErrors = [err107] : vErrors.push(err107), errors++;
+            }
+            if (data52.contentHash === void 0) {
+              let err108 = { instancePath: instancePath + "/expectedEvents/" + i3, schemaPath: "#/properties/expectedEvents/items/required", keyword: "required", params: { missingProperty: "contentHash" }, message: "must have required property 'contentHash'" };
+              vErrors === null ? vErrors = [err108] : vErrors.push(err108), errors++;
+            }
+            if (data52.document === void 0) {
+              let err109 = { instancePath: instancePath + "/expectedEvents/" + i3, schemaPath: "#/properties/expectedEvents/items/required", keyword: "required", params: { missingProperty: "document" }, message: "must have required property 'document'" };
+              vErrors === null ? vErrors = [err109] : vErrors.push(err109), errors++;
+            }
+            for (let key5 in data52)
+              if (!(key5 === "eventId" || key5 === "relativePath" || key5 === "contentHash" || key5 === "document")) {
+                let err110 = { instancePath: instancePath + "/expectedEvents/" + i3, schemaPath: "#/properties/expectedEvents/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key5 }, message: "must NOT have additional properties" };
+                vErrors === null ? vErrors = [err110] : vErrors.push(err110), errors++;
+              }
+            if (data52.eventId !== void 0) {
+              let data53 = data52.eventId;
+              if (typeof data53 == "string") {
+                if (!pattern1.test(data53)) {
+                  let err111 = { instancePath: instancePath + "/expectedEvents/" + i3 + "/eventId", schemaPath: "#/properties/expectedEvents/items/properties/eventId/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, message: 'must match pattern "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"' };
+                  vErrors === null ? vErrors = [err111] : vErrors.push(err111), errors++;
+                }
+              } else {
+                let err112 = { instancePath: instancePath + "/expectedEvents/" + i3 + "/eventId", schemaPath: "#/properties/expectedEvents/items/properties/eventId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                vErrors === null ? vErrors = [err112] : vErrors.push(err112), errors++;
+              }
+            }
+            if (data52.relativePath !== void 0 && typeof data52.relativePath != "string") {
+              let err113 = { instancePath: instancePath + "/expectedEvents/" + i3 + "/relativePath", schemaPath: "#/properties/expectedEvents/items/properties/relativePath/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+              vErrors === null ? vErrors = [err113] : vErrors.push(err113), errors++;
+            }
+            if (data52.contentHash !== void 0) {
+              let data55 = data52.contentHash;
+              if (typeof data55 == "string") {
+                if (!pattern5.test(data55)) {
+                  let err114 = { instancePath: instancePath + "/expectedEvents/" + i3 + "/contentHash", schemaPath: "#/properties/expectedEvents/items/properties/contentHash/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
+                  vErrors === null ? vErrors = [err114] : vErrors.push(err114), errors++;
+                }
+              } else {
+                let err115 = { instancePath: instancePath + "/expectedEvents/" + i3 + "/contentHash", schemaPath: "#/properties/expectedEvents/items/properties/contentHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                vErrors === null ? vErrors = [err115] : vErrors.push(err115), errors++;
+              }
+            }
+            if (data52.document !== void 0) {
+              let data56 = data52.document;
+              if (!(data56 && typeof data56 == "object" && !Array.isArray(data56))) {
+                let err116 = { instancePath: instancePath + "/expectedEvents/" + i3 + "/document", schemaPath: "#/properties/expectedEvents/items/properties/document/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+                vErrors === null ? vErrors = [err116] : vErrors.push(err116), errors++;
+              }
+            }
+          } else {
+            let err117 = { instancePath: instancePath + "/expectedEvents/" + i3, schemaPath: "#/properties/expectedEvents/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            vErrors === null ? vErrors = [err117] : vErrors.push(err117), errors++;
+          }
+        }
+      } else {
+        let err118 = { instancePath: instancePath + "/expectedEvents", schemaPath: "#/properties/expectedEvents/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        vErrors === null ? vErrors = [err118] : vErrors.push(err118), errors++;
       }
     }
     if (data.appliedAt !== void 0) {
-      let data51 = data.appliedAt;
-      if (typeof data51 != "string" && data51 !== null) {
-        let err110 = { instancePath: instancePath + "/appliedAt", schemaPath: "#/properties/appliedAt/type", keyword: "type", params: { type: schema49.properties.appliedAt.type }, message: "must be string,null" };
-        vErrors === null ? vErrors = [err110] : vErrors.push(err110), errors++;
+      let data57 = data.appliedAt;
+      if (typeof data57 != "string" && data57 !== null) {
+        let err119 = { instancePath: instancePath + "/appliedAt", schemaPath: "#/properties/appliedAt/type", keyword: "type", params: { type: schema50.properties.appliedAt.type }, message: "must be string,null" };
+        vErrors === null ? vErrors = [err119] : vErrors.push(err119), errors++;
       }
     }
     if (data.conflict !== void 0) {
-      let data52 = data.conflict;
-      if (!(data52 && typeof data52 == "object" && !Array.isArray(data52)) && data52 !== null) {
-        let err111 = { instancePath: instancePath + "/conflict", schemaPath: "#/properties/conflict/type", keyword: "type", params: { type: schema49.properties.conflict.type }, message: "must be object,null" };
-        vErrors === null ? vErrors = [err111] : vErrors.push(err111), errors++;
+      let data58 = data.conflict;
+      if (!(data58 && typeof data58 == "object" && !Array.isArray(data58)) && data58 !== null) {
+        let err120 = { instancePath: instancePath + "/conflict", schemaPath: "#/properties/conflict/type", keyword: "type", params: { type: schema50.properties.conflict.type }, message: "must be object,null" };
+        vErrors === null ? vErrors = [err120] : vErrors.push(err120), errors++;
       }
     }
     if (data.history !== void 0) {
-      let data53 = data.history;
-      if (Array.isArray(data53)) {
-        let len4 = data53.length;
+      let data59 = data.history;
+      if (Array.isArray(data59)) {
+        let len4 = data59.length;
         for (let i4 = 0; i4 < len4; i4++) {
-          let data54 = data53[i4];
-          if (data54 && typeof data54 == "object" && !Array.isArray(data54)) {
-            if (data54.at === void 0) {
-              let err112 = { instancePath: instancePath + "/history/" + i4, schemaPath: "#/properties/history/items/required", keyword: "required", params: { missingProperty: "at" }, message: "must have required property 'at'" };
-              vErrors === null ? vErrors = [err112] : vErrors.push(err112), errors++;
+          let data60 = data59[i4];
+          if (data60 && typeof data60 == "object" && !Array.isArray(data60)) {
+            if (data60.at === void 0) {
+              let err121 = { instancePath: instancePath + "/history/" + i4, schemaPath: "#/properties/history/items/required", keyword: "required", params: { missingProperty: "at" }, message: "must have required property 'at'" };
+              vErrors === null ? vErrors = [err121] : vErrors.push(err121), errors++;
             }
-            if (data54.to === void 0) {
-              let err113 = { instancePath: instancePath + "/history/" + i4, schemaPath: "#/properties/history/items/required", keyword: "required", params: { missingProperty: "to" }, message: "must have required property 'to'" };
-              vErrors === null ? vErrors = [err113] : vErrors.push(err113), errors++;
+            if (data60.to === void 0) {
+              let err122 = { instancePath: instancePath + "/history/" + i4, schemaPath: "#/properties/history/items/required", keyword: "required", params: { missingProperty: "to" }, message: "must have required property 'to'" };
+              vErrors === null ? vErrors = [err122] : vErrors.push(err122), errors++;
             }
-            if (data54.actor === void 0) {
-              let err114 = { instancePath: instancePath + "/history/" + i4, schemaPath: "#/properties/history/items/required", keyword: "required", params: { missingProperty: "actor" }, message: "must have required property 'actor'" };
-              vErrors === null ? vErrors = [err114] : vErrors.push(err114), errors++;
+            if (data60.actor === void 0) {
+              let err123 = { instancePath: instancePath + "/history/" + i4, schemaPath: "#/properties/history/items/required", keyword: "required", params: { missingProperty: "actor" }, message: "must have required property 'actor'" };
+              vErrors === null ? vErrors = [err123] : vErrors.push(err123), errors++;
             }
-            for (let key6 in data54)
+            for (let key6 in data60)
               if (!(key6 === "at" || key6 === "from" || key6 === "to" || key6 === "actor" || key6 === "reason")) {
-                let err115 = { instancePath: instancePath + "/history/" + i4, schemaPath: "#/properties/history/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key6 }, message: "must NOT have additional properties" };
-                vErrors === null ? vErrors = [err115] : vErrors.push(err115), errors++;
+                let err124 = { instancePath: instancePath + "/history/" + i4, schemaPath: "#/properties/history/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key6 }, message: "must NOT have additional properties" };
+                vErrors === null ? vErrors = [err124] : vErrors.push(err124), errors++;
               }
-            if (data54.at !== void 0 && typeof data54.at != "string") {
-              let err116 = { instancePath: instancePath + "/history/" + i4 + "/at", schemaPath: "#/properties/history/items/properties/at/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-              vErrors === null ? vErrors = [err116] : vErrors.push(err116), errors++;
+            if (data60.at !== void 0 && typeof data60.at != "string") {
+              let err125 = { instancePath: instancePath + "/history/" + i4 + "/at", schemaPath: "#/properties/history/items/properties/at/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+              vErrors === null ? vErrors = [err125] : vErrors.push(err125), errors++;
             }
-            if (data54.from !== void 0) {
-              let data56 = data54.from;
-              if (typeof data56 != "string" && data56 !== null) {
-                let err117 = { instancePath: instancePath + "/history/" + i4 + "/from", schemaPath: "#/properties/history/items/properties/from/type", keyword: "type", params: { type: schema49.properties.history.items.properties.from.type }, message: "must be string,null" };
-                vErrors === null ? vErrors = [err117] : vErrors.push(err117), errors++;
+            if (data60.from !== void 0) {
+              let data62 = data60.from;
+              if (typeof data62 != "string" && data62 !== null) {
+                let err126 = { instancePath: instancePath + "/history/" + i4 + "/from", schemaPath: "#/properties/history/items/properties/from/type", keyword: "type", params: { type: schema50.properties.history.items.properties.from.type }, message: "must be string,null" };
+                vErrors === null ? vErrors = [err126] : vErrors.push(err126), errors++;
               }
             }
-            if (data54.to !== void 0 && typeof data54.to != "string") {
-              let err118 = { instancePath: instancePath + "/history/" + i4 + "/to", schemaPath: "#/properties/history/items/properties/to/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-              vErrors === null ? vErrors = [err118] : vErrors.push(err118), errors++;
+            if (data60.to !== void 0 && typeof data60.to != "string") {
+              let err127 = { instancePath: instancePath + "/history/" + i4 + "/to", schemaPath: "#/properties/history/items/properties/to/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+              vErrors === null ? vErrors = [err127] : vErrors.push(err127), errors++;
             }
-            if (data54.actor !== void 0 && typeof data54.actor != "string") {
-              let err119 = { instancePath: instancePath + "/history/" + i4 + "/actor", schemaPath: "#/properties/history/items/properties/actor/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-              vErrors === null ? vErrors = [err119] : vErrors.push(err119), errors++;
+            if (data60.actor !== void 0 && typeof data60.actor != "string") {
+              let err128 = { instancePath: instancePath + "/history/" + i4 + "/actor", schemaPath: "#/properties/history/items/properties/actor/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+              vErrors === null ? vErrors = [err128] : vErrors.push(err128), errors++;
             }
-            if (data54.reason !== void 0) {
-              let data59 = data54.reason;
-              if (typeof data59 != "string" && data59 !== null) {
-                let err120 = { instancePath: instancePath + "/history/" + i4 + "/reason", schemaPath: "#/properties/history/items/properties/reason/type", keyword: "type", params: { type: schema49.properties.history.items.properties.reason.type }, message: "must be string,null" };
-                vErrors === null ? vErrors = [err120] : vErrors.push(err120), errors++;
+            if (data60.reason !== void 0) {
+              let data65 = data60.reason;
+              if (typeof data65 != "string" && data65 !== null) {
+                let err129 = { instancePath: instancePath + "/history/" + i4 + "/reason", schemaPath: "#/properties/history/items/properties/reason/type", keyword: "type", params: { type: schema50.properties.history.items.properties.reason.type }, message: "must be string,null" };
+                vErrors === null ? vErrors = [err129] : vErrors.push(err129), errors++;
               }
             }
           } else {
-            let err121 = { instancePath: instancePath + "/history/" + i4, schemaPath: "#/properties/history/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-            vErrors === null ? vErrors = [err121] : vErrors.push(err121), errors++;
+            let err130 = { instancePath: instancePath + "/history/" + i4, schemaPath: "#/properties/history/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            vErrors === null ? vErrors = [err130] : vErrors.push(err130), errors++;
           }
         }
       } else {
-        let err122 = { instancePath: instancePath + "/history", schemaPath: "#/properties/history/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        vErrors === null ? vErrors = [err122] : vErrors.push(err122), errors++;
+        let err131 = { instancePath: instancePath + "/history", schemaPath: "#/properties/history/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        vErrors === null ? vErrors = [err131] : vErrors.push(err131), errors++;
       }
     }
   } else {
-    let err123 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    vErrors === null ? vErrors = [err123] : vErrors.push(err123), errors++;
+    let err132 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    vErrors === null ? vErrors = [err132] : vErrors.push(err132), errors++;
   }
   return validate23.errors = vErrors, errors === 0;
 }
@@ -8410,7 +8974,7 @@ function validate24(data, { instancePath = "", parentData, parentDataProperty, r
   }
   return validate24.errors = vErrors, errors === 0;
 }
-var validate_result = validate25;
+var validate_result = validate25, schema52 = { $id: "https://shipping-mode.dev/schemas/result.schema.json", type: "object", additionalProperties: !1, required: ["operationId", "files"], properties: { operationId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, files: { type: "array", items: { type: "object", additionalProperties: !1, required: ["target", "action", "contentHash"], properties: { target: { type: "string" }, action: { enum: ["write", "delete"] }, contentHash: { type: "string", pattern: "^([0-9a-f]{64}|ABSENT)$" } } } } } };
 function validate25(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
   let vErrors = null, errors = 0;
   if (data && typeof data == "object" && !Array.isArray(data)) {
@@ -8450,50 +9014,61 @@ function validate25(data, { instancePath = "", parentData, parentDataProperty, r
               let err5 = { instancePath: instancePath + "/files/" + i0, schemaPath: "#/properties/files/items/required", keyword: "required", params: { missingProperty: "target" }, message: "must have required property 'target'" };
               vErrors === null ? vErrors = [err5] : vErrors.push(err5), errors++;
             }
-            if (data2.contentHash === void 0) {
-              let err6 = { instancePath: instancePath + "/files/" + i0, schemaPath: "#/properties/files/items/required", keyword: "required", params: { missingProperty: "contentHash" }, message: "must have required property 'contentHash'" };
+            if (data2.action === void 0) {
+              let err6 = { instancePath: instancePath + "/files/" + i0, schemaPath: "#/properties/files/items/required", keyword: "required", params: { missingProperty: "action" }, message: "must have required property 'action'" };
               vErrors === null ? vErrors = [err6] : vErrors.push(err6), errors++;
             }
+            if (data2.contentHash === void 0) {
+              let err7 = { instancePath: instancePath + "/files/" + i0, schemaPath: "#/properties/files/items/required", keyword: "required", params: { missingProperty: "contentHash" }, message: "must have required property 'contentHash'" };
+              vErrors === null ? vErrors = [err7] : vErrors.push(err7), errors++;
+            }
             for (let key1 in data2)
-              if (!(key1 === "target" || key1 === "contentHash")) {
-                let err7 = { instancePath: instancePath + "/files/" + i0, schemaPath: "#/properties/files/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key1 }, message: "must NOT have additional properties" };
-                vErrors === null ? vErrors = [err7] : vErrors.push(err7), errors++;
+              if (!(key1 === "target" || key1 === "action" || key1 === "contentHash")) {
+                let err8 = { instancePath: instancePath + "/files/" + i0, schemaPath: "#/properties/files/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key1 }, message: "must NOT have additional properties" };
+                vErrors === null ? vErrors = [err8] : vErrors.push(err8), errors++;
               }
             if (data2.target !== void 0 && typeof data2.target != "string") {
-              let err8 = { instancePath: instancePath + "/files/" + i0 + "/target", schemaPath: "#/properties/files/items/properties/target/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-              vErrors === null ? vErrors = [err8] : vErrors.push(err8), errors++;
+              let err9 = { instancePath: instancePath + "/files/" + i0 + "/target", schemaPath: "#/properties/files/items/properties/target/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+              vErrors === null ? vErrors = [err9] : vErrors.push(err9), errors++;
             }
-            if (data2.contentHash !== void 0) {
-              let data4 = data2.contentHash;
-              if (typeof data4 == "string") {
-                if (!pattern5.test(data4)) {
-                  let err9 = { instancePath: instancePath + "/files/" + i0 + "/contentHash", schemaPath: "#/properties/files/items/properties/contentHash/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
-                  vErrors === null ? vErrors = [err9] : vErrors.push(err9), errors++;
-                }
-              } else {
-                let err10 = { instancePath: instancePath + "/files/" + i0 + "/contentHash", schemaPath: "#/properties/files/items/properties/contentHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            if (data2.action !== void 0) {
+              let data4 = data2.action;
+              if (!(data4 === "write" || data4 === "delete")) {
+                let err10 = { instancePath: instancePath + "/files/" + i0 + "/action", schemaPath: "#/properties/files/items/properties/action/enum", keyword: "enum", params: { allowedValues: schema52.properties.files.items.properties.action.enum }, message: "must be equal to one of the allowed values" };
                 vErrors === null ? vErrors = [err10] : vErrors.push(err10), errors++;
               }
             }
+            if (data2.contentHash !== void 0) {
+              let data5 = data2.contentHash;
+              if (typeof data5 == "string") {
+                if (!pattern10.test(data5)) {
+                  let err11 = { instancePath: instancePath + "/files/" + i0 + "/contentHash", schemaPath: "#/properties/files/items/properties/contentHash/pattern", keyword: "pattern", params: { pattern: "^([0-9a-f]{64}|ABSENT)$" }, message: 'must match pattern "^([0-9a-f]{64}|ABSENT)$"' };
+                  vErrors === null ? vErrors = [err11] : vErrors.push(err11), errors++;
+                }
+              } else {
+                let err12 = { instancePath: instancePath + "/files/" + i0 + "/contentHash", schemaPath: "#/properties/files/items/properties/contentHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                vErrors === null ? vErrors = [err12] : vErrors.push(err12), errors++;
+              }
+            }
           } else {
-            let err11 = { instancePath: instancePath + "/files/" + i0, schemaPath: "#/properties/files/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-            vErrors === null ? vErrors = [err11] : vErrors.push(err11), errors++;
+            let err13 = { instancePath: instancePath + "/files/" + i0, schemaPath: "#/properties/files/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            vErrors === null ? vErrors = [err13] : vErrors.push(err13), errors++;
           }
         }
       } else {
-        let err12 = { instancePath: instancePath + "/files", schemaPath: "#/properties/files/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        vErrors === null ? vErrors = [err12] : vErrors.push(err12), errors++;
+        let err14 = { instancePath: instancePath + "/files", schemaPath: "#/properties/files/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        vErrors === null ? vErrors = [err14] : vErrors.push(err14), errors++;
       }
     }
   } else {
-    let err13 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    vErrors === null ? vErrors = [err13] : vErrors.push(err13), errors++;
+    let err15 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    vErrors === null ? vErrors = [err15] : vErrors.push(err15), errors++;
   }
   return validate25.errors = vErrors, errors === 0;
 }
-var validate_scope = validate26, schema52 = { $id: "https://shipping-mode.dev/schemas/scope.schema.json", type: "object", additionalProperties: !1, required: ["schemaVersion", "id", "key", "label", "kind", "path"], properties: { schemaVersion: { const: 1 }, id: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, key: { type: "string", pattern: "^[a-z0-9]+(-[a-z0-9]+)*$" }, label: { type: "string", minLength: 1 }, kind: { enum: ["code", "non_code"] }, path: { type: "string", minLength: 1 }, owner: { type: ["string", "null"] }, commands: { $ref: "#/$defs/commands" } }, $defs: { uuid: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, sourceRefs: { type: "array", items: { $ref: "#/$defs/uuid" }, minItems: 1, uniqueItems: !0 }, confidence: { enum: ["low", "medium", "high"] }, alternative: { type: "object", additionalProperties: !1, required: ["command", "sourceRefs", "sourceFingerprintAtSelection", "confidence", "requiresEnvironment", "requiresSecrets"], properties: { command: { type: "string", minLength: 1 }, sourceRefs: { $ref: "#/$defs/sourceRefs" }, sourceFingerprintAtSelection: { type: "object", additionalProperties: { type: "string", pattern: "^[0-9a-f]{64}$" } }, confidence: { $ref: "#/$defs/confidence" }, requiresEnvironment: { type: "boolean" }, requiresSecrets: { type: "boolean" } } }, commandEntry: { oneOf: [{ type: "object", additionalProperties: !1, required: ["command", "method", "declaredBy", "declaredAt", "declaredOperationId", "requiresEnvironment", "requiresSecrets", "alternatives"], properties: { command: { type: "string", minLength: 1 }, method: { const: "declared" }, declaredBy: { type: "string", minLength: 1 }, declaredAt: { type: "string", minLength: 1 }, declaredOperationId: { $ref: "#/$defs/uuid" }, requiresEnvironment: { type: "boolean" }, requiresSecrets: { type: "boolean" }, alternatives: { type: "array", maxItems: 0 } } }, { type: "object", additionalProperties: !1, required: ["command", "method", "confidence", "sourceRefs", "sourceFingerprintAtSelection", "requiresEnvironment", "requiresSecrets", "alternatives"], properties: { command: { type: "string", minLength: 1 }, method: { enum: ["inferred", "reviewed"] }, confidence: { $ref: "#/$defs/confidence" }, sourceRefs: { $ref: "#/$defs/sourceRefs" }, sourceFingerprintAtSelection: { type: "object", additionalProperties: { type: "string", pattern: "^[0-9a-f]{64}$" } }, requiresEnvironment: { type: "boolean" }, requiresSecrets: { type: "boolean" }, alternatives: { type: "array", items: { $ref: "#/$defs/alternative" } } } }] }, commands: { type: "object", additionalProperties: !1, properties: { build: { $ref: "#/$defs/commandEntry" }, test: { $ref: "#/$defs/commandEntry" }, smoke: { $ref: "#/$defs/commandEntry" }, lint: { $ref: "#/$defs/commandEntry" }, verify: { $ref: "#/$defs/commandEntry" }, custom: { type: "object", additionalProperties: { $ref: "#/$defs/commandEntry" }, propertyNames: { pattern: "^[a-z][a-z0-9-]{0,63}$", not: { enum: ["build", "test", "smoke", "lint", "verify"] } } } } } } };
-var schema54 = { oneOf: [{ type: "object", additionalProperties: !1, required: ["command", "method", "declaredBy", "declaredAt", "declaredOperationId", "requiresEnvironment", "requiresSecrets", "alternatives"], properties: { command: { type: "string", minLength: 1 }, method: { const: "declared" }, declaredBy: { type: "string", minLength: 1 }, declaredAt: { type: "string", minLength: 1 }, declaredOperationId: { $ref: "#/$defs/uuid" }, requiresEnvironment: { type: "boolean" }, requiresSecrets: { type: "boolean" }, alternatives: { type: "array", maxItems: 0 } } }, { type: "object", additionalProperties: !1, required: ["command", "method", "confidence", "sourceRefs", "sourceFingerprintAtSelection", "requiresEnvironment", "requiresSecrets", "alternatives"], properties: { command: { type: "string", minLength: 1 }, method: { enum: ["inferred", "reviewed"] }, confidence: { $ref: "#/$defs/confidence" }, sourceRefs: { $ref: "#/$defs/sourceRefs" }, sourceFingerprintAtSelection: { type: "object", additionalProperties: { type: "string", pattern: "^[0-9a-f]{64}$" } }, requiresEnvironment: { type: "boolean" }, requiresSecrets: { type: "boolean" }, alternatives: { type: "array", items: { $ref: "#/$defs/alternative" } } } }] };
-var schema56 = { enum: ["low", "medium", "high"] };
+var validate_scope = validate26, schema53 = { $id: "https://shipping-mode.dev/schemas/scope.schema.json", type: "object", additionalProperties: !1, required: ["schemaVersion", "id", "key", "label", "kind", "path"], properties: { schemaVersion: { const: 1 }, id: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, key: { type: "string", pattern: "^[a-z0-9]+(-[a-z0-9]+)*$" }, label: { type: "string", minLength: 1 }, kind: { enum: ["code", "non_code"] }, path: { type: "string", minLength: 1 }, owner: { type: ["string", "null"] }, commands: { $ref: "#/$defs/commands" } }, $defs: { uuid: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, sourceRefs: { type: "array", items: { $ref: "#/$defs/uuid" }, minItems: 1, uniqueItems: !0 }, confidence: { enum: ["low", "medium", "high"] }, alternative: { type: "object", additionalProperties: !1, required: ["command", "sourceRefs", "sourceFingerprintAtSelection", "confidence", "requiresEnvironment", "requiresSecrets"], properties: { command: { type: "string", minLength: 1 }, sourceRefs: { $ref: "#/$defs/sourceRefs" }, sourceFingerprintAtSelection: { type: "object", additionalProperties: { type: "string", pattern: "^[0-9a-f]{64}$" } }, confidence: { $ref: "#/$defs/confidence" }, requiresEnvironment: { type: "boolean" }, requiresSecrets: { type: "boolean" } } }, commandEntry: { oneOf: [{ type: "object", additionalProperties: !1, required: ["command", "method", "declaredBy", "declaredAt", "declaredOperationId", "requiresEnvironment", "requiresSecrets", "alternatives"], properties: { command: { type: "string", minLength: 1 }, method: { const: "declared" }, declaredBy: { type: "string", minLength: 1 }, declaredAt: { type: "string", minLength: 1 }, declaredOperationId: { $ref: "#/$defs/uuid" }, requiresEnvironment: { type: "boolean" }, requiresSecrets: { type: "boolean" }, alternatives: { type: "array", maxItems: 0 } } }, { type: "object", additionalProperties: !1, required: ["command", "method", "confidence", "sourceRefs", "sourceFingerprintAtSelection", "requiresEnvironment", "requiresSecrets", "alternatives"], properties: { command: { type: "string", minLength: 1 }, method: { enum: ["inferred", "reviewed"] }, confidence: { $ref: "#/$defs/confidence" }, sourceRefs: { $ref: "#/$defs/sourceRefs" }, sourceFingerprintAtSelection: { type: "object", additionalProperties: { type: "string", pattern: "^[0-9a-f]{64}$" } }, requiresEnvironment: { type: "boolean" }, requiresSecrets: { type: "boolean" }, alternatives: { type: "array", items: { $ref: "#/$defs/alternative" } } } }] }, commands: { type: "object", additionalProperties: !1, properties: { build: { $ref: "#/$defs/commandEntry" }, test: { $ref: "#/$defs/commandEntry" }, smoke: { $ref: "#/$defs/commandEntry" }, lint: { $ref: "#/$defs/commandEntry" }, verify: { $ref: "#/$defs/commandEntry" }, custom: { type: "object", additionalProperties: { $ref: "#/$defs/commandEntry" }, propertyNames: { pattern: "^[a-z][a-z0-9-]{0,63}$", not: { enum: ["build", "test", "smoke", "lint", "verify"] } } } } } } };
+var schema55 = { oneOf: [{ type: "object", additionalProperties: !1, required: ["command", "method", "declaredBy", "declaredAt", "declaredOperationId", "requiresEnvironment", "requiresSecrets", "alternatives"], properties: { command: { type: "string", minLength: 1 }, method: { const: "declared" }, declaredBy: { type: "string", minLength: 1 }, declaredAt: { type: "string", minLength: 1 }, declaredOperationId: { $ref: "#/$defs/uuid" }, requiresEnvironment: { type: "boolean" }, requiresSecrets: { type: "boolean" }, alternatives: { type: "array", maxItems: 0 } } }, { type: "object", additionalProperties: !1, required: ["command", "method", "confidence", "sourceRefs", "sourceFingerprintAtSelection", "requiresEnvironment", "requiresSecrets", "alternatives"], properties: { command: { type: "string", minLength: 1 }, method: { enum: ["inferred", "reviewed"] }, confidence: { $ref: "#/$defs/confidence" }, sourceRefs: { $ref: "#/$defs/sourceRefs" }, sourceFingerprintAtSelection: { type: "object", additionalProperties: { type: "string", pattern: "^[0-9a-f]{64}$" } }, requiresEnvironment: { type: "boolean" }, requiresSecrets: { type: "boolean" }, alternatives: { type: "array", items: { $ref: "#/$defs/alternative" } } } }] };
+var schema57 = { enum: ["low", "medium", "high"] };
 function validate29(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
   let vErrors = null, errors = 0;
   if (Array.isArray(data)) {
@@ -8597,7 +9172,7 @@ function validate31(data, { instancePath = "", parentData, parentDataProperty, r
     if (data.confidence !== void 0) {
       let data4 = data.confidence;
       if (!(data4 === "low" || data4 === "medium" || data4 === "high")) {
-        let err12 = { instancePath: instancePath + "/confidence", schemaPath: "#/$defs/confidence/enum", keyword: "enum", params: { allowedValues: schema56.enum }, message: "must be equal to one of the allowed values" };
+        let err12 = { instancePath: instancePath + "/confidence", schemaPath: "#/$defs/confidence/enum", keyword: "enum", params: { allowedValues: schema57.enum }, message: "must be equal to one of the allowed values" };
         vErrors === null ? vErrors = [err12] : vErrors.push(err12), errors++;
       }
     }
@@ -8787,14 +9362,14 @@ function validate28(data, { instancePath = "", parentData, parentDataProperty, r
     if (data.method !== void 0) {
       let data9 = data.method;
       if (!(data9 === "inferred" || data9 === "reviewed")) {
-        let err34 = { instancePath: instancePath + "/method", schemaPath: "#/oneOf/1/properties/method/enum", keyword: "enum", params: { allowedValues: schema54.oneOf[1].properties.method.enum }, message: "must be equal to one of the allowed values" };
+        let err34 = { instancePath: instancePath + "/method", schemaPath: "#/oneOf/1/properties/method/enum", keyword: "enum", params: { allowedValues: schema55.oneOf[1].properties.method.enum }, message: "must be equal to one of the allowed values" };
         vErrors === null ? vErrors = [err34] : vErrors.push(err34), errors++;
       }
     }
     if (data.confidence !== void 0) {
       let data10 = data.confidence;
       if (!(data10 === "low" || data10 === "medium" || data10 === "high")) {
-        let err35 = { instancePath: instancePath + "/confidence", schemaPath: "#/$defs/confidence/enum", keyword: "enum", params: { allowedValues: schema56.enum }, message: "must be equal to one of the allowed values" };
+        let err35 = { instancePath: instancePath + "/confidence", schemaPath: "#/$defs/confidence/enum", keyword: "enum", params: { allowedValues: schema57.enum }, message: "must be equal to one of the allowed values" };
         vErrors === null ? vErrors = [err35] : vErrors.push(err35), errors++;
       }
     }
@@ -8850,7 +9425,7 @@ function validate28(data, { instancePath = "", parentData, parentDataProperty, r
   }
   return validate28.errors = vErrors, errors === 0;
 }
-var pattern51 = new RegExp("^[a-z][a-z0-9-]{0,63}$", "u");
+var pattern59 = new RegExp("^[a-z][a-z0-9-]{0,63}$", "u");
 function validate27(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
   let vErrors = null, errors = 0;
   if (data && typeof data == "object" && !Array.isArray(data)) {
@@ -8874,7 +9449,7 @@ function validate27(data, { instancePath = "", parentData, parentDataProperty, r
             vErrors === null ? vErrors = [err2] : vErrors.push(err2), errors++;
           } else
             errors = _errs10, vErrors !== null && (_errs10 ? vErrors.length = _errs10 : vErrors = null);
-          if (typeof key1 == "string" && !pattern51.test(key1)) {
+          if (typeof key1 == "string" && !pattern59.test(key1)) {
             let err3 = { instancePath: instancePath + "/custom", schemaPath: "#/properties/custom/propertyNames/pattern", keyword: "pattern", params: { pattern: "^[a-z][a-z0-9-]{0,63}$" }, message: 'must match pattern "^[a-z][a-z0-9-]{0,63}$"', propertyName: key1 };
             vErrors === null ? vErrors = [err3] : vErrors.push(err3), errors++;
           }
@@ -8948,7 +9523,7 @@ function validate26(data, { instancePath = "", parentData, parentDataProperty, r
     if (data.key !== void 0) {
       let data2 = data.key;
       if (typeof data2 == "string") {
-        if (!pattern7.test(data2)) {
+        if (!pattern15.test(data2)) {
           let err10 = { instancePath: instancePath + "/key", schemaPath: "#/properties/key/pattern", keyword: "pattern", params: { pattern: "^[a-z0-9]+(-[a-z0-9]+)*$" }, message: 'must match pattern "^[a-z0-9]+(-[a-z0-9]+)*$"' };
           vErrors === null ? vErrors = [err10] : vErrors.push(err10), errors++;
         }
@@ -8972,7 +9547,7 @@ function validate26(data, { instancePath = "", parentData, parentDataProperty, r
     if (data.kind !== void 0) {
       let data4 = data.kind;
       if (!(data4 === "code" || data4 === "non_code")) {
-        let err14 = { instancePath: instancePath + "/kind", schemaPath: "#/properties/kind/enum", keyword: "enum", params: { allowedValues: schema52.properties.kind.enum }, message: "must be equal to one of the allowed values" };
+        let err14 = { instancePath: instancePath + "/kind", schemaPath: "#/properties/kind/enum", keyword: "enum", params: { allowedValues: schema53.properties.kind.enum }, message: "must be equal to one of the allowed values" };
         vErrors === null ? vErrors = [err14] : vErrors.push(err14), errors++;
       }
     }
@@ -8991,7 +9566,7 @@ function validate26(data, { instancePath = "", parentData, parentDataProperty, r
     if (data.owner !== void 0) {
       let data6 = data.owner;
       if (typeof data6 != "string" && data6 !== null) {
-        let err17 = { instancePath: instancePath + "/owner", schemaPath: "#/properties/owner/type", keyword: "type", params: { type: schema52.properties.owner.type }, message: "must be string,null" };
+        let err17 = { instancePath: instancePath + "/owner", schemaPath: "#/properties/owner/type", keyword: "type", params: { type: schema53.properties.owner.type }, message: "must be string,null" };
         vErrors === null ? vErrors = [err17] : vErrors.push(err17), errors++;
       }
     }
@@ -9002,7 +9577,7 @@ function validate26(data, { instancePath = "", parentData, parentDataProperty, r
   }
   return validate26.errors = vErrors, errors === 0;
 }
-var validate_source = validate41, schema61 = { $id: "https://shipping-mode.dev/schemas/source.schema.json", type: "object", additionalProperties: !1, required: ["schemaVersion", "id", "path", "family", "kind", "role", "authority", "availability", "confirmedFingerprint", "confirmedContentHash", "provenance"], properties: { schemaVersion: { const: 1 }, id: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, path: { type: "string", minLength: 1 }, family: { enum: ["product-sources", "functional-sources", "technical-sources", "agent-repository-instructions", "project-module-manifests", "execution-commands", "quality-definitions", "local-runtime-environment", "public-data-contracts", "delivery-ci-deployment", "ownership", "decision-sources", "developer-guides", "engineering-standards", "repository-map", "evidence-contracts", "design-system", "prompt-sources", "custom-automation"] }, kind: { enum: ["product", "requirements", "architecture", "decision", "developer-guide", "engineering-standard", "agent-instructions", "repository-map", "api-contract", "data-contract", "database", "testing", "quality", "security", "observability", "design-system", "i18n", "runtime", "environment", "deployment", "ci", "ownership", "prompt", "generator", "evidence", "planning"] }, role: { enum: ["canonical", "decision", "derived", "operational", "evidence", "generated", "historical", "reference"] }, authority: { type: "object", additionalProperties: !1, required: ["standing", "force"], properties: { standing: { enum: ["contextual", "supporting", "authoritative"] }, force: { enum: ["unknown", "informational", "advisory", "normative"] } } }, availability: { enum: ["implemented", "partial", "planned", "deprecated", "historical", "mixed", "unknown"] }, confirmedFingerprint: { type: "string", pattern: "^[0-9a-f]{64}$" }, confirmedContentHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, provenance: { type: "object", additionalProperties: !1, required: ["discoveredBy", "confirmedBy", "confirmedAt", "confirmedOperationId"], properties: { discoveredBy: { type: "string", minLength: 1 }, confirmedBy: { type: "string", minLength: 1 }, confirmedAt: { type: "string", minLength: 1 }, confirmedOperationId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" } } } } };
+var validate_source = validate41, schema62 = { $id: "https://shipping-mode.dev/schemas/source.schema.json", type: "object", additionalProperties: !1, required: ["schemaVersion", "id", "path", "family", "kind", "role", "authority", "availability", "confirmedFingerprint", "confirmedContentHash", "provenance"], properties: { schemaVersion: { const: 1 }, id: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, path: { type: "string", minLength: 1 }, family: { enum: ["product-sources", "functional-sources", "technical-sources", "agent-repository-instructions", "project-module-manifests", "execution-commands", "quality-definitions", "local-runtime-environment", "public-data-contracts", "delivery-ci-deployment", "ownership", "decision-sources", "developer-guides", "engineering-standards", "repository-map", "evidence-contracts", "design-system", "prompt-sources", "custom-automation"] }, kind: { enum: ["product", "requirements", "architecture", "decision", "developer-guide", "engineering-standard", "agent-instructions", "repository-map", "api-contract", "data-contract", "database", "testing", "quality", "security", "observability", "design-system", "i18n", "runtime", "environment", "deployment", "ci", "ownership", "prompt", "generator", "evidence", "planning"] }, role: { enum: ["canonical", "decision", "derived", "operational", "evidence", "generated", "historical", "reference"] }, authority: { type: "object", additionalProperties: !1, required: ["standing", "force"], properties: { standing: { enum: ["contextual", "supporting", "authoritative"] }, force: { enum: ["unknown", "informational", "advisory", "normative"] } } }, availability: { enum: ["implemented", "partial", "planned", "deprecated", "historical", "mixed", "unknown"] }, confirmedFingerprint: { type: "string", pattern: "^[0-9a-f]{64}$" }, confirmedContentHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, provenance: { type: "object", additionalProperties: !1, required: ["discoveredBy", "confirmedBy", "confirmedAt", "confirmedOperationId"], properties: { discoveredBy: { type: "string", minLength: 1 }, confirmedBy: { type: "string", minLength: 1 }, confirmedAt: { type: "string", minLength: 1 }, confirmedOperationId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" } } } } };
 function validate41(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
   let vErrors = null, errors = 0;
   if (data && typeof data == "object" && !Array.isArray(data)) {
@@ -9051,7 +9626,7 @@ function validate41(data, { instancePath = "", parentData, parentDataProperty, r
       vErrors === null ? vErrors = [err10] : vErrors.push(err10), errors++;
     }
     for (let key0 in data)
-      if (!func12.call(schema61.properties, key0)) {
+      if (!func17.call(schema62.properties, key0)) {
         let err11 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
         vErrors === null ? vErrors = [err11] : vErrors.push(err11), errors++;
       }
@@ -9086,21 +9661,21 @@ function validate41(data, { instancePath = "", parentData, parentDataProperty, r
     if (data.family !== void 0) {
       let data3 = data.family;
       if (!(data3 === "product-sources" || data3 === "functional-sources" || data3 === "technical-sources" || data3 === "agent-repository-instructions" || data3 === "project-module-manifests" || data3 === "execution-commands" || data3 === "quality-definitions" || data3 === "local-runtime-environment" || data3 === "public-data-contracts" || data3 === "delivery-ci-deployment" || data3 === "ownership" || data3 === "decision-sources" || data3 === "developer-guides" || data3 === "engineering-standards" || data3 === "repository-map" || data3 === "evidence-contracts" || data3 === "design-system" || data3 === "prompt-sources" || data3 === "custom-automation")) {
-        let err17 = { instancePath: instancePath + "/family", schemaPath: "#/properties/family/enum", keyword: "enum", params: { allowedValues: schema61.properties.family.enum }, message: "must be equal to one of the allowed values" };
+        let err17 = { instancePath: instancePath + "/family", schemaPath: "#/properties/family/enum", keyword: "enum", params: { allowedValues: schema62.properties.family.enum }, message: "must be equal to one of the allowed values" };
         vErrors === null ? vErrors = [err17] : vErrors.push(err17), errors++;
       }
     }
     if (data.kind !== void 0) {
       let data4 = data.kind;
       if (!(data4 === "product" || data4 === "requirements" || data4 === "architecture" || data4 === "decision" || data4 === "developer-guide" || data4 === "engineering-standard" || data4 === "agent-instructions" || data4 === "repository-map" || data4 === "api-contract" || data4 === "data-contract" || data4 === "database" || data4 === "testing" || data4 === "quality" || data4 === "security" || data4 === "observability" || data4 === "design-system" || data4 === "i18n" || data4 === "runtime" || data4 === "environment" || data4 === "deployment" || data4 === "ci" || data4 === "ownership" || data4 === "prompt" || data4 === "generator" || data4 === "evidence" || data4 === "planning")) {
-        let err18 = { instancePath: instancePath + "/kind", schemaPath: "#/properties/kind/enum", keyword: "enum", params: { allowedValues: schema61.properties.kind.enum }, message: "must be equal to one of the allowed values" };
+        let err18 = { instancePath: instancePath + "/kind", schemaPath: "#/properties/kind/enum", keyword: "enum", params: { allowedValues: schema62.properties.kind.enum }, message: "must be equal to one of the allowed values" };
         vErrors === null ? vErrors = [err18] : vErrors.push(err18), errors++;
       }
     }
     if (data.role !== void 0) {
       let data5 = data.role;
       if (!(data5 === "canonical" || data5 === "decision" || data5 === "derived" || data5 === "operational" || data5 === "evidence" || data5 === "generated" || data5 === "historical" || data5 === "reference")) {
-        let err19 = { instancePath: instancePath + "/role", schemaPath: "#/properties/role/enum", keyword: "enum", params: { allowedValues: schema61.properties.role.enum }, message: "must be equal to one of the allowed values" };
+        let err19 = { instancePath: instancePath + "/role", schemaPath: "#/properties/role/enum", keyword: "enum", params: { allowedValues: schema62.properties.role.enum }, message: "must be equal to one of the allowed values" };
         vErrors === null ? vErrors = [err19] : vErrors.push(err19), errors++;
       }
     }
@@ -9123,14 +9698,14 @@ function validate41(data, { instancePath = "", parentData, parentDataProperty, r
         if (data6.standing !== void 0) {
           let data7 = data6.standing;
           if (!(data7 === "contextual" || data7 === "supporting" || data7 === "authoritative")) {
-            let err23 = { instancePath: instancePath + "/authority/standing", schemaPath: "#/properties/authority/properties/standing/enum", keyword: "enum", params: { allowedValues: schema61.properties.authority.properties.standing.enum }, message: "must be equal to one of the allowed values" };
+            let err23 = { instancePath: instancePath + "/authority/standing", schemaPath: "#/properties/authority/properties/standing/enum", keyword: "enum", params: { allowedValues: schema62.properties.authority.properties.standing.enum }, message: "must be equal to one of the allowed values" };
             vErrors === null ? vErrors = [err23] : vErrors.push(err23), errors++;
           }
         }
         if (data6.force !== void 0) {
           let data8 = data6.force;
           if (!(data8 === "unknown" || data8 === "informational" || data8 === "advisory" || data8 === "normative")) {
-            let err24 = { instancePath: instancePath + "/authority/force", schemaPath: "#/properties/authority/properties/force/enum", keyword: "enum", params: { allowedValues: schema61.properties.authority.properties.force.enum }, message: "must be equal to one of the allowed values" };
+            let err24 = { instancePath: instancePath + "/authority/force", schemaPath: "#/properties/authority/properties/force/enum", keyword: "enum", params: { allowedValues: schema62.properties.authority.properties.force.enum }, message: "must be equal to one of the allowed values" };
             vErrors === null ? vErrors = [err24] : vErrors.push(err24), errors++;
           }
         }
@@ -9142,7 +9717,7 @@ function validate41(data, { instancePath = "", parentData, parentDataProperty, r
     if (data.availability !== void 0) {
       let data9 = data.availability;
       if (!(data9 === "implemented" || data9 === "partial" || data9 === "planned" || data9 === "deprecated" || data9 === "historical" || data9 === "mixed" || data9 === "unknown")) {
-        let err26 = { instancePath: instancePath + "/availability", schemaPath: "#/properties/availability/enum", keyword: "enum", params: { allowedValues: schema61.properties.availability.enum }, message: "must be equal to one of the allowed values" };
+        let err26 = { instancePath: instancePath + "/availability", schemaPath: "#/properties/availability/enum", keyword: "enum", params: { allowedValues: schema62.properties.availability.enum }, message: "must be equal to one of the allowed values" };
         vErrors === null ? vErrors = [err26] : vErrors.push(err26), errors++;
       }
     }
@@ -9334,7 +9909,7 @@ function currentContentHash(planningRoot, relativePath) {
   return fs6.existsSync(absolutePath) ? contentHash(fs6.readFileSync(absolutePath)) : ABSENT;
 }
 function classify(entry, actualHash) {
-  return actualHash === entry.stagedContentHash ? "APPLIED" : actualHash === entry.beforeContentHash ? "PENDING" : "DIVERGENT";
+  return entry.action === "delete" ? actualHash === ABSENT ? "APPLIED" : actualHash === entry.beforeContentHash ? "PENDING" : "DIVERGENT" : actualHash === entry.stagedContentHash ? "APPLIED" : actualHash === entry.beforeContentHash ? "PENDING" : "DIVERGENT";
 }
 function markRecoveryRequired(operationsRoot, operationId, operation, conflict) {
   let detectedAt = (/* @__PURE__ */ new Date()).toISOString();
@@ -9390,6 +9965,10 @@ function runRecovery({ operationsRoot, planningRoot, lock }) {
         break;
       }
       if (classification === "PENDING") {
+        if (entry.action === "delete") {
+          deleteWithinRoot(planningRoot, entry.target);
+          continue;
+        }
         let stagedRelative = path6.join(runtimeOperationsRelative, operationId, "staged", entry.stagedRelativePath), stagedPath;
         try {
           stagedPath = confineRuntimeWritePath(planningRoot, stagedRelative);
@@ -9422,7 +10001,7 @@ function runRecovery({ operationsRoot, planningRoot, lock }) {
     }
     let expectedResult = {
       operationId,
-      files: (operation.filePlan || []).map((entry) => ({ target: entry.target, contentHash: entry.stagedContentHash }))
+      files: (operation.filePlan || []).map((entry) => ({ target: entry.target, action: entry.action, contentHash: entry.stagedContentHash }))
     }, resultPath = confineWritePath(operationsRoot, path6.join(operationId, "result.json"));
     if (fs6.existsSync(resultPath)) {
       let existingResult = null;
@@ -9504,365 +10083,14 @@ function checkpoint(name) {
   }
 }
 
-// runtime/src/lib/changeset.mjs
-function readFileState(planningRoot, relativePath) {
-  let absolutePath = confineRuntimeWritePath(planningRoot, relativePath);
-  if (!fs7.existsSync(absolutePath))
-    return { revisionHash: ABSENT, contentHash: ABSENT };
-  let bytes = fs7.readFileSync(absolutePath), isStructured = relativePath.endsWith(".yml") || relativePath.endsWith(".yaml") || relativePath.endsWith(".json"), structuredValue = isStructured ? relativePath.endsWith(".json") ? JSON.parse(bytes.toString("utf8")) : parseYaml(bytes.toString("utf8")) : null;
-  return {
-    revisionHash: isStructured ? revisionHash(structuredValue) : contentHash(bytes),
-    contentHash: contentHash(bytes)
-  };
-}
-function computePersistedChangeSetHash(changeSet) {
-  let { hash, ...withoutHash } = changeSet;
-  return revisionHash(withoutHash);
-}
-function eventTypeFor(kind) {
-  return { "workspace.init": "workspace.initialized", "config.update": "config.updated", "scope.add": "scope.added" }[kind];
-}
-function propose({ operationsRoot, planningRoot, kind, target, payload, targetFiles, actor }) {
-  return withWorkspaceMutation({ planningRoot, operationsRoot, operationId: null }, () => {
-    let operationId = generateUuidV7();
-    assertDistinctMutationTargets(planningRoot, targetFiles);
-    let baseRevisions = {};
-    for (let relativePath of targetFiles)
-      baseRevisions[relativePath] = readFileState(planningRoot, relativePath);
-    let changeSetWithoutHash = { schemaVersion: 1, operationId, kind, target, baseRevisions, payload }, hash = computePersistedChangeSetHash(changeSetWithoutHash);
-    writeChangeSet(operationsRoot, operationId, { ...changeSetWithoutHash, hash });
-    let reservedEvents = [{ eventId: generateUuidV7(), type: eventTypeFor(kind) }], proposedAt = (/* @__PURE__ */ new Date()).toISOString();
-    return writeOperation(operationsRoot, operationId, {
-      id: operationId,
-      kind,
-      status: "PROPOSED",
-      proposedBy: actor,
-      proposedAt,
-      reservedEvents,
-      validation: { validatedAt: null, changeSetHash: null, errors: [] },
-      approval: { actor: null, approvedAt: null, changeSetHash: null, selfApproval: null },
-      history: [{ at: proposedAt, from: null, to: "PROPOSED", actor, reason: null }]
-    }), operationId;
-  });
-}
-function schemaNameForRenderedPath(relativePath) {
-  return relativePath === "config.yml" ? "config" : relativePath === "plugin.lock.yml" ? "plugin-lock" : /^scopes\/[^/]+\/scope\.yml$/.test(relativePath) ? "scope" : null;
-}
-function checkKindInvariants(changeSet) {
-  let errors = [];
-  if (changeSet.kind === "workspace.init")
-    for (let relativePath of ["config.yml", "plugin.lock.yml", ".gitignore"]) {
-      let entry = changeSet.baseRevisions[relativePath];
-      (!entry || entry.revisionHash !== ABSENT || entry.contentHash !== ABSENT) && errors.push(`${relativePath} must be ABSENT for workspace.init; the workspace already appears initialized -- use config set to update it instead`);
-    }
-  if (changeSet.kind === "scope.add") {
-    let scopePath = `scopes/${changeSet.payload.id}/scope.yml`, entry = changeSet.baseRevisions[scopePath];
-    (!entry || entry.revisionHash !== ABSENT || entry.contentHash !== ABSENT) && errors.push(`${scopePath} must be ABSENT for a new scope.add, but baseRevisions recorded something else`);
-  }
-  return errors;
-}
-function revalidateChangeSet({ operationsRoot, planningRoot, operationId, render }) {
-  let changeSet = readChangeSet(operationsRoot, operationId);
-  if (changeSet.operationId !== operationId)
-    return { ok: !1, status: "INVALID", errors: [`change-set.json operationId ${changeSet.operationId} does not match operation ${operationId}`], recomputedHash: null };
-  let recomputedHash = computePersistedChangeSetHash(changeSet);
-  if (recomputedHash !== changeSet.hash)
-    return { ok: !1, status: "INVALID", errors: ["change-set.json hash does not match its own recomputed content; the file has been tampered with or corrupted"], recomputedHash };
-  let changeSetResult = validate("change-set", changeSet);
-  if (!changeSetResult.valid)
-    return { ok: !1, status: "INVALID", errors: changeSetResult.errors.map((e) => `change-set${e.path}: ${e.message}`), recomputedHash };
-  let invariantErrors = checkKindInvariants(changeSet);
-  if (invariantErrors.length > 0)
-    return { ok: !1, status: "INVALID", errors: invariantErrors, recomputedHash };
-  let rendered;
-  try {
-    rendered = render(changeSet.payload), assertDistinctMutationTargets(planningRoot, [...rendered.keys()]);
-  } catch (error) {
-    return { ok: !1, status: "INVALID", errors: [error.message], recomputedHash };
-  }
-  let renderedPaths = new Set(rendered.keys()), baseRevisionPaths = new Set(Object.keys(changeSet.baseRevisions)), missingFromBaseRevisions = [...renderedPaths].filter((p) => !baseRevisionPaths.has(p)), extraInBaseRevisions = [...baseRevisionPaths].filter((p) => !renderedPaths.has(p));
-  if (missingFromBaseRevisions.length > 0 || extraInBaseRevisions.length > 0)
-    return {
-      ok: !1,
-      status: "INVALID",
-      errors: [`baseRevisions must exactly match the rendered file set; missing=${JSON.stringify(missingFromBaseRevisions)} extra=${JSON.stringify(extraInBaseRevisions)}`],
-      recomputedHash
-    };
-  for (let [relativePath, expected] of Object.entries(changeSet.baseRevisions)) {
-    let actual = readFileState(planningRoot, relativePath);
-    if (actual.revisionHash !== expected.revisionHash || actual.contentHash !== expected.contentHash)
-      return { ok: !1, status: "STALE", errors: [`${relativePath} changed since propose`], recomputedHash };
-  }
-  let renderErrors = [];
-  for (let [relativePath, content] of rendered) {
-    let schemaName = schemaNameForRenderedPath(relativePath);
-    if (!schemaName) continue;
-    let value = parseYaml(content), result = validate(schemaName, value);
-    if (!result.valid)
-      for (let error of result.errors) renderErrors.push(`${relativePath}${error.path}: ${error.message}`);
-  }
-  return renderErrors.length > 0 ? { ok: !1, status: "INVALID", errors: renderErrors, recomputedHash } : { ok: !0, recomputedHash, changeSet, rendered };
-}
-function transitionToStale(operationsRoot, operationId, operation, reason) {
-  let staleAt = (/* @__PURE__ */ new Date()).toISOString();
-  throw writeOperation(operationsRoot, operationId, {
-    ...operation,
-    status: "STALE",
-    history: [...operation.history, { at: staleAt, from: operation.status, to: "STALE", actor: "system:validator", reason }]
-  }), new StaleError(reason);
-}
-function validateOperation({ operationsRoot, planningRoot, operationId, render }) {
-  return withWorkspaceMutation({ planningRoot, operationsRoot, operationId }, () => {
-    let operation = readOperation(operationsRoot, operationId);
-    if (operation.status !== "PROPOSED")
-      throw new StateError(`cannot validate operation in status ${operation.status}`);
-    let result = revalidateChangeSet({ operationsRoot, planningRoot, operationId, render }), validatedAt = (/* @__PURE__ */ new Date()).toISOString();
-    if (!result.ok) {
-      writeOperation(operationsRoot, operationId, {
-        ...operation,
-        status: result.status,
-        validation: { validatedAt, changeSetHash: result.recomputedHash, errors: result.errors },
-        history: [...operation.history, { at: validatedAt, from: operation.status, to: result.status, actor: "system:validator", reason: result.errors[0] }]
-      });
-      return;
-    }
-    writeOperation(operationsRoot, operationId, {
-      ...operation,
-      status: "VALIDATED",
-      validation: { validatedAt, changeSetHash: result.recomputedHash, errors: [] },
-      history: [...operation.history, { at: validatedAt, from: operation.status, to: "VALIDATED", actor: "system:validator", reason: null }]
-    });
-  });
-}
-function approveOperation({ operationsRoot, planningRoot, operationId, actor, allowSelfApproval = !1 }) {
-  return withWorkspaceMutation({ planningRoot, operationsRoot, operationId }, () => {
-    let operation = readOperation(operationsRoot, operationId);
-    if (operation.status !== "VALIDATED")
-      throw new StateError(`cannot approve operation in status ${operation.status}`);
-    let changeSet = readChangeSet(operationsRoot, operationId), recomputedHash = computePersistedChangeSetHash(changeSet);
-    (recomputedHash !== changeSet.hash || recomputedHash !== operation.validation.changeSetHash) && transitionToStale(operationsRoot, operationId, operation, "change-set.json changed since validate; propose and validate again before approving");
-    let selfApproval = actor === operation.proposedBy;
-    if (selfApproval && !allowSelfApproval)
-      throw new StateError("self-approval requires allowSelfApproval to be explicitly set");
-    let approvedAt = (/* @__PURE__ */ new Date()).toISOString();
-    writeOperation(operationsRoot, operationId, {
-      ...operation,
-      status: "APPROVED",
-      approval: { actor, approvedAt, changeSetHash: recomputedHash, selfApproval },
-      history: [...operation.history, { at: approvedAt, from: "VALIDATED", to: "APPROVED", actor, reason: selfApproval ? "self-approved" : null }]
-    });
-  });
-}
-function prepareApply({ operationsRoot, planningRoot, operationId, render, actor }) {
-  let operation = readOperation(operationsRoot, operationId);
-  if (operation.status !== "APPROVED")
-    throw new StateError(`cannot apply operation in status ${operation.status}`);
-  let changeSet = readChangeSet(operationsRoot, operationId), revalidation = revalidateChangeSet({ operationsRoot, planningRoot, operationId, render });
-  revalidation.ok || transitionToStale(operationsRoot, operationId, operation, revalidation.errors[0]);
-  let recomputedHash = revalidation.recomputedHash;
-  (recomputedHash !== changeSet.hash || recomputedHash !== operation.validation.changeSetHash || recomputedHash !== operation.approval.changeSetHash) && transitionToStale(operationsRoot, operationId, operation, "changeSetHash no longer matches validate/approve; the change-set has drifted since approval");
-  let rendered = revalidation.rendered, runtimeOperationRelative = path7.join(".runtime", "operations", operationId), stagingRelative = path7.join(runtimeOperationRelative, "staged"), beforeRelative = path7.join(runtimeOperationRelative, "before");
-  ensureDirectoryTree(planningRoot, stagingRelative), ensureDirectoryTree(planningRoot, beforeRelative), assertDistinctMutationTargets(planningRoot, [...rendered.keys()]);
-  let filePlan = [];
-  for (let [relativePath, newContent] of rendered) {
-    let before = changeSet.baseRevisions[relativePath];
-    confineRuntimeWritePath(planningRoot, relativePath), before.contentHash !== ABSENT && copyFileAtomic(planningRoot, relativePath, path7.join(beforeRelative, relativePath)), filePlan.push({
-      target: relativePath,
-      stagedRelativePath: relativePath,
-      expectedBefore: before.contentHash === ABSENT ? "ABSENT" : "PRESENT",
-      beforeContentHash: before.contentHash,
-      beforeRevisionHash: before.revisionHash,
-      stagedContentHash: contentHash(newContent),
-      stagedRevisionHash: relativePath.endsWith(".gitignore") ? contentHash(newContent) : revisionHash(parseYaml(newContent))
-    });
-  }
-  checkpoint("AFTER_BEFORE");
-  for (let [relativePath, newContent] of rendered)
-    writeFileAtomic(planningRoot, path7.join(stagingRelative, relativePath), newContent);
-  checkpoint("AFTER_STAGED");
-  let expectedEvents = operation.expectedEvents?.length ? operation.expectedEvents.map((expectedEvent) => {
-    let relationallyConsistent = expectedEvent.eventId === expectedEvent.document?.eventId && expectedEvent.document?.operationId === operation.id && expectedEvent.relativePath.endsWith(`/${expectedEvent.eventId}.json`), eventSchemaCheck = validate("event", expectedEvent.document);
-    if (!relationallyConsistent || !eventSchemaCheck.valid)
-      throw new StateError("persisted expectedEvents manifest is invalid or internally inconsistent");
-    return expectedEvent;
-  }) : operation.reservedEvents.map((reserved) => buildExpectedEvent({
-    eventId: reserved.eventId,
-    type: reserved.type,
-    aggregate: { type: operation.kind.split(".")[0], id: operationId },
-    actor,
-    operationId,
-    idempotencyKey: operationId,
-    payload: changeSet.payload
-  }));
-  operation = readOperation(operationsRoot, operationId), writeOperation(operationsRoot, operationId, { ...operation, filePlan, expectedEvents }), checkpoint("AFTER_MANIFEST"), operation = readOperation(operationsRoot, operationId);
-  let applyingAt = (/* @__PURE__ */ new Date()).toISOString();
-  return writeOperation(operationsRoot, operationId, {
-    ...operation,
-    status: "APPLYING",
-    history: [...operation.history, { at: applyingAt, from: "APPROVED", to: "APPLYING", actor, reason: null }]
-  }), checkpoint("AFTER_APPLYING"), { filePlan, expectedEvents, stagingRelative, runtimeOperationRelative };
-}
-function applyOperation({ operationsRoot, planningRoot, operationId, render, actor }) {
-  return withWorkspaceMutation({ planningRoot, operationsRoot, operationId }, () => {
-    let operation = readOperation(operationsRoot, operationId);
-    if (operation.status !== "APPROVED")
-      throw new StateError(`cannot apply operation in status ${operation.status}`);
-    let { filePlan, expectedEvents, stagingRelative, runtimeOperationRelative } = prepareApply({ operationsRoot, planningRoot, operationId, render, actor }), files = [];
-    for (let [index, entry] of filePlan.entries())
-      renameWithinRoot(planningRoot, path7.join(stagingRelative, entry.stagedRelativePath), entry.target), files.push({ target: entry.target, contentHash: entry.stagedContentHash }), index === 0 && checkpoint("AFTER_FIRST_RENAME");
-    checkpoint("AFTER_ALL_RENAMES");
-    let result = { operationId, files }, resultSchemaCheck = validate("result", result);
-    if (!resultSchemaCheck.valid)
-      throw new Error(`constructed result is schema-invalid: ${resultSchemaCheck.errors.map((e) => `${e.path} ${e.message}`).join("; ")}`);
-    writeResult(operationsRoot, operationId, result), checkpoint("AFTER_RESULT");
-    let eventsRoot = path7.join(planningRoot, "events");
-    for (let [index, expectedEvent] of expectedEvents.entries())
-      writeEventIdempotent(eventsRoot, expectedEvent), index === 0 && checkpoint("AFTER_FIRST_EVENT");
-    checkpoint("AFTER_ALL_EVENTS"), checkpoint("BEFORE_APPLIED");
-    let appliedAt = (/* @__PURE__ */ new Date()).toISOString(), current = readOperation(operationsRoot, operationId);
-    writeOperation(operationsRoot, operationId, {
-      ...current,
-      status: "APPLIED",
-      appliedAt,
-      history: [...current.history, { at: appliedAt, from: "APPLYING", to: "APPLIED", actor, reason: null }]
-    });
-    let residuePath = confineRuntimeWritePath(planningRoot, runtimeOperationRelative);
-    return fs7.rmSync(residuePath, { recursive: !0, force: !0 }), { status: "APPLIED", files };
-  });
-}
-
-// runtime/src/commands/proposalPreparation.mjs
-var SUPPORTED_KINDS = /* @__PURE__ */ new Set(["workspace.init", "config.update", "scope.add"]);
-function requireObjectPayload(rawPayload) {
-  if (rawPayload === null || typeof rawPayload != "object" || Array.isArray(rawPayload))
-    throw new UsageError("changeset payload must be a mapping/object");
-  return rawPayload;
-}
-function prepareProposal(kind, rawPayload) {
-  if (!SUPPORTED_KINDS.has(kind)) throw new UsageError(`unsupported changeset kind: ${kind}`);
-  if (requireObjectPayload(rawPayload), kind === "workspace.init")
-    return { payload: rawPayload, targetFiles: ["config.yml", "plugin.lock.yml", ".gitignore"] };
-  if (kind === "config.update")
-    return { payload: rawPayload, targetFiles: ["config.yml"] };
-  let payload = rawPayload.id ? rawPayload : { ...rawPayload, id: generateUuidV7() };
-  return { payload, targetFiles: ["config.yml", `scopes/${payload.id}/scope.yml`] };
-}
-
-// runtime/src/generated/build-meta.mjs
-var PLUGIN_VERSION = "1.0.0", TEMPLATE_PACK_FINGERPRINT = "sha256:b97c7bb4bac7e4ea70dfde510a536c90e6be0d38f1c9cdd242d2661ce9a570cc";
-
-// runtime/src/commands/init.mjs
-function runInit({ planningRoot, args }) {
-  let operationsRoot = path8.join(planningRoot, "operations"), { payload, targetFiles } = prepareProposal("workspace.init", {
-    name: args.name,
-    baseBranch: args.baseBranch || null,
-    vcs: args.vcs || "none",
-    pluginVersion: PLUGIN_VERSION,
-    templatePackFingerprint: TEMPLATE_PACK_FINGERPRINT
-  });
-  return { operationId: propose({ operationsRoot, planningRoot, kind: "workspace.init", target: {}, payload, targetFiles, actor: args.actor }) };
-}
-function runConfigSet({ planningRoot, args }) {
-  let operationsRoot = path8.join(planningRoot, "operations"), { payload, targetFiles } = prepareProposal("config.update", { name: args.name });
-  return { operationId: propose({ operationsRoot, planningRoot, kind: "config.update", target: {}, payload, targetFiles, actor: args.actor }) };
-}
-function runConfigScopeAdd({ planningRoot, args }) {
-  let operationsRoot = path8.join(planningRoot, "operations"), { payload, targetFiles } = prepareProposal("scope.add", {
-    key: args.key,
-    label: args.label,
-    kind: args.kind,
-    path: args.path,
-    owner: args.owner || null
-  });
-  return { operationId: propose({ operationsRoot, planningRoot, kind: "scope.add", target: { scopeId: payload.id }, payload, targetFiles, actor: args.actor }), scopeId: payload.id };
-}
-
-// runtime/src/commands/changesetCommand.mjs
-import fs8 from "node:fs";
-import path9 from "node:path";
-
-// runtime/src/commands/renderers.mjs
-function toKebabCase(value) {
-  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-+|-+$)/g, "");
-}
-function renderWorkspaceInit({ name, baseBranch = null, vcs, pluginVersion, templatePackFingerprint }) {
-  let config = { schemaVersion: 1, name, baseBranch, vcs, scopeRefs: [] }, pluginLock = { schemaVersion: 1, pluginVersion, templatePackFingerprint };
-  return /* @__PURE__ */ new Map([
-    ["config.yml", stringifyYaml(config)],
-    ["plugin.lock.yml", stringifyYaml(pluginLock)],
-    [".gitignore", `.runtime/
-`]
-  ]);
-}
-function renderConfigUpdate({ name }, currentConfig) {
-  let nextConfig = { ...currentConfig, name };
-  return /* @__PURE__ */ new Map([["config.yml", stringifyYaml(nextConfig)]]);
-}
-function renderScopeAdd({ id, key, label, kind, path: scopePath, owner = null }, currentConfig, workspaceRoot) {
-  confineScopePath(workspaceRoot, scopePath);
-  let normalizedKey = toKebabCase(key);
-  if (new Set((currentConfig.scopeRefs || []).map((ref) => ref.key.toLowerCase())).has(normalizedKey))
-    throw new Error(`scope key already exists: ${normalizedKey}`);
-  let nextConfig = {
-    ...currentConfig,
-    scopeRefs: [...currentConfig.scopeRefs || [], { id, key: normalizedKey }]
-  }, scope = { schemaVersion: 1, id, key: normalizedKey, label, kind, path: scopePath, owner };
-  return /* @__PURE__ */ new Map([
-    ["config.yml", stringifyYaml(nextConfig)],
-    [`scopes/${id}/scope.yml`, stringifyYaml(scope)]
-  ]);
-}
-
-// runtime/src/commands/changesetCommand.mjs
-function readCurrentConfig(planningRoot) {
-  let configPath = confineRuntimeWritePath(planningRoot, "config.yml");
-  return fs8.existsSync(configPath) ? parseYaml(fs8.readFileSync(configPath, "utf8")) : null;
-}
-function renderFor(kind, payload, currentConfig, workspaceRoot) {
-  if (kind === "workspace.init") return renderWorkspaceInit(payload);
-  if (kind === "config.update") return renderConfigUpdate(payload, currentConfig);
-  if (kind === "scope.add") return renderScopeAdd(payload, currentConfig, workspaceRoot);
-  throw new UsageError(`unsupported changeset kind: ${kind}`);
-}
-function runChangesetPropose({ planningRoot, kind, payloadText, actor }) {
-  let rawPayload;
-  try {
-    let trimmed = payloadText.trim();
-    rawPayload = trimmed.startsWith("{") ? JSON.parse(trimmed) : parseYaml(trimmed);
-  } catch (error) {
-    throw new UsageError(`invalid payload: ${error.message}`);
-  }
-  if (rawPayload === null || typeof rawPayload != "object" || Array.isArray(rawPayload))
-    throw new UsageError("changeset payload must be a mapping/object");
-  let { payload, targetFiles } = prepareProposal(kind, rawPayload), operationsRoot = path9.join(planningRoot, "operations");
-  return { operationId: propose({ operationsRoot, planningRoot, kind, target: {}, payload, targetFiles, actor }) };
-}
-function runChangesetValidate({ planningRoot, operationsRoot, operationId }) {
-  let changeSet = readChangeSet(operationsRoot, operationId), currentConfig = changeSet.kind === "workspace.init" ? null : readCurrentConfig(planningRoot);
-  validateOperation({ operationsRoot, planningRoot, operationId, render: (payload) => renderFor(changeSet.kind, payload, currentConfig, path9.dirname(planningRoot)) });
-  let operation = readOperation(operationsRoot, operationId);
-  return { status: operation.status, errors: operation.validation?.errors || [] };
-}
-function runChangesetApprove({ operationsRoot, planningRoot, operationId, actor, allowSelfApproval }) {
-  return approveOperation({ operationsRoot, planningRoot, operationId, actor, allowSelfApproval: !!allowSelfApproval }), { status: readOperation(operationsRoot, operationId).status };
-}
-function runChangesetApply({ planningRoot, operationsRoot, operationId, actor }) {
-  let changeSet = readChangeSet(operationsRoot, operationId), currentConfig = changeSet.kind === "workspace.init" ? null : readCurrentConfig(planningRoot);
-  return applyOperation({ operationsRoot, planningRoot, operationId, actor, render: (payload) => renderFor(changeSet.kind, payload, currentConfig, path9.dirname(planningRoot)) });
-}
-
-// runtime/src/commands/check.mjs
-import fs11 from "node:fs";
-import path12 from "node:path";
-
 // runtime/src/lib/discoverScan.mjs
-import fs10 from "node:fs";
-import path11 from "node:path";
+import fs8 from "node:fs";
+import path8 from "node:path";
 import { execFileSync } from "node:child_process";
 
 // runtime/src/lib/fingerprint.mjs
-import fs9 from "node:fs";
-import path10 from "node:path";
+import fs7 from "node:fs";
+import path7 from "node:path";
 var FingerprintError = class extends Error {
   constructor(code, message, details = {}) {
     super(message), this.name = "FingerprintError", this.code = code, this.details = details;
@@ -9873,7 +10101,7 @@ function asFingerprintObservationError(error, absolutePath, operation) {
   let details = { path: absolutePath, operation, causeCode: error?.code ?? null }, wrapped;
   return error?.code === "EACCES" || error?.code === "EPERM" ? wrapped = new FingerprintError("unreadable", `unreadable during ${operation}: ${absolutePath}`, details) : error?.code === "ENOENT" ? wrapped = new FingerprintError("observation_race", `path changed during ${operation}: ${absolutePath}`, details) : wrapped = new FingerprintError("observation_failed", `filesystem observation failed during ${operation}: ${absolutePath}`, details), wrapped.cause = error, wrapped;
 }
-function computeFileFingerprint(absolutePath, { maxBytes, statFn = fs9.statSync, readFn = fs9.readFileSync } = {}) {
+function computeFileFingerprint(absolutePath, { maxBytes, statFn = fs7.statSync, readFn = fs7.readFileSync } = {}) {
   let stat;
   try {
     stat = statFn(absolutePath);
@@ -9915,7 +10143,7 @@ function collectEntries(absoluteRoot, { readdirFn, lstatFn }) {
         throw new FingerprintError("invalid_utf8", `path is not valid UTF-8 under ${currentAbs}`, { path: currentAbs });
       let name = nameBuf.toString("utf8");
       if (name === ".git") continue;
-      let absChild = path10.join(currentAbs, name), relSegments = [...currentRelSegments, name], stat;
+      let absChild = path7.join(currentAbs, name), relSegments = [...currentRelSegments, name], stat;
       try {
         stat = lstatFn(absChild);
       } catch (error) {
@@ -9928,10 +10156,10 @@ function collectEntries(absoluteRoot, { readdirFn, lstatFn }) {
 }
 function computeDirectoryFingerprint(absoluteRoot, {
   maxBytes,
-  readdirFn = fs9.readdirSync,
-  lstatFn = fs9.lstatSync,
-  readFileFn = fs9.readFileSync,
-  readlinkFn = fs9.readlinkSync
+  readdirFn = fs7.readdirSync,
+  lstatFn = fs7.lstatSync,
+  readFileFn = fs7.readFileSync,
+  readlinkFn = fs7.readlinkSync
 } = {}) {
   let entries = collectEntries(absoluteRoot, { readdirFn, lstatFn }), byNormalized = /* @__PURE__ */ new Map();
   for (let entry of entries) {
@@ -9993,7 +10221,7 @@ function computeDirectoryFingerprint(absoluteRoot, {
   };
 }
 function computeSourceFingerprint(absolutePath, options = {}) {
-  let { lstatFn = fs9.lstatSync } = options, stat;
+  let { lstatFn = fs7.lstatSync } = options, stat;
   try {
     stat = lstatFn(absolutePath);
   } catch (error) {
@@ -10073,14 +10301,14 @@ var SCOPE_MANIFEST_RULES = [
   { dirName: "tools", ruleId: "source.custom-automation", families: ["custom-automation"] },
   { dirName: "bin", ruleId: "source.custom-automation", families: ["custom-automation"] }
 ];
-function listTopLevel(currentDir, { readdirFn = fs10.readdirSync, lstatFn = fs10.lstatSync } = {}) {
+function listTopLevel(currentDir, { readdirFn = fs8.readdirSync, lstatFn = fs8.lstatSync } = {}) {
   return readdirFn(currentDir).map((name) => ({
     name,
-    absPath: path11.join(currentDir, name),
-    stat: lstatFn(path11.join(currentDir, name))
+    absPath: path8.join(currentDir, name),
+    stat: lstatFn(path8.join(currentDir, name))
   }));
 }
-function enumerateCandidates(workspaceRoot, { readdirFn = fs10.readdirSync, lstatFn = fs10.lstatSync } = {}) {
+function enumerateCandidates(workspaceRoot, { readdirFn = fs8.readdirSync, lstatFn = fs8.lstatSync } = {}) {
   let scopeCandidates = [], sourceCandidates = [], diagnostics = [];
   function walk(currentDir, relativeDir) {
     let children;
@@ -10104,7 +10332,7 @@ function enumerateCandidates(workspaceRoot, { readdirFn = fs10.readdirSync, lsta
         fileRule && sourceCandidates.push({ path: childRelative, candidateFamilies: fileRule.families, ruleIds: [fileRule.ruleId] });
       }
       if (child.stat.isDirectory()) {
-        if (child.name === "node_modules" || child.name === ".git") continue;
+        if (child.name === "node_modules" || child.name === ".git" || child.name === ".planning") continue;
         let dirRule = SOURCE_DIRECTORY_RULES.find(
           (r) => r.relativePath ? childRelative === r.relativePath : r.dirName === child.name && (!r.underDocs || relativeDir === "docs")
         );
@@ -10115,13 +10343,13 @@ function enumerateCandidates(workspaceRoot, { readdirFn = fs10.readdirSync, lsta
   return walk(workspaceRoot, ""), { scopeCandidates, sourceCandidates, diagnostics };
 }
 function readConfirmedSources(planningRoot) {
-  let sourcesRoot = path11.join(planningRoot, "sources");
-  if (!fs10.existsSync(sourcesRoot)) return [];
+  let sourcesRoot = path8.join(planningRoot, "sources");
+  if (!fs8.existsSync(sourcesRoot)) return [];
   let sources = [];
-  for (let id of fs10.readdirSync(sourcesRoot)) {
+  for (let id of fs8.readdirSync(sourcesRoot)) {
     if (!isUuidV7(id)) continue;
-    let sourceFile = confineWritePath(planningRoot, path11.join("sources", id, "source.yml"));
-    fs10.existsSync(sourceFile) && sources.push(parseYaml(fs10.readFileSync(sourceFile, "utf8")));
+    let sourceFile = confineWritePath(planningRoot, path8.join("sources", id, "source.yml"));
+    fs8.existsSync(sourceFile) && sources.push(parseYaml(fs8.readFileSync(sourceFile, "utf8")));
   }
   return sources;
 }
@@ -10142,7 +10370,7 @@ function computeKnownSourceDrift({ planningRoot, workspaceRoot, sourceCandidates
       diagnostics.push({ code: "untrusted_source_path", path: source.path, sourceId: source.id, message: error.message });
       continue;
     }
-    if (!fs10.existsSync(absolutePath)) {
+    if (!fs8.existsSync(absolutePath)) {
       missingForMoveDetection.push({ sourceId: source.id, path: source.path, confirmedFingerprint: source.confirmedFingerprint, confirmedContentHash: source.confirmedContentHash });
       continue;
     }
@@ -10205,13 +10433,13 @@ function computeKnownSourceDrift({ planningRoot, workspaceRoot, sourceCandidates
   return { results, diagnostics, fingerprintedSourceCandidates };
 }
 function readConfirmedScopes(planningRoot) {
-  let scopesRoot = path11.join(planningRoot, "scopes");
-  if (!fs10.existsSync(scopesRoot)) return [];
+  let scopesRoot = path8.join(planningRoot, "scopes");
+  if (!fs8.existsSync(scopesRoot)) return [];
   let scopes = [];
-  for (let id of fs10.readdirSync(scopesRoot)) {
+  for (let id of fs8.readdirSync(scopesRoot)) {
     if (!isUuidV7(id)) continue;
-    let scopeFile = confineWritePath(planningRoot, path11.join("scopes", id, "scope.yml"));
-    fs10.existsSync(scopeFile) && scopes.push(parseYaml(fs10.readFileSync(scopeFile, "utf8")));
+    let scopeFile = confineWritePath(planningRoot, path8.join("scopes", id, "scope.yml"));
+    fs8.existsSync(scopeFile) && scopes.push(parseYaml(fs8.readFileSync(scopeFile, "utf8")));
   }
   return scopes;
 }
@@ -10320,7 +10548,508 @@ function runDiscoverScan({ planningRoot, workspaceRoot, maxSourceBytes = DEFAULT
   };
 }
 
+// runtime/src/lib/changeset.mjs
+function readFileState(planningRoot, relativePath) {
+  let absolutePath = confineRuntimeWritePath(planningRoot, relativePath);
+  if (!fs9.existsSync(absolutePath))
+    return { revisionHash: ABSENT, contentHash: ABSENT };
+  let bytes = fs9.readFileSync(absolutePath), isStructured = relativePath.endsWith(".yml") || relativePath.endsWith(".yaml") || relativePath.endsWith(".json"), structuredValue = isStructured ? relativePath.endsWith(".json") ? JSON.parse(bytes.toString("utf8")) : parseYaml(bytes.toString("utf8")) : null;
+  return {
+    revisionHash: isStructured ? revisionHash(structuredValue) : contentHash(bytes),
+    contentHash: contentHash(bytes)
+  };
+}
+function computePersistedChangeSetHash(changeSet) {
+  let { hash, ...withoutHash } = changeSet;
+  return revisionHash(withoutHash);
+}
+function eventTypeFor(kind) {
+  return {
+    "workspace.init": "workspace.initialized",
+    "config.update": "config.updated",
+    "scope.add": "scope.added",
+    "scope.command.set": "scope.command.set",
+    "discovery.propose": "discovery.proposed"
+  }[kind];
+}
+function propose({ operationsRoot, planningRoot, kind, target, payload, targetFiles, actor, operationId = null, proposedAt = null, preconditions = null }) {
+  return withWorkspaceMutation({ planningRoot, operationsRoot, operationId: null }, () => {
+    operationId ??= generateUuidV7(), assertDistinctMutationTargets(planningRoot, targetFiles);
+    let baseRevisions = {};
+    for (let relativePath of targetFiles)
+      baseRevisions[relativePath] = readFileState(planningRoot, relativePath);
+    let changeSetWithoutHash = { schemaVersion: 1, operationId, kind, target, baseRevisions, payload };
+    preconditions && (changeSetWithoutHash.preconditions = preconditions);
+    let hash = computePersistedChangeSetHash(changeSetWithoutHash);
+    writeChangeSet(operationsRoot, operationId, { ...changeSetWithoutHash, hash });
+    let reservedEvents = [{ eventId: generateUuidV7(), type: eventTypeFor(kind) }];
+    return proposedAt ??= (/* @__PURE__ */ new Date()).toISOString(), writeOperation(operationsRoot, operationId, {
+      id: operationId,
+      kind,
+      status: "PROPOSED",
+      proposedBy: actor,
+      proposedAt,
+      reservedEvents,
+      validation: { validatedAt: null, changeSetHash: null, errors: [] },
+      approval: { actor: null, approvedAt: null, changeSetHash: null, selfApproval: null },
+      history: [{ at: proposedAt, from: null, to: "PROPOSED", actor, reason: null }]
+    }), operationId;
+  });
+}
+function schemaNameForRenderedPath(relativePath) {
+  return relativePath === "config.yml" ? "config" : relativePath === "plugin.lock.yml" ? "plugin-lock" : /^sources\/[^/]+\/source\.yml$/.test(relativePath) ? "source" : /^scopes\/[^/]+\/scope\.yml$/.test(relativePath) ? "scope" : null;
+}
+function checkKindInvariants(changeSet) {
+  let errors = [];
+  if (changeSet.kind === "workspace.init")
+    for (let relativePath of ["config.yml", "plugin.lock.yml", ".gitignore"]) {
+      let entry = changeSet.baseRevisions[relativePath];
+      (!entry || entry.revisionHash !== ABSENT || entry.contentHash !== ABSENT) && errors.push(`${relativePath} must be ABSENT for workspace.init; the workspace already appears initialized -- use config set to update it instead`);
+    }
+  if (changeSet.kind === "scope.add") {
+    let scopePath = `scopes/${changeSet.payload.id}/scope.yml`, entry = changeSet.baseRevisions[scopePath];
+    (!entry || entry.revisionHash !== ABSENT || entry.contentHash !== ABSENT) && errors.push(`${scopePath} must be ABSENT for a new scope.add, but baseRevisions recorded something else`);
+  }
+  return errors;
+}
+function revalidateChangeSet({ operationsRoot, planningRoot, operationId, render }) {
+  let changeSet = readChangeSet(operationsRoot, operationId);
+  if (changeSet.operationId !== operationId)
+    return { ok: !1, status: "INVALID", errors: [`change-set.json operationId ${changeSet.operationId} does not match operation ${operationId}`], recomputedHash: null };
+  let recomputedHash = computePersistedChangeSetHash(changeSet);
+  if (recomputedHash !== changeSet.hash)
+    return { ok: !1, status: "INVALID", errors: ["change-set.json hash does not match its own recomputed content; the file has been tampered with or corrupted"], recomputedHash };
+  let changeSetResult = validate("change-set", changeSet);
+  if (!changeSetResult.valid)
+    return { ok: !1, status: "INVALID", errors: changeSetResult.errors.map((e) => `change-set${e.path}: ${e.message}`), recomputedHash };
+  let invariantErrors = checkKindInvariants(changeSet);
+  if (invariantErrors.length > 0)
+    return { ok: !1, status: "INVALID", errors: invariantErrors, recomputedHash };
+  let rendered;
+  try {
+    rendered = render(changeSet.payload), assertDistinctMutationTargets(planningRoot, [...rendered.keys()]);
+  } catch (error) {
+    return { ok: !1, status: "INVALID", errors: [error.message], recomputedHash };
+  }
+  let renderedPaths = new Set(rendered.keys()), baseRevisionPaths = new Set(Object.keys(changeSet.baseRevisions)), missingFromBaseRevisions = [...renderedPaths].filter((p) => !baseRevisionPaths.has(p)), extraInBaseRevisions = [...baseRevisionPaths].filter((p) => !renderedPaths.has(p));
+  if (missingFromBaseRevisions.length > 0 || extraInBaseRevisions.length > 0)
+    return {
+      ok: !1,
+      status: "INVALID",
+      errors: [`baseRevisions must exactly match the rendered file set; missing=${JSON.stringify(missingFromBaseRevisions)} extra=${JSON.stringify(extraInBaseRevisions)}`],
+      recomputedHash
+    };
+  for (let [relativePath, expected] of Object.entries(changeSet.baseRevisions)) {
+    let actual = readFileState(planningRoot, relativePath);
+    if (actual.revisionHash !== expected.revisionHash || actual.contentHash !== expected.contentHash)
+      return { ok: !1, status: "STALE", errors: [`${relativePath} changed since propose`], recomputedHash };
+  }
+  let renderErrors = [];
+  for (let [relativePath, content] of rendered) {
+    if (content === null) continue;
+    let schemaName = schemaNameForRenderedPath(relativePath);
+    if (!schemaName) continue;
+    let value = parseYaml(content), result = validate(schemaName, value);
+    if (!result.valid)
+      for (let error of result.errors) renderErrors.push(`${relativePath}${error.path}: ${error.message}`);
+  }
+  return renderErrors.length > 0 ? { ok: !1, status: "INVALID", errors: renderErrors, recomputedHash } : { ok: !0, recomputedHash, changeSet, rendered };
+}
+function transitionToStale(operationsRoot, operationId, operation, reason) {
+  let staleAt = (/* @__PURE__ */ new Date()).toISOString();
+  throw writeOperation(operationsRoot, operationId, {
+    ...operation,
+    status: "STALE",
+    history: [...operation.history, { at: staleAt, from: operation.status, to: "STALE", actor: "system:validator", reason }]
+  }), new StaleError(reason);
+}
+function validateOperation({ operationsRoot, planningRoot, operationId, render }) {
+  return withWorkspaceMutation({ planningRoot, operationsRoot, operationId }, () => {
+    let operation = readOperation(operationsRoot, operationId);
+    if (operation.status !== "PROPOSED")
+      throw new StateError(`cannot validate operation in status ${operation.status}`);
+    let result = revalidateChangeSet({ operationsRoot, planningRoot, operationId, render }), validatedAt = (/* @__PURE__ */ new Date()).toISOString();
+    if (!result.ok) {
+      writeOperation(operationsRoot, operationId, {
+        ...operation,
+        status: result.status,
+        validation: { validatedAt, changeSetHash: result.recomputedHash, errors: result.errors },
+        history: [...operation.history, { at: validatedAt, from: operation.status, to: result.status, actor: "system:validator", reason: result.errors[0] }]
+      });
+      return;
+    }
+    writeOperation(operationsRoot, operationId, {
+      ...operation,
+      status: "VALIDATED",
+      validation: { validatedAt, changeSetHash: result.recomputedHash, errors: [] },
+      history: [...operation.history, { at: validatedAt, from: operation.status, to: "VALIDATED", actor: "system:validator", reason: null }]
+    });
+  });
+}
+function approveOperation({ operationsRoot, planningRoot, operationId, actor, allowSelfApproval = !1 }) {
+  return withWorkspaceMutation({ planningRoot, operationsRoot, operationId }, () => {
+    let operation = readOperation(operationsRoot, operationId);
+    if (operation.status !== "VALIDATED")
+      throw new StateError(`cannot approve operation in status ${operation.status}`);
+    let changeSet = readChangeSet(operationsRoot, operationId), recomputedHash = computePersistedChangeSetHash(changeSet);
+    (recomputedHash !== changeSet.hash || recomputedHash !== operation.validation.changeSetHash) && transitionToStale(operationsRoot, operationId, operation, "change-set.json changed since validate; propose and validate again before approving");
+    let selfApproval = actor === operation.proposedBy;
+    if (selfApproval && !allowSelfApproval)
+      throw new StateError("self-approval requires allowSelfApproval to be explicitly set");
+    let approvedAt = (/* @__PURE__ */ new Date()).toISOString();
+    writeOperation(operationsRoot, operationId, {
+      ...operation,
+      status: "APPROVED",
+      approval: { actor, approvedAt, changeSetHash: recomputedHash, selfApproval },
+      history: [...operation.history, { at: approvedAt, from: "VALIDATED", to: "APPROVED", actor, reason: selfApproval ? "self-approved" : null }]
+    });
+  });
+}
+function prepareApply({ operationsRoot, planningRoot, operationId, render, actor }) {
+  let operation = readOperation(operationsRoot, operationId);
+  if (operation.status !== "APPROVED")
+    throw new StateError(`cannot apply operation in status ${operation.status}`);
+  let changeSet = readChangeSet(operationsRoot, operationId), revalidation = revalidateChangeSet({ operationsRoot, planningRoot, operationId, render });
+  revalidation.ok || transitionToStale(operationsRoot, operationId, operation, revalidation.errors[0]);
+  let recomputedHash = revalidation.recomputedHash;
+  (recomputedHash !== changeSet.hash || recomputedHash !== operation.validation.changeSetHash || recomputedHash !== operation.approval.changeSetHash) && transitionToStale(operationsRoot, operationId, operation, "changeSetHash no longer matches validate/approve; the change-set has drifted since approval");
+  let discoveryWorkspace = changeSet.preconditions?.discoveryWorkspace;
+  discoveryWorkspace && runDiscoverScan({
+    planningRoot,
+    workspaceRoot: path9.dirname(planningRoot),
+    maxSourceBytes: discoveryWorkspace.scanParameters.maxSourceBytes
+  }).baseRevision.workspaceHash !== discoveryWorkspace.workspaceHash && transitionToStale(operationsRoot, operationId, operation, "discovery workspace changed since validation; rescan and create a new operation");
+  let rendered = revalidation.rendered, runtimeOperationRelative = path9.join(".runtime", "operations", operationId), stagingRelative = path9.join(runtimeOperationRelative, "staged"), beforeRelative = path9.join(runtimeOperationRelative, "before");
+  ensureDirectoryTree(planningRoot, stagingRelative), ensureDirectoryTree(planningRoot, beforeRelative), assertDistinctMutationTargets(planningRoot, [...rendered.keys()]);
+  let filePlan = [];
+  for (let [relativePath, newContent] of rendered) {
+    let before = changeSet.baseRevisions[relativePath];
+    confineRuntimeWritePath(planningRoot, relativePath), before.contentHash !== ABSENT && copyFileAtomic(planningRoot, relativePath, path9.join(beforeRelative, relativePath)), newContent === null ? filePlan.push({
+      target: relativePath,
+      action: "delete",
+      expectedBefore: before.contentHash === ABSENT ? "ABSENT" : "PRESENT",
+      beforeContentHash: before.contentHash,
+      beforeRevisionHash: before.revisionHash,
+      stagedContentHash: ABSENT,
+      stagedRevisionHash: ABSENT
+    }) : filePlan.push({
+      target: relativePath,
+      action: "write",
+      stagedRelativePath: relativePath,
+      expectedBefore: before.contentHash === ABSENT ? "ABSENT" : "PRESENT",
+      beforeContentHash: before.contentHash,
+      beforeRevisionHash: before.revisionHash,
+      stagedContentHash: contentHash(newContent),
+      stagedRevisionHash: relativePath.endsWith(".gitignore") ? contentHash(newContent) : revisionHash(parseYaml(newContent))
+    });
+  }
+  checkpoint("AFTER_BEFORE");
+  for (let [relativePath, newContent] of rendered)
+    newContent !== null && writeFileAtomic(planningRoot, path9.join(stagingRelative, relativePath), newContent);
+  checkpoint("AFTER_STAGED");
+  let expectedEvents = operation.expectedEvents?.length ? operation.expectedEvents.map((expectedEvent) => {
+    let relationallyConsistent = expectedEvent.eventId === expectedEvent.document?.eventId && expectedEvent.document?.operationId === operation.id && expectedEvent.relativePath.endsWith(`/${expectedEvent.eventId}.json`), eventSchemaCheck = validate("event", expectedEvent.document);
+    if (!relationallyConsistent || !eventSchemaCheck.valid)
+      throw new StateError("persisted expectedEvents manifest is invalid or internally inconsistent");
+    return expectedEvent;
+  }) : operation.reservedEvents.map((reserved) => buildExpectedEvent({
+    eventId: reserved.eventId,
+    type: reserved.type,
+    aggregate: { type: operation.kind.split(".")[0], id: operationId },
+    actor,
+    operationId,
+    idempotencyKey: operationId,
+    payload: changeSet.payload
+  }));
+  operation = readOperation(operationsRoot, operationId), writeOperation(operationsRoot, operationId, { ...operation, filePlan, expectedEvents }), checkpoint("AFTER_MANIFEST"), operation = readOperation(operationsRoot, operationId);
+  let applyingAt = (/* @__PURE__ */ new Date()).toISOString();
+  return writeOperation(operationsRoot, operationId, {
+    ...operation,
+    status: "APPLYING",
+    history: [...operation.history, { at: applyingAt, from: "APPROVED", to: "APPLYING", actor, reason: null }]
+  }), checkpoint("AFTER_APPLYING"), { filePlan, expectedEvents, stagingRelative, runtimeOperationRelative };
+}
+function applyOperation({ operationsRoot, planningRoot, operationId, render, actor }) {
+  return withWorkspaceMutation({ planningRoot, operationsRoot, operationId }, () => {
+    let operation = readOperation(operationsRoot, operationId);
+    if (operation.status !== "APPROVED")
+      throw new StateError(`cannot apply operation in status ${operation.status}`);
+    let { filePlan, expectedEvents, stagingRelative, runtimeOperationRelative } = prepareApply({ operationsRoot, planningRoot, operationId, render, actor }), files = [];
+    for (let [index, entry] of filePlan.entries())
+      entry.action === "delete" ? deleteWithinRoot(planningRoot, entry.target) : renameWithinRoot(planningRoot, path9.join(stagingRelative, entry.stagedRelativePath), entry.target), files.push({ target: entry.target, action: entry.action, contentHash: entry.stagedContentHash }), index === 0 && checkpoint("AFTER_FIRST_RENAME");
+    checkpoint("AFTER_ALL_RENAMES");
+    let result = { operationId, files }, resultSchemaCheck = validate("result", result);
+    if (!resultSchemaCheck.valid)
+      throw new Error(`constructed result is schema-invalid: ${resultSchemaCheck.errors.map((e) => `${e.path} ${e.message}`).join("; ")}`);
+    writeResult(operationsRoot, operationId, result), checkpoint("AFTER_RESULT");
+    let eventsRoot = path9.join(planningRoot, "events");
+    for (let [index, expectedEvent] of expectedEvents.entries())
+      writeEventIdempotent(eventsRoot, expectedEvent), index === 0 && checkpoint("AFTER_FIRST_EVENT");
+    checkpoint("AFTER_ALL_EVENTS"), checkpoint("BEFORE_APPLIED");
+    let appliedAt = (/* @__PURE__ */ new Date()).toISOString(), current = readOperation(operationsRoot, operationId);
+    writeOperation(operationsRoot, operationId, {
+      ...current,
+      status: "APPLIED",
+      appliedAt,
+      history: [...current.history, { at: appliedAt, from: "APPLYING", to: "APPLIED", actor, reason: null }]
+    });
+    let residuePath = confineRuntimeWritePath(planningRoot, runtimeOperationRelative);
+    return fs9.rmSync(residuePath, { recursive: !0, force: !0 }), { status: "APPLIED", files };
+  });
+}
+
+// runtime/src/commands/proposalPreparation.mjs
+var SUPPORTED_KINDS = /* @__PURE__ */ new Set(["workspace.init", "config.update", "scope.add", "scope.command.set"]);
+function requireObjectPayload(rawPayload) {
+  if (rawPayload === null || typeof rawPayload != "object" || Array.isArray(rawPayload))
+    throw new UsageError("changeset payload must be a mapping/object");
+  return rawPayload;
+}
+function prepareProposal(kind, rawPayload, { operationId = null, actor = null, proposedAt = null } = {}) {
+  if (!SUPPORTED_KINDS.has(kind)) throw new UsageError(`unsupported changeset kind: ${kind}`);
+  if (requireObjectPayload(rawPayload), kind === "workspace.init")
+    return { payload: rawPayload, targetFiles: ["config.yml", "plugin.lock.yml", ".gitignore"] };
+  if (kind === "config.update")
+    return { payload: rawPayload, targetFiles: ["config.yml"] };
+  if (kind === "scope.command.set") {
+    if (!operationId || !actor || !proposedAt)
+      throw new UsageError("scope.command.set requires runtime operationId, actor, and proposedAt");
+    let payload2 = {
+      operationId,
+      scopeId: rawPayload.scopeId,
+      role: rawPayload.role,
+      command: rawPayload.command,
+      requiresEnvironment: !!rawPayload.requiresEnvironment,
+      requiresSecrets: !!rawPayload.requiresSecrets,
+      declaredBy: actor,
+      declaredAt: proposedAt
+    };
+    return { payload: payload2, targetFiles: [`scopes/${payload2.scopeId}/scope.yml`] };
+  }
+  let payload = rawPayload.id ? rawPayload : { ...rawPayload, id: generateUuidV7() };
+  return { payload, targetFiles: ["config.yml", `scopes/${payload.id}/scope.yml`] };
+}
+
+// runtime/src/generated/build-meta.mjs
+var PLUGIN_VERSION = "1.0.0", TEMPLATE_PACK_FINGERPRINT = "sha256:b97c7bb4bac7e4ea70dfde510a536c90e6be0d38f1c9cdd242d2661ce9a570cc";
+
+// runtime/src/commands/init.mjs
+function runInit({ planningRoot, args }) {
+  let operationsRoot = path10.join(planningRoot, "operations"), { payload, targetFiles } = prepareProposal("workspace.init", {
+    name: args.name,
+    baseBranch: args.baseBranch || null,
+    vcs: args.vcs || "none",
+    pluginVersion: PLUGIN_VERSION,
+    templatePackFingerprint: TEMPLATE_PACK_FINGERPRINT
+  });
+  return { operationId: propose({ operationsRoot, planningRoot, kind: "workspace.init", target: {}, payload, targetFiles, actor: args.actor }) };
+}
+function runConfigSet({ planningRoot, args }) {
+  let operationsRoot = path10.join(planningRoot, "operations"), { payload, targetFiles } = prepareProposal("config.update", { name: args.name });
+  return { operationId: propose({ operationsRoot, planningRoot, kind: "config.update", target: {}, payload, targetFiles, actor: args.actor }) };
+}
+function runConfigScopeAdd({ planningRoot, args }) {
+  let operationsRoot = path10.join(planningRoot, "operations"), { payload, targetFiles } = prepareProposal("scope.add", {
+    key: args.key,
+    label: args.label,
+    kind: args.kind,
+    path: args.path,
+    owner: args.owner || null
+  });
+  return { operationId: propose({ operationsRoot, planningRoot, kind: "scope.add", target: { scopeId: payload.id }, payload, targetFiles, actor: args.actor }), scopeId: payload.id };
+}
+
+// runtime/src/commands/changesetCommand.mjs
+import fs10 from "node:fs";
+import path11 from "node:path";
+
+// runtime/src/commands/renderers.mjs
+function toKebabCase(value) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-+|-+$)/g, "");
+}
+function renderWorkspaceInit({ name, baseBranch = null, vcs, pluginVersion, templatePackFingerprint }) {
+  let config = { schemaVersion: 1, name, baseBranch, vcs, scopeRefs: [] }, pluginLock = { schemaVersion: 1, pluginVersion, templatePackFingerprint };
+  return /* @__PURE__ */ new Map([
+    ["config.yml", stringifyYaml(config)],
+    ["plugin.lock.yml", stringifyYaml(pluginLock)],
+    [".gitignore", `.runtime/
+`]
+  ]);
+}
+function renderConfigUpdate({ name }, currentConfig) {
+  let nextConfig = { ...currentConfig, name };
+  return /* @__PURE__ */ new Map([["config.yml", stringifyYaml(nextConfig)]]);
+}
+function renderScopeAdd({ id, key, label, kind, path: scopePath, owner = null }, currentConfig, workspaceRoot) {
+  confineScopePath(workspaceRoot, scopePath);
+  let normalizedKey = toKebabCase(key);
+  if (new Set((currentConfig.scopeRefs || []).map((ref) => ref.key.toLowerCase())).has(normalizedKey))
+    throw new Error(`scope key already exists: ${normalizedKey}`);
+  let nextConfig = {
+    ...currentConfig,
+    scopeRefs: [...currentConfig.scopeRefs || [], { id, key: normalizedKey }]
+  }, scope = { schemaVersion: 1, id, key: normalizedKey, label, kind, path: scopePath, owner };
+  return /* @__PURE__ */ new Map([
+    ["config.yml", stringifyYaml(nextConfig)],
+    [`scopes/${id}/scope.yml`, stringifyYaml(scope)]
+  ]);
+}
+function setCommand(scope, role, entry) {
+  let next = { ...scope, commands: { ...scope.commands || {} } };
+  return role.startsWith("custom.") ? next.commands.custom = { ...next.commands.custom || {}, [role.slice(7)]: entry } : next.commands[role] = entry, next;
+}
+function renderInferredCommand(entry) {
+  return {
+    command: entry.command,
+    method: entry.method,
+    confidence: entry.confidence,
+    sourceRefs: entry.sourceRefs,
+    sourceFingerprintAtSelection: entry.sourceFingerprintAtSelection,
+    requiresEnvironment: entry.requiresEnvironment,
+    requiresSecrets: entry.requiresSecrets,
+    alternatives: entry.alternatives || []
+  };
+}
+function renderScopeCommandSet({ operationId, scopeId, role, command, requiresEnvironment, requiresSecrets, declaredBy, declaredAt }, currentScope) {
+  if (!currentScope || currentScope.id !== scopeId)
+    throw new Error(`scope not found for scope.command.set: ${scopeId}`);
+  let nextScope = setCommand(currentScope, role, {
+    command,
+    method: "declared",
+    declaredBy,
+    declaredAt,
+    declaredOperationId: operationId,
+    requiresEnvironment,
+    requiresSecrets,
+    alternatives: []
+  });
+  return /* @__PURE__ */ new Map([[`scopes/${scopeId}/scope.yml`, stringifyYaml(nextScope)]]);
+}
+function sourceIdForAction(index, entry, assignments) {
+  if (entry.action === "add") {
+    let assigned = assignments.find((candidate) => candidate.sourceActionIndex === index);
+    if (!assigned) throw new Error(`missing source id assignment for sources[${index}]`);
+    return assigned.sourceId;
+  }
+  return entry.sourceId;
+}
+function scopeIdForProposal(index, assignments) {
+  let assigned = assignments.find((candidate) => candidate.scopeIndex === index);
+  if (!assigned) throw new Error(`missing scope id assignment for scopes[${index}]`);
+  return assigned.scopeId;
+}
+function renderSource(entry, existing, { id, operationId, confirmedBy, confirmedAt }) {
+  return entry.action === "remove" ? null : {
+    ...existing || {},
+    schemaVersion: 1,
+    id,
+    path: entry.path || existing?.path,
+    family: entry.family || existing?.family,
+    kind: entry.kind || existing?.kind,
+    role: entry.role || existing?.role,
+    authority: entry.authority || existing?.authority,
+    availability: entry.availability || existing?.availability,
+    confirmedFingerprint: entry.observedFingerprint,
+    confirmedContentHash: entry.observedContentHash,
+    provenance: {
+      discoveredBy: "discovery.propose",
+      confirmedBy,
+      confirmedAt,
+      confirmedOperationId: operationId
+    }
+  };
+}
+function renderDiscoveryPropose({ operationId, proposal, sourceIdAssignments, scopeIdAssignments, confirmedBy, confirmedAt }, currentConfig, workspaceRoot, { currentSources = [], currentScopes = [] } = {}) {
+  let rendered = /* @__PURE__ */ new Map(), sourcesById = new Map(currentSources.map((source) => [source.id, source])), scopesById = new Map(currentScopes.map((scope) => [scope.id, scope]));
+  for (let [index, entry] of (proposal.sources || []).entries()) {
+    let sourceId = sourceIdForAction(index, entry, sourceIdAssignments), existing = sourcesById.get(sourceId), nextSource = renderSource(entry, existing, { id: sourceId, operationId, confirmedBy, confirmedAt });
+    rendered.set(`sources/${sourceId}/source.yml`, nextSource === null ? null : stringifyYaml(nextSource));
+  }
+  let nextConfig = currentConfig;
+  for (let [index, entry] of (proposal.scopes || []).entries()) {
+    confineScopePath(workspaceRoot, entry.path);
+    let scopeId = scopeIdForProposal(index, scopeIdAssignments), scope = {
+      schemaVersion: 1,
+      id: scopeId,
+      key: toKebabCase(entry.key),
+      label: entry.label,
+      kind: entry.kind,
+      path: entry.path,
+      owner: entry.owner ?? null
+    };
+    rendered.set(`scopes/${scopeId}/scope.yml`, stringifyYaml(scope)), nextConfig = {
+      ...nextConfig,
+      scopeRefs: [...nextConfig.scopeRefs || [], { id: scopeId, key: scope.key }]
+    };
+  }
+  (proposal.scopes || []).length > 0 && rendered.set("config.yml", stringifyYaml(nextConfig));
+  for (let entry of proposal.scopeCommands || []) {
+    let currentScope = scopesById.get(entry.scopeId);
+    if (!currentScope) throw new Error(`scope not found for discovery command: ${entry.scopeId}`);
+    let nextScope = setCommand(currentScope, entry.role, renderInferredCommand(entry));
+    rendered.set(`scopes/${entry.scopeId}/scope.yml`, stringifyYaml(nextScope)), scopesById.set(entry.scopeId, nextScope);
+  }
+  return rendered;
+}
+
+// runtime/src/commands/changesetCommand.mjs
+function readCurrentConfig(planningRoot) {
+  let configPath = confineRuntimeWritePath(planningRoot, "config.yml");
+  return fs10.existsSync(configPath) ? parseYaml(fs10.readFileSync(configPath, "utf8")) : null;
+}
+function renderFor(kind, payload, currentConfig, workspaceRoot, { currentSources = [], currentScopes = [] } = {}) {
+  if (kind === "workspace.init") return renderWorkspaceInit(payload);
+  if (kind === "config.update") return renderConfigUpdate(payload, currentConfig);
+  if (kind === "scope.add") return renderScopeAdd(payload, currentConfig, workspaceRoot);
+  if (kind === "scope.command.set") {
+    let currentScope = currentScopes.find((scope) => scope.id === payload.scopeId);
+    return renderScopeCommandSet(payload, currentScope);
+  }
+  if (kind === "discovery.propose") return renderDiscoveryPropose(payload, currentConfig, workspaceRoot, { currentSources, currentScopes });
+  throw new UsageError(`unsupported changeset kind: ${kind}`);
+}
+function runChangesetPropose({ planningRoot, kind, payloadText, actor }) {
+  let rawPayload;
+  try {
+    let trimmed = payloadText.trim();
+    rawPayload = trimmed.startsWith("{") ? JSON.parse(trimmed) : parseYaml(trimmed);
+  } catch (error) {
+    throw new UsageError(`invalid payload: ${error.message}`);
+  }
+  if (rawPayload === null || typeof rawPayload != "object" || Array.isArray(rawPayload))
+    throw new UsageError("changeset payload must be a mapping/object");
+  let runtimeContext = {};
+  kind === "scope.command.set" && (runtimeContext.operationId = generateUuidV7(), runtimeContext.actor = actor, runtimeContext.proposedAt = (/* @__PURE__ */ new Date()).toISOString());
+  let { payload, targetFiles } = prepareProposal(kind, rawPayload, runtimeContext), operationsRoot = path11.join(planningRoot, "operations");
+  return { operationId: propose({
+    operationsRoot,
+    planningRoot,
+    kind,
+    target: {},
+    payload,
+    targetFiles,
+    actor,
+    operationId: runtimeContext.operationId || null,
+    proposedAt: runtimeContext.proposedAt || null
+  }) };
+}
+function runChangesetValidate({ planningRoot, operationsRoot, operationId }) {
+  let changeSet = readChangeSet(operationsRoot, operationId), currentConfig = changeSet.kind === "workspace.init" ? null : readCurrentConfig(planningRoot);
+  validateOperation({ operationsRoot, planningRoot, operationId, render: (payload) => renderFor(changeSet.kind, payload, currentConfig, path11.dirname(planningRoot), { currentSources: readConfirmedSources(planningRoot), currentScopes: readConfirmedScopes(planningRoot) }) });
+  let operation = readOperation(operationsRoot, operationId);
+  return { status: operation.status, errors: operation.validation?.errors || [] };
+}
+function runChangesetApprove({ operationsRoot, planningRoot, operationId, actor, allowSelfApproval }) {
+  return approveOperation({ operationsRoot, planningRoot, operationId, actor, allowSelfApproval: !!allowSelfApproval }), { status: readOperation(operationsRoot, operationId).status };
+}
+function runChangesetApply({ planningRoot, operationsRoot, operationId, actor }) {
+  let changeSet = readChangeSet(operationsRoot, operationId), currentConfig = changeSet.kind === "workspace.init" ? null : readCurrentConfig(planningRoot);
+  return applyOperation({ operationsRoot, planningRoot, operationId, actor, render: (payload) => renderFor(changeSet.kind, payload, currentConfig, path11.dirname(planningRoot), { currentSources: readConfirmedSources(planningRoot), currentScopes: readConfirmedScopes(planningRoot) }) });
+}
+
 // runtime/src/commands/check.mjs
+import fs11 from "node:fs";
+import path12 from "node:path";
 function checkRequiredFile(planningRoot, relativePath, schemaName, findings) {
   let filePath;
   try {
@@ -10706,8 +11435,75 @@ function runDiscoverValidate({ planningRoot, workspaceRoot, proposalText }) {
   return result.ok ? result : { ...result, status: "INVALID" };
 }
 
+// runtime/src/commands/discoveryChangeSet.mjs
+import path14 from "node:path";
+function parseProposalText(proposalText) {
+  try {
+    return JSON.parse(proposalText);
+  } catch (error) {
+    throw new UsageError(`invalid proposal JSON: ${error.message}`);
+  }
+}
+function assignmentForSource(index) {
+  return { sourceActionIndex: index, sourceId: generateUuidV7() };
+}
+function assignmentForScope(index) {
+  return { scopeIndex: index, scopeId: generateUuidV7() };
+}
+function prepareDiscoveryChangeSet({ planningRoot, workspaceRoot, proposalText, actor, operationId = generateUuidV7(), confirmedAt = (/* @__PURE__ */ new Date()).toISOString() }) {
+  let proposal = parseProposalText(proposalText), validation = validateDiscoveryProposal({ proposal, planningRoot, workspaceRoot });
+  if (!validation.ok) return { ok: !1, status: "INVALID", errors: validation.errors };
+  let sourceIdAssignments = (proposal.sources || []).map((entry, index) => entry.action === "add" ? assignmentForSource(index) : null).filter(Boolean), scopeIdAssignments = (proposal.scopes || []).map((_, index) => assignmentForScope(index)), targetFiles = /* @__PURE__ */ new Set();
+  (proposal.scopes || []).length > 0 && targetFiles.add("config.yml");
+  for (let [index, entry] of (proposal.sources || []).entries()) {
+    let sourceId = sourceIdAssignments.find((candidate) => candidate.sourceActionIndex === index)?.sourceId || entry.sourceId;
+    targetFiles.add(`sources/${sourceId}/source.yml`);
+  }
+  for (let assignment of scopeIdAssignments)
+    targetFiles.add(`scopes/${assignment.scopeId}/scope.yml`);
+  for (let entry of proposal.scopeCommands || [])
+    targetFiles.add(`scopes/${entry.scopeId}/scope.yml`);
+  return {
+    ok: !0,
+    operationId,
+    kind: "discovery.propose",
+    targetFiles: [...targetFiles].sort(),
+    preconditions: {
+      discoveryWorkspace: {
+        workspaceHash: validation.normalized.workspaceHash,
+        scanParameters: validation.normalized.scanParameters
+      }
+    },
+    payload: {
+      operationId,
+      proposal,
+      sourceIdAssignments,
+      scopeIdAssignments,
+      confirmedBy: actor,
+      confirmedAt
+    }
+  };
+}
+function runDiscoveryPropose({ planningRoot, workspaceRoot, proposalText, actor }) {
+  let prepared = prepareDiscoveryChangeSet({ planningRoot, workspaceRoot, proposalText, actor });
+  if (!prepared.ok) return prepared;
+  let operationsRoot = path14.join(planningRoot, "operations");
+  return { operationId: propose({
+    operationsRoot,
+    planningRoot,
+    kind: prepared.kind,
+    target: {},
+    payload: prepared.payload,
+    targetFiles: prepared.targetFiles,
+    actor,
+    operationId: prepared.operationId,
+    proposedAt: prepared.payload.confirmedAt,
+    preconditions: prepared.preconditions
+  }) };
+}
+
 // runtime/src/index.mjs
-var IN_SCOPE_KINDS = /* @__PURE__ */ new Set(["workspace.init", "config.update", "scope.add"]);
+var IN_SCOPE_KINDS = /* @__PURE__ */ new Set(["workspace.init", "config.update", "scope.add", "scope.command.set"]);
 function notImplemented(command) {
   return {
     status: "NOT_IMPLEMENTED",
@@ -10732,12 +11528,12 @@ function requireOperationId(value) {
 function readPayloadText(payloadFileArg, cwd, usage) {
   if (!payloadFileArg || payloadFileArg === !0) throw new UsageError(usage);
   if (payloadFileArg === "-") return fs13.readFileSync(0, "utf8");
-  let resolved = path14.resolve(cwd, payloadFileArg);
+  let resolved = path15.resolve(cwd, payloadFileArg);
   if (!fs13.existsSync(resolved)) throw new UsageError(`payload file not found: ${payloadFileArg}`);
   return fs13.readFileSync(resolved, "utf8");
 }
 function dispatch(command, args, cwd) {
-  let planningRoot = path14.join(cwd, ".planning"), operationsRoot = path14.join(planningRoot, "operations");
+  let planningRoot = path15.join(cwd, ".planning"), operationsRoot = path15.join(planningRoot, "operations");
   if (command === "init") {
     let options = argsToOptions(args);
     if (!options.name || !options.actor) throw new UsageError("init requires --name and --actor");
@@ -10801,6 +11597,12 @@ function dispatch(command, args, cwd) {
     if (stage === "validate") {
       let options = argsToOptions(rest), proposalText = readPayloadText(options.file || (options.stdin ? "-" : void 0), cwd, "discover validate requires --file <path> or --stdin");
       return runDiscoverValidate({ planningRoot, workspaceRoot: cwd, proposalText });
+    }
+    if (stage === "propose") {
+      let options = argsToOptions(rest);
+      if (!options.actor) throw new UsageError("discover propose requires --actor");
+      let proposalText = readPayloadText(options.file || (options.stdin ? "-" : void 0), cwd, "discover propose requires --file <path> or --stdin");
+      return runDiscoveryPropose({ planningRoot, workspaceRoot: cwd, proposalText, actor: options.actor });
     }
     return notImplemented(`discover ${stage || ""}`.trim());
   }

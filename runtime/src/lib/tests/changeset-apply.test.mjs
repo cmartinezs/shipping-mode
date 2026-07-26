@@ -40,4 +40,30 @@ assert.equal(fs.existsSync(path.join(planningRoot, ".runtime", "operations", ope
 
 assert.throws(() => applyOperation({ operationsRoot, planningRoot, operationId, render: renderWorkspaceInit, actor: "carlos" }), StateError, "re-applying an already-APPLIED operation must fail cleanly, never re-run the sequence");
 
+{
+  const deleteRoot = fs.mkdtempSync(path.join(os.tmpdir(), "apply-delete-"));
+  const deleteOperationsRoot = path.join(deleteRoot, "operations");
+  const sourceId = "018f0000-0000-7000-8000-000000000111";
+  const sourceRelative = `sources/${sourceId}/source.yml`;
+  fs.mkdirSync(path.join(deleteRoot, "sources", sourceId), { recursive: true });
+  fs.writeFileSync(path.join(deleteRoot, sourceRelative), "schemaVersion: 1\n");
+
+  const deleteOperationId = propose({
+    operationsRoot: deleteOperationsRoot,
+    planningRoot: deleteRoot,
+    kind: "config.update",
+    target: {},
+    payload: { name: "delete-source" },
+    targetFiles: [sourceRelative],
+    actor: "carlos"
+  });
+  const renderDelete = () => new Map([[sourceRelative, null]]);
+  validateOperation({ operationsRoot: deleteOperationsRoot, planningRoot: deleteRoot, operationId: deleteOperationId, render: renderDelete });
+  approveOperation({ operationsRoot: deleteOperationsRoot, planningRoot: deleteRoot, operationId: deleteOperationId, actor: "carlos", allowSelfApproval: true });
+  const deleteOutcome = applyOperation({ operationsRoot: deleteOperationsRoot, planningRoot: deleteRoot, operationId: deleteOperationId, render: renderDelete, actor: "carlos" });
+  assert.equal(deleteOutcome.status, "APPLIED");
+  assert.equal(fs.existsSync(path.join(deleteRoot, sourceRelative)), false, "delete file plan entries must remove canonical files");
+  assert.deepEqual(readResult(deleteOperationsRoot, deleteOperationId).files, [{ target: sourceRelative, action: "delete", contentHash: "ABSENT" }]);
+}
+
 console.log("changeset-apply: all tests passed");

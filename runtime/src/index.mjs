@@ -4,6 +4,7 @@ import { runInit, runConfigSet, runConfigScopeAdd } from "./commands/init.mjs";
 import { runChangesetPropose, runChangesetValidate, runChangesetApprove, runChangesetApply } from "./commands/changesetCommand.mjs";
 import { checkSchema } from "./commands/check.mjs";
 import { runDiscoverScan, runDiscoverValidate } from "./commands/discover.mjs";
+import { runDiscoveryPropose } from "./commands/discoveryChangeSet.mjs";
 import { isUuidV7 } from "./lib/ids.mjs";
 import { UsageError, StateError, StaleError } from "./lib/errors.mjs";
 import { RecoveryRequiredError } from "./lib/journal.mjs";
@@ -12,7 +13,7 @@ import { PathConfinementError } from "./lib/paths.mjs";
 
 export { UsageError, StateError, StaleError, RecoveryRequiredError, LockHeldError, PathConfinementError };
 
-const IN_SCOPE_KINDS = new Set(["workspace.init", "config.update", "scope.add"]);
+const IN_SCOPE_KINDS = new Set(["workspace.init", "config.update", "scope.add", "scope.command.set"]);
 
 function notImplemented(command) {
   return {
@@ -125,6 +126,12 @@ export function dispatch(command, args, cwd) {
       const options = argsToOptions(rest);
       const proposalText = readPayloadText(options.file || (options.stdin ? "-" : undefined), cwd, "discover validate requires --file <path> or --stdin");
       return runDiscoverValidate({ planningRoot, workspaceRoot: cwd, proposalText });
+    }
+    if (stage === "propose") {
+      const options = argsToOptions(rest);
+      if (!options.actor) throw new UsageError("discover propose requires --actor");
+      const proposalText = readPayloadText(options.file || (options.stdin ? "-" : undefined), cwd, "discover propose requires --file <path> or --stdin");
+      return runDiscoveryPropose({ planningRoot, workspaceRoot: cwd, proposalText, actor: options.actor });
     }
     return notImplemented(`discover ${stage || ""}`.trim());
   }

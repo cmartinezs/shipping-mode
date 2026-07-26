@@ -4,6 +4,8 @@
 
 **Goal:** Implement Discovery Iteration Plan 3: hand off a validated `DiscoveryProposal` into a real ChangeSet, persist confirmed sources/scopes/commands only through the Corte 0 ChangeSet engine, and close the propose-to-apply TOCTOU window with `preconditions.discoveryWorkspace`.
 
+**Local execution status:** Complete in branch `agent/discovery-plan-3-changeset`; pending review/merge.
+
 **Normative sources:**
 
 - `docs/superpowers/specs/2026-07-25-discovery-iteration-design.md`, especially D.3 step 5 and D.4.
@@ -57,21 +59,21 @@ The ChangeSet engine remains the only writer. `discover validate` stays read-onl
 
 **Steps:**
 
-- [ ] Add `discovery.propose` and `scope.command.set` to `change-set.schema.json.kind` and `operation.schema.json.kind`.
-- [ ] Add `preconditions.discoveryWorkspace` to `change-set.schema.json` with `{ workspaceHash, scanParameters: { maxSourceBytes } }`.
-- [ ] Require that `discovery.propose` payload is an object containing:
+- [x] Add `discovery.propose` and `scope.command.set` to `change-set.schema.json.kind` and `operation.schema.json.kind`.
+- [x] Add `preconditions.discoveryWorkspace` to `change-set.schema.json` with `{ workspaceHash, scanParameters: { maxSourceBytes } }`.
+- [x] Require that `discovery.propose` payload is an object containing:
   - `proposal` (the validated proposal object);
   - `sourceIdAssignments: [{ sourceActionIndex, sourceId }]`;
   - `scopeIdAssignments: [{ scopeIndex, scopeId }]`;
   - `confirmedBy`;
   - `confirmedAt`.
-- [ ] Keep autonomy fields absent from the schema for Plan 3.
-- [ ] Add `scope.command.set` payload schema with `scopeId`, `role`, `command`, `requiresEnvironment`, and `requiresSecrets`.
-- [ ] Extend `operation.filePlan[]` and `result.files[]` with `action: "write" | "delete"`.
-- [ ] For write entries, require `stagedRelativePath`, `stagedContentHash`, and `stagedRevisionHash`.
-- [ ] For delete entries, require `stagedContentHash: "ABSENT"` and `stagedRevisionHash: "ABSENT"` and do not require a staged file.
-- [ ] Add valid/invalid fixtures proving `discovery.propose`, `preconditions.discoveryWorkspace`, write entries, and delete entries validate.
-- [ ] Run `npm run build:schemas` and schema tests.
+- [x] Keep autonomy fields absent from the schema for Plan 3.
+- [x] Add `scope.command.set` payload schema with `scopeId`, `role`, `command`, `requiresEnvironment`, and `requiresSecrets`.
+- [x] Extend `operation.filePlan[]` and `result.files[]` with `action: "write" | "delete"`.
+- [x] For write entries, require `stagedRelativePath`, `stagedContentHash`, and `stagedRevisionHash`.
+- [x] For delete entries, require `stagedContentHash: "ABSENT"` and `stagedRevisionHash: "ABSENT"` and do not require a staged file.
+- [x] Add valid/invalid fixtures proving `discovery.propose`, `preconditions.discoveryWorkspace`, write entries, and delete entries validate.
+- [x] Run `npm run build:schemas` and schema tests.
 
 ## Task 2: ChangeSet core supports runtime-supplied operation ids and delete actions
 
@@ -88,22 +90,22 @@ The ChangeSet engine remains the only writer. `discover validate` stays read-onl
 
 **Steps:**
 
-- [ ] Let `propose()` accept optional `operationId`, `proposedAt`, and `preconditions`; defaults preserve all Corte 0 behavior.
-- [ ] Persist `preconditions` in `change-set.json` only when provided.
-- [ ] Extend `eventTypeFor()` with `discovery.propose -> discovery.proposed` and `scope.command.set -> scope.command.set`.
-- [ ] Treat renderer values as either string content or `null` delete markers.
-- [ ] During `revalidateChangeSet()`, include delete targets in the rendered file set and skip YAML schema validation for delete markers.
-- [ ] During `prepareApply()`, build `filePlan` entries with `action`.
-- [ ] For writes, keep current staging behavior.
-- [ ] For deletes, snapshot `before/` when the target exists but create no staged file.
-- [ ] During `applyOperation()`, delete target files for delete entries using a confined write path. Missing delete targets after a valid `expectedBefore: ABSENT` remains idempotent; a delete with changed content is stale before apply.
-- [ ] Update recovery classification so delete entries classify:
+- [x] Let `propose()` accept optional `operationId`, `proposedAt`, and `preconditions`; defaults preserve all Corte 0 behavior.
+- [x] Persist `preconditions` in `change-set.json` only when provided.
+- [x] Extend `eventTypeFor()` with `discovery.propose -> discovery.proposed` and `scope.command.set -> scope.command.set`.
+- [x] Treat renderer values as either string content or `null` delete markers.
+- [x] During `revalidateChangeSet()`, include delete targets in the rendered file set and skip YAML schema validation for delete markers.
+- [x] During `prepareApply()`, build `filePlan` entries with `action`.
+- [x] For writes, keep current staging behavior.
+- [x] For deletes, snapshot `before/` when the target exists but create no staged file.
+- [x] During `applyOperation()`, delete target files for delete entries using a confined write path. Missing delete targets after a valid `expectedBefore: ABSENT` remains idempotent; a delete with changed content is stale before apply.
+- [x] Update recovery classification so delete entries classify:
   - actual `ABSENT` as `APPLIED`;
   - actual `beforeContentHash` as `PENDING`;
   - anything else as `DIVERGENT`.
-- [ ] Recovery replays pending deletes by removing the confined target, then continues result/event/APPLIED logic.
-- [ ] Result files record `contentHash: "ABSENT"` for deletes.
-- [ ] Preserve crash consistency and idempotency for all existing write-only operations.
+- [x] Recovery replays pending deletes by removing the confined target, then continues result/event/APPLIED logic.
+- [x] Result files record `contentHash: "ABSENT"` for deletes.
+- [x] Preserve crash consistency and idempotency for all existing write-only operations.
 
 ## Task 3: Discovery renderer creates deterministic source/scope/command mutations
 
@@ -114,21 +116,21 @@ The ChangeSet engine remains the only writer. `discover validate` stays read-onl
 
 **Steps:**
 
-- [ ] Add `renderDiscoveryPropose(payload, currentConfig, workspaceRoot)`.
-- [ ] Build current source and scope maps from `payload.proposal`, `currentConfig`, and persisted files provided by the command layer.
-- [ ] Render added sources to `sources/<runtime-source-id>/source.yml`.
-- [ ] Render updated/moved sources to `sources/<existing-source-id>/source.yml`.
-- [ ] Render removed sources as `sources/<existing-source-id>/source.yml -> null`.
-- [ ] Render added scopes to `scopes/<runtime-scope-id>/scope.yml` and append `{id,key}` to `config.yml`.
-- [ ] Render `scopeCommands[]` into each target scope's `commands` object, including `custom.<name>` roles.
-- [ ] Preserve unrelated scope fields and unrelated command roles.
-- [ ] Runtime-generated source provenance must be:
+- [x] Add `renderDiscoveryPropose(payload, currentConfig, workspaceRoot)`.
+- [x] Build current source and scope maps from `payload.proposal`, `currentConfig`, and persisted files provided by the command layer.
+- [x] Render added sources to `sources/<runtime-source-id>/source.yml`.
+- [x] Render updated/moved sources to `sources/<existing-source-id>/source.yml`.
+- [x] Render removed sources as `sources/<existing-source-id>/source.yml -> null`.
+- [x] Render added scopes to `scopes/<runtime-scope-id>/scope.yml` and append `{id,key}` to `config.yml`.
+- [x] Render `scopeCommands[]` into each target scope's `commands` object, including `custom.<name>` roles.
+- [x] Preserve unrelated scope fields and unrelated command roles.
+- [x] Runtime-generated source provenance must be:
   - `discoveredBy: discovery.propose`;
   - `confirmedBy: payload.confirmedBy`;
   - `confirmedAt: payload.confirmedAt`;
   - `confirmedOperationId: payload.operationId`.
-- [ ] Never copy provenance from the proposal.
-- [ ] Render output order must be stable, and target paths must be deterministic from persisted ids.
+- [x] Never copy provenance from the proposal.
+- [x] Render output order must be stable, and target paths must be deterministic from persisted ids.
 
 ## Task 4: Manual `scope.command.set` renderer and preparation
 
@@ -141,10 +143,10 @@ The ChangeSet engine remains the only writer. `discover validate` stays read-onl
 
 **Steps:**
 
-- [ ] Add `renderScopeCommandSet(payload, currentScope)`.
-- [ ] Payload identifies an existing scope by UUIDv7 `scopeId`.
-- [ ] Payload `role` supports `build|test|smoke|lint|verify|custom.<name>`.
-- [ ] Render a `declared` command entry with:
+- [x] Add `renderScopeCommandSet(payload, currentScope)`.
+- [x] Payload identifies an existing scope by UUIDv7 `scopeId`.
+- [x] Payload `role` supports `build|test|smoke|lint|verify|custom.<name>`.
+- [x] Render a `declared` command entry with:
   - `command`;
   - `method: declared`;
   - `declaredBy: payload.declaredBy`;
@@ -153,11 +155,11 @@ The ChangeSet engine remains the only writer. `discover validate` stays read-onl
   - `requiresEnvironment`;
   - `requiresSecrets`;
   - `alternatives: []`.
-- [ ] Preserve unrelated scope fields and command roles.
-- [ ] Add `scope.command.set` to `prepareProposal()` for caller-supplied payloads only through `changeset propose --kind scope.command.set`.
-- [ ] Runtime fills `operationId`, `declaredBy`, and `declaredAt`; caller payload must not be trusted for those fields.
-- [ ] Target files are exactly `scopes/<scopeId>/scope.yml`.
-- [ ] This task does not implement inferred/reviewed discovery commands; those remain in `discovery.propose`.
+- [x] Preserve unrelated scope fields and command roles.
+- [x] Add `scope.command.set` to `prepareProposal()` for caller-supplied payloads only through `changeset propose --kind scope.command.set`.
+- [x] Runtime fills `operationId`, `declaredBy`, and `declaredAt`; caller payload must not be trusted for those fields.
+- [x] Target files are exactly `scopes/<scopeId>/scope.yml`.
+- [x] This task does not implement inferred/reviewed discovery commands; those remain in `discovery.propose`.
 
 ## Task 5: Discovery ChangeSet preparation validates then assigns ids and target files
 
@@ -170,20 +172,20 @@ The ChangeSet engine remains the only writer. `discover validate` stays read-onl
 
 **Steps:**
 
-- [ ] Add `prepareDiscoveryChangeSet({ planningRoot, workspaceRoot, proposalText, actor })`.
-- [ ] Parse JSON only, matching `discover validate`.
-- [ ] Call `validateDiscoveryProposal({ proposal, planningRoot, workspaceRoot })`.
-- [ ] Reject invalid proposals with the existing `{ok:false,status:"INVALID",errors}` result from Plan 2; do not create an operation.
-- [ ] Generate a definitive operation id before building payload.
-- [ ] Generate definitive UUIDv7 ids for every `sources[].action === "add"`.
-- [ ] Generate definitive UUIDv7 ids for every `scopes[]` entry.
-- [ ] Create payload with proposal, assignments, `operationId`, `confirmedBy`, `confirmedAt`.
-- [ ] Create `targetFiles`:
+- [x] Add `prepareDiscoveryChangeSet({ planningRoot, workspaceRoot, proposalText, actor })`.
+- [x] Parse JSON only, matching `discover validate`.
+- [x] Call `validateDiscoveryProposal({ proposal, planningRoot, workspaceRoot })`.
+- [x] Reject invalid proposals with the existing `{ok:false,status:"INVALID",errors}` result from Plan 2; do not create an operation.
+- [x] Generate a definitive operation id before building payload.
+- [x] Generate definitive UUIDv7 ids for every `sources[].action === "add"`.
+- [x] Generate definitive UUIDv7 ids for every `scopes[]` entry.
+- [x] Create payload with proposal, assignments, `operationId`, `confirmedBy`, `confirmedAt`.
+- [x] Create `targetFiles`:
   - `config.yml` if any scope is added;
   - `sources/<id>/source.yml` for add/update/move/remove source actions;
   - `scopes/<id>/scope.yml` for added scopes and for existing scopes touched by `scopeCommands[]`.
-- [ ] Create `preconditions.discoveryWorkspace` from `normalized.workspaceHash` and `normalized.scanParameters`.
-- [ ] Do not compute or persist `autonomyEvaluation`.
+- [x] Create `preconditions.discoveryWorkspace` from `normalized.workspaceHash` and `normalized.scanParameters`.
+- [x] Do not compute or persist `autonomyEvaluation`.
 
 ## Task 6: Wire discovery.propose and scope.command.set into ChangeSet command paths and apply precondition
 
@@ -198,36 +200,37 @@ The ChangeSet engine remains the only writer. `discover validate` stays read-onl
 
 **Steps:**
 
-- [ ] Add `discover propose --file <path> | --stdin --actor <actor>` to the dispatcher.
-- [ ] Keep `changeset propose --kind discovery.propose` not implemented for caller-supplied payloads; discovery proposal handoff must go through `discover propose`.
-- [ ] Add `changeset propose --kind scope.command.set --payload-file <file|-> --actor <actor>` for manual declared command updates.
-- [ ] Add `renderFor("discovery.propose")` in `changesetCommand.mjs`.
-- [ ] Add `renderFor("scope.command.set")` in `changesetCommand.mjs`.
-- [ ] Extend `runChangesetValidate()` and `runChangesetApply()` so discovery renderers receive current config, workspace root, confirmed source files, and confirmed scope files.
-- [ ] Before staging in `prepareApply()`, if `changeSet.preconditions.discoveryWorkspace` exists, run a fresh `runDiscoverScan()` using the persisted scan parameters.
-- [ ] If the fresh workspace hash differs, call the existing stale transition helper, throw `StaleError`, and return before any `before/`, `staged/`, `filePlan`, or canonical write occurs.
-- [ ] Persist terminal `STALE`; later validate/approve/apply attempts on the same operation must fail by state, forcing rescan and a new operation.
-- [ ] Existing non-discovery operations must remain unchanged.
+- [x] Add `discover propose --file <path> | --stdin --actor <actor>` to the dispatcher.
+- [x] Keep `changeset propose --kind discovery.propose` not implemented for caller-supplied payloads; discovery proposal handoff must go through `discover propose`.
+- [x] Add `changeset propose --kind scope.command.set --payload-file <file|-> --actor <actor>` for manual declared command updates.
+- [x] Add `renderFor("discovery.propose")` in `changesetCommand.mjs`.
+- [x] Add `renderFor("scope.command.set")` in `changesetCommand.mjs`.
+- [x] Extend `runChangesetValidate()` and `runChangesetApply()` so discovery renderers receive current config, workspace root, confirmed source files, and confirmed scope files.
+- [x] Before staging in `prepareApply()`, if `changeSet.preconditions.discoveryWorkspace` exists, run a fresh `runDiscoverScan()` using the persisted scan parameters.
+- [x] If the fresh workspace hash differs, call the existing stale transition helper, throw `StaleError`, and return before any `before/`, `staged/`, `filePlan`, or canonical write occurs.
+- [x] Persist terminal `STALE`; later validate/approve/apply attempts on the same operation must fail by state, forcing rescan and a new operation.
+- [x] Existing non-discovery operations must remain unchanged.
 
 ## Task 7: Adversarial integration tests for stale, delete, provenance, and no partial writes
 
 **Files:**
 
-- Test: `runtime/src/lib/tests/discovery-changeset-stale.test.mjs`
-- Test: `runtime/src/commands/tests/discovery-apply.test.mjs`
+- Test: `runtime/src/commands/tests/discoveryChangeSet.test.mjs`
 - Test: `runtime/tests/cli-e2e.test.mjs`
+
+The original file names were placeholders. The final coverage is consolidated in the existing command-level discovery integration test plus public CLI E2E coverage.
 
 **Steps:**
 
-- [ ] E2E happy path: scan, build a proposal adding one source and one scope, `discover propose`, validate, approve, apply, then assert `config.yml`, `sources/<id>/source.yml`, and `scopes/<id>/scope.yml`.
-- [ ] Assert added source provenance uses runtime actor/time/operation id, not caller fields.
-- [ ] Assert added source ids and scope ids are UUIDv7 and are absent from the original proposal.
-- [ ] Assert command entries are written into existing scopes only when their referenced sources are already confirmed or update/move entries from the same proposal.
-- [ ] Stale test: create a valid discovery operation, approve it, mutate host workspace content, apply, expect `StaleError`, terminal `STALE`, no source/scope/config partial writes, no runtime staging residue.
-- [ ] Rescan recovery test: after stale, a fresh scan/proposal creates a new operation that applies successfully.
-- [ ] Delete test: confirmed source removed by proposal deletes `sources/<id>/source.yml`, records `ABSENT` in result, and remains crash-recoverable.
-- [ ] Tamper tests: caller-supplied provenance-like fields in proposal are rejected by schema or ignored; tampered `preconditions`/payload hash after approve becomes `STALE` before writes.
-- [ ] Manual `scope.command.set` E2E: declared command writes to an existing scope through ChangeSet and carries runtime-generated declared provenance.
+- [x] E2E happy path: scan, build a proposal adding one source and one scope, `discover propose`, validate, approve, apply, then assert `config.yml`, `sources/<id>/source.yml`, and `scopes/<id>/scope.yml`.
+- [x] Assert added source provenance uses runtime actor/time/operation id, not caller fields.
+- [x] Assert added source ids and scope ids are UUIDv7 and are absent from the original proposal.
+- [x] Assert command entries are written into existing scopes only when their referenced sources are already confirmed or update/move entries from the same proposal.
+- [x] Stale test: create a valid discovery operation, approve it, mutate host workspace content, apply, expect `StaleError`, terminal `STALE`, no source/scope/config partial writes, no runtime staging residue.
+- [x] Rescan recovery test: after stale, a fresh scan/proposal creates a new operation that applies successfully.
+- [x] Delete test: confirmed source removed by proposal deletes `sources/<id>/source.yml`, records `ABSENT` in result, and remains crash-recoverable.
+- [x] Tamper tests: caller-supplied provenance-like fields in proposal are rejected by schema or ignored; tampered `preconditions`/payload hash after approve becomes `STALE` before writes.
+- [x] Manual `scope.command.set` E2E: declared command writes to an existing scope through ChangeSet and carries runtime-generated declared provenance.
 
 ## Task 8: CLI, bundle, and docs/index regression
 
@@ -242,28 +245,28 @@ The ChangeSet engine remains the only writer. `discover validate` stays read-onl
 
 **Steps:**
 
-- [ ] Build schemas/runtime after implementation.
-- [ ] Ensure `docs/superpowers/plans/2026-07-25-discovery-iteration-INDEX.md` keeps Plan 2 as merged and Plan 3 pointing to this file, without marking Plan 3 merged before PR merge.
-- [ ] Run targeted tests added by this plan.
-- [ ] Run `npm run test:unit`.
-- [ ] Run `npm run test:cli-e2e`.
-- [ ] Run `npm run test:real-crash-e2e`.
-- [ ] Run `npm run test:security-e2e`.
-- [ ] Run `npm run test:bundle`.
-- [ ] Run `npm run verify:next-generation`.
-- [ ] Review `git diff --check` and the complete diff.
+- [x] Build schemas/runtime after implementation.
+- [x] Ensure `docs/superpowers/plans/2026-07-25-discovery-iteration-INDEX.md` keeps Plan 2 as merged and Plan 3 pointing to this file, without marking Plan 3 merged before PR merge.
+- [x] Run targeted tests added by this plan.
+- [x] Run `npm run test:unit`.
+- [x] Run `npm run test:cli-e2e`.
+- [x] Run `npm run test:real-crash-e2e`.
+- [x] Run `npm run test:security-e2e`.
+- [x] Run `npm run test:bundle`.
+- [x] Run `npm run verify:next-generation`.
+- [x] Review `git diff --check` and the complete diff.
 
 ## Adversarial review checklist
 
-- [ ] Plan 3 writes only via ChangeSet apply.
-- [ ] `discover validate` remains read-only.
-- [ ] `changeset propose --kind discovery.propose` does not accept caller-supplied mutation payloads.
-- [ ] `scope.command.set` is limited to declared manual commands and never uses sourceRefs or autonomy.
-- [ ] `preconditions.discoveryWorkspace` is produced by runtime validation and rechecked at apply from persisted scan parameters.
-- [ ] Stale happens before staging and before canonical writes.
-- [ ] `STALE` is terminal; only rescan and a new operation recover.
-- [ ] Added sources/scopes get definitive runtime IDs after validation; no proposal-local refs are introduced.
-- [ ] Provenance is runtime generated.
-- [ ] Source removes are real deletes and recovery-safe.
-- [ ] Plan 4 autonomy fields are not implemented.
-- [ ] Git execution and Work Sources/Jira contracts do not expand this plan.
+- [x] Plan 3 writes only via ChangeSet apply.
+- [x] `discover validate` remains read-only.
+- [x] `changeset propose --kind discovery.propose` does not accept caller-supplied mutation payloads.
+- [x] `scope.command.set` is limited to declared manual commands and never uses sourceRefs or autonomy.
+- [x] `preconditions.discoveryWorkspace` is produced by runtime validation and rechecked at apply from persisted scan parameters.
+- [x] Stale happens before staging and before canonical writes.
+- [x] `STALE` is terminal; only rescan and a new operation recover.
+- [x] Added sources/scopes get definitive runtime IDs after validation; no proposal-local refs are introduced.
+- [x] Provenance is runtime generated.
+- [x] Source removes are real deletes and recovery-safe.
+- [x] Plan 4 autonomy fields are not implemented.
+- [x] Git execution and Work Sources/Jira contracts do not expand this plan.

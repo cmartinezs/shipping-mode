@@ -47,6 +47,23 @@ assert.equal(config.scopeRefs.length, 1);
 assert.equal(config.scopeRefs[0].key, "backend");
 assert.equal(config.scopeRefs[0].id, scopeResult.scopeId);
 
+const commandSet = runChangesetPropose({
+  planningRoot,
+  kind: "scope.command.set",
+  actor: "carlos",
+  payloadText: JSON.stringify({ scopeId: scopeResult.scopeId, role: "test", command: "npm test", requiresEnvironment: false, requiresSecrets: false, declaredBy: "caller" })
+});
+const commandSetChangeSet = readChangeSet(operationsRoot, commandSet.operationId);
+assert.equal(commandSetChangeSet.payload.operationId, commandSet.operationId);
+assert.equal(commandSetChangeSet.payload.declaredBy, "carlos", "declared command provenance must come from runtime actor");
+runChangesetValidate({ planningRoot, operationsRoot, operationId: commandSet.operationId });
+runChangesetApprove({ operationsRoot, planningRoot, operationId: commandSet.operationId, actor: "carlos", allowSelfApproval: true });
+runChangesetApply({ planningRoot, operationsRoot, operationId: commandSet.operationId, actor: "carlos" });
+const scopeWithCommand = parseYaml(fs.readFileSync(path.join(planningRoot, scopeYmlPath), "utf8"));
+assert.equal(scopeWithCommand.commands.test.method, "declared");
+assert.equal(scopeWithCommand.commands.test.declaredOperationId, commandSet.operationId);
+assert.deepEqual(scopeWithCommand.commands.test.alternatives, []);
+
 // changeset propose --payload-file equivalent: raw JSON text in, operationId out
 const proposeFromText = runChangesetPropose({
   planningRoot, kind: "config.update", actor: "carlos",

@@ -4,7 +4,7 @@ import { readOperation, writeOperation, writeResult, readResult } from "./operat
 import { writeEventIdempotent, RecoveryRequiredError } from "./journal.mjs";
 import { contentHash, ABSENT } from "./canonical.mjs";
 import { confineRuntimeWritePath, confineWritePath } from "./paths.mjs";
-import { renameWithinRoot } from "./safeFs.mjs";
+import { deleteWithinRoot, renameWithinRoot } from "./safeFs.mjs";
 import { isUuidV7 } from "./ids.mjs";
 import { validate as validateSchema } from "./schema.mjs";
 
@@ -15,6 +15,11 @@ function currentContentHash(planningRoot, relativePath) {
 }
 
 function classify(entry, actualHash) {
+  if (entry.action === "delete") {
+    if (actualHash === ABSENT) return "APPLIED";
+    if (actualHash === entry.beforeContentHash) return "PENDING";
+    return "DIVERGENT";
+  }
   if (actualHash === entry.stagedContentHash) return "APPLIED";
   if (actualHash === entry.beforeContentHash) return "PENDING";
   return "DIVERGENT";
@@ -96,6 +101,10 @@ export function runRecovery({ operationsRoot, planningRoot, lock }) {
       }
 
       if (classification === "PENDING") {
+        if (entry.action === "delete") {
+          deleteWithinRoot(planningRoot, entry.target);
+          continue;
+        }
         const stagedRelative = path.join(runtimeOperationsRelative, operationId, "staged", entry.stagedRelativePath);
         let stagedPath;
         try {
@@ -132,7 +141,7 @@ export function runRecovery({ operationsRoot, planningRoot, lock }) {
 
     const expectedResult = {
       operationId,
-      files: (operation.filePlan || []).map((entry) => ({ target: entry.target, contentHash: entry.stagedContentHash }))
+      files: (operation.filePlan || []).map((entry) => ({ target: entry.target, action: entry.action, contentHash: entry.stagedContentHash }))
     };
     const resultPath = confineWritePath(operationsRoot, path.join(operationId, "result.json"));
     if (fs.existsSync(resultPath)) {
