@@ -1764,7 +1764,13 @@ function makeWorkspace() {
     schemaVersion: 1, scanId: scan.scanId, baseRevision: scan.baseRevision, scanParameters: scan.scanParameters,
     scopes: [], sources: [{ action: "remove", sourceId: "018f4d1e-0000-7000-8000-000000000099" }], scopeCommands: [], diagnostics: []
   };
-  fs.mkdirSync(path.join(workspaceRoot, "somewhere-new"));
+  // An empty, unrecognized-name directory would be invisible to computeWorkspaceHash (it
+  // matches no SCOPE_MANIFEST_RULES/SOURCE_DIRECTORY_RULES pattern and has no files inside to
+  // match SOURCE_FILE_RULES either), so it would silently fail to perturb the hash and this
+  // block would never reach stale_proposal. README.md is a recognized SOURCE_FILE_RULES entry
+  // (discoverScan.mjs's source.agent-instructions rule), so writing it here genuinely changes
+  // workspaceHash and exercises the intended "consistency gate short-circuits step 4" scenario.
+  fs.writeFileSync(path.join(workspaceRoot, "README.md"), "# unexpected addition since the scan\n");
 
   const result = validateDiscoveryProposal({ proposal, planningRoot, workspaceRoot });
   assert.equal(result.ok, false);
