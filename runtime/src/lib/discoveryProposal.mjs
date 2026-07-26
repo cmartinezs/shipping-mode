@@ -191,8 +191,11 @@ function resolvableSourceIds(proposal, confirmedIds) {
   const resolvable = new Set(confirmedIds);
   for (const entry of proposal.sources || []) {
     if (entry.action === "update" || entry.action === "move") resolvable.add(entry.sourceId);
-    // "add" deliberately excluded -- no sourceId exists yet; "remove" deliberately excluded --
-    // referencing a source being removed is handled as its own check in Task 8
+    // "add" deliberately excluded -- no sourceId exists yet. "remove" needs no special-casing
+    // here: a source being removed remains in confirmedIds (it still exists in the live
+    // catalog at check time) and so stays resolvable by this function -- whether a NEW
+    // reference to a source-being-removed should itself be rejected is a different, separate
+    // check, owned by Task 8's checkRemovalReferentialIntegrity.
   }
   return resolvable;
 }
