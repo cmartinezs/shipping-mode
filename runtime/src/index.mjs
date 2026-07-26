@@ -3,7 +3,7 @@ import path from "node:path";
 import { runInit, runConfigSet, runConfigScopeAdd } from "./commands/init.mjs";
 import { runChangesetPropose, runChangesetValidate, runChangesetApprove, runChangesetApply } from "./commands/changesetCommand.mjs";
 import { checkSchema } from "./commands/check.mjs";
-import { runDiscoverScan } from "./commands/discover.mjs";
+import { runDiscoverScan, runDiscoverValidate } from "./commands/discover.mjs";
 import { isUuidV7 } from "./lib/ids.mjs";
 import { UsageError, StateError, StaleError } from "./lib/errors.mjs";
 import { RecoveryRequiredError } from "./lib/journal.mjs";
@@ -120,6 +120,11 @@ export function dispatch(command, args, cwd) {
         scanArgs.maxSourceBytes = parsed;
       }
       return runDiscoverScan(scanArgs);
+    }
+    if (stage === "validate") {
+      const options = argsToOptions(rest);
+      const proposalText = readPayloadText(options.file || (options.stdin ? "-" : undefined), cwd);
+      return runDiscoverValidate({ planningRoot, workspaceRoot: cwd, proposalText });
     }
     return notImplemented(`discover ${stage || ""}`.trim());
   }

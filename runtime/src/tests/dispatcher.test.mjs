@@ -43,4 +43,12 @@ const discoverNotImplemented = dispatch("discover", ["nonsense"], cwd);
 assert.equal(discoverNotImplemented.status, "NOT_IMPLEMENTED");
 assert.equal(discoverNotImplemented.corte, "0");
 
+const validatePayload = path.join(cwd, "invalid-proposal.json");
+fs.writeFileSync(validatePayload, JSON.stringify({ schemaVersion: 1 }));
+const validateResult = dispatch("discover", ["validate", "--file", validatePayload], cwd);
+assert.equal(validateResult.ok, false);
+assert.ok(validateResult.errors.some((e) => e.code === "schema_invalid"));
+
+assert.throws(() => dispatch("discover", ["validate"], cwd), UsageError, "discover validate requires --file or --stdin");
+
 console.log("dispatcher: all tests passed");
