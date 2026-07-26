@@ -80,4 +80,14 @@ const scopeId = "018f4d1e-0000-7000-8000-000000000002";
   assert.equal(result.ok, true);
 }
 
-console.log("discovery-proposal-drift-reconciliation: unaddressed source/command drift is rejected, addressed drift and not-evidence-backed commands pass");
+// an evidenceState this code has never seen before (not one of the six discoverScan.mjs
+// actually emits) must still block by default -- this is a fail-closed check, not an allowlist
+// of known-bad states that a future addition could silently slip past
+{
+  const freshScan = { knownSources: [], knownCommandsEvidence: [{ scopeId, role: "build", evidenceState: "some-future-evidence-state" }] };
+  const result = checkDriftReconciliation({ proposal: { sources: [], scopeCommands: [] }, freshScan });
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((e) => e.code === "unreconciled_command_evidence" && e.evidenceState === "some-future-evidence-state"));
+}
+
+console.log("discovery-proposal-drift-reconciliation: unaddressed source/command drift is rejected, addressed drift and not-evidence-backed commands pass, and an unrecognized evidenceState fails closed rather than silently passing");

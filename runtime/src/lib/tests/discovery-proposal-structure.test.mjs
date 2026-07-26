@@ -20,11 +20,16 @@ function baseProposal(overrides = {}) {
   };
 }
 
-// schema-invalid proposal -> rejected with a schema_invalid error
+// schema-invalid proposal -> rejected with a schema_invalid error whose location is reported as
+// "pointer" (a JSON pointer into the document), never "path" -- "path" is reserved elsewhere in
+// this errors[] array for filesystem paths, and the two must never be confused
 {
   const result = validateProposalStructure({ ...baseProposal(), extraField: "not allowed" });
   assert.equal(result.ok, false);
-  assert.ok(result.errors.some((e) => e.code === "schema_invalid"));
+  const schemaError = result.errors.find((e) => e.code === "schema_invalid");
+  assert.ok(schemaError);
+  assert.equal(typeof schemaError.pointer, "string");
+  assert.equal("path" in schemaError, false);
 }
 
 // scanParameters out of range -> rejected
@@ -135,6 +140,21 @@ function baseProposal(overrides = {}) {
         { command: "./alt", sourceRefs: [srcB], sourceFingerprintAtSelection: { [srcB]: "c".repeat(64) }, confidence: "medium", requiresEnvironment: false, requiresSecrets: false },
         { command: "./alt", sourceRefs: [srcB], sourceFingerprintAtSelection: { [srcB]: "c".repeat(64) }, confidence: "low", requiresEnvironment: false, requiresSecrets: false }
       ]
+    }]
+  }));
+  assert.equal(result.ok, false);
+  assert.ok(result.errors.some((e) => e.code === "duplicate_alternative_key" && e.scopeId === scopeId && e.role === "build"));
+}
+
+// an alternative whose sourceRefs are the SAME SET as the selected command's but listed in a
+// different order is still the same identity -> rejected (order must never matter)
+{
+  const result = validateProposalStructure(baseProposal({
+    scopeCommands: [{
+      scopeId, role: "build", command: "./x", method: "reviewed", confidence: "high",
+      sourceRefs: [srcA, srcB], sourceFingerprintAtSelection: { [srcA]: "c".repeat(64), [srcB]: "d".repeat(64) },
+      requiresEnvironment: false, requiresSecrets: false,
+      alternatives: [{ command: "./x", sourceRefs: [srcB, srcA], sourceFingerprintAtSelection: { [srcB]: "d".repeat(64), [srcA]: "c".repeat(64) }, confidence: "medium", requiresEnvironment: false, requiresSecrets: false }]
     }]
   }));
   assert.equal(result.ok, false);

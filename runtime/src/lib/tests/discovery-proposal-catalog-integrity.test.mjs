@@ -100,8 +100,8 @@ const srcB = "018f4d1e-0000-7000-8000-000000000003";
   assert.ok(result.errors.some((e) => e.code === "source_path_collision" && e.path === "docs/merged/"));
 }
 
-// a "move" landing on its OWN previous path (a no-op-shaped move) does not collide with itself,
-// since the source's old occupancy is excluded before the new one is added
+// a "move" does not collide with its OWN previous occupancy, since the source's old path is
+// excluded (as displaced) before its new path is added
 {
   const { planningRoot } = makeWorkspace();
   writeConfirmedSource(planningRoot, srcA, "docs/a/");
