@@ -15,7 +15,7 @@ for (const name of expected) {
 }
 
 const changeSet = JSON.parse(fs.readFileSync(path.join(schemasDir, "change-set.schema.json"), "utf8"));
-assert.ok(Array.isArray(changeSet.allOf) && changeSet.allOf.length === 5, "change-set schema must conditionally validate payload shape per kind");
+assert.ok(Array.isArray(changeSet.allOf) && changeSet.allOf.length === 6, "change-set schema must conditionally validate payload shape per kind");
 
 const operation = JSON.parse(fs.readFileSync(path.join(schemasDir, "operation.schema.json"), "utf8"));
 assert.ok(operation.required.includes("reservedEvents"), "operation schema must require reservedEvents from PROPOSED onward");

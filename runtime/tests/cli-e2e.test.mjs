@@ -78,6 +78,34 @@ function fullyInit(cwd) {
   assert.equal(applied.code, 0);
 }
 
+// config autonomy set: public CLI creates a ChangeSet and never auto-approves itself
+{
+  const cwd = freshWorkspace();
+  fullyInit(cwd);
+  const payloadFile = path.join(cwd, "autonomy.json");
+  fs.writeFileSync(payloadFile, JSON.stringify({
+    discovery: {
+      default: "pause",
+      scopeCommandConfidenceFloor: "high",
+      sourceOverrides: [{
+        family: "project-module-manifests",
+        mode: "auto-approve",
+        authorityCeiling: { standing: "supporting", force: "advisory" }
+      }],
+      scopeCommand: { mode: "auto-approve" }
+    }
+  }));
+  const set = run(["config", "autonomy", "set", "--file", payloadFile, "--actor", "carlos"], cwd);
+  assert.equal(set.code, 0);
+  assert.equal(run(["changeset", "validate", set.json.operationId], cwd).code, 0);
+  const autonomous = run(["changeset", "approve", set.json.operationId, "--actor", "discovery-skill", "--mode", "autonomous"], cwd);
+  assert.equal(autonomous.code, 1, "autonomy policy changes must never be autonomously approved");
+  assert.equal(run(["changeset", "approve", set.json.operationId, "--actor", "carlos", "--allow-self-approval"], cwd).code, 0);
+  assert.equal(run(["changeset", "apply", set.json.operationId, "--actor", "carlos"], cwd).code, 0);
+  const config = parseYaml(fs.readFileSync(path.join(cwd, ".planning", "config.yml"), "utf8"));
+  assert.equal(config.autonomy.discovery.scopeCommand.mode, "auto-approve");
+}
+
 // config scope add, successful end to end
 {
   const cwd = freshWorkspace();
