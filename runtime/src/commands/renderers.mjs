@@ -20,6 +20,11 @@ export function renderConfigUpdate({ name }, currentConfig) {
   return new Map([["config.yml", stringifyYaml(nextConfig)]]);
 }
 
+export function renderConfigAutonomySet({ discovery }, currentConfig) {
+  const nextConfig = { ...currentConfig, autonomy: { discovery } };
+  return new Map([["config.yml", stringifyYaml(nextConfig)]]);
+}
+
 export function renderScopeAdd({ id, key, label, kind, path: scopePath, owner = null }, currentConfig, workspaceRoot) {
   confineScopePath(workspaceRoot, scopePath); // throws PathConfinementError on violation; read-only check
 
@@ -50,10 +55,10 @@ function setCommand(scope, role, entry) {
   return next;
 }
 
-function renderInferredCommand(entry) {
+function renderInferredCommand(entry, approvalMode = "human") {
   return {
     command: entry.command,
-    method: entry.method,
+    method: approvalMode === "autonomous" ? "inferred" : "reviewed",
     confidence: entry.confidence,
     sourceRefs: entry.sourceRefs,
     sourceFingerprintAtSelection: entry.sourceFingerprintAtSelection,
@@ -119,7 +124,7 @@ function renderSource(entry, existing, { id, operationId, confirmedBy, confirmed
   return next;
 }
 
-export function renderDiscoveryPropose({ operationId, proposal, sourceIdAssignments, scopeIdAssignments, confirmedBy, confirmedAt }, currentConfig, workspaceRoot, { currentSources = [], currentScopes = [] } = {}) {
+export function renderDiscoveryPropose({ operationId, proposal, sourceIdAssignments, scopeIdAssignments, confirmedBy, confirmedAt }, currentConfig, workspaceRoot, { currentSources = [], currentScopes = [], approvalMode = "human" } = {}) {
   const rendered = new Map();
   const sourcesById = new Map(currentSources.map((source) => [source.id, source]));
   const scopesById = new Map(currentScopes.map((scope) => [scope.id, scope]));
@@ -155,7 +160,7 @@ export function renderDiscoveryPropose({ operationId, proposal, sourceIdAssignme
   for (const entry of proposal.scopeCommands || []) {
     const currentScope = scopesById.get(entry.scopeId);
     if (!currentScope) throw new Error(`scope not found for discovery command: ${entry.scopeId}`);
-    const nextScope = setCommand(currentScope, entry.role, renderInferredCommand(entry));
+    const nextScope = setCommand(currentScope, entry.role, renderInferredCommand(entry, approvalMode));
     rendered.set(`scopes/${entry.scopeId}/scope.yml`, stringifyYaml(nextScope));
     scopesById.set(entry.scopeId, nextScope);
   }

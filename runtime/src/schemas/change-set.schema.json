@@ -6,7 +6,7 @@
   "properties": {
     "schemaVersion": { "const": 1 },
     "operationId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
-    "kind": { "enum": ["workspace.init", "config.update", "scope.add", "scope.command.set", "discovery.propose"] },
+    "kind": { "enum": ["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "discovery.propose"] },
     "target": { "type": "object" },
     "baseRevisions": {
       "type": "object",
@@ -72,6 +72,19 @@
             "additionalProperties": false,
             "required": ["name"],
             "properties": { "name": { "type": "string", "minLength": 1 } }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "config.autonomy.set" } } },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["discovery"],
+            "properties": { "discovery": { "$ref": "#/$defs/discoveryAutonomyPolicy" } }
           }
         }
       }
@@ -167,5 +180,64 @@
         }
       }
     }
-  ]
+  ],
+  "$defs": {
+    "mode": { "enum": ["pause", "auto-approve"] },
+    "confidence": { "enum": ["low", "medium", "high"] },
+    "sourceFamily": {
+      "enum": [
+        "product-sources", "functional-sources", "technical-sources", "agent-repository-instructions",
+        "project-module-manifests", "execution-commands", "quality-definitions", "local-runtime-environment",
+        "public-data-contracts", "delivery-ci-deployment", "ownership", "decision-sources", "developer-guides",
+        "engineering-standards", "repository-map", "evidence-contracts", "design-system", "prompt-sources",
+        "custom-automation"
+      ]
+    },
+    "sourceAuthority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["standing", "force"],
+      "properties": {
+        "standing": { "enum": ["contextual", "supporting", "authoritative"] },
+        "force": { "enum": ["unknown", "informational", "advisory", "normative"] }
+      }
+    },
+    "discoveryAutonomyPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["default", "scopeCommandConfidenceFloor", "sourceOverrides", "scopeCommand"],
+      "properties": {
+        "default": { "$ref": "#/$defs/mode" },
+        "scopeCommandConfidenceFloor": { "$ref": "#/$defs/confidence" },
+        "sourceOverrides": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["family", "mode"],
+            "properties": {
+              "family": { "$ref": "#/$defs/sourceFamily" },
+              "mode": { "$ref": "#/$defs/mode" },
+              "authorityCeiling": { "$ref": "#/$defs/sourceAuthority" }
+            },
+            "allOf": [
+              {
+                "if": { "required": ["mode"], "properties": { "mode": { "const": "auto-approve" } } },
+                "then": {
+                  "required": ["authorityCeiling"],
+                  "properties": { "authorityCeiling": { "$ref": "#/$defs/sourceAuthority" } }
+                }
+              }
+            ]
+          }
+        },
+        "scopeCommand": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": { "mode": { "$ref": "#/$defs/mode" } }
+        }
+      }
+    }
+  }
 }
