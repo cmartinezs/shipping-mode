@@ -3,8 +3,6 @@ import { validateDiscoveryProposal } from "../lib/discoveryProposal.mjs";
 import { generateUuidV7 } from "../lib/ids.mjs";
 import { propose } from "../lib/changeset.mjs";
 import { UsageError } from "../lib/errors.mjs";
-import { evaluateDiscoveryProposalAutonomy, readConfirmedAutonomyPolicy } from "../lib/autonomy.mjs";
-import { readConfirmedSources } from "../lib/discoverScan.mjs";
 
 function parseProposalText(proposalText) {
   try {
@@ -31,12 +29,6 @@ export function prepareDiscoveryChangeSet({ planningRoot, workspaceRoot, proposa
     .map((entry, index) => entry.action === "add" ? assignmentForSource(index) : null)
     .filter(Boolean);
   const scopeIdAssignments = (proposal.scopes || []).map((_, index) => assignmentForScope(index));
-  const autonomyEvaluation = evaluateDiscoveryProposalAutonomy({
-    proposal,
-    policy: readConfirmedAutonomyPolicy(planningRoot),
-    confirmedSources: readConfirmedSources(planningRoot)
-  });
-
   const targetFiles = new Set();
   if ((proposal.scopes || []).length > 0) targetFiles.add("config.yml");
 
@@ -63,7 +55,6 @@ export function prepareDiscoveryChangeSet({ planningRoot, workspaceRoot, proposa
         scanParameters: validation.normalized.scanParameters
       }
     },
-    autonomyEvaluation,
     payload: {
       operationId,
       proposal,
@@ -89,8 +80,7 @@ export function runDiscoveryPropose({ planningRoot, workspaceRoot, proposalText,
     actor,
     operationId: prepared.operationId,
     proposedAt: prepared.payload.confirmedAt,
-    preconditions: prepared.preconditions,
-    autonomyEvaluation: prepared.autonomyEvaluation
+    preconditions: prepared.preconditions
   });
   return { operationId };
 }

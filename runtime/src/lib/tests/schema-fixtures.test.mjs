@@ -121,6 +121,23 @@ const scopeCommandSetChangeSet = {
 };
 assert.equal(validate("change-set", scopeCommandSetChangeSet).valid, true, "scope.command.set fixture must pass");
 
+const autonomyEvaluation = {
+  operationId: discoveryChangeSet.operationId,
+  changeSetHash: "a".repeat(64),
+  policyFingerprint: "b".repeat(64),
+  autoApprovable: true,
+  blockedBy: []
+};
+const validatedDiscoveryOperation = {
+  ...opBase,
+  kind: "discovery.propose",
+  status: "VALIDATED",
+  validation,
+  autonomyEvaluation
+};
+assert.equal(validate("operation", validatedDiscoveryOperation).valid, true, "validated discovery operation requires a bound autonomyEvaluation");
+assert.equal(validate("operation", { ...validatedDiscoveryOperation, autonomyEvaluation: { policyFingerprint: "b".repeat(64), autoApprovable: true, blockedBy: [] } }).valid, false, "unbound autonomyEvaluation must fail schema validation");
+
 const deleteFilePlanOperation = {
   ...opBase,
   status: "APPLYING",

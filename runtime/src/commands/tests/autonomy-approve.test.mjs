@@ -9,7 +9,9 @@ import { runDiscoverScan } from "../../lib/discoverScan.mjs";
 import { readChangeSet, readOperation, writeOperation } from "../../lib/operationStore.mjs";
 import { parseYaml } from "../../lib/yaml.mjs";
 import { StateError, StaleError } from "../../lib/errors.mjs";
-import { REASON_CODES } from "../../lib/autonomy.mjs";
+import { AUTONOMOUS_APPROVAL_CAPABILITY, REASON_CODES } from "../../lib/autonomy.mjs";
+
+const TRUSTED_AUTOMATION_CONTEXT = { capabilities: [AUTONOMOUS_APPROVAL_CAPABILITY] };
 
 function buildWorkspace() {
   const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "autonomy-approve-"));
@@ -149,7 +151,7 @@ function prepareReadyWorkspace() {
   assert.equal(configOperation.autonomyEvaluation.autoApprovable, false);
   assert.deepEqual(configOperation.autonomyEvaluation.blockedBy, [{ itemRef: "changeSet", reason: REASON_CODES.AUTONOMY_CONFIG_CHANGE }]);
   assert.throws(
-    () => runChangesetApprove({ planningRoot, operationsRoot, operationId: configOperationId, actor: "discovery-skill", mode: "autonomous" }),
+    () => runChangesetApprove({ planningRoot, operationsRoot, operationId: configOperationId, actor: "discovery-skill", mode: "autonomous", authorizationContext: TRUSTED_AUTOMATION_CONTEXT }),
     StateError,
     "config autonomy set must never self-approve autonomously"
   );
@@ -165,12 +167,17 @@ function prepareReadyWorkspace() {
   const operation = readOperation(operationsRoot, operationId);
   assert.equal(operation.autonomyEvaluation.autoApprovable, true);
   assert.throws(
+    () => runChangesetApprove({ planningRoot, operationsRoot, operationId, actor: "discovery-skill", mode: "autonomous" }),
+    StateError,
+    "spoofing an allowlisted-looking actor label must not grant autonomous approval"
+  );
+  assert.throws(
     () => runChangesetApprove({ planningRoot, operationsRoot, operationId, actor: "cualquier-string", mode: "autonomous" }),
     StateError,
-    "autonomous approval must require a recognized automation-capable actor"
+    "arbitrary actors without server-owned capability must be rejected"
   );
 
-  runChangesetApprove({ planningRoot, operationsRoot, operationId, actor: "discovery-skill", mode: "autonomous" });
+  runChangesetApprove({ planningRoot, operationsRoot, operationId, actor: "discovery-skill", mode: "autonomous", authorizationContext: TRUSTED_AUTOMATION_CONTEXT });
   assert.equal(readOperation(operationsRoot, operationId).approval.mode, "autonomous");
   runChangesetApply({ planningRoot, operationsRoot, operationId, actor: "discovery-skill" });
   const scope = parseYaml(fs.readFileSync(path.join(planningRoot, "scopes", scopeId, "scope.yml"), "utf8"));
@@ -185,7 +192,7 @@ function prepareReadyWorkspace() {
   assert.equal(readOperation(operationsRoot, operationId).autonomyEvaluation.autoApprovable, false);
   assert.equal(readOperation(operationsRoot, operationId).autonomyEvaluation.blockedBy[0].reason, REASON_CODES.ALTERNATIVES_PRESENT);
   assert.throws(
-    () => runChangesetApprove({ planningRoot, operationsRoot, operationId, actor: "discovery-skill", mode: "autonomous" }),
+    () => runChangesetApprove({ planningRoot, operationsRoot, operationId, actor: "discovery-skill", mode: "autonomous", authorizationContext: TRUSTED_AUTOMATION_CONTEXT }),
     StateError,
     "autoApprovable false must block autonomous approval"
   );
@@ -198,7 +205,7 @@ function prepareReadyWorkspace() {
   const operationId = proposeValidatedCommand(planningRoot, workspaceRoot, operationsRoot, sourceId, scopeId);
   applyAutonomyConfig(planningRoot, operationsRoot, autoPolicy({ scopeMode: "pause" }));
   assert.throws(
-    () => runChangesetApprove({ planningRoot, operationsRoot, operationId, actor: "discovery-skill", mode: "autonomous" }),
+    () => runChangesetApprove({ planningRoot, operationsRoot, operationId, actor: "discovery-skill", mode: "autonomous", authorizationContext: TRUSTED_AUTOMATION_CONTEXT }),
     StaleError,
     "autonomous approval must stale when the confirmed policy changed after validation"
   );
@@ -228,10 +235,27 @@ function prepareReadyWorkspace() {
   const falseEvaluation = readOperation(operationsRoot, falseOperationId).autonomyEvaluation;
   writeOperation(operationsRoot, trueOperationId, { ...trueOperation, autonomyEvaluation: falseEvaluation });
   assert.throws(
-    () => runChangesetApprove({ planningRoot, operationsRoot, operationId: trueOperationId, actor: "discovery-skill", mode: "autonomous" }),
+    () => runChangesetApprove({ planningRoot, operationsRoot, operationId: trueOperationId, actor: "discovery-skill", mode: "autonomous", authorizationContext: TRUSTED_AUTOMATION_CONTEXT }),
     StateError,
     "an autonomyEvaluation copied from another operation must not authorize this operation"
   );
 }
 
-console.log("autonomy-approve: config changesets, approve modes, stale policy, actor capability, tamper, and method ownership pass");
+{
+  const { workspaceRoot, planningRoot, operationsRoot, sourceId, scopeId } = prepareReadyWorkspace();
+  const operationIdA = proposeValidatedCommand(planningRoot, workspaceRoot, operationsRoot, sourceId, scopeId);
+  const operationIdB = proposeValidatedCommand(planningRoot, workspaceRoot, operationsRoot, sourceId, scopeId);
+  const operationA = readOperation(operationsRoot, operationIdA);
+  const evaluationB = readOperation(operationsRoot, operationIdB).autonomyEvaluation;
+  assert.equal(operationA.autonomyEvaluation.autoApprovable, true);
+  assert.equal(evaluationB.autoApprovable, true, "the copied evaluation must be semantically identical, not the easy true/false mismatch case");
+  assert.notEqual(operationA.autonomyEvaluation.operationId, evaluationB.operationId);
+  writeOperation(operationsRoot, operationIdA, { ...operationA, autonomyEvaluation: evaluationB });
+  assert.throws(
+    () => runChangesetApprove({ planningRoot, operationsRoot, operationId: operationIdA, actor: "discovery-skill", mode: "autonomous", authorizationContext: TRUSTED_AUTOMATION_CONTEXT }),
+    StateError,
+    "an identical evaluation copied from another operation must fail its operation/changeSet binding"
+  );
+}
+
+console.log("autonomy-approve: config changesets, approve modes, stale policy, trusted capability, binding tamper, and method ownership pass");

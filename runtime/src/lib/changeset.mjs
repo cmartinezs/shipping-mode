@@ -12,7 +12,7 @@ import { StateError, StaleError } from "./errors.mjs";
 import { buildExpectedEvent, writeEventIdempotent } from "./journal.mjs";
 import { checkpoint } from "./faultInjection.mjs";
 import { runDiscoverScan } from "./discoverScan.mjs";
-import { evaluateChangeSetAutonomy, currentPolicyFingerprint, isAutomationCapableActor, REASON_CODES } from "./autonomy.mjs";
+import { bindAutonomyEvaluation, evaluateChangeSetAutonomy, currentPolicyFingerprint, hasAutonomousApprovalCapability, REASON_CODES } from "./autonomy.mjs";
 
 export function readFileState(planningRoot, relativePath) {
   const absolutePath = confineRuntimeWritePath(planningRoot, relativePath);
@@ -46,7 +46,7 @@ export function eventTypeFor(kind) {
   }[kind];
 }
 
-export function propose({ operationsRoot, planningRoot, kind, target, payload, targetFiles, actor, operationId = null, proposedAt = null, preconditions = null, autonomyEvaluation = null }) {
+export function propose({ operationsRoot, planningRoot, kind, target, payload, targetFiles, actor, operationId = null, proposedAt = null, preconditions = null }) {
   return withWorkspaceMutation({ planningRoot, operationsRoot, operationId: null }, () => {
     operationId ??= generateUuidV7();
     assertDistinctMutationTargets(planningRoot, targetFiles);
@@ -74,7 +74,6 @@ export function propose({ operationsRoot, planningRoot, kind, target, payload, t
       approval: { actor: null, approvedAt: null, changeSetHash: null, selfApproval: null, mode: null },
       history: [{ at: proposedAt, from: null, to: "PROPOSED", actor, reason: null }]
     };
-    if (autonomyEvaluation) operation.autonomyEvaluation = autonomyEvaluation;
     writeOperation(operationsRoot, operationId, operation);
 
     return operationId;
@@ -207,16 +206,27 @@ export function validateOperation({ operationsRoot, planningRoot, operationId, r
       return;
     }
 
-    writeOperation(operationsRoot, operationId, {
+    const nextOperation = {
       ...operation,
       status: "VALIDATED",
       validation: { validatedAt, changeSetHash: result.recomputedHash, errors: [] },
       history: [...operation.history, { at: validatedAt, from: operation.status, to: "VALIDATED", actor: "system:validator", reason: null }]
-    });
+    };
+    const evaluation = evaluateChangeSetAutonomy({ changeSet: result.changeSet, planningRoot });
+    if (evaluation) {
+      nextOperation.autonomyEvaluation = bindAutonomyEvaluation({
+        evaluation,
+        operationId,
+        changeSetHash: result.recomputedHash
+      });
+    } else {
+      delete nextOperation.autonomyEvaluation;
+    }
+    writeOperation(operationsRoot, operationId, nextOperation);
   });
 }
 
-export function approveOperation({ operationsRoot, planningRoot, operationId, actor, allowSelfApproval = false, mode = "human" }) {
+export function approveOperation({ operationsRoot, planningRoot, operationId, actor, allowSelfApproval = false, mode = "human", authorizationContext = null }) {
   return withWorkspaceMutation({ planningRoot, operationsRoot, operationId }, () => {
     const operation = readOperation(operationsRoot, operationId);
     if (operation.status !== "VALIDATED") {
@@ -233,16 +243,21 @@ export function approveOperation({ operationsRoot, planningRoot, operationId, ac
     }
 
     if (mode === "autonomous") {
-      if (!isAutomationCapableActor(actor)) {
-        throw new StateError("autonomous approval requires an automation-capable actor");
+      if (!hasAutonomousApprovalCapability(authorizationContext)) {
+        throw new StateError("autonomous approval requires a server-owned authorization capability");
       }
       if (!operation.autonomyEvaluation) {
         throw new StateError("autonomous approval requires this operation's autonomyEvaluation");
       }
+      if (operation.autonomyEvaluation.operationId !== operationId
+          || operation.autonomyEvaluation.changeSetHash !== recomputedHash) {
+        throw new StateError("autonomyEvaluation is not bound to this operation and validated ChangeSet");
+      }
       if (currentPolicyFingerprint(planningRoot) !== operation.autonomyEvaluation.policyFingerprint) {
         transitionToStale(operationsRoot, operationId, operation, REASON_CODES.POLICY_CHANGED_SINCE_VALIDATION);
       }
-      const freshEvaluation = evaluateChangeSetAutonomy({ changeSet, planningRoot });
+      const evaluation = evaluateChangeSetAutonomy({ changeSet, planningRoot });
+      const freshEvaluation = bindAutonomyEvaluation({ evaluation, operationId, changeSetHash: recomputedHash });
       if (!freshEvaluation || revisionHash(freshEvaluation) !== revisionHash(operation.autonomyEvaluation)) {
         throw new StateError("autonomyEvaluation does not match this operation");
       }

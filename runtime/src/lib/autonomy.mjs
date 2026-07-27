@@ -17,7 +17,7 @@ export const REASON_CODES = Object.freeze({
   POLICY_CHANGED_SINCE_VALIDATION: "policy_changed_since_validation"
 });
 
-export const AUTOMATION_CAPABLE_ACTORS = new Set(["system:automation:discovery", "discovery-skill"]);
+export const AUTONOMOUS_APPROVAL_CAPABILITY = "discovery.autonomous-approve";
 
 export const DEFAULT_AUTONOMY_POLICY = Object.freeze({
   discovery: {
@@ -77,8 +77,14 @@ export function autonomyConfigChangeEvaluation(planningRoot) {
   };
 }
 
-export function isAutomationCapableActor(actor) {
-  return AUTOMATION_CAPABLE_ACTORS.has(actor);
+export function bindAutonomyEvaluation({ evaluation, operationId, changeSetHash }) {
+  if (!evaluation) return null;
+  return { operationId, changeSetHash, ...evaluation };
+}
+
+export function hasAutonomousApprovalCapability(authorizationContext = null) {
+  const capabilities = authorizationContext?.capabilities;
+  return Array.isArray(capabilities) && capabilities.includes(AUTONOMOUS_APPROVAL_CAPABILITY);
 }
 
 function sourceOverrideFor(policy, family) {
@@ -118,11 +124,14 @@ export function evaluateSourceAction({ entry, index, policy, confirmedSources })
 
   const state = sourceStateFor(entry, confirmedSources);
   const override = sourceOverrideFor(policy, state.family);
+  const effectiveMode = override?.mode ?? policy.discovery.default;
   if (!override) {
+    // `default:auto-approve` is not an implicit source-family allowlist: sources
+    // require an explicit override because that is where the authority ceiling lives.
     block(blockedBy, itemRef, REASON_CODES.FAMILY_NOT_ALLOWLISTED);
     return blockedBy;
   }
-  if (override.mode === "pause") {
+  if (effectiveMode === "pause") {
     block(blockedBy, itemRef, REASON_CODES.DEFAULT_PAUSE);
     return blockedBy;
   }

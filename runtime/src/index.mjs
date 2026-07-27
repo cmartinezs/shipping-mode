@@ -54,7 +54,7 @@ function readPayloadText(payloadFileArg, cwd, usage) {
   return fs.readFileSync(resolved, "utf8");
 }
 
-export function dispatch(command, args, cwd) {
+export function dispatch(command, args, cwd, runtimeContext = null) {
   const planningRoot = path.join(cwd, ".planning");
   const operationsRoot = path.join(planningRoot, "operations");
 
@@ -121,7 +121,15 @@ export function dispatch(command, args, cwd) {
       const operationId = requireOperationId(rest[0]);
       const options = argsToOptions(rest.slice(1));
       if (!options.actor) throw new UsageError("changeset approve requires --actor");
-      return runChangesetApprove({ operationsRoot, planningRoot, operationId, actor: options.actor, allowSelfApproval: Boolean(options.allow_self_approval), mode: options.mode || "human" });
+      return runChangesetApprove({
+        operationsRoot,
+        planningRoot,
+        operationId,
+        actor: options.actor,
+        allowSelfApproval: Boolean(options.allow_self_approval),
+        mode: options.mode || "human",
+        authorizationContext: runtimeContext?.authorizationContext || null
+      });
     }
     if (stage === "apply") {
       const operationId = requireOperationId(rest[0]);

@@ -9,7 +9,6 @@ import { prepareProposal } from "./proposalPreparation.mjs";
 import { UsageError } from "../lib/errors.mjs";
 import { confineRuntimeWritePath } from "../lib/paths.mjs";
 import { readConfirmedSources, readConfirmedScopes } from "../lib/discoverScan.mjs";
-import { autonomyConfigChangeEvaluation } from "../lib/autonomy.mjs";
 
 function readCurrentConfig(planningRoot) {
   const configPath = confineRuntimeWritePath(planningRoot, "config.yml");
@@ -46,9 +45,6 @@ export function runChangesetPropose({ planningRoot, kind, payloadText, actor }) 
     runtimeContext.actor = actor;
     runtimeContext.proposedAt = new Date().toISOString();
   }
-  if (kind === "config.autonomy.set") {
-    runtimeContext.autonomyEvaluation = autonomyConfigChangeEvaluation(planningRoot);
-  }
   const { payload, targetFiles } = prepareProposal(kind, rawPayload, runtimeContext);
   const operationsRoot = path.join(planningRoot, "operations");
   const operationId = propose({
@@ -60,8 +56,7 @@ export function runChangesetPropose({ planningRoot, kind, payloadText, actor }) 
     targetFiles,
     actor,
     operationId: runtimeContext.operationId || null,
-    proposedAt: runtimeContext.proposedAt || null,
-    autonomyEvaluation: runtimeContext.autonomyEvaluation || null
+    proposedAt: runtimeContext.proposedAt || null
   });
   return { operationId };
 }
@@ -75,8 +70,8 @@ export function runChangesetValidate({ planningRoot, operationsRoot, operationId
   return { status: operation.status, errors: operation.validation?.errors || [] };
 }
 
-export function runChangesetApprove({ operationsRoot, planningRoot, operationId, actor, allowSelfApproval, mode = "human" }) {
-  approveOperation({ operationsRoot, planningRoot, operationId, actor, allowSelfApproval: Boolean(allowSelfApproval), mode });
+export function runChangesetApprove({ operationsRoot, planningRoot, operationId, actor, allowSelfApproval, mode = "human", authorizationContext = null }) {
+  approveOperation({ operationsRoot, planningRoot, operationId, actor, allowSelfApproval: Boolean(allowSelfApproval), mode, authorizationContext });
   return { status: readOperation(operationsRoot, operationId).status };
 }
 

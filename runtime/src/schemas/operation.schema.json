@@ -45,8 +45,10 @@
     "autonomyEvaluation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["policyFingerprint", "autoApprovable", "blockedBy"],
+      "required": ["operationId", "changeSetHash", "policyFingerprint", "autoApprovable", "blockedBy"],
       "properties": {
+        "operationId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+        "changeSetHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
         "policyFingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
         "autoApprovable": { "type": "boolean" },
         "blockedBy": {
@@ -159,6 +161,19 @@
             }
           }
         }
+      }
+    },
+    {
+      "if": {
+        "required": ["kind", "status"],
+        "properties": {
+          "kind": { "enum": ["discovery.propose", "config.autonomy.set"] },
+          "status": { "enum": ["VALIDATED", "APPROVED", "APPLYING", "APPLIED"] }
+        }
+      },
+      "then": {
+        "required": ["autonomyEvaluation"],
+        "properties": { "autonomyEvaluation": { "$ref": "#/properties/autonomyEvaluation" } }
       }
     },
     {

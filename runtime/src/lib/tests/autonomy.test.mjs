@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { evaluateDiscoveryProposalAutonomy, normalizeAutonomyPolicy, policyFingerprint, REASON_CODES, isAutomationCapableActor } from "../autonomy.mjs";
+import { AUTONOMOUS_APPROVAL_CAPABILITY, evaluateDiscoveryProposalAutonomy, hasAutonomousApprovalCapability, normalizeAutonomyPolicy, policyFingerprint, REASON_CODES } from "../autonomy.mjs";
 
 const sourceId = "018f0000-0000-7000-8000-000000000001";
 const scopeId = "018f0000-0000-7000-8000-000000000002";
@@ -87,6 +87,22 @@ function evaluate(proposal, confirmedSources = []) {
 }
 
 {
+  const defaultAutoPolicy = normalizeAutonomyPolicy({
+    discovery: { ...policy.discovery, default: "auto-approve", sourceOverrides: [] }
+  });
+  const result = evaluateDiscoveryProposalAutonomy({
+    proposal: { scopes: [], sources: [addSource()], scopeCommands: [] },
+    policy: defaultAutoPolicy,
+    confirmedSources: []
+  });
+  assert.deepEqual(
+    result.blockedBy,
+    [{ itemRef: "sources[0]", reason: REASON_CODES.FAMILY_NOT_ALLOWLISTED }],
+    "default:auto-approve must not implicitly whitelist a source family without an authority ceiling"
+  );
+}
+
+{
   const pausePolicy = normalizeAutonomyPolicy({
     discovery: { ...policy.discovery, sourceOverrides: [{ family: "project-module-manifests", mode: "pause" }] }
   });
@@ -138,8 +154,9 @@ function evaluate(proposal, confirmedSources = []) {
 }
 
 {
-  assert.equal(isAutomationCapableActor("cualquier-string"), false);
-  assert.equal(isAutomationCapableActor("system:automation:discovery"), true);
+  assert.equal(hasAutonomousApprovalCapability(null), false);
+  assert.equal(hasAutonomousApprovalCapability({ capabilities: ["discovery-skill"] }), false, "actor-like strings are not capabilities");
+  assert.equal(hasAutonomousApprovalCapability({ capabilities: [AUTONOMOUS_APPROVAL_CAPABILITY] }), true);
 }
 
 console.log("autonomy: policy fingerprint, effective mode, reason codes, and actor capability pass");

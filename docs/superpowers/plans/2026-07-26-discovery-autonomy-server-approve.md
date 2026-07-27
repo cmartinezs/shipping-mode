@@ -135,7 +135,7 @@ Autonomous approval is a server-side check at `changeset approve --mode autonomo
 - [x] Do not accept or persist caller-supplied autonomy fields in `DiscoveryProposal`.
 - [x] For `config.autonomy.set`, persist server-owned `autoApprovable:false` and `autonomy_config_change`.
 - [x] Ensure tampering with `autonomyEvaluation` after validation is detected before autonomous approval.
-- [x] Ensure an evaluation from another operation cannot be reused.
+- [x] Bind persisted evaluation to `operationId` + validated `changeSetHash` and ensure even an otherwise identical evaluation from another operation cannot be reused.
 
 ## Task 5: Approve mode and automation-capable actors
 
@@ -150,8 +150,8 @@ Autonomous approval is a server-side check at `changeset approve --mode autonomo
 
 - [x] Add `changeset approve <operation-id> --mode human|autonomous`; omitted mode defaults to `human`.
 - [x] Preserve existing human approval and self-approval behavior.
-- [x] Add minimal automation-capable actor model. Use a repo-native allowlist, not arbitrary actor strings. The initial allowlist is intentionally small, e.g. `system:automation:discovery`.
-- [x] Reject autonomous approval when actor is not automation-capable.
+- [x] Add a minimal server-owned authorization context with capability `discovery.autonomous-approve`; `--actor` remains audit metadata and cannot grant privilege.
+- [x] Reject autonomous approval when the trusted runtime invocation lacks that capability, including spoofed `--actor discovery-skill`.
 - [x] Reject autonomous approval when this operation has no associated evaluation.
 - [x] Reject autonomous approval when `autoApprovable:false`.
 - [x] Recompute the currently confirmed policy fingerprint and throw `StaleError` with `policy_changed_since_validation` when it differs.
@@ -199,7 +199,9 @@ Autonomous approval is a server-side check at `changeset approve --mode autonomo
 - [x] Policy fingerprint is recomputed from confirmed config at approval time.
 - [x] Human approval is not blocked by policy fingerprint drift.
 - [x] Omitted `--mode` is human.
-- [x] Actor capability cannot be satisfied by arbitrary strings.
+- [x] Actor labels cannot satisfy capability checks; only trusted runtime authorization context can.
+- [x] `default:auto-approve` without a source family override remains blocked with `family_not_allowlisted` because no authority ceiling exists.
+- [x] `autonomyEvaluation` is bound to the exact operation and validated ChangeSet hash.
 - [x] Move/remove and scope add hard-pause before effective mode.
 - [x] Family update is evaluated with the new family.
 - [x] Authority escalation blocks even if the new value is within ceiling.
