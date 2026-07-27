@@ -21,7 +21,18 @@ jobs:
           node-version: 20
           cache: npm
       - name: Apply PR15 source and test corrections
-        run: sed -n '1,/^PY$/p' .github/pr15-review-fix.sh | bash
+        run: |
+          sed -n '1,/^PY$/p' .github/pr15-review-fix.sh | bash
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('spikes/host-integration/tests/host-integration.test.mjs')
+          text = p.read_text()
+          old = '  "init --name <name> [--base-branch <b>] [--vcs git|none] --actor <actor>",'
+          new = '  "init --name <name> [--project-type software|non_software|mixed|unknown] [--base-branch <b>] [--vcs git|none] --actor <actor>",'
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one host-integration help entry, found {text.count(old)}')
+          p.write_text(text.replace(old, new, 1))
+          PY
       - run: npm ci --silent
       - name: Rebuild committed artifacts
         run: |
