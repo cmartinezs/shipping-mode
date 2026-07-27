@@ -146,6 +146,8 @@ function applyDiscoveryProposal({ planningRoot, workspaceRoot, operationsRoot, p
   assert.ok(isUuidV7(prepared.payload.sourceIdAssignments[0].sourceId));
   assert.equal(prepared.payload.scopeIdAssignments.length, 1);
   assert.ok(isUuidV7(prepared.payload.scopeIdAssignments[0].scopeId));
+  assert.ok(isUuidV7(prepared.payload.scopeIdAssignments[0].guideGapId));
+  assert.notEqual(prepared.payload.scopeIdAssignments[0].guideGapId, prepared.payload.scopeIdAssignments[0].scopeId, "Discovery gap identity must be independent from scope identity");
   assert.ok(prepared.targetFiles.includes("config.yml"));
   assert.ok(prepared.targetFiles.some((entry) => entry.startsWith("sources/")));
   assert.ok(prepared.targetFiles.some((entry) => entry.startsWith("scopes/")));

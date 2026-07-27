@@ -91,6 +91,9 @@ const parsedScope = parseYaml(scopeFiles.get(`scopes/${scopeId}/scope.yml`));
 assert.equal(parsedScope.key, "backend-service", "key must be normalized to kebab-case");
 assert.equal(parsedScope.id, scopeId, "the scope id must be the one already fixed in the payload, never regenerated");
 assert.deepEqual(parseYaml(scopeFiles.get("config.yml")).scopeCatalog.enabled, [scopeId], "new scopes must be enabled by canonical UUIDv7 reference");
+const scopeConfig = parseYaml(scopeFiles.get("config.yml"));
+assert.equal(scopeConfig.documentation.gaps[0].concern, "guides");
+assert.equal(scopeConfig.documentation.gaps[0].scope_ref, scopeId);
 
 assert.throws(() => renderScopeAdd({ id: scopeId, key: "backend", label: "Backend", kind: "code", path: "/etc/passwd", owner: null }, parsedConfig, workspace), PathConfinementError);
 assert.throws(() => renderScopeAdd({ id: scopeId, key: "backend", label: "Backend", kind: "code", path: "../outside", owner: null }, parsedConfig, workspace), PathConfinementError);
@@ -117,12 +120,13 @@ const sourceId = "018f0000-0000-7000-8000-000000000010";
 const removedSourceId = "018f0000-0000-7000-8000-000000000011";
 const commandSourceId = "018f0000-0000-7000-8000-000000000013";
 const newScopeId = "018f0000-0000-7000-8000-000000000012";
+const newGuideGapId = "018f0000-0000-7000-8000-000000000014";
 const discoveryFiles = renderDiscoveryPropose({
   operationId: "018f0000-0000-7000-8000-000000000020",
   confirmedBy: "runtime-actor",
   confirmedAt: "2026-07-26T01:00:00.000Z",
   sourceIdAssignments: [{ sourceActionIndex: 0, sourceId }],
-  scopeIdAssignments: [{ scopeIndex: 0, scopeId: newScopeId }],
+  scopeIdAssignments: [{ scopeIndex: 0, scopeId: newScopeId, guideGapId: newGuideGapId }],
   proposal: {
     sources: [
       {
@@ -179,6 +183,27 @@ assert.equal(discoveryFiles.get(`sources/${removedSourceId}/source.yml`), null);
 const discoveryConfig = parseYaml(discoveryFiles.get("config.yml"));
 assert.equal(discoveryConfig.scopeRefs[0].id, newScopeId);
 assert.deepEqual(discoveryConfig.scopeCatalog.enabled, [newScopeId], "Discovery-added scopes must update the canonical enabled catalog");
+const discoveryGuideGap = discoveryConfig.documentation.gaps.find((gap) => gap.scope_ref === newScopeId);
+assert.equal(discoveryGuideGap.id, newGuideGapId, "Discovery guide gaps must use their own server-owned UUIDv7 identity");
+assert.notEqual(discoveryGuideGap.id, newScopeId, "gap identity must not be overloaded with scope identity");
+
+const referencedRemovalPayload = {
+  operationId: "018f0000-0000-7000-8000-000000000021",
+  confirmedBy: "runtime-actor",
+  confirmedAt: "2026-07-26T01:00:00.000Z",
+  sourceIdAssignments: [],
+  scopeIdAssignments: [],
+  proposal: { sources: [{ action: "remove", sourceId: removedSourceId }], scopes: [], scopeCommands: [], diagnostics: [] }
+};
+assert.throws(() => renderDiscoveryPropose(referencedRemovalPayload, {
+  ...parsedConfig,
+  documentation: { source_refs: [removedSourceId], gaps: [] }
+}, workspace, { currentSources: [{ id: removedSourceId }], currentScopes: [] }), /still references it/);
+assert.throws(() => renderDiscoveryPropose(referencedRemovalPayload, {
+  ...parsedConfig,
+  documentation: { source_refs: [], gaps: [{ id: newGuideGapId, concern: "security", status: "conflicting", description: "evidence conflict", source_refs: [removedSourceId] }] }
+}, workspace, { currentSources: [{ id: removedSourceId }], currentScopes: [] }), /still references it/);
+
 const scopeWithDiscoveryCommands = parseYaml(discoveryFiles.get(`scopes/${scopeId}/scope.yml`));
 assert.equal(scopeWithDiscoveryCommands.commands.test.method, "reviewed");
 assert.equal(scopeWithDiscoveryCommands.commands.build.method, "reviewed");

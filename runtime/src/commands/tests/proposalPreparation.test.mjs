@@ -12,6 +12,7 @@ assert.deepEqual(configUpdate.targetFiles, ["config.yml"]);
 
 const scopeWithoutId = prepareProposal("scope.add", { key: "backend", label: "Backend", kind: "code", path: "api/" });
 assert.ok(isUuidV7(scopeWithoutId.payload.id));
+assert.ok(isUuidV7(scopeWithoutId.payload.guideGapId));
 assert.deepEqual(scopeWithoutId.targetFiles, ["config.yml", `scopes/${scopeWithoutId.payload.id}/scope.yml`]);
 
 const fixedId = "018f0000-0000-7000-8000-000000000000";

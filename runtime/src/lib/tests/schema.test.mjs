@@ -26,7 +26,8 @@ const validConfig = {
     retainBeforeSnapshots: false,
     eventRetention: "permanent"
   },
-  scopeRefs: []
+  scopeRefs: [],
+  documentation: { source_refs: [], gaps: [] }
 };
 const result = validate("config", validConfig);
 assert.equal(result.valid, true);

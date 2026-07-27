@@ -34,7 +34,8 @@ function writeValidBaseFiles(planningRoot) {
       retainBeforeSnapshots: false,
       eventRetention: "permanent"
     },
-    scopeRefs: []
+    scopeRefs: [],
+    documentation: { source_refs: [], gaps: [] }
   }));
   fs.writeFileSync(path.join(planningRoot, "plugin.lock.yml"), stringifyYaml({
     schemaVersion: 1,

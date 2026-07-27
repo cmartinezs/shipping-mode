@@ -17,7 +17,7 @@ function assignmentForSource(index) {
 }
 
 function assignmentForScope(index) {
-  return { scopeIndex: index, scopeId: generateUuidV7() };
+  return { scopeIndex: index, scopeId: generateUuidV7(), guideGapId: generateUuidV7() };
 }
 
 export function prepareDiscoveryChangeSet({ planningRoot, workspaceRoot, proposalText, actor, operationId = generateUuidV7(), confirmedAt = new Date().toISOString() }) {

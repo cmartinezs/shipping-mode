@@ -33,6 +33,7 @@ export function renderWorkspaceInit({ name, baseBranch = null, vcs, projectType 
       ...(vcs === "git" ? { branches: { work_base: baseBranch, integration: null, production: null } } : {})
     },
     work_sources: [],
+    documentation: { source_refs: [], gaps: [] },
     policies: {
       release: { mode: "strict_sequence", defaultLane: "main" },
       workSources: {
@@ -78,7 +79,7 @@ export function renderWorkspaceInit({ name, baseBranch = null, vcs, projectType 
   ]);
 }
 
-export function renderConfigUpdate(payload, currentConfig) {
+export function renderConfigUpdate(payload, currentConfig, { knownSourceIds = [] } = {}) {
   const baseConfig = currentConfig || {};
   const nextConfig = { ...baseConfig };
   if (payload.name !== undefined) {
@@ -91,7 +92,8 @@ export function renderConfigUpdate(payload, currentConfig) {
     nextConfig.baseBranch = payload.git.enabled ? (payload.git.branches?.work_base ?? null) : null;
   }
   if (payload.work_sources !== undefined) nextConfig.work_sources = payload.work_sources;
-  assertProjectContextConsistency(nextConfig);
+  if (payload.documentation !== undefined) nextConfig.documentation = payload.documentation;
+  assertProjectContextConsistency(nextConfig, { knownSourceIds });
   return new Map([["config.yml", stringifyYaml(nextConfig)]]);
 }
 
@@ -100,7 +102,7 @@ export function renderConfigAutonomySet({ discovery }, currentConfig) {
   return new Map([["config.yml", stringifyYaml(nextConfig)]]);
 }
 
-export function renderScopeAdd({ id, key, label, kind, path: scopePath, owner = null }, currentConfig, workspaceRoot) {
+export function renderScopeAdd({ id, key, label, kind, path: scopePath, owner = null, guideGapId = id }, currentConfig, workspaceRoot) {
   confineScopePath(workspaceRoot, scopePath); // throws PathConfinementError on violation; read-only check
 
   const normalizedKey = toKebabCase(key);
@@ -109,9 +111,20 @@ export function renderScopeAdd({ id, key, label, kind, path: scopePath, owner = 
     throw new Error(`scope key already exists: ${normalizedKey}`);
   }
 
+  const documentation = currentConfig.documentation || { source_refs: [], gaps: [] };
   const nextConfig = withEnabledScope({
     ...currentConfig,
-    scopeRefs: [...(currentConfig.scopeRefs || []), { id, key: normalizedKey }]
+    scopeRefs: [...(currentConfig.scopeRefs || []), { id, key: normalizedKey }],
+    documentation: {
+      ...documentation,
+      gaps: [...(documentation.gaps || []), {
+        id: guideGapId,
+        concern: "guides",
+        status: "missing",
+        description: `scope ${normalizedKey} has no approved guide`,
+        scope_ref: id
+      }]
+    }
   }, id);
   const scope = { schemaVersion: 1, id, key: normalizedKey, label, kind, path: scopePath, owner };
   return new Map([
@@ -169,10 +182,17 @@ function sourceIdForAction(index, entry, assignments) {
   return entry.sourceId;
 }
 
-function scopeIdForProposal(index, assignments) {
+function scopeAssignmentForProposal(index, assignments) {
   const assigned = assignments.find((candidate) => candidate.scopeIndex === index);
   if (!assigned) throw new Error(`missing scope id assignment for scopes[${index}]`);
-  return assigned.scopeId;
+  return assigned;
+}
+
+function referencedDocumentationSourceIds(config) {
+  return new Set([
+    ...(config.documentation?.source_refs || []),
+    ...(config.documentation?.gaps || []).flatMap((gap) => gap.source_refs || [])
+  ]);
 }
 
 function renderSource(entry, existing, { id, operationId, confirmedBy, confirmedAt }) {
@@ -203,9 +223,13 @@ export function renderDiscoveryPropose({ operationId, proposal, sourceIdAssignme
   const rendered = new Map();
   const sourcesById = new Map(currentSources.map((source) => [source.id, source]));
   const scopesById = new Map(currentScopes.map((scope) => [scope.id, scope]));
+  const protectedDocumentationSourceIds = referencedDocumentationSourceIds(currentConfig);
 
   for (const [index, entry] of (proposal.sources || []).entries()) {
     const sourceId = sourceIdForAction(index, entry, sourceIdAssignments);
+    if (entry.action === "remove" && protectedDocumentationSourceIds.has(sourceId)) {
+      throw new Error(`cannot remove Documentation Source ${sourceId}: Project Context still references it; remove the approved reference with config.update first`);
+    }
     const existing = sourcesById.get(sourceId);
     const nextSource = renderSource(entry, existing, { id: sourceId, operationId, confirmedBy, confirmedAt });
     rendered.set(`sources/${sourceId}/source.yml`, nextSource === null ? null : stringifyYaml(nextSource));
@@ -214,7 +238,8 @@ export function renderDiscoveryPropose({ operationId, proposal, sourceIdAssignme
   let nextConfig = currentConfig;
   for (const [index, entry] of (proposal.scopes || []).entries()) {
     confineScopePath(workspaceRoot, entry.path);
-    const scopeId = scopeIdForProposal(index, scopeIdAssignments);
+    const scopeAssignment = scopeAssignmentForProposal(index, scopeIdAssignments);
+    const scopeId = scopeAssignment.scopeId;
     const scope = {
       schemaVersion: 1,
       id: scopeId,
@@ -227,7 +252,17 @@ export function renderDiscoveryPropose({ operationId, proposal, sourceIdAssignme
     rendered.set(`scopes/${scopeId}/scope.yml`, stringifyYaml(scope));
     nextConfig = withEnabledScope({
       ...nextConfig,
-      scopeRefs: [...(nextConfig.scopeRefs || []), { id: scopeId, key: scope.key }]
+      scopeRefs: [...(nextConfig.scopeRefs || []), { id: scopeId, key: scope.key }],
+      documentation: {
+        ...(nextConfig.documentation || { source_refs: [], gaps: [] }),
+        gaps: [...(nextConfig.documentation?.gaps || []), {
+          id: scopeAssignment.guideGapId,
+          concern: "guides",
+          status: "missing",
+          description: `scope ${scope.key} has no approved guide`,
+          scope_ref: scopeId
+        }]
+      }
     }, scopeId);
   }
   if ((proposal.scopes || []).length > 0) rendered.set("config.yml", stringifyYaml(nextConfig));

@@ -46,24 +46,26 @@ canonical Corte 0 contract:
 | Plugin lock version/schema/template pack reproducibility | `04-release-init-configuracion.md`; Corte -1.1 template pack historical contract | Plan 1 persists structured lock and deterministic vendor snapshot metadata | DONE | None. | Plan 1 |
 | Git enabled/disabled, provider, branch topology, lanes, automation policy | `11-git-work-execution-contract.md`; `04-release-init-configuracion.md` Git questions | Plan 2 adds required canonical `git` policy, compatibility synchronization, branch/promotion relations, trunk-based support, and automation policy | DONE | None. Git execution remains deferred. | Plan 2 |
 | Work Sources extensibility without providers | `12-work-source-provider-contract.md`; `03-plan-incremental.md` Corte 0 note | Plan 2 adds required canonical `work_sources` config with closed safe provider refs/policies, pre-apply relational validation, and no secrets | DONE | None. Providers/import/sync remain deferred. | Plan 2 |
-| Documentation Sources map and entry point | `04-release-init-configuracion.md` Documentation Sources and host repository contract; Discovery spec | Discovery catalog can represent source docs after proposal; config has no selected source map or pending/gap refs | PARTIAL | Add config-level source selection/gap representation that reuses Discovery source ids; no parallel catalog. | Plan 3 |
+| Documentation Sources map and entry point | `04-release-init-configuracion.md` Documentation Sources and host repository contract; Discovery spec | Discovery owns `.planning/sources/<uuid>/source.yml`; Project Context now stores ID-only `documentation.source_refs` and declarative `documentation.gaps` | DONE | None. Source metadata remains owned by Discovery. | Plan 3 |
 | Commands build/test/smoke/lint/verify/custom structured by scope | Discovery spec C; `04-release-init-configuracion.md` commands | `scope.schema.json` and Discovery implement safe commands by scope | DONE | No second registry. Remaining work is only config/docs evidence if needed. | Plan 3 audit closure |
-| Initial guides pending/missing state | `03-plan-incremental.md` Corte 0; `04-release-init-configuracion.md`; Corte 1 guide contract | Guide lifecycle and files are Corte 1; current scopes do not express missing/pending guide refs | MISSING | Add minimal scope/config refs or gaps only if needed by current schema boundary; no guide generation. | Plan 3 |
-| Concerns, gates, gate profiles, execution contexts, environments, decisions, releases topology/reference shells | `03-plan-incremental.md`; `04-release-init-configuracion.md`; Corte -1.1 scopes/concerns/gates; Corte 2 future environments | Directories exist after Plan 1; schemas/lifecycle remain intentionally deferred where not needed | PARTIAL | Plan 3 adds minimal schemas/refs only where Corte 0 requires validation beyond directory presence. | Plan 3 |
-| Host Repository precedence and no duplicate source of truth | `04-release-init-configuracion.md` host repository contract | Discovery favors host artifacts and records fingerprints/provenance; Plan 2 keeps Git policy explicit and Work Sources separate from Documentation Sources | PARTIAL | Plan 3 closes remaining Documentation Source/gap references without duplicate registries. | Plan 3 |
+| Initial guides pending/missing state | `03-plan-incremental.md` Corte 0; `04-release-init-configuracion.md`; Corte 1 guide contract | Scope creation records a typed `guides`/`missing` gap in Project Context; no guide files or lifecycle are introduced | DONE | None. Guide generation and approval remain Corte 1. | Plan 3 |
+| Concerns, gates, gate profiles, execution contexts, environments, decisions, releases bootstrap topology | `03-plan-incremental.md`; `04-release-init-configuracion.md`; Corte -1.1 scopes/concerns/gates; Corte 2 future environments | Plan 1 materializes the canonical directories and `check schema` verifies the topology | DONE | None. Future behavior is tracked separately as an explicit deferral. | Plan 1 |
+| Concern, gate, environment, decision, release, and execution lifecycles | `03-plan-incremental.md` Corte 1/2/3/5 boundaries; Runtime Foundation | No lifecycle engine is present or required for Corte 0 | DEFERRED_BY_DESIGN | Deferred to the canonical cuts; bootstrap remains available. | Later cuts |
+| Host Repository precedence and no duplicate source of truth | `04-release-init-configuracion.md` host repository contract | Discovery owns evidence/catalog metadata; Project Context stores only approved ID refs and declarative gaps; Git and Work Sources remain separate | DONE | None. Contradictions remain explicit gaps/decisions rather than silent overwrites. | Plan 3 |
 
 ## Plan Index
 
 | # | Plan | Boundary | Status | Doc |
 |---|------|----------|--------|-----|
 | 1 | Project Context and bootstrap topology | Canonical bootstrap directories, Project Context base fields, runtime/storage/path policies, structured plugin lock, `check schema` topology validation | **Merged (PR #15 to develop)** | `2026-07-27-corte-0-completion-plan-1-project-context-bootstrap.md` |
-| 2 | Git/config policies and Work Source extensibility | Approved Git policy representation, lanes/branch topology/automation policy, safe Work Source config shells without providers | **Implementation complete; pending PR #16 merge** | `2026-07-27-corte-0-completion-plan-2-git-work-sources-config.md` |
-| 3 | Remaining catalogs/references and Corte 0 DoD closure | Documentation Source refs/gaps, guide pending refs if still required, concern/gate/environment/decision/release reference shells, final Corte 0 audit closure | Pending Plan 2 merge | *(to be written after Plan 2 merge)* |
+| 2 | Git/config policies and Work Source extensibility | Approved Git policy representation, lanes/branch topology/automation policy, safe Work Source config shells without providers | **Merged (PR #16 to develop)** | `2026-07-27-corte-0-completion-plan-2-git-work-sources-config.md` |
+| 3 | Remaining catalogs/references and Corte 0 DoD closure | Documentation Source refs/gaps, guide pending refs, and final Corte 0 audit closure | **Implementation complete; pending PR merge** | `2026-07-27-corte-0-completion-plan-3-final-closure.md` |
 
 ## Exit Rule
 
-Corte 0 is not complete while any plan above is unmerged. After all Completion
-plans merge and every remaining Corte 0 requirement is `DONE` or
+Plan 3 is implementation-complete on its branch, but Corte 0 is not complete
+while its PR is unmerged. After all Completion plans merge and every remaining
+Corte 0 requirement is `DONE` or
 `DEFERRED_BY_DESIGN`, the index may be updated to:
 
 ```text

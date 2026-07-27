@@ -12,6 +12,7 @@
     "scopeCatalog",
     "runtime",
     "scopeRefs",
+    "documentation",
     "git",
     "work_sources"
   ],
@@ -44,6 +45,9 @@
         "$ref": "#/$defs/workSource"
       },
       "uniqueItems": true
+    },
+    "documentation": {
+      "$ref": "#/$defs/documentationContext"
     },
     "project": {
       "type": "object",
@@ -383,6 +387,60 @@
             "mode": {
               "$ref": "#/$defs/mode"
             }
+          }
+        }
+      }
+    },
+    "documentationContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_refs", "gaps"],
+      "properties": {
+        "source_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          }
+        },
+        "gaps": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/documentationGap"}
+        }
+      }
+    },
+    "documentationGap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "concern", "status", "description"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "concern": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9._-]*$"
+        },
+        "status": {
+          "enum": ["known", "missing", "unknown", "conflicting", "deferred"]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "scope_ref": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "source_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
           }
         }
       }

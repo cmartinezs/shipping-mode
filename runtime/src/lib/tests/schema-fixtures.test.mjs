@@ -29,7 +29,8 @@ const cases = {
         retainBeforeSnapshots: false,
         eventRetention: "permanent"
       },
-      scopeRefs: []
+      scopeRefs: [],
+      documentation: { source_refs: [], gaps: [] }
     },
     invalid: { schemaVersion: 1, name: "", vcs: "none", scopeRefs: [] }
   },
@@ -114,7 +115,13 @@ const validWorkSources = [
   { id: "local-backlog", provider: "local_repository", enabled: true, roots: ["docs/backlog/"], source_policy: "import_snapshot", sync_mode: "import_only" },
   { id: "jira-gradeops", provider: "jira", enabled: false, transport: "mcp", source_policy: "external_authoritative", sync_mode: "pull", mcp_connection_ref: "atlassian" }
 ];
+const validDocumentation = {
+  source_refs: ["018f0000-0000-7000-8000-000000000010"],
+  gaps: [{ id: "018f0000-0000-7000-8000-000000000011", concern: "guides", status: "missing", description: "scope guide is pending", scope_ref: "018f0000-0000-7000-8000-000000000012" }]
+};
 assert.equal(validate("config", { ...cases.config.valid, git: validGitPolicy, work_sources: validWorkSources }).valid, true, "closed Git and Work Source config must pass");
+assert.equal(validate("config", { ...cases.config.valid, documentation: validDocumentation }).valid, true, "documentation refs and gaps must pass");
+assert.equal(validate("config", { ...cases.config.valid, documentation: { source_refs: [], gaps: [{ ...validDocumentation.gaps[0], owner: "unapproved" }] } }).valid, false, "documentation gaps must remain closed");
 assert.equal(validate("config", { ...cases.config.valid, git: { enabled: false, provider: "github" } }).valid, false, "disabled Git cannot use a provider");
 assert.equal(validate("config", { ...cases.config.valid, work_sources: [{ ...validWorkSources[0], api_token: "secret" }] }).valid, false, "Work Source secrets must be rejected");
 assert.equal(validate("config", { ...cases.config.valid, work_sources: [{ ...validWorkSources[1], mcp_connection_ref: "bad ref" }] }).valid, false, "connection refs must be opaque identifiers");
@@ -171,7 +178,7 @@ const discoveryChangeSet = {
     operationId: "018f0000-0000-7000-8000-000000000000",
     proposal: { schemaVersion: 1 },
     sourceIdAssignments: [{ sourceActionIndex: 0, sourceId: "018f0000-0000-7000-8000-000000000002" }],
-    scopeIdAssignments: [{ scopeIndex: 0, scopeId: "018f0000-0000-7000-8000-000000000003" }],
+    scopeIdAssignments: [{ scopeIndex: 0, scopeId: "018f0000-0000-7000-8000-000000000003", guideGapId: "018f0000-0000-7000-8000-000000000004" }],
     confirmedBy: "carlos",
     confirmedAt: "2026-07-24T00:00:00.000Z"
   },

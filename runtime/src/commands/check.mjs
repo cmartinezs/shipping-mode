@@ -36,18 +36,9 @@ function checkRequiredFile(planningRoot, relativePath, schemaName, findings) {
   return value;
 }
 
-function checkProjectContextConsistency(config, findings) {
+function checkProjectContextConsistency(config, findings, knownSourceIds) {
   if (!config) return;
-  if (config.project.name !== config.name) {
-    findings.push("config.yml: project.name must match compatibility field name");
-  }
-  const scopeRefIds = new Set((config.scopeRefs || []).map((entry) => entry.id));
-  for (const enabledId of config.scopeCatalog.enabled || []) {
-    if (!scopeRefIds.has(enabledId)) {
-      findings.push(`config.yml: scopeCatalog.enabled references unknown scope id ${enabledId}`);
-    }
-  }
-  findings.push(...projectContextConsistencyFindings(config));
+  findings.push(...projectContextConsistencyFindings(config, { knownSourceIds }));
 }
 
 function checkPluginLockConsistency(pluginLock, findings) {
@@ -100,7 +91,11 @@ export function checkSchema({ planningRoot }) {
 
   const config = checkRequiredFile(planningRoot, "config.yml", "config", findings);
   const pluginLock = checkRequiredFile(planningRoot, "plugin.lock.yml", "plugin-lock", findings);
-  checkProjectContextConsistency(config, findings);
+  const sourcesRoot = path.join(planningRoot, "sources");
+  const knownSourceIds = fs.existsSync(sourcesRoot)
+    ? fs.readdirSync(sourcesRoot).filter((sourceId) => isUuidV7(sourceId))
+    : [];
+  checkProjectContextConsistency(config, findings, knownSourceIds);
   checkPluginLockConsistency(pluginLock, findings);
   for (const relativeDirectory of REQUIRED_BOOTSTRAP_DIRECTORIES) {
     checkRequiredDirectory(planningRoot, relativeDirectory, findings);
@@ -135,7 +130,6 @@ export function checkSchema({ planningRoot }) {
     }
   }
 
-  const sourcesRoot = path.join(planningRoot, "sources");
   if (fs.existsSync(sourcesRoot)) {
     for (const sourceId of fs.readdirSync(sourcesRoot)) {
       if (!isUuidV7(sourceId)) {
