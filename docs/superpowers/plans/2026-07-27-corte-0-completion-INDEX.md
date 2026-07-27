@@ -56,8 +56,8 @@ canonical Corte 0 contract:
 
 | # | Plan | Boundary | Status | Doc |
 |---|------|----------|--------|-----|
-| 1 | Project Context and bootstrap topology | Canonical bootstrap directories, Project Context base fields, runtime/storage/path policies, structured plugin lock, `check schema` topology validation | Implementation complete locally; pending PR review/merge | `2026-07-27-corte-0-completion-plan-1-project-context-bootstrap.md` |
-| 2 | Git/config policies and Work Source extensibility | Approved Git policy representation, lanes/branch topology/automation policy, safe Work Source config shells without providers | Pending Plan 1 merge | *(to be written after Plan 1 merge)* |
+| 1 | Project Context and bootstrap topology | Canonical bootstrap directories, Project Context base fields, runtime/storage/path policies, structured plugin lock, `check schema` topology validation | **Merged (PR #15 to develop)** | `2026-07-27-corte-0-completion-plan-1-project-context-bootstrap.md` |
+| 2 | Git/config policies and Work Source extensibility | Approved Git policy representation, lanes/branch topology/automation policy, safe Work Source config shells without providers | **Implementation in progress** | `2026-07-27-corte-0-completion-plan-2-git-work-sources-config.md` |
 | 3 | Remaining catalogs/references and Corte 0 DoD closure | Documentation Source refs/gaps, guide pending refs if still required, concern/gate/environment/decision/release reference shells, final Corte 0 audit closure | Pending Plan 2 merge | *(to be written after Plan 2 merge)* |
 
 ## Exit Rule
