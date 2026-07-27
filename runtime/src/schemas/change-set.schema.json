@@ -26,7 +26,8 @@
         "config.autonomy.set",
         "scope.add",
         "scope.command.set",
-        "discovery.propose"
+        "discovery.propose",
+        "guide.update"
       ]
     },
     "target": {
@@ -438,6 +439,36 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": { "const": "guide.update" }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["operationId", "scopeId", "guideKind", "action", "guideId", "proposedAt"],
+            "properties": {
+              "operationId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+              "scopeId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+              "guideKind": { "enum": ["task", "test"] },
+              "action": { "enum": ["generate", "regenerate", "submit_review", "approve", "reject", "mark_stale"] },
+              "guideId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+              "proposedAt": { "type": "string", "minLength": 1 },
+              "document": { "type": "object", "additionalProperties": false, "required": ["sourceRefs", "sections", "openGaps"], "properties": { "sourceRefs": { "type": "array" }, "sections": { "type": "array" }, "openGaps": { "type": "array" } } },
+              "reason": { "type": "string", "minLength": 1 }
+            },
+            "allOf": [
+              { "if": { "properties": { "action": { "enum": ["generate", "regenerate"] } } }, "then": { "required": ["document"], "properties": { "document": { "type": "object" } } } },
+              { "if": { "properties": { "action": { "enum": ["reject", "mark_stale"] } } }, "then": { "required": ["reason"], "properties": { "reason": { "type": "string" } } } }
+            ]
+          }
+        }
+      }
     }
   ],
   "$defs": {
@@ -567,13 +598,9 @@
         "scopeCommand": {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "mode"
-          ],
+          "required": ["mode"],
           "properties": {
-            "mode": {
-              "$ref": "#/$defs/mode"
-            }
+            "mode": { "$ref": "#/$defs/mode" }
           }
         }
       }

@@ -23,7 +23,8 @@
         "config.autonomy.set",
         "scope.add",
         "scope.command.set",
-        "discovery.propose"
+        "discovery.propose",
+        "guide.update"
       ]
     },
     "status": {

@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const schemasDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const expected = ["config", "plugin-lock", "scope", "source", "change-set", "operation", "event", "result"];
+const expected = ["config", "plugin-lock", "scope", "source", "guide", "change-set", "operation", "event", "result"];
 
 for (const name of expected) {
   const file = path.join(schemasDir, `${name}.schema.json`);
@@ -15,7 +15,7 @@ for (const name of expected) {
 }
 
 const changeSet = JSON.parse(fs.readFileSync(path.join(schemasDir, "change-set.schema.json"), "utf8"));
-assert.ok(Array.isArray(changeSet.allOf) && changeSet.allOf.length === 6, "change-set schema must conditionally validate payload shape per kind");
+assert.ok(Array.isArray(changeSet.allOf) && changeSet.allOf.length === 7, "change-set schema must conditionally validate payload shape per kind");
 
 const operation = JSON.parse(fs.readFileSync(path.join(schemasDir, "operation.schema.json"), "utf8"));
 assert.ok(operation.required.includes("reservedEvents"), "operation schema must require reservedEvents from PROPOSED onward");

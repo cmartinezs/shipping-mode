@@ -56,6 +56,21 @@ const cases = {
     valid: { schemaVersion: 1, id: "018f0000-0000-7000-8000-000000000000", key: "backend", label: "Backend", kind: "code", path: "api/", owner: null },
     invalid: { schemaVersion: 1, id: "not-a-uuid", key: "Backend", label: "Backend", kind: "code", path: "api/" }
   },
+  guide: {
+    valid: {
+      schemaVersion: 1,
+      dslVersion: 1,
+      id: "018f0000-0000-7000-8000-000000000020",
+      scopeId: "018f0000-0000-7000-8000-000000000021",
+      kind: "task",
+      revision: `sha256:${"a".repeat(64)}`,
+      sourceRefs: ["018f0000-0000-7000-8000-000000000010"],
+      provenance: { sourceMapRevision: "a".repeat(64), generatorVersion: "test", model: null, promptVersion: null, generatedAt: "2026-07-27T00:00:00Z", sourceFingerprints: { "018f0000-0000-7000-8000-000000000010": "b".repeat(64) } },
+      sections: [{ id: "rules", kind: "constraints", required: true, entries: [{ key: "mode", value: "strict" }] }],
+      openGaps: []
+    },
+    invalid: { schemaVersion: 1, id: "not-a-uuid", scopeId: "not-a-uuid", kind: "task", status: "approved" }
+  },
   "change-set": {
     valid: {
       schemaVersion: 1, operationId: "018f0000-0000-7000-8000-000000000000", kind: "workspace.init", target: {},

@@ -2,7 +2,7 @@ import { generateUuidV7 } from "../lib/ids.mjs";
 import { UsageError } from "../lib/errors.mjs";
 import { BOOTSTRAP_CANONICAL_DIRECTORIES } from "../lib/bootstrapTopology.mjs";
 
-const SUPPORTED_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set"]);
+const SUPPORTED_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "guide.update"]);
 
 function requireObjectPayload(rawPayload) {
   if (rawPayload === null || typeof rawPayload !== "object" || Array.isArray(rawPayload)) {
@@ -47,6 +47,24 @@ export function prepareProposal(kind, rawPayload, { operationId = null, actor = 
       declaredAt: proposedAt
     };
     return { payload, targetFiles: [`scopes/${payload.scopeId}/scope.yml`] };
+  }
+
+  if (kind === "guide.update") {
+    if (!rawPayload.scopeId || !rawPayload.guideKind || !rawPayload.action) {
+      throw new UsageError("guide.update requires scopeId, guideKind, and action");
+    }
+    if (!operationId || !actor || !proposedAt) throw new UsageError("guide.update requires runtime operationId, actor, and proposedAt");
+    const payload = {
+      ...rawPayload,
+      operationId,
+      proposedAt,
+      guideId: generateUuidV7()
+    };
+    const needsGuideFile = ["generate", "regenerate"].includes(payload.action);
+    return {
+      payload,
+      targetFiles: ["config.yml", `scopes/${payload.scopeId}/scope.yml`, ...(needsGuideFile ? [`scopes/${payload.scopeId}/${payload.guideKind}-guide.yml`] : [])]
+    };
   }
 
   const payload = {

@@ -1,0 +1,78 @@
+{
+  "$id": "https://shipping-mode.dev/schemas/guide.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "dslVersion", "id", "scopeId", "kind", "revision", "sourceRefs", "provenance", "sections", "openGaps"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "dslVersion": { "const": 1 },
+    "id": { "$ref": "#/$defs/uuid" },
+    "scopeId": { "$ref": "#/$defs/uuid" },
+    "kind": { "enum": ["task", "test"] },
+    "revision": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "sourceRefs": { "$ref": "#/$defs/uuidArray" },
+    "provenance": { "$ref": "#/$defs/provenance" },
+    "sections": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/section" },
+      "uniqueItems": true
+    },
+    "openGaps": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/openGap" },
+      "uniqueItems": true
+    }
+  },
+  "$defs": {
+    "uuid": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+    "uuidArray": { "type": "array", "items": { "$ref": "#/$defs/uuid" }, "uniqueItems": true },
+    "hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceMapRevision", "generatorVersion", "generatedAt", "sourceFingerprints"],
+      "properties": {
+        "sourceMapRevision": { "$ref": "#/$defs/hash" },
+        "generatorVersion": { "type": "string", "minLength": 1 },
+        "model": { "type": ["string", "null"] },
+        "promptVersion": { "type": ["string", "null"] },
+        "generatedAt": { "type": "string", "minLength": 1 },
+        "sourceFingerprints": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/hash" }
+        }
+      }
+    },
+    "section": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "required", "entries"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9._-]*$" },
+        "kind": { "type": "string", "pattern": "^[a-z][a-z0-9._-]*$" },
+        "required": { "type": "boolean" },
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["key", "value"],
+            "properties": {
+              "key": { "type": "string", "pattern": "^[a-z][a-z0-9._-]*$" },
+              "value": { "anyOf": [{ "type": "string" }, { "type": "number" }, { "type": "boolean" }, { "type": "null" }] }
+            }
+          }
+        }
+      }
+    },
+    "openGap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "description"],
+      "properties": {
+        "id": { "$ref": "#/$defs/uuid" },
+        "description": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

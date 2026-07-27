@@ -1,7 +1,12 @@
-import { stringifyYaml } from "../lib/yaml.mjs";
+import fs from "node:fs";
+import path from "node:path";
+import { stringifyYaml, parseYaml } from "../lib/yaml.mjs";
 import { confineScopePath } from "../lib/paths.mjs";
 import { BOOTSTRAP_CANONICAL_DIRECTORIES, DIRECTORY_RENDER_ENTRY } from "../lib/bootstrapTopology.mjs";
 import { assertProjectContextConsistency } from "../lib/projectContextValidation.mjs";
+import { revisionHash, contentHash } from "../lib/canonical.mjs";
+import { validate } from "../lib/schema.mjs";
+import { generateUuidV7 } from "../lib/ids.mjs";
 
 function toKebabCase(value) {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-+|-+$)/g, "");
@@ -171,6 +176,159 @@ export function renderScopeCommandSet({ operationId, scopeId, role, command, req
     alternatives: []
   });
   return new Map([[`scopes/${scopeId}/scope.yml`, stringifyYaml(nextScope)]]);
+}
+
+const GUIDE_KINDS = new Set(["task", "test"]);
+const GUIDE_ACTIONS = new Set(["generate", "submit_review", "approve", "reject", "mark_stale", "regenerate"]);
+
+function guideFileName(kind) {
+  return `${kind}-guide.yml`;
+}
+
+function guideProjectionName(kind) {
+  return `${kind}-guide.md`;
+}
+
+function readScopeForGuide(planningRoot, scopeId) {
+  const scopePath = path.join(planningRoot, "scopes", scopeId, "scope.yml");
+  if (!fs.existsSync(scopePath)) throw new Error(`scope not found for guide.update: ${scopeId}`);
+  const scope = parseYaml(fs.readFileSync(scopePath, "utf8"));
+  if (scope.id !== scopeId) throw new Error(`scope id does not match its directory: ${scopeId}`);
+  return scope;
+}
+
+function assertClosedGuideInput(document) {
+  const allowed = new Set(["sourceRefs", "sections", "openGaps"]);
+  for (const key of Object.keys(document || {})) {
+    if (!allowed.has(key)) throw new Error(`guide document contains unsupported field: ${key}`);
+  }
+  if (!Array.isArray(document?.sourceRefs) || document.sourceRefs.length === 0) throw new Error("guide document requires at least one sourceRefs entry");
+  if (!Array.isArray(document.sections) || !Array.isArray(document.openGaps)) throw new Error("guide document requires sections and openGaps arrays");
+}
+
+function buildGuideDocument({ payload, scopeId, guideKind, guideId, proposedAt, currentSources }) {
+  assertClosedGuideInput(payload.document);
+  const sourceById = new Map(currentSources.map((source) => [source.id, source]));
+  const sourceRefs = [...new Set(payload.document.sourceRefs)];
+  const sourceFingerprints = {};
+  for (const sourceId of sourceRefs) {
+    const source = sourceById.get(sourceId);
+    if (!source) throw new Error(`guide sourceRef does not resolve: ${sourceId}`);
+    if (!source.confirmedFingerprint) throw new Error(`guide sourceRef has no confirmed fingerprint: ${sourceId}`);
+    sourceFingerprints[sourceId] = source.confirmedFingerprint;
+  }
+  const provenance = {
+    sourceMapRevision: revisionHash({ sourceRefs, sourceFingerprints }),
+    generatorVersion: "shipping-mode:guide-domain/1",
+    model: null,
+    promptVersion: null,
+    generatedAt: proposedAt,
+    sourceFingerprints
+  };
+  const withoutRevision = {
+    schemaVersion: 1,
+    dslVersion: 1,
+    id: guideId,
+    scopeId,
+    kind: guideKind,
+    sourceRefs,
+    provenance,
+    sections: payload.document.sections,
+    openGaps: payload.document.openGaps
+  };
+  const document = { ...withoutRevision, revision: `sha256:${revisionHash(withoutRevision)}` };
+  const schemaResult = validate("guide", document);
+  if (!schemaResult.valid) throw new Error(schemaResult.errors.map((error) => `guide${error.path}: ${error.message}`).join("; "));
+  return document;
+}
+
+function guideMetadata(document, status, scopeId, content, approval = null) {
+  return {
+    id: document.id,
+    scopeId,
+    kind: document.kind,
+    status,
+    path: guideFileName(document.kind),
+    projection: guideProjectionName(document.kind),
+    revision: document.revision,
+    contentHash: contentHash(content),
+    sourceRefs: document.sourceRefs,
+    provenance: document.provenance,
+    approval
+  };
+}
+
+function updateGuideGap(config, scopeId, guides) {
+  const bothApproved = ["task", "test"].every((kind) => guides[kind]?.status === "approved");
+  const documentation = config.documentation || { source_refs: [], gaps: [] };
+  const gaps = documentation.gaps || [];
+  return {
+    ...config,
+    documentation: {
+      ...documentation,
+      gaps: bothApproved
+        ? gaps.filter((gap) => !(gap.concern === "guides" && gap.scope_ref === scopeId))
+        : gaps.some((gap) => gap.concern === "guides" && gap.scope_ref === scopeId)
+          ? gaps
+          : [...gaps, { id: generateUuidV7(), concern: "guides", status: "missing", description: `scope ${scope.key} has no approved task and test guides`, scope_ref: scopeId }]
+    }
+  };
+}
+
+export function renderGuideUpdate(payload, currentConfig, planningRoot, { currentSources = [], proposedAt, approval = null } = {}) {
+  if (!GUIDE_KINDS.has(payload.guideKind) || !GUIDE_ACTIONS.has(payload.action)) throw new Error("guide.update has an unsupported kind or action");
+  const scope = readScopeForGuide(planningRoot, payload.scopeId);
+  const currentMetadata = scope.guides?.[payload.guideKind] || null;
+  const guideRelativePath = `scopes/${payload.scopeId}/${guideFileName(payload.guideKind)}`;
+  const guideAbsolutePath = path.join(planningRoot, guideRelativePath);
+  let document = null;
+  let guideContent = null;
+  if (["generate", "regenerate"].includes(payload.action)) {
+    const guideId = payload.action === "regenerate" ? currentMetadata?.id : payload.guideId;
+    if (!guideId) throw new Error("guide generation requires a server-owned guide id");
+    document = buildGuideDocument({ payload, scopeId: payload.scopeId, guideKind: payload.guideKind, guideId, proposedAt, currentSources });
+    guideContent = stringifyYaml(document);
+  } else {
+    if (!currentMetadata || !fs.existsSync(guideAbsolutePath)) throw new Error(`guide does not exist for ${payload.guideKind}/${payload.scopeId}`);
+    guideContent = fs.readFileSync(guideAbsolutePath, "utf8");
+    document = parseYaml(guideContent);
+    const result = validate("guide", document);
+    if (!result.valid) throw new Error(`existing guide is invalid: ${result.errors.map((error) => `${error.path} ${error.message}`).join("; ")}`);
+    if (document.id !== currentMetadata.id || document.scopeId !== payload.scopeId || document.kind !== payload.guideKind) throw new Error("guide metadata does not match canonical guide document");
+  }
+
+  const currentStatus = currentMetadata?.status || null;
+  const allowedTransitions = {
+    generate: [null],
+    regenerate: ["stale", "rejected"],
+    submit_review: ["generated"],
+    approve: ["reviewed"],
+    reject: ["generated", "reviewed"],
+    mark_stale: ["approved"]
+  };
+  if (!allowedTransitions[payload.action].includes(currentStatus)) throw new Error(`invalid guide transition ${currentStatus || "absent"} -> ${payload.action}`);
+  const nextStatus = payload.action === "approve" ? (approval ? "approved" : "reviewed")
+    : payload.action === "generate" || payload.action === "regenerate" ? "generated"
+      : payload.action === "submit_review" ? "reviewed"
+        : payload.action === "reject" ? "rejected" : "stale";
+  const nextApproval = nextStatus === "approved" ? {
+    actor: approval.actor,
+    approvedAt: approval.approvedAt,
+    changeSetHash: approval.changeSetHash,
+    revision: document.revision,
+    contentHash: contentHash(guideContent)
+  } : null;
+  const nextScope = {
+    ...scope,
+    guides: {
+      ...(scope.guides || {}),
+      [payload.guideKind]: guideMetadata(document, nextStatus, payload.scopeId, guideContent, nextApproval)
+    }
+  };
+  const nextConfig = updateGuideGap(currentConfig, payload.scopeId, nextScope.guides);
+  const rendered = new Map([[`scopes/${payload.scopeId}/scope.yml`, stringifyYaml(nextScope)], ["config.yml", stringifyYaml(nextConfig)]]);
+  if (["generate", "regenerate"].includes(payload.action)) rendered.set(guideRelativePath, guideContent);
+  return rendered;
 }
 
 function sourceIdForAction(index, entry, assignments) {

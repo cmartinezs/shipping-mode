@@ -8,6 +8,7 @@ import { assertTrustedRoots, confineWritePath } from "../lib/paths.mjs";
 import { findCommandFingerprintKeyMismatches } from "../lib/discoverScan.mjs";
 import { REQUIRED_BOOTSTRAP_DIRECTORIES } from "../lib/bootstrapTopology.mjs";
 import { projectContextConsistencyFindings } from "../lib/projectContextValidation.mjs";
+import { contentHash, revisionHash } from "../lib/canonical.mjs";
 
 function checkRequiredFile(planningRoot, relativePath, schemaName, findings) {
   let filePath;
@@ -77,6 +78,29 @@ function checkRequiredDirectory(planningRoot, relativePath, findings) {
   }
 }
 
+function checkGuideConsistency(planningRoot, scope, scopeId, knownSourceIds, findings) {
+  for (const kind of ["task", "test"]) {
+    const metadata = scope.guides?.[kind];
+    if (!metadata) continue;
+    const relativePath = path.join("scopes", scopeId, `${kind}-guide.yml`);
+    const guide = checkRequiredFile(planningRoot, relativePath, "guide", findings);
+    if (!guide) continue;
+    if (guide.id !== metadata.id || guide.scopeId !== scopeId || guide.kind !== kind) {
+      findings.push(`${relativePath}: guide metadata identity does not match scope.yml`);
+    }
+    const { revision, ...withoutRevision } = guide;
+    if (guide.revision !== `sha256:${revisionHash(withoutRevision)}`) findings.push(`${relativePath}: revision does not match canonical guide content`);
+    const bytes = fs.readFileSync(path.join(planningRoot, relativePath));
+    if (metadata.contentHash !== contentHash(bytes)) findings.push(`${relativePath}: contentHash does not match scope.yml`);
+    if (metadata.revision !== guide.revision || JSON.stringify(metadata.sourceRefs) !== JSON.stringify(guide.sourceRefs) || metadata.status === "approved" && !metadata.approval) {
+      findings.push(`${relativePath}: guide revision/status metadata is inconsistent`);
+    }
+    for (const sourceId of guide.sourceRefs || []) {
+      if (!knownSourceIds.includes(sourceId)) findings.push(`${relativePath}: sourceRef ${sourceId} does not resolve`);
+    }
+  }
+}
+
 export function checkSchema({ planningRoot }) {
   if (!fs.existsSync(planningRoot)) {
     return { status: "NOT_INITIALIZED", findings: ["workspace is not initialized: .planning/ does not exist"], pendingOperations: [] };
@@ -123,6 +147,7 @@ export function checkSchema({ planningRoot }) {
       if (findings.length === scopeBeforeCount) {
         const scopeFile = confineWritePath(planningRoot, path.join("scopes", scopeId, "scope.yml"));
         const scope = parseYaml(fs.readFileSync(scopeFile, "utf8"));
+        checkGuideConsistency(planningRoot, scope, scopeId, knownSourceIds, findings);
         for (const mismatch of findCommandFingerprintKeyMismatches(scope)) {
           findings.push(`scopes/${scopeId}/scope.yml: commands.${mismatch.label} sourceFingerprintAtSelection keys do not match sourceRefs (missing=${JSON.stringify(mismatch.missing)}, extra=${JSON.stringify(mismatch.extra)})`);
         }

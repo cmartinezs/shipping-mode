@@ -42,7 +42,7 @@ if (args[0] === "--version") {
       "init --name <name> [--project-type software|non_software|mixed|unknown] [--base-branch <b>] [--vcs git|none] --actor <actor>",
       "config set --name <name> --actor <actor>",
       "config scope add --key <slug> --label <label> --kind code|non_code --path <path> [--owner <o>] --actor <actor>",
-      "changeset propose --kind <workspace.init|config.update|scope.add> --payload-file <file|-> --actor <actor>",
+      "changeset propose --kind <workspace.init|config.update|scope.add|guide.update> --payload-file <file|-> --actor <actor>",
       "changeset validate <operation-id>",
       "changeset approve <operation-id> --actor <actor> [--allow-self-approval]",
       "changeset apply <operation-id> --actor <actor>",
