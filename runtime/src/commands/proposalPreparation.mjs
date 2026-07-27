@@ -49,6 +49,9 @@ export function prepareProposal(kind, rawPayload, { operationId = null, actor = 
     return { payload, targetFiles: [`scopes/${payload.scopeId}/scope.yml`] };
   }
 
-  const payload = rawPayload.id ? rawPayload : { ...rawPayload, id: generateUuidV7() };
+  const payload = {
+    ...(rawPayload.id ? rawPayload : { ...rawPayload, id: generateUuidV7() }),
+    guideGapId: generateUuidV7()
+  };
   return { payload, targetFiles: ["config.yml", `scopes/${payload.id}/scope.yml`] };
 }

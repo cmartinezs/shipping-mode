@@ -33,6 +33,7 @@ export function renderWorkspaceInit({ name, baseBranch = null, vcs, projectType 
       ...(vcs === "git" ? { branches: { work_base: baseBranch, integration: null, production: null } } : {})
     },
     work_sources: [],
+    documentation: { source_refs: [], gaps: [] },
     policies: {
       release: { mode: "strict_sequence", defaultLane: "main" },
       workSources: {
@@ -78,7 +79,7 @@ export function renderWorkspaceInit({ name, baseBranch = null, vcs, projectType 
   ]);
 }
 
-export function renderConfigUpdate(payload, currentConfig) {
+export function renderConfigUpdate(payload, currentConfig, { knownSourceIds = [] } = {}) {
   const baseConfig = currentConfig || {};
   const nextConfig = { ...baseConfig };
   if (payload.name !== undefined) {
@@ -91,7 +92,8 @@ export function renderConfigUpdate(payload, currentConfig) {
     nextConfig.baseBranch = payload.git.enabled ? (payload.git.branches?.work_base ?? null) : null;
   }
   if (payload.work_sources !== undefined) nextConfig.work_sources = payload.work_sources;
-  assertProjectContextConsistency(nextConfig);
+  if (payload.documentation !== undefined) nextConfig.documentation = payload.documentation;
+  assertProjectContextConsistency(nextConfig, { knownSourceIds });
   return new Map([["config.yml", stringifyYaml(nextConfig)]]);
 }
 
@@ -100,7 +102,7 @@ export function renderConfigAutonomySet({ discovery }, currentConfig) {
   return new Map([["config.yml", stringifyYaml(nextConfig)]]);
 }
 
-export function renderScopeAdd({ id, key, label, kind, path: scopePath, owner = null }, currentConfig, workspaceRoot) {
+export function renderScopeAdd({ id, key, label, kind, path: scopePath, owner = null, guideGapId = id }, currentConfig, workspaceRoot) {
   confineScopePath(workspaceRoot, scopePath); // throws PathConfinementError on violation; read-only check
 
   const normalizedKey = toKebabCase(key);
@@ -109,9 +111,20 @@ export function renderScopeAdd({ id, key, label, kind, path: scopePath, owner = 
     throw new Error(`scope key already exists: ${normalizedKey}`);
   }
 
+  const documentation = currentConfig.documentation || { source_refs: [], gaps: [] };
   const nextConfig = withEnabledScope({
     ...currentConfig,
-    scopeRefs: [...(currentConfig.scopeRefs || []), { id, key: normalizedKey }]
+    scopeRefs: [...(currentConfig.scopeRefs || []), { id, key: normalizedKey }],
+    documentation: {
+      ...documentation,
+      gaps: [...(documentation.gaps || []), {
+        id: guideGapId,
+        concern: "guides",
+        status: "missing",
+        description: `scope ${normalizedKey} has no approved guide`,
+        scope_ref: id
+      }]
+    }
   }, id);
   const scope = { schemaVersion: 1, id, key: normalizedKey, label, kind, path: scopePath, owner };
   return new Map([
@@ -227,7 +240,17 @@ export function renderDiscoveryPropose({ operationId, proposal, sourceIdAssignme
     rendered.set(`scopes/${scopeId}/scope.yml`, stringifyYaml(scope));
     nextConfig = withEnabledScope({
       ...nextConfig,
-      scopeRefs: [...(nextConfig.scopeRefs || []), { id: scopeId, key: scope.key }]
+      scopeRefs: [...(nextConfig.scopeRefs || []), { id: scopeId, key: scope.key }],
+      documentation: {
+        ...(nextConfig.documentation || { source_refs: [], gaps: [] }),
+        gaps: [...(nextConfig.documentation?.gaps || []), {
+          id: scopeId,
+          concern: "guides",
+          status: "missing",
+          description: `scope ${scope.key} has no approved guide`,
+          scope_ref: scopeId
+        }]
+      }
     }, scopeId);
   }
   if ((proposal.scopes || []).length > 0) rendered.set("config.yml", stringifyYaml(nextConfig));

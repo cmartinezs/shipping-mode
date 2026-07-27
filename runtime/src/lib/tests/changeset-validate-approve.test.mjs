@@ -71,7 +71,7 @@ function proposeWorkspaceInit(planningRoot, operationsRoot) {
   const scopeId = "018f0000-0000-7000-8000-000000000002";
   const operationId = propose({
     operationsRoot, planningRoot, kind: "scope.add", target: { scopeId }, actor: "carlos",
-    payload: { id: scopeId, key: "backend", label: "Backend", kind: "code", path: "api/", owner: null },
+    payload: { id: scopeId, key: "backend", label: "Backend", kind: "code", path: "api/", owner: null, guideGapId: "018f0000-0000-7000-8000-000000000004" },
     targetFiles: ["config.yml", `scopes/${scopeId}/scope.yml`]
   });
 
@@ -136,7 +136,7 @@ function proposeWorkspaceInit(planningRoot, operationsRoot) {
   const scopeId = "018f0000-0000-7000-8000-000000000003";
   const operationId = propose({
     operationsRoot, planningRoot, kind: "scope.add", target: { scopeId }, actor: "carlos",
-    payload: { id: scopeId, key: "backend", label: "Backend", kind: "code", path: "api/", owner: null },
+    payload: { id: scopeId, key: "backend", label: "Backend", kind: "code", path: "api/", owner: null, guideGapId: "018f0000-0000-7000-8000-000000000004" },
     targetFiles: ["config.yml", `scopes/${scopeId}/scope.yml`]
   });
   const changeSetPath = path.join(operationsRoot, operationId, "change-set.json");

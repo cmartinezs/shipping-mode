@@ -91,6 +91,9 @@ const parsedScope = parseYaml(scopeFiles.get(`scopes/${scopeId}/scope.yml`));
 assert.equal(parsedScope.key, "backend-service", "key must be normalized to kebab-case");
 assert.equal(parsedScope.id, scopeId, "the scope id must be the one already fixed in the payload, never regenerated");
 assert.deepEqual(parseYaml(scopeFiles.get("config.yml")).scopeCatalog.enabled, [scopeId], "new scopes must be enabled by canonical UUIDv7 reference");
+const scopeConfig = parseYaml(scopeFiles.get("config.yml"));
+assert.equal(scopeConfig.documentation.gaps[0].concern, "guides");
+assert.equal(scopeConfig.documentation.gaps[0].scope_ref, scopeId);
 
 assert.throws(() => renderScopeAdd({ id: scopeId, key: "backend", label: "Backend", kind: "code", path: "/etc/passwd", owner: null }, parsedConfig, workspace), PathConfinementError);
 assert.throws(() => renderScopeAdd({ id: scopeId, key: "backend", label: "Backend", kind: "code", path: "../outside", owner: null }, parsedConfig, workspace), PathConfinementError);

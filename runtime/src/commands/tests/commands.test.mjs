@@ -91,6 +91,17 @@ const duplicateWorkSourceUpdate = runChangesetPropose({
 });
 assert.equal(runChangesetValidate({ planningRoot, operationsRoot, operationId: duplicateWorkSourceUpdate.operationId }).status, "INVALID", "duplicate Work Source ids must be rejected before apply");
 
+const danglingDocumentationUpdate = runChangesetPropose({
+  planningRoot,
+  kind: "config.update",
+  actor: "test-user",
+  payloadText: JSON.stringify({ documentation: {
+    source_refs: ["018f0000-0000-7000-8000-000000000099"],
+    gaps: []
+  } })
+});
+assert.equal(runChangesetValidate({ planningRoot, operationsRoot, operationId: danglingDocumentationUpdate.operationId }).status, "INVALID", "dangling Documentation Source refs must be rejected before apply");
+
 // the scope id must already be fixed in change-set.json immediately after propose, before validate/approve/apply
 const scopeResult = runConfigScopeAdd({ planningRoot, args: { key: "backend", label: "Backend", kind: "code", path: "api/", actor: "carlos" } });
 assert.ok(isUuidV7(scopeResult.scopeId));
@@ -109,6 +120,8 @@ const config = parseYaml(fs.readFileSync(path.join(planningRoot, "config.yml"), 
 assert.equal(config.scopeRefs.length, 1);
 assert.equal(config.scopeRefs[0].key, "backend");
 assert.equal(config.scopeRefs[0].id, scopeResult.scopeId);
+assert.equal(config.documentation.gaps[0].concern, "guides");
+assert.equal(config.documentation.gaps[0].scope_ref, scopeResult.scopeId);
 
 const commandSet = runChangesetPropose({
   planningRoot,

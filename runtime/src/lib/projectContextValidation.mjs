@@ -1,6 +1,6 @@
 import path from "node:path";
 
-export function projectContextConsistencyFindings(config) {
+export function projectContextConsistencyFindings(config, { knownSourceIds = null } = {}) {
   const findings = [];
   if (!config || typeof config !== "object") return findings;
 
@@ -12,6 +12,27 @@ export function projectContextConsistencyFindings(config) {
   for (const enabledId of config.scopeCatalog?.enabled || []) {
     if (!scopeRefIds.has(enabledId)) {
       findings.push(`config.yml: scopeCatalog.enabled references unknown scope id ${enabledId}`);
+    }
+  }
+
+  const documentation = config.documentation;
+  const knownSources = knownSourceIds === null ? null : new Set(knownSourceIds);
+  for (const sourceId of documentation?.source_refs || []) {
+    if (knownSources && !knownSources.has(sourceId)) {
+      findings.push(`config.yml: documentation.source_refs references unknown source id ${sourceId}`);
+    }
+  }
+  const gapIds = new Set();
+  for (const gap of documentation?.gaps || []) {
+    if (gapIds.has(gap.id)) findings.push(`config.yml: duplicate documentation gap id ${gap.id}`);
+    gapIds.add(gap.id);
+    if (gap.scope_ref && !scopeRefIds.has(gap.scope_ref)) {
+      findings.push(`config.yml: documentation gap ${gap.id} references unknown scope id ${gap.scope_ref}`);
+    }
+    for (const sourceId of gap.source_refs || []) {
+      if (knownSources && !knownSources.has(sourceId)) {
+        findings.push(`config.yml: documentation gap ${gap.id} references unknown source id ${sourceId}`);
+      }
     }
   }
 
@@ -72,7 +93,7 @@ export function projectContextConsistencyFindings(config) {
   return findings;
 }
 
-export function assertProjectContextConsistency(config) {
-  const findings = projectContextConsistencyFindings(config);
+export function assertProjectContextConsistency(config, options = {}) {
+  const findings = projectContextConsistencyFindings(config, options);
   if (findings.length > 0) throw new Error(findings.join("; "));
 }

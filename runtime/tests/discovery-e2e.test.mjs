@@ -213,6 +213,24 @@ function applyInitialCatalog(cwd) {
   applyAutonomy(cwd);
   const initial = applyInitialCatalog(cwd);
 
+  const configuredDocumentation = readConfig(cwd).documentation;
+  const documentationPayload = path.join(cwd, "documentation-config.json");
+  fs.writeFileSync(documentationPayload, JSON.stringify({
+    documentation: {
+      source_refs: [initial.sourceId],
+      gaps: configuredDocumentation.gaps
+    }
+  }));
+  const documentationUpdate = run(["changeset", "propose", "--kind", "config.update", "--payload-file", documentationPayload, "--actor", "carlos"], cwd);
+  assert.equal(documentationUpdate.code, 0);
+  assert.equal(run(["changeset", "validate", documentationUpdate.json.operationId], cwd).code, 0);
+  assert.equal(run(["changeset", "approve", documentationUpdate.json.operationId, "--actor", "carlos", "--allow-self-approval"], cwd).code, 0);
+  assert.equal(run(["changeset", "apply", documentationUpdate.json.operationId, "--actor", "carlos"], cwd).code, 0);
+  fs.rmSync(documentationPayload, { force: true });
+  assert.deepEqual(readConfig(cwd).documentation.source_refs, [initial.sourceId]);
+  assert.ok(readConfig(cwd).documentation.gaps.some((gap) => gap.scope_ref === initial.scopeId && gap.status === "missing"));
+  assert.equal(run(["check", "schema"], cwd).json.status, "PASS");
+
   const commandOperationId = proposeDiscovery(cwd, commandProposal(scan(cwd), initial));
   assert.equal(run(["changeset", "validate", commandOperationId], cwd).code, 0);
   assert.equal(run(["changeset", "approve", commandOperationId, "--actor", "carlos", "--allow-self-approval"], cwd).code, 0);
