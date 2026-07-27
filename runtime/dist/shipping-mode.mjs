@@ -5156,8 +5156,8 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              let fs15 = this.flowScalar(this.type);
-              atNextItem || it.value ? (map.items.push({ start, key: fs15, sep: [] }), this.onKeyLine = !0) : it.sep ? this.stack.push(fs15) : (Object.assign(it, { key: fs15, sep: [] }), this.onKeyLine = !0);
+              let fs16 = this.flowScalar(this.type);
+              atNextItem || it.value ? (map.items.push({ start, key: fs16, sep: [] }), this.onKeyLine = !0) : it.sep ? this.stack.push(fs16) : (Object.assign(it, { key: fs16, sep: [] }), this.onKeyLine = !0);
               return;
             }
             default: {
@@ -5255,8 +5255,8 @@ var require_parser = __commonJS({
             case "scalar":
             case "single-quoted-scalar":
             case "double-quoted-scalar": {
-              let fs15 = this.flowScalar(this.type);
-              !it || it.value ? fc.items.push({ start: [], key: fs15, sep: [] }) : it.sep ? this.stack.push(fs15) : Object.assign(it, { key: fs15, sep: [] });
+              let fs16 = this.flowScalar(this.type);
+              !it || it.value ? fc.items.push({ start: [], key: fs16, sep: [] }) : it.sep ? this.stack.push(fs16) : Object.assign(it, { key: fs16, sep: [] });
               return;
             }
             case "flow-map-end":
@@ -5484,14 +5484,14 @@ var require_dist = __commonJS({
 });
 
 // runtime/src/index.mjs
-import fs14 from "node:fs";
+import fs15 from "node:fs";
 import path15 from "node:path";
 
 // runtime/src/commands/init.mjs
 import path10 from "node:path";
 
 // runtime/src/lib/changeset.mjs
-import fs10 from "node:fs";
+import fs11 from "node:fs";
 import path9 from "node:path";
 
 // runtime/src/lib/ids.mjs
@@ -10859,22 +10859,28 @@ function withWorkspaceMutation({ planningRoot, operationsRoot, operationId = nul
 }
 
 // runtime/src/lib/faultInjection.mjs
+import fs7 from "node:fs";
 var SimulatedCrashError = class extends Error {
-}, activeCheckpoint = null, hardExitOnCheckpoint = !1;
+}, activeCheckpoint = null, faultMode = null;
 function checkpoint(name) {
   if (activeCheckpoint === name) {
     let triggered = activeCheckpoint;
-    throw activeCheckpoint = null, hardExitOnCheckpoint && process.exit(97), new SimulatedCrashError(triggered);
+    if (activeCheckpoint = null, faultMode === "exit" && process.exit(97), faultMode === "wait-for-kill") {
+      process.env.SHIPPING_MODE_FAULT_MARKER && fs7.writeFileSync(process.env.SHIPPING_MODE_FAULT_MARKER, JSON.stringify({ checkpoint: triggered, pid: process.pid }));
+      let blocker = new Int32Array(new SharedArrayBuffer(4));
+      for (; ; ) Atomics.wait(blocker, 0, 0, 1e3);
+    }
+    throw new SimulatedCrashError(triggered);
   }
 }
 
 // runtime/src/lib/discoverScan.mjs
-import fs8 from "node:fs";
+import fs9 from "node:fs";
 import path8 from "node:path";
 import { execFileSync } from "node:child_process";
 
 // runtime/src/lib/fingerprint.mjs
-import fs7 from "node:fs";
+import fs8 from "node:fs";
 import path7 from "node:path";
 var FingerprintError = class extends Error {
   constructor(code, message, details = {}) {
@@ -10886,7 +10892,7 @@ function asFingerprintObservationError(error, absolutePath, operation) {
   let details = { path: absolutePath, operation, causeCode: error?.code ?? null }, wrapped;
   return error?.code === "EACCES" || error?.code === "EPERM" ? wrapped = new FingerprintError("unreadable", `unreadable during ${operation}: ${absolutePath}`, details) : error?.code === "ENOENT" ? wrapped = new FingerprintError("observation_race", `path changed during ${operation}: ${absolutePath}`, details) : wrapped = new FingerprintError("observation_failed", `filesystem observation failed during ${operation}: ${absolutePath}`, details), wrapped.cause = error, wrapped;
 }
-function computeFileFingerprint(absolutePath, { maxBytes, statFn = fs7.statSync, readFn = fs7.readFileSync } = {}) {
+function computeFileFingerprint(absolutePath, { maxBytes, statFn = fs8.statSync, readFn = fs8.readFileSync } = {}) {
   let stat;
   try {
     stat = statFn(absolutePath);
@@ -10941,10 +10947,10 @@ function collectEntries(absoluteRoot, { readdirFn, lstatFn }) {
 }
 function computeDirectoryFingerprint(absoluteRoot, {
   maxBytes,
-  readdirFn = fs7.readdirSync,
-  lstatFn = fs7.lstatSync,
-  readFileFn = fs7.readFileSync,
-  readlinkFn = fs7.readlinkSync
+  readdirFn = fs8.readdirSync,
+  lstatFn = fs8.lstatSync,
+  readFileFn = fs8.readFileSync,
+  readlinkFn = fs8.readlinkSync
 } = {}) {
   let entries = collectEntries(absoluteRoot, { readdirFn, lstatFn }), byNormalized = /* @__PURE__ */ new Map();
   for (let entry of entries) {
@@ -11006,7 +11012,7 @@ function computeDirectoryFingerprint(absoluteRoot, {
   };
 }
 function computeSourceFingerprint(absolutePath, options = {}) {
-  let { lstatFn = fs7.lstatSync } = options, stat;
+  let { lstatFn = fs8.lstatSync } = options, stat;
   try {
     stat = lstatFn(absolutePath);
   } catch (error) {
@@ -11086,14 +11092,14 @@ var SCOPE_MANIFEST_RULES = [
   { dirName: "tools", ruleId: "source.custom-automation", families: ["custom-automation"] },
   { dirName: "bin", ruleId: "source.custom-automation", families: ["custom-automation"] }
 ];
-function listTopLevel(currentDir, { readdirFn = fs8.readdirSync, lstatFn = fs8.lstatSync } = {}) {
+function listTopLevel(currentDir, { readdirFn = fs9.readdirSync, lstatFn = fs9.lstatSync } = {}) {
   return readdirFn(currentDir).map((name) => ({
     name,
     absPath: path8.join(currentDir, name),
     stat: lstatFn(path8.join(currentDir, name))
   }));
 }
-function enumerateCandidates(workspaceRoot, { readdirFn = fs8.readdirSync, lstatFn = fs8.lstatSync } = {}) {
+function enumerateCandidates(workspaceRoot, { readdirFn = fs9.readdirSync, lstatFn = fs9.lstatSync } = {}) {
   let scopeCandidates = [], sourceCandidates = [], diagnostics = [];
   function walk(currentDir, relativeDir) {
     let children;
@@ -11129,12 +11135,12 @@ function enumerateCandidates(workspaceRoot, { readdirFn = fs8.readdirSync, lstat
 }
 function readConfirmedSources(planningRoot) {
   let sourcesRoot = path8.join(planningRoot, "sources");
-  if (!fs8.existsSync(sourcesRoot)) return [];
+  if (!fs9.existsSync(sourcesRoot)) return [];
   let sources = [];
-  for (let id of fs8.readdirSync(sourcesRoot)) {
+  for (let id of fs9.readdirSync(sourcesRoot)) {
     if (!isUuidV7(id)) continue;
     let sourceFile = confineWritePath(planningRoot, path8.join("sources", id, "source.yml"));
-    fs8.existsSync(sourceFile) && sources.push(parseYaml(fs8.readFileSync(sourceFile, "utf8")));
+    fs9.existsSync(sourceFile) && sources.push(parseYaml(fs9.readFileSync(sourceFile, "utf8")));
   }
   return sources;
 }
@@ -11155,7 +11161,7 @@ function computeKnownSourceDrift({ planningRoot, workspaceRoot, sourceCandidates
       diagnostics.push({ code: "untrusted_source_path", path: source.path, sourceId: source.id, message: error.message });
       continue;
     }
-    if (!fs8.existsSync(absolutePath)) {
+    if (!fs9.existsSync(absolutePath)) {
       missingForMoveDetection.push({ sourceId: source.id, path: source.path, confirmedFingerprint: source.confirmedFingerprint, confirmedContentHash: source.confirmedContentHash });
       continue;
     }
@@ -11219,12 +11225,12 @@ function computeKnownSourceDrift({ planningRoot, workspaceRoot, sourceCandidates
 }
 function readConfirmedScopes(planningRoot) {
   let scopesRoot = path8.join(planningRoot, "scopes");
-  if (!fs8.existsSync(scopesRoot)) return [];
+  if (!fs9.existsSync(scopesRoot)) return [];
   let scopes = [];
-  for (let id of fs8.readdirSync(scopesRoot)) {
+  for (let id of fs9.readdirSync(scopesRoot)) {
     if (!isUuidV7(id)) continue;
     let scopeFile = confineWritePath(planningRoot, path8.join("scopes", id, "scope.yml"));
-    fs8.existsSync(scopeFile) && scopes.push(parseYaml(fs8.readFileSync(scopeFile, "utf8")));
+    fs9.existsSync(scopeFile) && scopes.push(parseYaml(fs9.readFileSync(scopeFile, "utf8")));
   }
   return scopes;
 }
@@ -11334,7 +11340,7 @@ function runDiscoverScan({ planningRoot, workspaceRoot, maxSourceBytes = DEFAULT
 }
 
 // runtime/src/lib/autonomy.mjs
-import fs9 from "node:fs";
+import fs10 from "node:fs";
 var REASON_CODES = Object.freeze({
   FAMILY_NOT_ALLOWLISTED: "family_not_allowlisted",
   AUTHORITY_ABOVE_CEILING: "authority_above_ceiling",
@@ -11371,7 +11377,7 @@ function normalizeAutonomyPolicy(policy = null) {
 }
 function readCurrentConfig(planningRoot) {
   let configPath = confineRuntimeWritePath(planningRoot, "config.yml");
-  return fs9.existsSync(configPath) ? parseYaml(fs9.readFileSync(configPath, "utf8")) : null;
+  return fs10.existsSync(configPath) ? parseYaml(fs10.readFileSync(configPath, "utf8")) : null;
 }
 function readConfirmedAutonomyPolicy(planningRoot) {
   return normalizeAutonomyPolicy(readCurrentConfig(planningRoot)?.autonomy || null);
@@ -11452,9 +11458,9 @@ function evaluateChangeSetAutonomy({ changeSet, planningRoot, policy = readConfi
 // runtime/src/lib/changeset.mjs
 function readFileState(planningRoot, relativePath) {
   let absolutePath = confineRuntimeWritePath(planningRoot, relativePath);
-  if (!fs10.existsSync(absolutePath))
+  if (!fs11.existsSync(absolutePath))
     return { revisionHash: ABSENT, contentHash: ABSENT };
-  let bytes = fs10.readFileSync(absolutePath), isStructured = relativePath.endsWith(".yml") || relativePath.endsWith(".yaml") || relativePath.endsWith(".json"), structuredValue = isStructured ? relativePath.endsWith(".json") ? JSON.parse(bytes.toString("utf8")) : parseYaml(bytes.toString("utf8")) : null;
+  let bytes = fs11.readFileSync(absolutePath), isStructured = relativePath.endsWith(".yml") || relativePath.endsWith(".yaml") || relativePath.endsWith(".json"), structuredValue = isStructured ? relativePath.endsWith(".json") ? JSON.parse(bytes.toString("utf8")) : parseYaml(bytes.toString("utf8")) : null;
   return {
     revisionHash: isStructured ? revisionHash(structuredValue) : contentHash(bytes),
     contentHash: contentHash(bytes)
@@ -11716,7 +11722,7 @@ function applyOperation({ operationsRoot, planningRoot, operationId, render, act
       history: [...current.history, { at: appliedAt, from: "APPLYING", to: "APPLIED", actor, reason: null }]
     });
     let residuePath = confineRuntimeWritePath(planningRoot, runtimeOperationRelative);
-    return fs10.rmSync(residuePath, { recursive: !0, force: !0 }), { status: "APPLIED", files };
+    return fs11.rmSync(residuePath, { recursive: !0, force: !0 }), { status: "APPLIED", files };
   });
 }
 
@@ -11789,7 +11795,7 @@ function runConfigScopeAdd({ planningRoot, args }) {
 }
 
 // runtime/src/commands/changesetCommand.mjs
-import fs11 from "node:fs";
+import fs12 from "node:fs";
 import path11 from "node:path";
 
 // runtime/src/commands/renderers.mjs
@@ -11928,7 +11934,7 @@ function renderDiscoveryPropose({ operationId, proposal, sourceIdAssignments, sc
 // runtime/src/commands/changesetCommand.mjs
 function readCurrentConfig2(planningRoot) {
   let configPath = confineRuntimeWritePath(planningRoot, "config.yml");
-  return fs11.existsSync(configPath) ? parseYaml(fs11.readFileSync(configPath, "utf8")) : null;
+  return fs12.existsSync(configPath) ? parseYaml(fs12.readFileSync(configPath, "utf8")) : null;
 }
 function renderFor(kind, payload, currentConfig, workspaceRoot, { currentSources = [], currentScopes = [], approvalMode = "human" } = {}) {
   if (kind === "workspace.init") return renderWorkspaceInit(payload);
@@ -11982,7 +11988,7 @@ function runChangesetApply({ planningRoot, operationsRoot, operationId, actor })
 }
 
 // runtime/src/commands/check.mjs
-import fs12 from "node:fs";
+import fs13 from "node:fs";
 import path12 from "node:path";
 function checkRequiredFile(planningRoot, relativePath, schemaName, findings) {
   let filePath;
@@ -11992,13 +11998,13 @@ function checkRequiredFile(planningRoot, relativePath, schemaName, findings) {
     findings.push(`${relativePath}: untrusted path (${error.message})`);
     return;
   }
-  if (!fs12.existsSync(filePath)) {
+  if (!fs13.existsSync(filePath)) {
     findings.push(`${relativePath}: required file is missing`);
     return;
   }
   let value;
   try {
-    value = parseYaml(fs12.readFileSync(filePath, "utf8"));
+    value = parseYaml(fs13.readFileSync(filePath, "utf8"));
   } catch (error) {
     findings.push(`${relativePath}: failed to parse (${error.message})`);
     return;
@@ -12008,7 +12014,7 @@ function checkRequiredFile(planningRoot, relativePath, schemaName, findings) {
     for (let error of result.errors) findings.push(`${relativePath}${error.path}: ${error.message}`);
 }
 function checkSchema({ planningRoot }) {
-  if (!fs12.existsSync(planningRoot))
+  if (!fs13.existsSync(planningRoot))
     return { status: "NOT_INITIALIZED", findings: ["workspace is not initialized: .planning/ does not exist"], pendingOperations: [] };
   let findings = [];
   try {
@@ -12018,13 +12024,13 @@ function checkSchema({ planningRoot }) {
   }
   checkRequiredFile(planningRoot, "config.yml", "config", findings), checkRequiredFile(planningRoot, "plugin.lock.yml", "plugin-lock", findings);
   let scopesRoot = path12.join(planningRoot, "scopes");
-  if (fs12.existsSync(scopesRoot))
-    for (let scopeId of fs12.readdirSync(scopesRoot)) {
+  if (fs13.existsSync(scopesRoot))
+    for (let scopeId of fs13.readdirSync(scopesRoot)) {
       if (!isUuidV7(scopeId)) {
         findings.push(`scopes/${scopeId}: not a valid scope id`);
         continue;
       }
-      let scopeEntryPath = path12.join(scopesRoot, scopeId), scopeStat = fs12.lstatSync(scopeEntryPath);
+      let scopeEntryPath = path12.join(scopesRoot, scopeId), scopeStat = fs13.lstatSync(scopeEntryPath);
       if (scopeStat.isSymbolicLink()) {
         findings.push(`scopes/${scopeId}: symlink entries are not permitted`);
         continue;
@@ -12035,19 +12041,19 @@ function checkSchema({ planningRoot }) {
       }
       let scopeBeforeCount = findings.length;
       if (checkRequiredFile(planningRoot, path12.join("scopes", scopeId, "scope.yml"), "scope", findings), findings.length === scopeBeforeCount) {
-        let scopeFile = confineWritePath(planningRoot, path12.join("scopes", scopeId, "scope.yml")), scope = parseYaml(fs12.readFileSync(scopeFile, "utf8"));
+        let scopeFile = confineWritePath(planningRoot, path12.join("scopes", scopeId, "scope.yml")), scope = parseYaml(fs13.readFileSync(scopeFile, "utf8"));
         for (let mismatch of findCommandFingerprintKeyMismatches(scope))
           findings.push(`scopes/${scopeId}/scope.yml: commands.${mismatch.label} sourceFingerprintAtSelection keys do not match sourceRefs (missing=${JSON.stringify(mismatch.missing)}, extra=${JSON.stringify(mismatch.extra)})`);
       }
     }
   let sourcesRoot = path12.join(planningRoot, "sources");
-  if (fs12.existsSync(sourcesRoot))
-    for (let sourceId of fs12.readdirSync(sourcesRoot)) {
+  if (fs13.existsSync(sourcesRoot))
+    for (let sourceId of fs13.readdirSync(sourcesRoot)) {
       if (!isUuidV7(sourceId)) {
         findings.push(`sources/${sourceId}: not a valid source id`);
         continue;
       }
-      let sourceEntryPath = path12.join(sourcesRoot, sourceId), sourceStat = fs12.lstatSync(sourceEntryPath);
+      let sourceEntryPath = path12.join(sourcesRoot, sourceId), sourceStat = fs13.lstatSync(sourceEntryPath);
       if (sourceStat.isSymbolicLink()) {
         findings.push(`sources/${sourceId}: symlink entries are not permitted`);
         continue;
@@ -12058,18 +12064,18 @@ function checkSchema({ planningRoot }) {
       }
       let sourceBeforeCount = findings.length;
       if (checkRequiredFile(planningRoot, path12.join("sources", sourceId, "source.yml"), "source", findings), findings.length === sourceBeforeCount) {
-        let sourceFile = confineWritePath(planningRoot, path12.join("sources", sourceId, "source.yml")), source = parseYaml(fs12.readFileSync(sourceFile, "utf8"));
+        let sourceFile = confineWritePath(planningRoot, path12.join("sources", sourceId, "source.yml")), source = parseYaml(fs13.readFileSync(sourceFile, "utf8"));
         source.id !== sourceId && findings.push(`sources/${sourceId}/source.yml: source.id ${source.id} does not match its directory`);
       }
     }
   let pendingOperations = [], operationsRoot = path12.join(planningRoot, "operations");
-  if (fs12.existsSync(operationsRoot))
-    for (let operationId of fs12.readdirSync(operationsRoot)) {
+  if (fs13.existsSync(operationsRoot))
+    for (let operationId of fs13.readdirSync(operationsRoot)) {
       if (!isUuidV7(operationId)) {
         findings.push(`operations/${operationId}: not a valid operation id`);
         continue;
       }
-      let operationEntryPath = path12.join(operationsRoot, operationId), operationStat = fs12.lstatSync(operationEntryPath);
+      let operationEntryPath = path12.join(operationsRoot, operationId), operationStat = fs13.lstatSync(operationEntryPath);
       if (operationStat.isSymbolicLink()) {
         findings.push(`operations/${operationId}: symlink entries are not permitted`);
         continue;
@@ -12100,7 +12106,7 @@ function checkSchema({ planningRoot }) {
 }
 
 // runtime/src/lib/discoveryProposal.mjs
-import fs13 from "node:fs";
+import fs14 from "node:fs";
 import path13 from "node:path";
 function checkScanParametersRange(proposal) {
   let bytes = proposal.scanParameters?.maxSourceBytes;
@@ -12204,7 +12210,7 @@ function verifyOneSourceAction(entry, { confirmedById, workspaceRoot, maxSourceB
     if (!(error instanceof PathConfinementError)) throw error;
     return [{ code: "untrusted_source_path", sourceId: entry.sourceId, path: entry.fromPath, message: error.message }];
   }
-  return fs13.existsSync(oldAbsolutePath) && errors.push({ code: "move_source_still_exists", sourceId: entry.sourceId, message: `move claims fromPath ${entry.fromPath} is now empty, but it still exists in the live workspace` }), entry.observedContentHash !== confirmed.confirmedContentHash && errors.push({ code: "move_content_mismatch", sourceId: entry.sourceId, message: "move's claimed contentHash does not match the confirmed source's contentHash -- this is not a content-preserving move" }), errors.push(...verifyClaimedFingerprint(entry, entry.path, workspaceRoot, maxSourceBytes)), errors;
+  return fs14.existsSync(oldAbsolutePath) && errors.push({ code: "move_source_still_exists", sourceId: entry.sourceId, message: `move claims fromPath ${entry.fromPath} is now empty, but it still exists in the live workspace` }), entry.observedContentHash !== confirmed.confirmedContentHash && errors.push({ code: "move_content_mismatch", sourceId: entry.sourceId, message: "move's claimed contentHash does not match the confirmed source's contentHash -- this is not a content-preserving move" }), errors.push(...verifyClaimedFingerprint(entry, entry.path, workspaceRoot, maxSourceBytes)), errors;
 }
 function verifyClaimedFingerprint(entry, relativePath, workspaceRoot, maxSourceBytes) {
   let absolutePath;
@@ -12466,10 +12472,10 @@ function requireExplicitBooleanOption(value, flagName) {
 }
 function readPayloadText(payloadFileArg, cwd, usage) {
   if (!payloadFileArg || payloadFileArg === !0) throw new UsageError(usage);
-  if (payloadFileArg === "-") return fs14.readFileSync(0, "utf8");
+  if (payloadFileArg === "-") return fs15.readFileSync(0, "utf8");
   let resolved = path15.resolve(cwd, payloadFileArg);
-  if (!fs14.existsSync(resolved)) throw new UsageError(`payload file not found: ${payloadFileArg}`);
-  return fs14.readFileSync(resolved, "utf8");
+  if (!fs15.existsSync(resolved)) throw new UsageError(`payload file not found: ${payloadFileArg}`);
+  return fs15.readFileSync(resolved, "utf8");
 }
 function dispatch(command, args, cwd, runtimeContext = null) {
   let planningRoot = path15.join(cwd, ".planning"), operationsRoot = path15.join(planningRoot, "operations");
