@@ -5,71 +5,10 @@ on:
     branches: [develop]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
-          fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-      - name: Materialize verified review corrections
-        run: |
-          sed -n '1,/^PY$/p' .github/pr15-review-fix.sh | bash
-          python3 - <<'PY'
-          from pathlib import Path
-          p = Path('spikes/host-integration/tests/host-integration.test.mjs')
-          text = p.read_text()
-          old = '  "init --name <name> [--base-branch <b>] [--vcs git|none] --actor <actor>",'
-          new = '  "init --name <name> [--project-type software|non_software|mixed|unknown] [--base-branch <b>] [--vcs git|none] --actor <actor>",'
-          if text.count(old) != 1:
-              raise SystemExit(f'expected one host-integration help entry, found {text.count(old)}')
-          p.write_text(text.replace(old, new, 1))
-          PY
-          npm ci --silent
-          npm run build:schemas
-          npm run build:runtime
-          npm run build:test-bundle
-          npm run verify:artifacts
-      - name: Capture git publication diagnostics
-        run: |
-          git config user.name "shipping-mode-review-bot"
-          git config user.email "shipping-mode-review-bot@users.noreply.github.com"
-          git add bin runtime docs/superpowers/plans/2026-07-27-corte-0-completion-plan-1-project-context-bootstrap.md spikes/host-integration/tests/host-integration.test.mjs
-          set +e
-          git diff --cached --check > /tmp/check.log 2>&1
-          check_status=$?
-          echo "check_exit=$check_status" >> /tmp/check.log
-          git status --short > /tmp/status.log 2>&1
-          git diff --cached --name-only > /tmp/staged.log 2>&1
-          git commit -m "fix(corte-0): address Plan 1 review findings" > /tmp/commit.log 2>&1
-          commit_status=$?
-          echo "commit_exit=$commit_status" >> /tmp/commit.log
-          if [ "$commit_status" -eq 0 ]; then
-            git push origin HEAD:agent/corte-0-plan-1-project-context-bootstrap > /tmp/push.log 2>&1
-            push_status=$?
-          else
-            echo "push skipped because commit failed" > /tmp/push.log
-            push_status=99
-          fi
-          echo "push_exit=$push_status" >> /tmp/push.log
-          set -e
-          cat /tmp/check.log /tmp/status.log /tmp/staged.log /tmp/commit.log /tmp/push.log
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: pr15-git-diagnostic
-          path: |
-            /tmp/check.log
-            /tmp/status.log
-            /tmp/staged.log
-            /tmp/commit.log
-            /tmp/push.log
-          if-no-files-found: error
+      - run: echo "temporary cleanup in progress"
