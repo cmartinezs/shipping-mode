@@ -6,6 +6,8 @@ const validConfig = {
   name: "demo",
   baseBranch: null,
   vcs: "git",
+  git: { enabled: true, provider: "none", branches: { work_base: null, integration: null, production: null } },
+  work_sources: [],
   project: { name: "demo", type: "software" },
   plugin: { schemaVersion: 1, launcher: "shipping-mode" },
   policies: {
@@ -29,6 +31,12 @@ const validConfig = {
 const result = validate("config", validConfig);
 assert.equal(result.valid, true);
 assert.deepEqual(result.errors, []);
+const withoutCanonicalGit = structuredClone(validConfig);
+delete withoutCanonicalGit.git;
+assert.equal(validate("config", withoutCanonicalGit).valid, false, "canonical git policy must be required");
+const withoutWorkSources = structuredClone(validConfig);
+delete withoutWorkSources.work_sources;
+assert.equal(validate("config", withoutWorkSources).valid, false, "canonical work_sources must be required");
 
 const scopeId = "018f0000-0000-7000-8000-000000000123";
 const configWithEnabledScope = structuredClone(validConfig);

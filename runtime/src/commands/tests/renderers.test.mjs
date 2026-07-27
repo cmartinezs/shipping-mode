@@ -29,6 +29,8 @@ for (const requiredDirectory of [
 assert.equal(init.get(".gitignore"), ".runtime/\n");
 const parsedConfig = parseYaml(init.get("config.yml"));
 assert.equal(parsedConfig.name, "demo");
+assert.deepEqual(parsedConfig.git, { enabled: true, provider: "none", branches: { work_base: "main", integration: null, production: null } });
+assert.deepEqual(parsedConfig.work_sources, []);
 assert.equal(parsedConfig.project.name, "demo");
 assert.equal(parsedConfig.project.type, "unknown");
 const explicitTypeConfig = parseYaml(renderWorkspaceInit({ name: "mixed-demo", projectType: "mixed", baseBranch: null, vcs: "none", pluginVersion: "1.0.0", templatePackFingerprint: `sha256:${"a".repeat(64)}` }).get("config.yml"));
@@ -55,6 +57,27 @@ const parsedUpdated = parseYaml(updated.get("config.yml"));
 assert.equal(parsedUpdated.name, "renamed");
 assert.equal(parsedUpdated.project.name, "renamed");
 assert.equal(parsedUpdated.vcs, "git", "fields not touched by config set must be preserved");
+const policyUpdate = parseYaml(renderConfigUpdate({
+  git: { enabled: false, provider: "none" },
+  work_sources: [{ id: "jira-gradeops", provider: "jira", enabled: false, transport: "mcp", source_policy: "external_authoritative", sync_mode: "pull", mcp_connection_ref: "atlassian" }]
+}, parsedConfig).get("config.yml"));
+assert.equal(policyUpdate.git.enabled, false);
+assert.equal(policyUpdate.vcs, "none", "canonical git.enabled must synchronize compatibility vcs");
+assert.equal(policyUpdate.baseBranch, null, "disabled Git must clear compatibility baseBranch");
+assert.equal(policyUpdate.work_sources[0].mcp_connection_ref, "atlassian");
+const enabledPolicyUpdate = parseYaml(renderConfigUpdate({
+  git: { enabled: true, provider: "github", branches: { work_base: "develop", integration: "develop", production: "master" } }
+}, parsedConfig).get("config.yml"));
+assert.equal(enabledPolicyUpdate.vcs, "git");
+assert.equal(enabledPolicyUpdate.baseBranch, "develop");
+assert.throws(() => renderConfigUpdate({
+  git: {
+    enabled: true,
+    provider: "github",
+    branches: { work_base: "main", integration: "main", production: "main" },
+    pull_requests: { enabled: true, work_target: "other", draft_by_default: true, merge_strategy: "provider_default", promotion: { source: "main", target: "main" } }
+  }
+}, parsedConfig), /work_target/);
 
 const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "renderers-"));
 fs.mkdirSync(path.join(workspace, ".planning"), { recursive: true });

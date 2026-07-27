@@ -1,6 +1,7 @@
 import { stringifyYaml } from "../lib/yaml.mjs";
 import { confineScopePath } from "../lib/paths.mjs";
 import { BOOTSTRAP_CANONICAL_DIRECTORIES, DIRECTORY_RENDER_ENTRY } from "../lib/bootstrapTopology.mjs";
+import { assertProjectContextConsistency } from "../lib/projectContextValidation.mjs";
 
 function toKebabCase(value) {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-+|-+$)/g, "");
@@ -26,6 +27,12 @@ export function renderWorkspaceInit({ name, baseBranch = null, vcs, projectType 
     vcs,
     project: { name, type: projectType },
     plugin: { schemaVersion: 1, launcher: "shipping-mode" },
+    git: {
+      enabled: vcs === "git",
+      provider: vcs === "git" ? "none" : "none",
+      ...(vcs === "git" ? { branches: { work_base: baseBranch, integration: null, production: null } } : {})
+    },
+    work_sources: [],
     policies: {
       release: { mode: "strict_sequence", defaultLane: "main" },
       workSources: {
@@ -71,9 +78,20 @@ export function renderWorkspaceInit({ name, baseBranch = null, vcs, projectType 
   ]);
 }
 
-export function renderConfigUpdate({ name }, currentConfig) {
+export function renderConfigUpdate(payload, currentConfig) {
   const baseConfig = currentConfig || {};
-  const nextConfig = { ...baseConfig, name, project: { ...(baseConfig.project || {}), name } };
+  const nextConfig = { ...baseConfig };
+  if (payload.name !== undefined) {
+    nextConfig.name = payload.name;
+    nextConfig.project = { ...(baseConfig.project || {}), name: payload.name };
+  }
+  if (payload.git !== undefined) {
+    nextConfig.git = payload.git;
+    nextConfig.vcs = payload.git.enabled ? "git" : "none";
+    nextConfig.baseBranch = payload.git.enabled ? (payload.git.branches?.work_base ?? null) : null;
+  }
+  if (payload.work_sources !== undefined) nextConfig.work_sources = payload.work_sources;
+  assertProjectContextConsistency(nextConfig);
   return new Map([["config.yml", stringifyYaml(nextConfig)]]);
 }
 

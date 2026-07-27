@@ -7,6 +7,7 @@ import { isUuidV7 } from "../lib/ids.mjs";
 import { assertTrustedRoots, confineWritePath } from "../lib/paths.mjs";
 import { findCommandFingerprintKeyMismatches } from "../lib/discoverScan.mjs";
 import { REQUIRED_BOOTSTRAP_DIRECTORIES } from "../lib/bootstrapTopology.mjs";
+import { projectContextConsistencyFindings } from "../lib/projectContextValidation.mjs";
 
 function checkRequiredFile(planningRoot, relativePath, schemaName, findings) {
   let filePath;
@@ -46,6 +47,7 @@ function checkProjectContextConsistency(config, findings) {
       findings.push(`config.yml: scopeCatalog.enabled references unknown scope id ${enabledId}`);
     }
   }
+  findings.push(...projectContextConsistencyFindings(config));
 }
 
 function checkPluginLockConsistency(pluginLock, findings) {

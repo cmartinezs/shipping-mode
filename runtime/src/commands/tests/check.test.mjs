@@ -14,6 +14,8 @@ function writeValidBaseFiles(planningRoot) {
     name: "demo",
     baseBranch: null,
     vcs: "git",
+    git: { enabled: true, provider: "none", branches: { work_base: null, integration: null, production: null } },
+    work_sources: [],
     project: { name: "demo", type: "software" },
     plugin: { schemaVersion: 1, launcher: "shipping-mode" },
     policies: {
@@ -51,6 +53,58 @@ function writeValidBaseFiles(planningRoot) {
   }));
 }
 
+// Git compatibility fields and branch promotion relationships are enforced without mutation.
+{
+  const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-git-policy-drift-"));
+  writeValidBaseFiles(planningRoot);
+  ensureBaseTopology(planningRoot);
+  const configPath = path.join(planningRoot, "config.yml");
+  const config = parseYaml(fs.readFileSync(configPath, "utf8"));
+  config.baseBranch = "develop";
+  config.git = {
+    enabled: true,
+    provider: "github",
+    branches: { work_base: "develop", integration: "develop", production: "master" },
+    pull_requests: { enabled: true, work_target: "master", draft_by_default: true, merge_strategy: "provider_default", promotion: { source: "develop", target: "master" } }
+  };
+  fs.writeFileSync(configPath, stringifyYaml(config));
+  const result = checkSchema({ planningRoot });
+  assert.equal(result.status, "FAIL");
+  assert.ok(result.findings.some((finding) => finding.includes("work_target")));
+}
+
+// Work Source IDs and provider/transport relations are checked independently from Documentation Sources.
+{
+  const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-work-sources-"));
+  writeValidBaseFiles(planningRoot);
+  ensureBaseTopology(planningRoot);
+  const configPath = path.join(planningRoot, "config.yml");
+  const config = parseYaml(fs.readFileSync(configPath, "utf8"));
+  config.work_sources = [
+    { id: "local-backlog", provider: "local_repository", enabled: true, roots: ["docs/backlog/"], source_policy: "import_snapshot", sync_mode: "import_only" },
+    { id: "local-backlog", provider: "local_repository", enabled: false, roots: ["docs/requirements/"], source_policy: "import_snapshot", sync_mode: "import_only" }
+  ];
+  fs.writeFileSync(configPath, stringifyYaml(config));
+  const result = checkSchema({ planningRoot });
+  assert.equal(result.status, "FAIL");
+  assert.ok(result.findings.some((finding) => finding.includes("duplicate work source id")));
+}
+
+// Work Source roots cannot escape the workspace or use an incompatible transport.
+{
+  const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-work-source-safety-"));
+  writeValidBaseFiles(planningRoot);
+  ensureBaseTopology(planningRoot);
+  const configPath = path.join(planningRoot, "config.yml");
+  const config = parseYaml(fs.readFileSync(configPath, "utf8"));
+  config.work_sources = [{ id: "jira-gradeops", provider: "jira", enabled: false, transport: "filesystem", roots: ["../outside"], source_policy: "external_authoritative", sync_mode: "pull" }];
+  fs.writeFileSync(configPath, stringifyYaml(config));
+  const result = checkSchema({ planningRoot });
+  assert.equal(result.status, "FAIL");
+  assert.ok(result.findings.some((finding) => finding.includes("inside the workspace")));
+  assert.ok(result.findings.some((finding) => finding.includes("filesystem transport")));
+}
+
 function ensureBaseTopology(planningRoot) {
   for (const relativeDirectory of [
     "events",
@@ -69,6 +123,25 @@ function ensureBaseTopology(planningRoot) {
   ]) {
     fs.mkdirSync(path.join(planningRoot, relativeDirectory), { recursive: true });
   }
+}
+
+// trunk-based Git is valid: work, integration and production may intentionally be the same branch.
+{
+  const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-trunk-policy-"));
+  writeValidBaseFiles(planningRoot);
+  ensureBaseTopology(planningRoot);
+  const configPath = path.join(planningRoot, "config.yml");
+  const config = parseYaml(fs.readFileSync(configPath, "utf8"));
+  config.baseBranch = "main";
+  config.git = {
+    enabled: true,
+    provider: "github",
+    branches: { work_base: "main", integration: "main", production: "main" },
+    pull_requests: { enabled: true, work_target: "main", draft_by_default: true, merge_strategy: "provider_default", promotion: { source: "main", target: "main" } }
+  };
+  fs.writeFileSync(configPath, stringifyYaml(config));
+  const result = checkSchema({ planningRoot });
+  assert.equal(result.status, "PASS", `trunk-based topology must be valid: ${JSON.stringify(result.findings)}`);
 }
 
 // uninitialized workspace

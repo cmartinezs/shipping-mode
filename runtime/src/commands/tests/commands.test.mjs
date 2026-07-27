@@ -28,6 +28,69 @@ assert.equal(outcome.status, "APPLIED");
 assert.equal(readOperation(operationsRoot, initResult.operationId).status, "APPLIED");
 assert.equal(parseYaml(fs.readFileSync(path.join(planningRoot, "config.yml"), "utf8")).name, "demo");
 
+// Git and Work Source policy changes use the existing config.update ChangeSet lifecycle.
+const policyUpdate = runChangesetPropose({
+  planningRoot,
+  kind: "config.update",
+  actor: "carlos",
+  payloadText: JSON.stringify({
+    git: {
+      enabled: true,
+      provider: "github",
+      branches: { work_base: "develop", integration: "develop", production: "master" },
+      pull_requests: {
+        enabled: true,
+        work_target: "develop",
+        draft_by_default: true,
+        merge_strategy: "provider_default",
+        promotion: { source: "develop", target: "master" }
+      }
+    },
+    work_sources: [{
+      id: "jira-gradeops",
+      provider: "jira",
+      enabled: false,
+      transport: "mcp",
+      source_policy: "external_authoritative",
+      sync_mode: "pull",
+      mcp_connection_ref: "atlassian"
+    }]
+  })
+});
+assert.equal(runChangesetValidate({ planningRoot, operationsRoot, operationId: policyUpdate.operationId }).status, "VALIDATED");
+runChangesetApprove({ operationsRoot, planningRoot, operationId: policyUpdate.operationId, actor: "carlos", allowSelfApproval: true });
+runChangesetApply({ planningRoot, operationsRoot, operationId: policyUpdate.operationId, actor: "carlos" });
+const persistedPolicy = parseYaml(fs.readFileSync(path.join(planningRoot, "config.yml"), "utf8"));
+assert.equal(persistedPolicy.git.pull_requests.promotion.target, "master");
+assert.equal(persistedPolicy.vcs, "git");
+assert.equal(persistedPolicy.baseBranch, "develop");
+assert.equal(persistedPolicy.work_sources[0].mcp_connection_ref, "atlassian");
+
+const invalidPolicyUpdate = runChangesetPropose({
+  planningRoot,
+  kind: "config.update",
+  actor: "test-user",
+  payloadText: JSON.stringify({
+    git: {
+      enabled: true,
+      provider: "github",
+      branches: { work_base: "main", integration: "main", production: "main" },
+      pull_requests: { enabled: true, work_target: "release", draft_by_default: true, merge_strategy: "provider_default", promotion: { source: "main", target: "main" } }
+    }
+  })
+});
+assert.equal(runChangesetValidate({ planningRoot, operationsRoot, operationId: invalidPolicyUpdate.operationId }).status, "INVALID", "relationally-invalid Project Context must never reach APPROVED/APPLIED");
+const duplicateWorkSourceUpdate = runChangesetPropose({
+  planningRoot,
+  kind: "config.update",
+  actor: "test-user",
+  payloadText: JSON.stringify({ work_sources: [
+    { id: "local-backlog", provider: "local_repository", enabled: true, roots: ["docs/backlog/"], source_policy: "import_snapshot", sync_mode: "import_only" },
+    { id: "local-backlog", provider: "local_repository", enabled: false, roots: ["docs/requirements/"], source_policy: "import_snapshot", sync_mode: "import_only" }
+  ] })
+});
+assert.equal(runChangesetValidate({ planningRoot, operationsRoot, operationId: duplicateWorkSourceUpdate.operationId }).status, "INVALID", "duplicate Work Source ids must be rejected before apply");
+
 // the scope id must already be fixed in change-set.json immediately after propose, before validate/approve/apply
 const scopeResult = runConfigScopeAdd({ planningRoot, args: { key: "backend", label: "Backend", kind: "code", path: "api/", actor: "carlos" } });
 assert.ok(isUuidV7(scopeResult.scopeId));
