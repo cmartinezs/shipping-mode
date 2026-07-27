@@ -116,7 +116,7 @@ upgrades are outside this plan.
 
 ## Post-review corrections
 
-The PR review found and closed three Plan 2 integrity gaps before merge:
+The PR review found and closed four Plan 2 integrity gaps before merge:
 
 - Project Context relational invariants are now shared by `config.update` validation and `check schema`, so an invalid Git/Work Source configuration becomes `INVALID` before approval/apply instead of producing an `APPLIED` but inconsistent workspace.
 - Canonical Git updates synchronize temporary compatibility fields (`vcs`, `baseBranch`) while they remain in the schema, preventing two writable sources of truth.
