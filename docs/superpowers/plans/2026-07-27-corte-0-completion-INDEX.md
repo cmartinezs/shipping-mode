@@ -15,9 +15,10 @@
 
 ## Completion Boundary
 
-Corte 0 remains open after PR #7 and Discovery because the current runtime has a
-strong ChangeSet/recovery foundation and a real Discovery catalog, but bootstrap
-and Project Context still represent only the narrow Runtime Foundation subset.
+Corte 0 was completed by merging PR #17 to `develop`. The runtime now has the
+ChangeSet/recovery foundation, Discovery catalog, bootstrap topology, and the
+approved Project Context configuration required by the canonical Corte 0
+contract.
 
 Corte 0 Completion closes only the minimum configuration/state required by the
 canonical Corte 0 contract:
@@ -59,18 +60,14 @@ canonical Corte 0 contract:
 |---|------|----------|--------|-----|
 | 1 | Project Context and bootstrap topology | Canonical bootstrap directories, Project Context base fields, runtime/storage/path policies, structured plugin lock, `check schema` topology validation | **Merged (PR #15 to develop)** | `2026-07-27-corte-0-completion-plan-1-project-context-bootstrap.md` |
 | 2 | Git/config policies and Work Source extensibility | Approved Git policy representation, lanes/branch topology/automation policy, safe Work Source config shells without providers | **Merged (PR #16 to develop)** | `2026-07-27-corte-0-completion-plan-2-git-work-sources-config.md` |
-| 3 | Remaining catalogs/references and Corte 0 DoD closure | Documentation Source refs/gaps, guide pending refs, and final Corte 0 audit closure | **Implementation complete; pending PR merge** | `2026-07-27-corte-0-completion-plan-3-final-closure.md` |
+| 3 | Remaining catalogs/references and Corte 0 DoD closure | Documentation Source refs/gaps, guide pending refs, and final Corte 0 audit closure | **Merged (PR #17 to develop)** | `2026-07-27-corte-0-completion-plan-3-final-closure.md` |
 
 ## Exit Rule
 
-Plan 3 is implementation-complete on its branch, but Corte 0 is not complete
-while its PR is unmerged. After all Completion plans merge and every remaining
-Corte 0 requirement is `DONE` or
-`DEFERRED_BY_DESIGN`, the index may be updated to:
-
-```text
 Corte 0: COMPLETE
-```
+
+All Completion plans are merged and every remaining Corte 0 requirement is
+`DONE` or `DEFERRED_BY_DESIGN`. The next cut is:
 
 The next cut after that is:
 
