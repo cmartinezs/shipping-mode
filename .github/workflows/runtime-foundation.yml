@@ -22,26 +22,38 @@ jobs:
           cache: npm
       - name: Apply PR15 source and test corrections
         run: sed -n '1,/^PY$/p' .github/pr15-review-fix.sh | bash
-      - name: Install dependencies
-        run: npm ci --silent
+      - run: npm ci --silent
       - name: Rebuild committed artifacts
         run: |
           npm run build:schemas
           npm run build:runtime
           npm run build:test-bundle
-      - name: Unit tests
-        run: npm run test:unit
-      - name: CLI E2E
-        run: npm run test:cli-e2e
-      - name: Real crash E2E
-        run: npm run test:real-crash-e2e
-      - name: Security and bundle tests
+          npm run verify:artifacts
+      - name: Protect planning hook contract
+        run: node hooks/tests/protect-planning-state.test.mjs
+      - name: Spike manifest contract tests
+        run: node spikes/tests/verify-corte-1.2.test.mjs
+      - name: Verification script contract tests
+        run: node scripts/tests/verify-next-generation.test.mjs
+      - name: Host integration contract tests
+        run: node spikes/host-integration/tests/host-integration.test.mjs
+      - name: Full runtime regression
         run: |
+          npm run test:unit
+          npm run test:cli-e2e
+          npm run test:real-crash-e2e
           npm run test:security-e2e
           npm run test:bundle
-          npm run verify:artifacts
-      - name: Full next-generation verification
-        run: npm run verify:next-generation
+      - name: Spike structure verification
+        run: node spikes/verify-corte-1.2.mjs --structure-only
+      - name: Documentation contract scan
+        run: node scripts/scan-next-generation-docs.mjs docs/plugin-redesign-release-flow
+      - name: Static contract checks
+        run: |
+          test -x scripts/protect-planning-state-hook.sh
+          test "$(find spikes -mindepth 2 -maxdepth 2 -name spike.json | wc -l | tr -d ' ')" = "6"
+          node -e 'const p=require("./package.json"); if (!p.engines || p.engines.node !== ">=20") process.exit(1)'
+          for manifest in spikes/*/spike.json; do node -e 'const fs=require("fs"); const m=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if ("decision_record" in m || ![...(m.pass_criteria||[]), ...(m.fail_criteria||[])].every(c => ["PENDING","PASSED","FAILED","NOT_APPLICABLE"].includes(c.status))) process.exit(1)' "$manifest"; done
       - name: Commit clean reviewed result
         run: |
           cat > .github/workflows/runtime-foundation.yml <<'EOF'
