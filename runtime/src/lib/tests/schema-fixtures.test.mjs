@@ -178,7 +178,7 @@ const discoveryChangeSet = {
     operationId: "018f0000-0000-7000-8000-000000000000",
     proposal: { schemaVersion: 1 },
     sourceIdAssignments: [{ sourceActionIndex: 0, sourceId: "018f0000-0000-7000-8000-000000000002" }],
-    scopeIdAssignments: [{ scopeIndex: 0, scopeId: "018f0000-0000-7000-8000-000000000003" }],
+    scopeIdAssignments: [{ scopeIndex: 0, scopeId: "018f0000-0000-7000-8000-000000000003", guideGapId: "018f0000-0000-7000-8000-000000000004" }],
     confirmedBy: "carlos",
     confirmedAt: "2026-07-24T00:00:00.000Z"
   },

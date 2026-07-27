@@ -135,3 +135,10 @@ dependency changes were required for this plan and the mandatory build,
 runtime, unit, CLI, crash, security, bundle, artifact, and next-generation
 gates passed. Corte 0 remains pending Plan 3 PR merge and is not declared
 complete on this branch.
+
+## Post-review corrections
+
+The PR review found and closed two final integrity gaps before merge:
+
+- Discovery source removal now fails validation when the source is still referenced by approved `documentation.source_refs` or any `documentation.gaps[*].source_refs`. References must be removed explicitly through an approved `config.update` before a later Discovery remove can succeed; Discovery never silently rewrites approved Project Context.
+- Discovery-created scopes now receive an independent server-owned UUIDv7 `guideGapId`, matching direct `scope.add` semantics. Gap identity is no longer overloaded with scope identity; `scope_ref` is the sole relationship.

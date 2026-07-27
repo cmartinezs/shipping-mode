@@ -182,10 +182,17 @@ function sourceIdForAction(index, entry, assignments) {
   return entry.sourceId;
 }
 
-function scopeIdForProposal(index, assignments) {
+function scopeAssignmentForProposal(index, assignments) {
   const assigned = assignments.find((candidate) => candidate.scopeIndex === index);
   if (!assigned) throw new Error(`missing scope id assignment for scopes[${index}]`);
-  return assigned.scopeId;
+  return assigned;
+}
+
+function referencedDocumentationSourceIds(config) {
+  return new Set([
+    ...(config.documentation?.source_refs || []),
+    ...(config.documentation?.gaps || []).flatMap((gap) => gap.source_refs || [])
+  ]);
 }
 
 function renderSource(entry, existing, { id, operationId, confirmedBy, confirmedAt }) {
@@ -216,9 +223,13 @@ export function renderDiscoveryPropose({ operationId, proposal, sourceIdAssignme
   const rendered = new Map();
   const sourcesById = new Map(currentSources.map((source) => [source.id, source]));
   const scopesById = new Map(currentScopes.map((scope) => [scope.id, scope]));
+  const protectedDocumentationSourceIds = referencedDocumentationSourceIds(currentConfig);
 
   for (const [index, entry] of (proposal.sources || []).entries()) {
     const sourceId = sourceIdForAction(index, entry, sourceIdAssignments);
+    if (entry.action === "remove" && protectedDocumentationSourceIds.has(sourceId)) {
+      throw new Error(`cannot remove Documentation Source ${sourceId}: Project Context still references it; remove the approved reference with config.update first`);
+    }
     const existing = sourcesById.get(sourceId);
     const nextSource = renderSource(entry, existing, { id: sourceId, operationId, confirmedBy, confirmedAt });
     rendered.set(`sources/${sourceId}/source.yml`, nextSource === null ? null : stringifyYaml(nextSource));
@@ -227,7 +238,8 @@ export function renderDiscoveryPropose({ operationId, proposal, sourceIdAssignme
   let nextConfig = currentConfig;
   for (const [index, entry] of (proposal.scopes || []).entries()) {
     confineScopePath(workspaceRoot, entry.path);
-    const scopeId = scopeIdForProposal(index, scopeIdAssignments);
+    const scopeAssignment = scopeAssignmentForProposal(index, scopeIdAssignments);
+    const scopeId = scopeAssignment.scopeId;
     const scope = {
       schemaVersion: 1,
       id: scopeId,
@@ -244,7 +256,7 @@ export function renderDiscoveryPropose({ operationId, proposal, sourceIdAssignme
       documentation: {
         ...(nextConfig.documentation || { source_refs: [], gaps: [] }),
         gaps: [...(nextConfig.documentation?.gaps || []), {
-          id: scopeId,
+          id: scopeAssignment.guideGapId,
           concern: "guides",
           status: "missing",
           description: `scope ${scope.key} has no approved guide`,

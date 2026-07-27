@@ -228,7 +228,28 @@ function applyInitialCatalog(cwd) {
   assert.equal(run(["changeset", "apply", documentationUpdate.json.operationId, "--actor", "carlos"], cwd).code, 0);
   fs.rmSync(documentationPayload, { force: true });
   assert.deepEqual(readConfig(cwd).documentation.source_refs, [initial.sourceId]);
-  assert.ok(readConfig(cwd).documentation.gaps.some((gap) => gap.scope_ref === initial.scopeId && gap.status === "missing"));
+  const initialGuideGap = readConfig(cwd).documentation.gaps.find((gap) => gap.scope_ref === initial.scopeId && gap.status === "missing");
+  assert.ok(initialGuideGap);
+  assert.ok(isUuidV7(initialGuideGap.id));
+  assert.notEqual(initialGuideGap.id, initial.scopeId, "Discovery-created guide gap must have independent identity");
+  assert.equal(run(["check", "schema"], cwd).json.status, "PASS");
+
+  const removalScan = scan(cwd);
+  const referencedRemoveOperationId = proposeDiscovery(cwd, {
+    schemaVersion: 1,
+    scanId: removalScan.scanId,
+    baseRevision: removalScan.baseRevision,
+    scanParameters: removalScan.scanParameters,
+    scopes: [],
+    sources: [{ action: "remove", sourceId: initial.sourceId }],
+    scopeCommands: [],
+    diagnostics: []
+  });
+  const referencedRemoveValidation = run(["changeset", "validate", referencedRemoveOperationId], cwd);
+  assert.equal(referencedRemoveValidation.code, 1, "Discovery must not remove a source still approved by Project Context");
+  assert.equal(readOperation(operationsRoot(cwd), referencedRemoveOperationId).status, "INVALID");
+  assert.equal(readSource(cwd, initial.sourceId).id, initial.sourceId, "invalid remove must leave canonical source intact");
+  assert.deepEqual(readConfig(cwd).documentation.source_refs, [initial.sourceId]);
   assert.equal(run(["check", "schema"], cwd).json.status, "PASS");
 
   const commandOperationId = proposeDiscovery(cwd, commandProposal(scan(cwd), initial));
