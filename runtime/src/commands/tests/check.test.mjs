@@ -125,6 +125,25 @@ function ensureBaseTopology(planningRoot) {
   }
 }
 
+// trunk-based Git is valid: work, integration and production may intentionally be the same branch.
+{
+  const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-trunk-policy-"));
+  writeValidBaseFiles(planningRoot);
+  ensureBaseTopology(planningRoot);
+  const configPath = path.join(planningRoot, "config.yml");
+  const config = parseYaml(fs.readFileSync(configPath, "utf8"));
+  config.baseBranch = "main";
+  config.git = {
+    enabled: true,
+    provider: "github",
+    branches: { work_base: "main", integration: "main", production: "main" },
+    pull_requests: { enabled: true, work_target: "main", draft_by_default: true, merge_strategy: "provider_default", promotion: { source: "main", target: "main" } }
+  };
+  fs.writeFileSync(configPath, stringifyYaml(config));
+  const result = checkSchema({ planningRoot });
+  assert.equal(result.status, "PASS", `trunk-based topology must be valid: ${JSON.stringify(result.findings)}`);
+}
+
 // uninitialized workspace
 {
   const planningRoot = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "check-uninit-")), ".planning");

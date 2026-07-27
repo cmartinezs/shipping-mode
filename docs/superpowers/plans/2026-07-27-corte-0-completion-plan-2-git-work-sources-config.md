@@ -113,3 +113,12 @@ builds, `test:unit` (55 files), CLI E2E, real-crash E2E, security E2E, bundle,
 artifact verification, next-generation verification, and `git diff --check`.
 `npm ci` reports one pre-existing moderate audit vulnerability; dependency
 upgrades are outside this plan.
+
+## Post-review corrections
+
+The PR review found and closed three Plan 2 integrity gaps before merge:
+
+- Project Context relational invariants are now shared by `config.update` validation and `check schema`, so an invalid Git/Work Source configuration becomes `INVALID` before approval/apply instead of producing an `APPLIED` but inconsistent workspace.
+- Canonical Git updates synchronize temporary compatibility fields (`vcs`, `baseBranch`) while they remain in the schema, preventing two writable sources of truth.
+- Trunk-based topology is explicitly supported; work/integration/production branches may be identical when the declared relationships are internally coherent.
+- `git` and `work_sources` are now required canonical Project Context fields; legacy-only workspaces are not silently accepted as current Plan 2 state.

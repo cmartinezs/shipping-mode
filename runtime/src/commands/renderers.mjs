@@ -1,6 +1,7 @@
 import { stringifyYaml } from "../lib/yaml.mjs";
 import { confineScopePath } from "../lib/paths.mjs";
 import { BOOTSTRAP_CANONICAL_DIRECTORIES, DIRECTORY_RENDER_ENTRY } from "../lib/bootstrapTopology.mjs";
+import { assertProjectContextConsistency } from "../lib/projectContextValidation.mjs";
 
 function toKebabCase(value) {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-+|-+$)/g, "");
@@ -84,8 +85,13 @@ export function renderConfigUpdate(payload, currentConfig) {
     nextConfig.name = payload.name;
     nextConfig.project = { ...(baseConfig.project || {}), name: payload.name };
   }
-  if (payload.git !== undefined) nextConfig.git = payload.git;
+  if (payload.git !== undefined) {
+    nextConfig.git = payload.git;
+    nextConfig.vcs = payload.git.enabled ? "git" : "none";
+    nextConfig.baseBranch = payload.git.enabled ? (payload.git.branches?.work_base ?? null) : null;
+  }
   if (payload.work_sources !== undefined) nextConfig.work_sources = payload.work_sources;
+  assertProjectContextConsistency(nextConfig);
   return new Map([["config.yml", stringifyYaml(nextConfig)]]);
 }
 

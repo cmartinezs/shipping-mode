@@ -62,7 +62,22 @@ const policyUpdate = parseYaml(renderConfigUpdate({
   work_sources: [{ id: "jira-gradeops", provider: "jira", enabled: false, transport: "mcp", source_policy: "external_authoritative", sync_mode: "pull", mcp_connection_ref: "atlassian" }]
 }, parsedConfig).get("config.yml"));
 assert.equal(policyUpdate.git.enabled, false);
+assert.equal(policyUpdate.vcs, "none", "canonical git.enabled must synchronize compatibility vcs");
+assert.equal(policyUpdate.baseBranch, null, "disabled Git must clear compatibility baseBranch");
 assert.equal(policyUpdate.work_sources[0].mcp_connection_ref, "atlassian");
+const enabledPolicyUpdate = parseYaml(renderConfigUpdate({
+  git: { enabled: true, provider: "github", branches: { work_base: "develop", integration: "develop", production: "master" } }
+}, parsedConfig).get("config.yml"));
+assert.equal(enabledPolicyUpdate.vcs, "git");
+assert.equal(enabledPolicyUpdate.baseBranch, "develop");
+assert.throws(() => renderConfigUpdate({
+  git: {
+    enabled: true,
+    provider: "github",
+    branches: { work_base: "main", integration: "main", production: "main" },
+    pull_requests: { enabled: true, work_target: "other", draft_by_default: true, merge_strategy: "provider_default", promotion: { source: "main", target: "main" } }
+  }
+}, parsedConfig), /work_target/);
 
 const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "renderers-"));
 fs.mkdirSync(path.join(workspace, ".planning"), { recursive: true });

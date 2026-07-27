@@ -9,6 +9,8 @@ const cases = {
       name: "demo",
       baseBranch: null,
       vcs: "none",
+      git: { enabled: false, provider: "none" },
+      work_sources: [],
       project: { name: "demo", type: "software" },
       plugin: { schemaVersion: 1, launcher: "shipping-mode" },
       policies: {
@@ -116,6 +118,12 @@ assert.equal(validate("config", { ...cases.config.valid, git: validGitPolicy, wo
 assert.equal(validate("config", { ...cases.config.valid, git: { enabled: false, provider: "github" } }).valid, false, "disabled Git cannot use a provider");
 assert.equal(validate("config", { ...cases.config.valid, work_sources: [{ ...validWorkSources[0], api_token: "secret" }] }).valid, false, "Work Source secrets must be rejected");
 assert.equal(validate("config", { ...cases.config.valid, work_sources: [{ ...validWorkSources[1], mcp_connection_ref: "bad ref" }] }).valid, false, "connection refs must be opaque identifiers");
+const missingGit = structuredClone(cases.config.valid);
+delete missingGit.git;
+assert.equal(validate("config", missingGit).valid, false, "git is canonical and required");
+const missingWorkSources = structuredClone(cases.config.valid);
+delete missingWorkSources.work_sources;
+assert.equal(validate("config", missingWorkSources).valid, false, "work_sources is canonical and required");
 
 for (const [schemaName, { valid, invalid }] of Object.entries(cases)) {
   const validResult = validate(schemaName, valid);
