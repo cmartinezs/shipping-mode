@@ -10,8 +10,8 @@ Completing Plan 1 alone must never be read as "discovery iteration done."
 | 1 | Scan foundation | A (goals/non-goals), B (fingerprint algorithm, sources catalog schema), C (scope `commands` schema), D.1 (`discover scan`, read-only) | **Merged** (PR #9 to `develop`, reviewed and fixed post-merge) | `2026-07-25-discovery-scan-foundation.md` |
 | 2 | `DiscoveryProposal` and validation | D.2 (proposal contract), D.3 steps 1–4 (structural/semantic validation, live re-verification, reference resolution, drift reconciliation) | **Merged** (PR #10 to `develop`) | `2026-07-25-discovery-proposal-validation.md` |
 | 3 | ChangeSet integration and apply precondition | D.3 step 5 handoff into a real ChangeSet, D.4 (`preconditions.discoveryWorkspace`, `StaleError` re-check at apply) — new `discovery.propose` (and `scope.command.set`) kinds wired into `changeset.mjs`/`changesetCommand.mjs` | **Merged** (PR #12 to `develop`) | `2026-07-26-discovery-changeset-integration.md` |
-| 4 | Autonomy and server-side `approve` | E (autonomy config, `effectiveMode`, gates, `autonomyEvaluation`, `policyFingerprint`, `changeset approve --mode autonomous\|human`, self-approval prevention) | Implementation complete locally; pending PR review/merge | `2026-07-26-discovery-autonomy-server-approve.md` |
-| 5 | E2E, real crash recovery, DoD closure | H.4–H.6 end-to-end (real process-kill test through the full discovery apply path), full spec-to-task traceability check, final Definition of Done sign-off | Not started | *(to be written)* |
+| 4 | Autonomy and server-side `approve` | E (autonomy config, `effectiveMode`, gates, `autonomyEvaluation`, `policyFingerprint`, `changeset approve --mode autonomous\|human`, self-approval prevention) | **Merged** (PR #13 to `develop`) | `2026-07-26-discovery-autonomy-server-approve.md` |
+| 5 | E2E, real crash recovery, DoD closure | H.1–H.6 traceability, end-to-end Discovery semantics, real process-kill Discovery apply, recovery/idempotency, final Definition of Done sign-off | Implementation complete locally; pending PR review/merge | `2026-07-26-discovery-e2e-dod-closure.md` |
 
 ## Sequencing
 

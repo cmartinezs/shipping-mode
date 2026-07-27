@@ -7,7 +7,8 @@ import { parseYaml } from "./yaml.mjs";
 import { isUuidV7 } from "./ids.mjs";
 import { generateUuidV7 } from "./ids.mjs";
 import { contentHash as sha256Hex } from "./canonical.mjs";
-import { UsageError } from "./errors.mjs";
+import { UsageError, StateError } from "./errors.mjs";
+import { readOperation } from "./operationStore.mjs";
 
 function defaultExecFile(command, args, options) {
   return execFileSync(command, args, { encoding: "utf8", ...options });
@@ -390,10 +391,37 @@ export const DEFAULT_MAX_SOURCE_BYTES = 536870912; // 512 MiB
 export const MIN_MAX_SOURCE_BYTES = 1048576; // 1 MiB
 export const MAX_MAX_SOURCE_BYTES = 2147483648; // 2 GiB
 
+export function pendingCatalogMutations(planningRoot) {
+  const operationsRoot = path.join(planningRoot, "operations");
+  if (!fs.existsSync(operationsRoot)) return [];
+  const pending = [];
+  for (const operationId of fs.readdirSync(operationsRoot)) {
+    if (!isUuidV7(operationId)) continue;
+    let operation;
+    try {
+      operation = readOperation(operationsRoot, operationId);
+    } catch {
+      continue;
+    }
+    if (operation.status === "APPLYING" || operation.status === "RECOVERY_REQUIRED") {
+      pending.push({ operationId, status: operation.status });
+    }
+  }
+  return pending.sort((a, b) => a.operationId.localeCompare(b.operationId));
+}
+
+export function assertConfirmedCatalogReadable(planningRoot) {
+  const pending = pendingCatalogMutations(planningRoot);
+  if (pending.length === 0) return;
+  const detail = pending.map((entry) => `${entry.operationId}:${entry.status}`).join(", ");
+  throw new StateError(`confirmed catalog unavailable while recovery is required: ${detail}`);
+}
+
 export function runDiscoverScan({ planningRoot, workspaceRoot, maxSourceBytes = DEFAULT_MAX_SOURCE_BYTES }) {
   if (maxSourceBytes < MIN_MAX_SOURCE_BYTES || maxSourceBytes > MAX_MAX_SOURCE_BYTES) {
     throw new UsageError(`--max-source-bytes must be between ${MIN_MAX_SOURCE_BYTES} and ${MAX_MAX_SOURCE_BYTES}, got ${maxSourceBytes}`);
   }
+  assertConfirmedCatalogReadable(planningRoot);
 
   const git = detectGit(workspaceRoot);
   const { scopeCandidates, sourceCandidates: rawSourceCandidates, diagnostics: enumerationDiagnostics } = enumerateCandidates(workspaceRoot);
