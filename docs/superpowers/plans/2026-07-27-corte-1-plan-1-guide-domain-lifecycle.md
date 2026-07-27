@@ -212,4 +212,4 @@ git diff --check
 - [x] Mandatory regression gates completed: `npm ci`, schema/runtime/test
   bundle builds, unit, CLI E2E, real crash E2E, security E2E, bundle,
   artifact, next-generation, and `git diff --check`.
-- [ ] Draft PR opened against `develop`.
+- [x] Draft PR opened against `develop` as PR #18.
