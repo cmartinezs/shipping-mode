@@ -36,7 +36,7 @@ discover scan
 | H.1 symlink target text affects fingerprint, target content is not followed | `runtime/src/lib/tests/fingerprint-directory.test.mjs` | COVERED | None | Reuse. |
 | H.1 normalized path collision hard diagnostic | `runtime/src/lib/tests/fingerprint-directory.test.mjs` | COVERED | None | Reuse. |
 | H.1 invalid UTF-8 path or target hard diagnostic | `runtime/src/lib/tests/fingerprint-directory.test.mjs` | COVERED | None | Reuse. |
-| H.1 unreadable source hard diagnostic | `runtime/src/lib/tests/fingerprint-file.test.mjs`, `runtime/src/lib/tests/fingerprint-directory.test.mjs` | COVERED | Real user-switch CLI remains environment-dependent per spec wording. | Reuse injected EACCES coverage; document no new privileged user-switch test. |
+| H.1 unreadable source hard diagnostic | `runtime/src/lib/tests/fingerprint-file.test.mjs`, `runtime/src/lib/tests/fingerprint-directory.test.mjs`, `runtime/tests/discovery-e2e.test.mjs` | COVERED | None on POSIX non-root environments; root/Windows explicitly skip the OS-permission case while injected EACCES remains mandatory. | Plan 5 adds a real public-binary `chmod(000)` E2E whenever host permissions are enforceable. |
 | H.1 size preflight before content reads and exact `observedBytes` | `runtime/src/lib/tests/fingerprint-file.test.mjs`, `runtime/src/lib/tests/fingerprint-directory.test.mjs` | COVERED | None | Reuse. |
 | H.1 moved unique vs ambiguous | `runtime/src/lib/tests/fingerprint-dispatch.test.mjs`, `runtime/src/lib/tests/discover-drift.test.mjs` | COVERED | None | Reuse. |
 | H.2 structural invariants from B/C | `runtime/src/lib/tests/discovery-proposal-schema.test.mjs`, `runtime/src/lib/tests/discovery-proposal-structure.test.mjs`, `runtime/src/lib/tests/scope-commands-schema.test.mjs` | COVERED | None | Reuse. |
@@ -194,4 +194,6 @@ Add a focused E2E helper module or local helpers in the new test file to:
 - Added `runtime/tests/discovery-real-crash-e2e.test.mjs` for real parent-side `SIGKILL` during multi-mutation Discovery apply, immediate crash consistency checks, full recovery, and recovery idempotency.
 - Wired the new tests into `npm run test:cli-e2e` and `npm run test:real-crash-e2e`, so `npm run verify:next-generation` covers them through existing gates.
 - Fixed one real bug found during closure: `setFaultCheckpoint()` still referenced the removed `hardExitOnCheckpoint` variable after adding the wait-for-kill test hook. The fix restores Corte 0 simulated-crash tests and keeps the new SIGKILL path test-only.
+- Fixed a second closure bug found in review: `check schema` could report `PASS` and `discover scan` could read canonical state while an operation was `APPLYING`/`RECOVERY_REQUIRED`. Pending canonical mutations now fail closed until Corte 0 recovery restores a confirmed catalog.
+- Added a real public-binary unreadable-source E2E using POSIX permissions when enforceable; root/Windows explicitly skip that OS-dependent case while deterministic injected-EACCES tests remain required.
 - `npm ci` completed with the existing npm audit notice: 1 moderate vulnerability.

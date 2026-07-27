@@ -11311,9 +11311,32 @@ function computeWorkspaceHash({ scopeCandidates, sourceCandidates, knownSources,
   return lines.sort(), contentHash(Buffer.from(lines.join(""), "utf8"));
 }
 var DEFAULT_MAX_SOURCE_BYTES = 536870912, MIN_MAX_SOURCE_BYTES = 1048576, MAX_MAX_SOURCE_BYTES = 2147483648;
+function pendingCatalogMutations(planningRoot) {
+  let operationsRoot = path8.join(planningRoot, "operations");
+  if (!fs9.existsSync(operationsRoot)) return [];
+  let pending = [];
+  for (let operationId of fs9.readdirSync(operationsRoot)) {
+    if (!isUuidV7(operationId)) continue;
+    let operation;
+    try {
+      operation = readOperation(operationsRoot, operationId);
+    } catch {
+      continue;
+    }
+    (operation.status === "APPLYING" || operation.status === "RECOVERY_REQUIRED") && pending.push({ operationId, status: operation.status });
+  }
+  return pending.sort((a, b) => a.operationId.localeCompare(b.operationId));
+}
+function assertConfirmedCatalogReadable(planningRoot) {
+  let pending = pendingCatalogMutations(planningRoot);
+  if (pending.length === 0) return;
+  let detail = pending.map((entry) => `${entry.operationId}:${entry.status}`).join(", ");
+  throw new StateError(`confirmed catalog unavailable while recovery is required: ${detail}`);
+}
 function runDiscoverScan({ planningRoot, workspaceRoot, maxSourceBytes = DEFAULT_MAX_SOURCE_BYTES }) {
   if (maxSourceBytes < MIN_MAX_SOURCE_BYTES || maxSourceBytes > MAX_MAX_SOURCE_BYTES)
     throw new UsageError(`--max-source-bytes must be between ${MIN_MAX_SOURCE_BYTES} and ${MAX_MAX_SOURCE_BYTES}, got ${maxSourceBytes}`);
+  assertConfirmedCatalogReadable(planningRoot);
   let git = detectGit(workspaceRoot), { scopeCandidates, sourceCandidates: rawSourceCandidates, diagnostics: enumerationDiagnostics } = enumerateCandidates(workspaceRoot), {
     results: knownSources,
     diagnostics: driftDiagnostics,
@@ -12102,7 +12125,7 @@ function checkSchema({ planningRoot }) {
       }
       (operation.status === "APPLYING" || operation.status === "RECOVERY_REQUIRED") && pendingOperations.push({ operationId, status: operation.status });
     }
-  return { status: findings.length === 0 ? "PASS" : "FAIL", findings, pendingOperations };
+  return { status: findings.length > 0 ? "FAIL" : pendingOperations.length > 0 ? "RECOVERY_REQUIRED" : "PASS", findings, pendingOperations };
 }
 
 // runtime/src/lib/discoveryProposal.mjs

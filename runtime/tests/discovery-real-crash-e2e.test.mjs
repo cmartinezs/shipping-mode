@@ -262,8 +262,13 @@ assert.equal(listEventDocuments(cwd).filter((event) => event.operationId === ope
 assert.equal(fs.existsSync(path.join(planningRoot(cwd), ".runtime", "operations", operationId, "staged")), true, "staged recovery data must exist after the crash");
 
 const checkAfterCrash = run(["check", "schema"], cwd);
-assert.equal(checkAfterCrash.code, 0);
+assert.equal(checkAfterCrash.code, 1, "a partially applied catalog must never pass health checks");
+assert.equal(checkAfterCrash.json.status, "RECOVERY_REQUIRED");
 assert.ok(checkAfterCrash.json.pendingOperations.some((entry) => entry.operationId === operationId && entry.status === "APPLYING"), "mixed catalog must be reported with a pending operation");
+
+const scanAfterCrash = run(["discover", "scan", "--max-source-bytes", "1048576"], cwd);
+assert.equal(scanAfterCrash.code, 1, "public Discovery reads must fail closed while recovery is pending");
+assert.match(scanAfterCrash.json.error, /confirmed catalog unavailable while recovery is required/);
 
 const blockedByDeadLock = run(["changeset", "apply", operationId, "--actor", "carlos"], cwd);
 assert.equal(blockedByDeadLock.code, 1);
@@ -279,6 +284,7 @@ const checkAfterRecovery = run(["check", "schema"], cwd);
 assert.equal(checkAfterRecovery.code, 0);
 assert.equal(checkAfterRecovery.json.status, "PASS");
 assert.deepEqual(checkAfterRecovery.json.pendingOperations, []);
+assert.equal(run(["discover", "scan", "--max-source-bytes", "1048576"], cwd).code, 0, "Discovery reads resume only after recovery has restored a confirmed catalog");
 
 const recoveredOperation = readOperation(operationsRoot(cwd), operationId);
 assert.equal(recoveredOperation.status, "APPLIED");

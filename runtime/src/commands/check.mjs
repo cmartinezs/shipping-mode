@@ -145,5 +145,6 @@ export function checkSchema({ planningRoot }) {
     }
   }
 
-  return { status: findings.length === 0 ? "PASS" : "FAIL", findings, pendingOperations };
+  const status = findings.length > 0 ? "FAIL" : pendingOperations.length > 0 ? "RECOVERY_REQUIRED" : "PASS";
+  return { status, findings, pendingOperations };
 }

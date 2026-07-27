@@ -378,4 +378,24 @@ function applyInitialCatalog(cwd) {
   assert.equal(run(["check", "schema"], cwd).json.status, "PASS");
 }
 
-console.log("discovery-e2e: public Discovery semantics, human/autonomous approval, stale policy, and workspace stale paths pass");
+// Real unreadable-source E2E when the host can enforce POSIX file permissions.
+// Root and Windows keep the deterministic injected-EACCES unit coverage instead.
+if (process.platform !== "win32" && typeof process.getuid === "function" && process.getuid() !== 0) {
+  const cwd = freshWorkspace("discovery-unreadable-e2e-");
+  initWorkspace(cwd);
+  writePackage(cwd, "api", "{\"name\":\"api\"}\n");
+  const unreadablePath = path.join(cwd, "api", "package.json");
+  fs.chmodSync(unreadablePath, 0o000);
+  try {
+    const scanned = run(["discover", "scan", "--max-source-bytes", "1048576"], cwd);
+    assert.equal(scanned.code, 0);
+    assert.ok(scanned.json.diagnostics.some((entry) => entry.code === "unreadable" && entry.path === "api/package.json"), "real unreadable source must produce a hard diagnostic");
+    assert.equal(scanned.json.sourceCandidates.some((entry) => entry.path === "api/package.json"), false, "an unreadable candidate must not be emitted as successfully observed evidence");
+  } finally {
+    fs.chmodSync(unreadablePath, 0o600);
+  }
+} else {
+  console.log("discovery-e2e: unreadable-source OS-permission case skipped (root/Windows); injected EACCES coverage remains active");
+}
+
+console.log("discovery-e2e: public Discovery semantics, human/autonomous approval, stale policy, workspace stale, and unreadable-source paths pass");

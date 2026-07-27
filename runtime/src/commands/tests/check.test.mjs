@@ -112,6 +112,7 @@ import { parseYaml, stringifyYaml } from "../../lib/yaml.mjs";
   lock.release();
 
   const result = checkSchema({ planningRoot });
+  assert.equal(result.status, "RECOVERY_REQUIRED", "pending canonical mutation must never be reported as PASS");
   assert.equal(result.pendingOperations.length, 1);
   assert.equal(result.pendingOperations[0].status, "APPLYING");
   assert.equal(result.pendingOperations[0].operationId, operationId);
