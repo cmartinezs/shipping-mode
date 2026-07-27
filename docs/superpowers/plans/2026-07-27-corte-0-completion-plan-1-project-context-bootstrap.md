@@ -194,4 +194,3 @@ The PR review found and closed four Plan 1 integrity gaps before merge:
 - `mkdir` filePlan/result entries now require the deterministic server-owned directory
   marker hash, so corrupted operation metadata cannot be accepted as a valid recovered
   directory mutation.
-
