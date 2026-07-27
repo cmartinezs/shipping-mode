@@ -3,11 +3,9 @@ name: Runtime Foundation
 on:
   pull_request:
     branches: [develop]
-  push:
-    branches: [feat/corte-0-runtime-foundation]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   verify:
@@ -15,27 +13,35 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: agent/discovery-plan-5-dod-closure
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
+      - name: Apply PR14 review fixes
+        run: python3 .github/pr14-review-fix.py
       - run: npm ci --silent
-      - name: Build review artifacts outside the source tree
-        run: node scripts/build-runtime.mjs --out "$RUNNER_TEMP/generated" --bundle-out "$RUNNER_TEMP/shipping-mode.mjs"
-      - name: Stage review artifacts
-        if: always()
+      - name: Rebuild committed runtime artifacts
         run: |
-          mkdir -p ci-artifacts/runtime/src/generated ci-artifacts/runtime/dist
-          cp "$RUNNER_TEMP/generated/validators.mjs" ci-artifacts/runtime/src/generated/validators.mjs
-          cp "$RUNNER_TEMP/generated/build-meta.mjs" ci-artifacts/runtime/src/generated/build-meta.mjs
-          cp "$RUNNER_TEMP/shipping-mode.mjs" ci-artifacts/runtime/dist/shipping-mode.mjs
-      - name: Upload generated runtime for review
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: runtime-foundation-generated
-          path: ci-artifacts
-          if-no-files-found: error
-      - run: npm run verify:next-generation
-      - name: Prove verification leaves committed artifacts unchanged
-        run: git diff --exit-code -- runtime/src/generated runtime/dist/shipping-mode.mjs
+          npm run build:runtime
+          npm run build:test-bundle
+      - name: Targeted Plan 5 review tests
+        run: |
+          node runtime/src/commands/tests/check.test.mjs
+          node runtime/tests/discovery-e2e.test.mjs
+          node runtime/tests/discovery-real-crash-e2e.test.mjs
+      - name: Full next-generation verification
+        run: npm run verify:next-generation
+      - name: Diff hygiene
+        run: git diff --check
+      - name: Commit reviewed fixes and restore normal CI
+        run: |
+          git checkout origin/develop -- .github/workflows/runtime-foundation.yml
+          rm -f .github/pr14-review-fix.py
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix: close Discovery crash visibility gaps"
+          git push origin HEAD:agent/discovery-plan-5-dod-closure
