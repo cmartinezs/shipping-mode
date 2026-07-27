@@ -26,6 +26,12 @@ export function renderWorkspaceInit({ name, baseBranch = null, vcs, projectType 
     vcs,
     project: { name, type: projectType },
     plugin: { schemaVersion: 1, launcher: "shipping-mode" },
+    git: {
+      enabled: vcs === "git",
+      provider: vcs === "git" ? "none" : "none",
+      ...(vcs === "git" ? { branches: { work_base: baseBranch, integration: null, production: null } } : {})
+    },
+    work_sources: [],
     policies: {
       release: { mode: "strict_sequence", defaultLane: "main" },
       workSources: {
@@ -71,9 +77,15 @@ export function renderWorkspaceInit({ name, baseBranch = null, vcs, projectType 
   ]);
 }
 
-export function renderConfigUpdate({ name }, currentConfig) {
+export function renderConfigUpdate(payload, currentConfig) {
   const baseConfig = currentConfig || {};
-  const nextConfig = { ...baseConfig, name, project: { ...(baseConfig.project || {}), name } };
+  const nextConfig = { ...baseConfig };
+  if (payload.name !== undefined) {
+    nextConfig.name = payload.name;
+    nextConfig.project = { ...(baseConfig.project || {}), name: payload.name };
+  }
+  if (payload.git !== undefined) nextConfig.git = payload.git;
+  if (payload.work_sources !== undefined) nextConfig.work_sources = payload.work_sources;
   return new Map([["config.yml", stringifyYaml(nextConfig)]]);
 }
 

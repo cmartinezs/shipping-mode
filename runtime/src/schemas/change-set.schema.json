@@ -160,17 +160,25 @@
         }
       },
       "then": {
-        "properties": {
-          "payload": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "name"
-            ],
-            "properties": {
-              "name": {
-                "type": "string",
-                "minLength": 1
+          "properties": {
+            "payload": {
+              "type": "object",
+              "additionalProperties": false,
+              "minProperties": 1,
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+              },
+              "git": {
+                "$ref": "https://shipping-mode.dev/schemas/config.schema.json#/$defs/gitPolicy"
+              },
+              "work_sources": {
+                "type": "array",
+                "items": {
+                  "$ref": "https://shipping-mode.dev/schemas/config.schema.json#/$defs/workSource"
+                },
+                "uniqueItems": true
               }
             }
           }

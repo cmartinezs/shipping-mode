@@ -85,6 +85,38 @@ const cases = {
   }
 };
 
+const validGitPolicy = {
+  enabled: true,
+  provider: "github",
+  branches: { work_base: "develop", integration: "develop", production: "master" },
+  work: { branch_unit: "work_package", branch_pattern: "<type>/<slug>", reuse: "within_work_package" },
+  worktrees: { mode: "optional", unit: "work_package", cleanup: "after_integration" },
+  commits: { granularity: "task", message_policy: "host_defined" },
+  pull_requests: {
+    enabled: true,
+    work_target: "develop",
+    draft_by_default: true,
+    merge_strategy: "provider_default",
+    promotion: { source: "develop", target: "master" }
+  },
+  automation: {
+    create_branch: "allowed",
+    create_worktree: "allowed",
+    commit: "allowed",
+    push: "approval_required",
+    create_pr: "approval_required",
+    merge_pr: "approval_required"
+  }
+};
+const validWorkSources = [
+  { id: "local-backlog", provider: "local_repository", enabled: true, roots: ["docs/backlog/"], source_policy: "import_snapshot", sync_mode: "import_only" },
+  { id: "jira-gradeops", provider: "jira", enabled: false, transport: "mcp", source_policy: "external_authoritative", sync_mode: "pull", mcp_connection_ref: "atlassian" }
+];
+assert.equal(validate("config", { ...cases.config.valid, git: validGitPolicy, work_sources: validWorkSources }).valid, true, "closed Git and Work Source config must pass");
+assert.equal(validate("config", { ...cases.config.valid, git: { enabled: false, provider: "github" } }).valid, false, "disabled Git cannot use a provider");
+assert.equal(validate("config", { ...cases.config.valid, work_sources: [{ ...validWorkSources[0], api_token: "secret" }] }).valid, false, "Work Source secrets must be rejected");
+assert.equal(validate("config", { ...cases.config.valid, work_sources: [{ ...validWorkSources[1], mcp_connection_ref: "bad ref" }] }).valid, false, "connection refs must be opaque identifiers");
+
 for (const [schemaName, { valid, invalid }] of Object.entries(cases)) {
   const validResult = validate(schemaName, valid);
   assert.equal(validResult.valid, true, `${schemaName} valid fixture must pass: ${JSON.stringify(validResult.errors)}`);

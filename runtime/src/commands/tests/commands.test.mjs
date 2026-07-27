@@ -28,6 +28,42 @@ assert.equal(outcome.status, "APPLIED");
 assert.equal(readOperation(operationsRoot, initResult.operationId).status, "APPLIED");
 assert.equal(parseYaml(fs.readFileSync(path.join(planningRoot, "config.yml"), "utf8")).name, "demo");
 
+// Git and Work Source policy changes use the existing config.update ChangeSet lifecycle.
+const policyUpdate = runChangesetPropose({
+  planningRoot,
+  kind: "config.update",
+  actor: "carlos",
+  payloadText: JSON.stringify({
+    git: {
+      enabled: true,
+      provider: "github",
+      branches: { work_base: "develop", integration: "develop", production: "master" },
+      pull_requests: {
+        enabled: true,
+        work_target: "develop",
+        draft_by_default: true,
+        merge_strategy: "provider_default",
+        promotion: { source: "develop", target: "master" }
+      }
+    },
+    work_sources: [{
+      id: "jira-gradeops",
+      provider: "jira",
+      enabled: false,
+      transport: "mcp",
+      source_policy: "external_authoritative",
+      sync_mode: "pull",
+      mcp_connection_ref: "atlassian"
+    }]
+  })
+});
+assert.equal(runChangesetValidate({ planningRoot, operationsRoot, operationId: policyUpdate.operationId }).status, "VALIDATED");
+runChangesetApprove({ operationsRoot, planningRoot, operationId: policyUpdate.operationId, actor: "carlos", allowSelfApproval: true });
+runChangesetApply({ planningRoot, operationsRoot, operationId: policyUpdate.operationId, actor: "carlos" });
+const persistedPolicy = parseYaml(fs.readFileSync(path.join(planningRoot, "config.yml"), "utf8"));
+assert.equal(persistedPolicy.git.pull_requests.promotion.target, "master");
+assert.equal(persistedPolicy.work_sources[0].mcp_connection_ref, "atlassian");
+
 // the scope id must already be fixed in change-set.json immediately after propose, before validate/approve/apply
 const scopeResult = runConfigScopeAdd({ planningRoot, args: { key: "backend", label: "Backend", kind: "code", path: "api/", actor: "carlos" } });
 assert.ok(isUuidV7(scopeResult.scopeId));
