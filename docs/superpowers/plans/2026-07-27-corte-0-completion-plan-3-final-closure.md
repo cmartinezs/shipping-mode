@@ -128,7 +128,7 @@ future cuts.
 
 - [x] Implementation complete
 - [x] Full regression gates green, including reproducible `npm ci`
-- [ ] Draft PR opened against `develop`
+- [x] Draft PR opened against `develop` as PR #17
 
 `npm ci` completed successfully. npm reported one moderate audit finding; no
 dependency changes were required for this plan and the mandatory build,
