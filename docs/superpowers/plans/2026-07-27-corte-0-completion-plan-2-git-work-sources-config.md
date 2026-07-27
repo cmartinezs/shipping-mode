@@ -104,7 +104,7 @@ NormalizedWorkSourceItem, Release Items, guides, Plan 3, and Corte 1.
 
 - [x] Implementation complete
 - [x] Full regression gates green
-- [ ] Draft PR opened against `develop`
+- [x] Draft PR opened against `develop` (PR #16)
 
 ### Verification record
 
