@@ -24,6 +24,7 @@ jobs:
         run: |
           bash .github/pr17-review-fix.sh
           bash .github/pr17-review-fix-2.sh
+          bash .github/pr17-review-fix-3.sh
       - name: Install and rebuild
         run: |
           npm ci --silent
@@ -56,6 +57,7 @@ jobs:
             runtime/src/schemas/change-set.schema.json \
             runtime/src/commands/tests/renderers.test.mjs \
             runtime/src/commands/tests/discoveryChangeSet.test.mjs \
+            runtime/src/lib/tests/schema-fixtures.test.mjs \
             runtime/tests/discovery-e2e.test.mjs \
             docs/superpowers/plans/2026-07-27-corte-0-completion-plan-3-final-closure.md \
             runtime/src/generated/validators.mjs \
