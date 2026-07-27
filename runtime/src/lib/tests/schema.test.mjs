@@ -30,6 +30,15 @@ const result = validate("config", validConfig);
 assert.equal(result.valid, true);
 assert.deepEqual(result.errors, []);
 
+const scopeId = "018f0000-0000-7000-8000-000000000123";
+const configWithEnabledScope = structuredClone(validConfig);
+configWithEnabledScope.scopeRefs = [{ id: scopeId, key: "backend" }];
+configWithEnabledScope.scopeCatalog.enabled = [scopeId];
+assert.equal(validate("config", configWithEnabledScope).valid, true, "scopeCatalog.enabled must accept primary UUIDv7 refs");
+const configWithDecorativeEnabledKey = structuredClone(configWithEnabledScope);
+configWithDecorativeEnabledKey.scopeCatalog.enabled = ["backend"];
+assert.equal(validate("config", configWithDecorativeEnabledKey).valid, false, "scopeCatalog.enabled must not use decorative keys as primary refs");
+
 const invalidConfig = { schemaVersion: 1, name: "demo", vcs: "svn", scopeRefs: [] };
 const bad = validate("config", invalidConfig);
 assert.equal(bad.valid, false);

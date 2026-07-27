@@ -100,6 +100,48 @@ function ensureBaseTopology(planningRoot) {
   assert.equal(fs.statSync(path.join(planningRoot, "config.yml")).mtimeMs, beforeMtime, "check schema must never write to config.yml");
 }
 
+// canonical/compatibility Project Context fields must not silently diverge.
+{
+  const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-context-drift-"));
+  writeValidBaseFiles(planningRoot);
+  ensureBaseTopology(planningRoot);
+  const configPath = path.join(planningRoot, "config.yml");
+  const config = parseYaml(fs.readFileSync(configPath, "utf8"));
+  config.project.name = "different-name";
+  fs.writeFileSync(configPath, stringifyYaml(config));
+  const result = checkSchema({ planningRoot });
+  assert.equal(result.status, "FAIL");
+  assert.ok(result.findings.some((finding) => finding.includes("project.name")));
+}
+
+// scopeCatalog.enabled contains primary ids and cannot point at an unknown scope ref.
+{
+  const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-enabled-scope-drift-"));
+  writeValidBaseFiles(planningRoot);
+  ensureBaseTopology(planningRoot);
+  const configPath = path.join(planningRoot, "config.yml");
+  const config = parseYaml(fs.readFileSync(configPath, "utf8"));
+  config.scopeCatalog.enabled = ["018f0000-0000-7000-8000-000000000123"];
+  fs.writeFileSync(configPath, stringifyYaml(config));
+  const result = checkSchema({ planningRoot });
+  assert.equal(result.status, "FAIL");
+  assert.ok(result.findings.some((finding) => finding.includes("scopeCatalog.enabled") && finding.includes("unknown scope id")));
+}
+
+// structured plugin lock metadata must agree with the temporary compatibility fields.
+{
+  const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-plugin-lock-drift-"));
+  writeValidBaseFiles(planningRoot);
+  ensureBaseTopology(planningRoot);
+  const lockPath = path.join(planningRoot, "plugin.lock.yml");
+  const pluginLock = parseYaml(fs.readFileSync(lockPath, "utf8"));
+  pluginLock.plugin.version = "9.9.9";
+  fs.writeFileSync(lockPath, stringifyYaml(pluginLock));
+  const result = checkSchema({ planningRoot });
+  assert.equal(result.status, "FAIL");
+  assert.ok(result.findings.some((finding) => finding.includes("plugin.version")));
+}
+
 // missing required bootstrap topology -- FAIL, and check schema remains query-only
 {
   const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-topology-missing-"));

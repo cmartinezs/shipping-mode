@@ -2,20 +2,59 @@
   "$id": "https://shipping-mode.dev/schemas/result.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["operationId", "files"],
+  "required": [
+    "operationId",
+    "files"
+  ],
   "properties": {
-    "operationId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+    "operationId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
     "files": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["target", "action", "contentHash"],
+        "required": [
+          "target",
+          "action",
+          "contentHash"
+        ],
         "properties": {
-          "target": { "type": "string" },
-          "action": { "enum": ["write", "delete", "mkdir"] },
-          "contentHash": { "type": "string", "pattern": "^([0-9a-f]{64}|ABSENT)$" }
-        }
+          "target": {
+            "type": "string"
+          },
+          "action": {
+            "enum": [
+              "write",
+              "delete",
+              "mkdir"
+            ]
+          },
+          "contentHash": {
+            "type": "string",
+            "pattern": "^([0-9a-f]{64}|ABSENT)$"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "action": {
+                  "const": "mkdir"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "contentHash": {
+                  "const": "20dc703a130e4ad628a2659be71da655ef204d7c774431a82908cf46c2498c75"
+                }
+              }
+            }
+          }
+        ]
       }
     }
   }

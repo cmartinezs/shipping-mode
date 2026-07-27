@@ -179,3 +179,19 @@ Plan 1 is complete only when:
   items, work packages, tasks, or Corte 1 behavior were introduced.
 - No new production provider dependency was added.
 - `npm ci` completed with the existing npm audit notice: 1 moderate vulnerability.
+
+## Post-review corrections
+
+The PR review found and closed four Plan 1 integrity gaps before merge:
+
+- `project.type` is no longer guessed as `software`; `init` accepts an explicit
+  `--project-type` and otherwise persists `unknown`.
+- `scopeCatalog.enabled` now uses UUIDv7 primary references and is updated by both
+  explicit `scope.add` and Discovery scope creation, instead of silently drifting
+  from the canonical scope catalog.
+- `check schema` now rejects divergence between canonical Project Context/plugin-lock
+  fields and the temporary compatibility fields retained during Corte 0 Completion.
+- `mkdir` filePlan/result entries now require the deterministic server-owned directory
+  marker hash, so corrupted operation metadata cannot be accepted as a valid recovered
+  directory mutation.
+

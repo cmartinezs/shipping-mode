@@ -14,6 +14,15 @@ import { PathConfinementError } from "./lib/paths.mjs";
 export { UsageError, StateError, StaleError, RecoveryRequiredError, LockHeldError, PathConfinementError };
 
 const IN_SCOPE_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set"]);
+const PROJECT_TYPES = new Set(["software", "non_software", "mixed", "unknown"]);
+
+function requireProjectType(value) {
+  if (value === undefined) return "unknown";
+  if (!PROJECT_TYPES.has(value)) {
+    throw new UsageError("--project-type must be one of software|non_software|mixed|unknown");
+  }
+  return value;
+}
 
 function notImplemented(command) {
   return {
@@ -61,7 +70,7 @@ export function dispatch(command, args, cwd, runtimeContext = null) {
   if (command === "init") {
     const options = argsToOptions(args);
     if (!options.name || !options.actor) throw new UsageError("init requires --name and --actor");
-    return runInit({ planningRoot, args: { name: options.name, vcs: options.vcs, baseBranch: options.base_branch, actor: options.actor } });
+    return runInit({ planningRoot, args: { name: options.name, projectType: requireProjectType(options.project_type), vcs: options.vcs, baseBranch: options.base_branch, actor: options.actor } });
   }
 
   if (command === "config") {

@@ -2,25 +2,60 @@
   "$id": "https://shipping-mode.dev/schemas/change-set.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "operationId", "kind", "target", "baseRevisions", "payload", "hash"],
+  "required": [
+    "schemaVersion",
+    "operationId",
+    "kind",
+    "target",
+    "baseRevisions",
+    "payload",
+    "hash"
+  ],
   "properties": {
-    "schemaVersion": { "const": 1 },
-    "operationId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
-    "kind": { "enum": ["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "discovery.propose"] },
-    "target": { "type": "object" },
+    "schemaVersion": {
+      "const": 1
+    },
+    "operationId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "kind": {
+      "enum": [
+        "workspace.init",
+        "config.update",
+        "config.autonomy.set",
+        "scope.add",
+        "scope.command.set",
+        "discovery.propose"
+      ]
+    },
+    "target": {
+      "type": "object"
+    },
     "baseRevisions": {
       "type": "object",
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["revisionHash", "contentHash"],
+        "required": [
+          "revisionHash",
+          "contentHash"
+        ],
         "properties": {
-          "revisionHash": { "type": "string", "pattern": "^([0-9a-f]{64}|ABSENT)$" },
-          "contentHash": { "type": "string", "pattern": "^([0-9a-f]{64}|ABSENT)$" }
+          "revisionHash": {
+            "type": "string",
+            "pattern": "^([0-9a-f]{64}|ABSENT)$"
+          },
+          "contentHash": {
+            "type": "string",
+            "pattern": "^([0-9a-f]{64}|ABSENT)$"
+          }
         }
       }
     },
-    "payload": { "type": "object" },
+    "payload": {
+      "type": "object"
+    },
     "preconditions": {
       "type": "object",
       "additionalProperties": false,
@@ -28,136 +63,324 @@
         "discoveryWorkspace": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["workspaceHash", "scanParameters"],
+          "required": [
+            "workspaceHash",
+            "scanParameters"
+          ],
           "properties": {
-            "workspaceHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "workspaceHash": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
             "scanParameters": {
               "type": "object",
               "additionalProperties": false,
-              "required": ["maxSourceBytes"],
-              "properties": { "maxSourceBytes": { "type": "integer" } }
+              "required": [
+                "maxSourceBytes"
+              ],
+              "properties": {
+                "maxSourceBytes": {
+                  "type": "integer"
+                }
+              }
             }
           }
         }
       }
     },
-    "hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+    "hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
   },
   "allOf": [
     {
-      "if": { "properties": { "kind": { "const": "workspace.init" } } },
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "workspace.init"
+          }
+        }
+      },
       "then": {
         "properties": {
           "payload": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["name", "vcs", "pluginVersion", "templatePackFingerprint"],
+            "required": [
+              "name",
+              "vcs",
+              "pluginVersion",
+              "templatePackFingerprint"
+            ],
             "properties": {
-              "name": { "type": "string", "minLength": 1 },
-              "baseBranch": { "type": ["string", "null"] },
-              "vcs": { "enum": ["git", "none"] },
-              "pluginVersion": { "type": "string", "minLength": 1 },
-              "templatePackFingerprint": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
-            }
-          }
-        }
-      }
-    },
-    {
-      "if": { "properties": { "kind": { "const": "config.update" } } },
-      "then": {
-        "properties": {
-          "payload": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["name"],
-            "properties": { "name": { "type": "string", "minLength": 1 } }
-          }
-        }
-      }
-    },
-    {
-      "if": { "properties": { "kind": { "const": "config.autonomy.set" } } },
-      "then": {
-        "properties": {
-          "payload": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["discovery"],
-            "properties": { "discovery": { "$ref": "#/$defs/discoveryAutonomyPolicy" } }
-          }
-        }
-      }
-    },
-    {
-      "if": { "properties": { "kind": { "const": "scope.add" } } },
-      "then": {
-        "properties": {
-          "payload": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["id", "key", "label", "kind", "path"],
-            "properties": {
-              "id": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
-              "key": { "type": "string", "minLength": 1 },
-              "label": { "type": "string", "minLength": 1 },
-              "kind": { "enum": ["code", "non_code"] },
-              "path": { "type": "string", "minLength": 1 },
-              "owner": { "type": ["string", "null"] }
-            }
-          }
-        }
-      }
-    },
-    {
-      "if": { "properties": { "kind": { "const": "scope.command.set" } } },
-      "then": {
-        "properties": {
-          "payload": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["operationId", "scopeId", "role", "command", "requiresEnvironment", "requiresSecrets", "declaredBy", "declaredAt"],
-            "properties": {
-              "operationId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
-              "scopeId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
-              "role": {
-                "anyOf": [
-                  { "enum": ["build", "test", "smoke", "lint", "verify"] },
-                  { "type": "string", "pattern": "^custom\\.[a-z][a-z0-9-]{0,63}$" }
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "baseBranch": {
+                "type": [
+                  "string",
+                  "null"
                 ]
               },
-              "command": { "type": "string", "minLength": 1 },
-              "requiresEnvironment": { "type": "boolean" },
-              "requiresSecrets": { "type": "boolean" },
-              "declaredBy": { "type": "string", "minLength": 1 },
-              "declaredAt": { "type": "string", "minLength": 1 }
+              "vcs": {
+                "enum": [
+                  "git",
+                  "none"
+                ]
+              },
+              "pluginVersion": {
+                "type": "string",
+                "minLength": 1
+              },
+              "templatePackFingerprint": {
+                "type": "string",
+                "pattern": "^sha256:[0-9a-f]{64}$"
+              },
+              "projectType": {
+                "enum": [
+                  "software",
+                  "non_software",
+                  "mixed",
+                  "unknown"
+                ]
+              }
             }
           }
         }
       }
     },
     {
-      "if": { "properties": { "kind": { "const": "discovery.propose" } } },
-      "then": {
-        "required": ["preconditions"],
+      "if": {
         "properties": {
-          "preconditions": { "$ref": "#/properties/preconditions" },
+          "kind": {
+            "const": "config.update"
+          }
+        }
+      },
+      "then": {
+        "properties": {
           "payload": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["operationId", "proposal", "sourceIdAssignments", "scopeIdAssignments", "confirmedBy", "confirmedAt"],
+            "required": [
+              "name"
+            ],
             "properties": {
-              "operationId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
-              "proposal": { "type": "object" },
+              "name": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "config.autonomy.set"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "discovery"
+            ],
+            "properties": {
+              "discovery": {
+                "$ref": "#/$defs/discoveryAutonomyPolicy"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "scope.add"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "key",
+              "label",
+              "kind",
+              "path"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "key": {
+                "type": "string",
+                "minLength": 1
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1
+              },
+              "kind": {
+                "enum": [
+                  "code",
+                  "non_code"
+                ]
+              },
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "owner": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "scope.command.set"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "operationId",
+              "scopeId",
+              "role",
+              "command",
+              "requiresEnvironment",
+              "requiresSecrets",
+              "declaredBy",
+              "declaredAt"
+            ],
+            "properties": {
+              "operationId": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "scopeId": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "role": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "build",
+                      "test",
+                      "smoke",
+                      "lint",
+                      "verify"
+                    ]
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^custom\\.[a-z][a-z0-9-]{0,63}$"
+                  }
+                ]
+              },
+              "command": {
+                "type": "string",
+                "minLength": 1
+              },
+              "requiresEnvironment": {
+                "type": "boolean"
+              },
+              "requiresSecrets": {
+                "type": "boolean"
+              },
+              "declaredBy": {
+                "type": "string",
+                "minLength": 1
+              },
+              "declaredAt": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "discovery.propose"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "preconditions"
+        ],
+        "properties": {
+          "preconditions": {
+            "$ref": "#/properties/preconditions"
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "operationId",
+              "proposal",
+              "sourceIdAssignments",
+              "scopeIdAssignments",
+              "confirmedBy",
+              "confirmedAt"
+            ],
+            "properties": {
+              "operationId": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "proposal": {
+                "type": "object"
+              },
               "sourceIdAssignments": {
                 "type": "array",
                 "items": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["sourceActionIndex", "sourceId"],
+                  "required": [
+                    "sourceActionIndex",
+                    "sourceId"
+                  ],
                   "properties": {
-                    "sourceActionIndex": { "type": "integer", "minimum": 0 },
-                    "sourceId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }
+                    "sourceActionIndex": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "sourceId": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                    }
                   }
                 }
               },
@@ -166,15 +389,30 @@
                 "items": {
                   "type": "object",
                   "additionalProperties": false,
-                  "required": ["scopeIndex", "scopeId"],
+                  "required": [
+                    "scopeIndex",
+                    "scopeId"
+                  ],
                   "properties": {
-                    "scopeIndex": { "type": "integer", "minimum": 0 },
-                    "scopeId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }
+                    "scopeIndex": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "scopeId": {
+                      "type": "string",
+                      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+                    }
                   }
                 }
               },
-              "confirmedBy": { "type": "string", "minLength": 1 },
-              "confirmedAt": { "type": "string", "minLength": 1 }
+              "confirmedBy": {
+                "type": "string",
+                "minLength": 1
+              },
+              "confirmedAt": {
+                "type": "string",
+                "minLength": 1
+              }
             }
           }
         }
@@ -182,50 +420,124 @@
     }
   ],
   "$defs": {
-    "mode": { "enum": ["pause", "auto-approve"] },
-    "confidence": { "enum": ["low", "medium", "high"] },
+    "mode": {
+      "enum": [
+        "pause",
+        "auto-approve"
+      ]
+    },
+    "confidence": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
     "sourceFamily": {
       "enum": [
-        "product-sources", "functional-sources", "technical-sources", "agent-repository-instructions",
-        "project-module-manifests", "execution-commands", "quality-definitions", "local-runtime-environment",
-        "public-data-contracts", "delivery-ci-deployment", "ownership", "decision-sources", "developer-guides",
-        "engineering-standards", "repository-map", "evidence-contracts", "design-system", "prompt-sources",
+        "product-sources",
+        "functional-sources",
+        "technical-sources",
+        "agent-repository-instructions",
+        "project-module-manifests",
+        "execution-commands",
+        "quality-definitions",
+        "local-runtime-environment",
+        "public-data-contracts",
+        "delivery-ci-deployment",
+        "ownership",
+        "decision-sources",
+        "developer-guides",
+        "engineering-standards",
+        "repository-map",
+        "evidence-contracts",
+        "design-system",
+        "prompt-sources",
         "custom-automation"
       ]
     },
     "sourceAuthority": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["standing", "force"],
+      "required": [
+        "standing",
+        "force"
+      ],
       "properties": {
-        "standing": { "enum": ["contextual", "supporting", "authoritative"] },
-        "force": { "enum": ["unknown", "informational", "advisory", "normative"] }
+        "standing": {
+          "enum": [
+            "contextual",
+            "supporting",
+            "authoritative"
+          ]
+        },
+        "force": {
+          "enum": [
+            "unknown",
+            "informational",
+            "advisory",
+            "normative"
+          ]
+        }
       }
     },
     "discoveryAutonomyPolicy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["default", "scopeCommandConfidenceFloor", "sourceOverrides", "scopeCommand"],
+      "required": [
+        "default",
+        "scopeCommandConfidenceFloor",
+        "sourceOverrides",
+        "scopeCommand"
+      ],
       "properties": {
-        "default": { "$ref": "#/$defs/mode" },
-        "scopeCommandConfidenceFloor": { "$ref": "#/$defs/confidence" },
+        "default": {
+          "$ref": "#/$defs/mode"
+        },
+        "scopeCommandConfidenceFloor": {
+          "$ref": "#/$defs/confidence"
+        },
         "sourceOverrides": {
           "type": "array",
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["family", "mode"],
+            "required": [
+              "family",
+              "mode"
+            ],
             "properties": {
-              "family": { "$ref": "#/$defs/sourceFamily" },
-              "mode": { "$ref": "#/$defs/mode" },
-              "authorityCeiling": { "$ref": "#/$defs/sourceAuthority" }
+              "family": {
+                "$ref": "#/$defs/sourceFamily"
+              },
+              "mode": {
+                "$ref": "#/$defs/mode"
+              },
+              "authorityCeiling": {
+                "$ref": "#/$defs/sourceAuthority"
+              }
             },
             "allOf": [
               {
-                "if": { "required": ["mode"], "properties": { "mode": { "const": "auto-approve" } } },
+                "if": {
+                  "required": [
+                    "mode"
+                  ],
+                  "properties": {
+                    "mode": {
+                      "const": "auto-approve"
+                    }
+                  }
+                },
                 "then": {
-                  "required": ["authorityCeiling"],
-                  "properties": { "authorityCeiling": { "$ref": "#/$defs/sourceAuthority" } }
+                  "required": [
+                    "authorityCeiling"
+                  ],
+                  "properties": {
+                    "authorityCeiling": {
+                      "$ref": "#/$defs/sourceAuthority"
+                    }
+                  }
                 }
               }
             ]
@@ -234,8 +546,14 @@
         "scopeCommand": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["mode"],
-          "properties": { "mode": { "$ref": "#/$defs/mode" } }
+          "required": [
+            "mode"
+          ],
+          "properties": {
+            "mode": {
+              "$ref": "#/$defs/mode"
+            }
+          }
         }
       }
     }

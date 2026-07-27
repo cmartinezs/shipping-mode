@@ -33,7 +33,7 @@ const help = JSON.parse(execFileSync(process.execPath, [launcher, "--help"], { e
 // Real Corte 0 command surface (Task 24) -- the old "check architecture
 // --contract corte-1.2" placeholder no longer exists.
 assert.deepEqual(help.commands, [
-  "init --name <name> [--base-branch <b>] [--vcs git|none] --actor <actor>",
+  "init --name <name> [--project-type software|non_software|mixed|unknown] [--base-branch <b>] [--vcs git|none] --actor <actor>",
   "config set --name <name> --actor <actor>",
   "config scope add --key <slug> --label <label> --kind code|non_code --path <path> [--owner <o>] --actor <actor>",
   "changeset propose --kind <workspace.init|config.update|scope.add> --payload-file <file|-> --actor <actor>",

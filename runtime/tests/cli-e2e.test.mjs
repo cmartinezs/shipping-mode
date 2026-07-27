@@ -47,7 +47,7 @@ function fullyInit(cwd) {
 // happy path: init -> validate -> approve -> apply -> check schema
 {
   const cwd = freshWorkspace();
-  const init = run(["init", "--name", "demo", "--vcs", "git", "--actor", "carlos"], cwd);
+  const init = run(["init", "--name", "demo", "--project-type", "software", "--vcs", "git", "--actor", "carlos"], cwd);
   assert.equal(init.code, 0);
   const operationId = init.json.operationId;
   assert.equal(run(["changeset", "validate", operationId], cwd).code, 0);
@@ -90,6 +90,14 @@ function fullyInit(cwd) {
   assert.equal(config.plugin.launcher, "shipping-mode");
   assert.equal(config.runtime.operationStore, ".planning/operations");
   assert.equal(config.policies.paths.workspaceBoundary, "current_directory");
+}
+
+// invalid project type is rejected before an operation is proposed.
+{
+  const cwd = freshWorkspace();
+  const result = run(["init", "--name", "demo", "--project-type", "invalid", "--actor", "carlos"], cwd);
+  assert.equal(result.code, 1);
+  assert.match(result.json.error, /--project-type/);
 }
 
 // config set

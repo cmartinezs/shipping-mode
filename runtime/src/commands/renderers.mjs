@@ -6,14 +6,25 @@ function toKebabCase(value) {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-+|-+$)/g, "");
 }
 
-export function renderWorkspaceInit({ name, baseBranch = null, vcs, pluginVersion, templatePackFingerprint }) {
+function withEnabledScope(config, scopeId) {
+  const currentCatalog = config.scopeCatalog || { directory: ".planning/scopes", enabled: [] };
+  return {
+    ...config,
+    scopeCatalog: {
+      ...currentCatalog,
+      enabled: [...new Set([...(currentCatalog.enabled || []), scopeId])]
+    }
+  };
+}
+
+export function renderWorkspaceInit({ name, baseBranch = null, vcs, projectType = "unknown", pluginVersion, templatePackFingerprint }) {
   const templatePackVendorSnapshot = `.planning/vendor/template-packs/${templatePackFingerprint.replace(":", "-")}`;
   const config = {
     schemaVersion: 1,
     name,
     baseBranch,
     vcs,
-    project: { name, type: "software" },
+    project: { name, type: projectType },
     plugin: { schemaVersion: 1, launcher: "shipping-mode" },
     policies: {
       release: { mode: "strict_sequence", defaultLane: "main" },
@@ -80,10 +91,10 @@ export function renderScopeAdd({ id, key, label, kind, path: scopePath, owner = 
     throw new Error(`scope key already exists: ${normalizedKey}`);
   }
 
-  const nextConfig = {
+  const nextConfig = withEnabledScope({
     ...currentConfig,
     scopeRefs: [...(currentConfig.scopeRefs || []), { id, key: normalizedKey }]
-  };
+  }, id);
   const scope = { schemaVersion: 1, id, key: normalizedKey, label, kind, path: scopePath, owner };
   return new Map([
     ["config.yml", stringifyYaml(nextConfig)],
@@ -196,10 +207,10 @@ export function renderDiscoveryPropose({ operationId, proposal, sourceIdAssignme
       owner: entry.owner ?? null
     };
     rendered.set(`scopes/${scopeId}/scope.yml`, stringifyYaml(scope));
-    nextConfig = {
+    nextConfig = withEnabledScope({
       ...nextConfig,
       scopeRefs: [...(nextConfig.scopeRefs || []), { id: scopeId, key: scope.key }]
-    };
+    }, scopeId);
   }
   if ((proposal.scopes || []).length > 0) rendered.set("config.yml", stringifyYaml(nextConfig));
 

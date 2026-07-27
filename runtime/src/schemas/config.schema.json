@@ -2,60 +2,141 @@
   "$id": "https://shipping-mode.dev/schemas/config.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "name", "vcs", "project", "plugin", "policies", "scopeCatalog", "runtime", "scopeRefs"],
+  "required": [
+    "schemaVersion",
+    "name",
+    "vcs",
+    "project",
+    "plugin",
+    "policies",
+    "scopeCatalog",
+    "runtime",
+    "scopeRefs"
+  ],
   "properties": {
-    "schemaVersion": { "const": 1 },
-    "name": { "type": "string", "minLength": 1 },
-    "baseBranch": { "type": ["string", "null"] },
-    "vcs": { "enum": ["git", "none"] },
+    "schemaVersion": {
+      "const": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "baseBranch": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "vcs": {
+      "enum": [
+        "git",
+        "none"
+      ]
+    },
     "project": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "type"],
+      "required": [
+        "name",
+        "type"
+      ],
       "properties": {
-        "name": { "type": "string", "minLength": 1 },
-        "type": { "enum": ["software", "non_software", "mixed", "unknown"] }
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "enum": [
+            "software",
+            "non_software",
+            "mixed",
+            "unknown"
+          ]
+        }
       }
     },
     "plugin": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schemaVersion", "launcher"],
+      "required": [
+        "schemaVersion",
+        "launcher"
+      ],
       "properties": {
-        "schemaVersion": { "const": 1 },
-        "launcher": { "const": "shipping-mode" }
+        "schemaVersion": {
+          "const": 1
+        },
+        "launcher": {
+          "const": "shipping-mode"
+        }
       }
     },
     "policies": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["release", "workSources", "paths"],
+      "required": [
+        "release",
+        "workSources",
+        "paths"
+      ],
       "properties": {
         "release": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["mode", "defaultLane"],
+          "required": [
+            "mode",
+            "defaultLane"
+          ],
           "properties": {
-            "mode": { "enum": ["strict_sequence"] },
-            "defaultLane": { "type": "string", "minLength": 1 }
+            "mode": {
+              "enum": [
+                "strict_sequence"
+              ]
+            },
+            "defaultLane": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         },
         "workSources": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["defaultSyncMode", "defaultSourcePolicy", "externalWrites"],
+          "required": [
+            "defaultSyncMode",
+            "defaultSourcePolicy",
+            "externalWrites"
+          ],
           "properties": {
-            "defaultSyncMode": { "enum": ["import_only"] },
-            "defaultSourcePolicy": { "enum": ["import_snapshot"] },
-            "externalWrites": { "enum": ["approval_required"] }
+            "defaultSyncMode": {
+              "enum": [
+                "import_only"
+              ]
+            },
+            "defaultSourcePolicy": {
+              "enum": [
+                "import_snapshot"
+              ]
+            },
+            "externalWrites": {
+              "enum": [
+                "approval_required"
+              ]
+            }
           }
         },
         "paths": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["workspaceBoundary"],
+          "required": [
+            "workspaceBoundary"
+          ],
           "properties": {
-            "workspaceBoundary": { "enum": ["current_directory"] }
+            "workspaceBoundary": {
+              "enum": [
+                "current_directory"
+              ]
+            }
           }
         }
       }
@@ -63,12 +144,20 @@
     "scopeCatalog": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["directory", "enabled"],
+      "required": [
+        "directory",
+        "enabled"
+      ],
       "properties": {
-        "directory": { "const": ".planning/scopes" },
+        "directory": {
+          "const": ".planning/scopes"
+        },
         "enabled": {
           "type": "array",
-          "items": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
           "uniqueItems": true
         }
       }
@@ -87,14 +176,31 @@
         "eventRetention"
       ],
       "properties": {
-        "eventStore": { "const": ".planning/events" },
-        "operationStore": { "const": ".planning/operations" },
-        "runtimeStore": { "const": ".planning/.runtime" },
-        "templateVendor": { "const": ".planning/vendor/template-packs" },
-        "operationRetentionDays": { "type": "integer", "minimum": 1 },
-        "retainFailedOperations": { "type": "boolean" },
-        "retainBeforeSnapshots": { "type": "boolean" },
-        "eventRetention": { "const": "permanent" }
+        "eventStore": {
+          "const": ".planning/events"
+        },
+        "operationStore": {
+          "const": ".planning/operations"
+        },
+        "runtimeStore": {
+          "const": ".planning/.runtime"
+        },
+        "templateVendor": {
+          "const": ".planning/vendor/template-packs"
+        },
+        "operationRetentionDays": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "retainFailedOperations": {
+          "type": "boolean"
+        },
+        "retainBeforeSnapshots": {
+          "type": "boolean"
+        },
+        "eventRetention": {
+          "const": "permanent"
+        }
       }
     },
     "scopeRefs": {
@@ -102,67 +208,154 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "key"],
+        "required": [
+          "id",
+          "key"
+        ],
         "properties": {
-          "id": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
-          "key": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" }
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+          }
         }
       }
     },
     "autonomy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["discovery"],
+      "required": [
+        "discovery"
+      ],
       "properties": {
-        "discovery": { "$ref": "#/$defs/discoveryAutonomyPolicy" }
+        "discovery": {
+          "$ref": "#/$defs/discoveryAutonomyPolicy"
+        }
       }
     }
   },
   "$defs": {
-    "mode": { "enum": ["pause", "auto-approve"] },
-    "confidence": { "enum": ["low", "medium", "high"] },
+    "mode": {
+      "enum": [
+        "pause",
+        "auto-approve"
+      ]
+    },
+    "confidence": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
     "sourceFamily": {
       "enum": [
-        "product-sources", "functional-sources", "technical-sources", "agent-repository-instructions",
-        "project-module-manifests", "execution-commands", "quality-definitions", "local-runtime-environment",
-        "public-data-contracts", "delivery-ci-deployment", "ownership", "decision-sources", "developer-guides",
-        "engineering-standards", "repository-map", "evidence-contracts", "design-system", "prompt-sources",
+        "product-sources",
+        "functional-sources",
+        "technical-sources",
+        "agent-repository-instructions",
+        "project-module-manifests",
+        "execution-commands",
+        "quality-definitions",
+        "local-runtime-environment",
+        "public-data-contracts",
+        "delivery-ci-deployment",
+        "ownership",
+        "decision-sources",
+        "developer-guides",
+        "engineering-standards",
+        "repository-map",
+        "evidence-contracts",
+        "design-system",
+        "prompt-sources",
         "custom-automation"
       ]
     },
     "sourceAuthority": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["standing", "force"],
+      "required": [
+        "standing",
+        "force"
+      ],
       "properties": {
-        "standing": { "enum": ["contextual", "supporting", "authoritative"] },
-        "force": { "enum": ["unknown", "informational", "advisory", "normative"] }
+        "standing": {
+          "enum": [
+            "contextual",
+            "supporting",
+            "authoritative"
+          ]
+        },
+        "force": {
+          "enum": [
+            "unknown",
+            "informational",
+            "advisory",
+            "normative"
+          ]
+        }
       }
     },
     "discoveryAutonomyPolicy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["default", "scopeCommandConfidenceFloor", "sourceOverrides", "scopeCommand"],
+      "required": [
+        "default",
+        "scopeCommandConfidenceFloor",
+        "sourceOverrides",
+        "scopeCommand"
+      ],
       "properties": {
-        "default": { "$ref": "#/$defs/mode" },
-        "scopeCommandConfidenceFloor": { "$ref": "#/$defs/confidence" },
+        "default": {
+          "$ref": "#/$defs/mode"
+        },
+        "scopeCommandConfidenceFloor": {
+          "$ref": "#/$defs/confidence"
+        },
         "sourceOverrides": {
           "type": "array",
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["family", "mode"],
+            "required": [
+              "family",
+              "mode"
+            ],
             "properties": {
-              "family": { "$ref": "#/$defs/sourceFamily" },
-              "mode": { "$ref": "#/$defs/mode" },
-              "authorityCeiling": { "$ref": "#/$defs/sourceAuthority" }
+              "family": {
+                "$ref": "#/$defs/sourceFamily"
+              },
+              "mode": {
+                "$ref": "#/$defs/mode"
+              },
+              "authorityCeiling": {
+                "$ref": "#/$defs/sourceAuthority"
+              }
             },
             "allOf": [
               {
-                "if": { "required": ["mode"], "properties": { "mode": { "const": "auto-approve" } } },
+                "if": {
+                  "required": [
+                    "mode"
+                  ],
+                  "properties": {
+                    "mode": {
+                      "const": "auto-approve"
+                    }
+                  }
+                },
                 "then": {
-                  "required": ["authorityCeiling"],
-                  "properties": { "authorityCeiling": { "$ref": "#/$defs/sourceAuthority" } }
+                  "required": [
+                    "authorityCeiling"
+                  ],
+                  "properties": {
+                    "authorityCeiling": {
+                      "$ref": "#/$defs/sourceAuthority"
+                    }
+                  }
                 }
               }
             ]
@@ -171,8 +364,14 @@
         "scopeCommand": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["mode"],
-          "properties": { "mode": { "$ref": "#/$defs/mode" } }
+          "required": [
+            "mode"
+          ],
+          "properties": {
+            "mode": {
+              "$ref": "#/$defs/mode"
+            }
+          }
         }
       }
     }

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { validate } from "../schema.mjs";
+import { DIRECTORY_CONTENT_HASH } from "../bootstrapTopology.mjs";
 
 const cases = {
   config: {
@@ -192,10 +193,14 @@ const mkdirFilePlanOperation = {
   status: "APPLYING",
   validation,
   approval,
-  filePlan: [{ target: "vendor/template-packs", action: "mkdir", expectedBefore: "ABSENT", beforeContentHash: "ABSENT", beforeRevisionHash: "ABSENT", stagedContentHash: "d".repeat(64), stagedRevisionHash: "d".repeat(64) }],
+  filePlan: [{ target: "vendor/template-packs", action: "mkdir", expectedBefore: "ABSENT", beforeContentHash: "ABSENT", beforeRevisionHash: "ABSENT", stagedContentHash: DIRECTORY_CONTENT_HASH, stagedRevisionHash: DIRECTORY_CONTENT_HASH }],
   expectedEvents
 };
 assert.equal(validate("operation", mkdirFilePlanOperation).valid, true, "mkdir filePlan entries must be schema-valid");
-assert.equal(validate("result", { operationId: opBase.id, files: [{ target: "vendor/template-packs", action: "mkdir", contentHash: "d".repeat(64) }] }).valid, true, "mkdir result entries must be schema-valid");
+const forgedMkdirOperation = structuredClone(mkdirFilePlanOperation);
+forgedMkdirOperation.filePlan[0].stagedContentHash = "d".repeat(64);
+assert.equal(validate("operation", forgedMkdirOperation).valid, false, "mkdir stagedContentHash is server-owned and must not be forgeable");
+assert.equal(validate("result", { operationId: opBase.id, files: [{ target: "vendor/template-packs", action: "mkdir", contentHash: DIRECTORY_CONTENT_HASH }] }).valid, true, "mkdir result entries must carry the canonical directory marker");
+assert.equal(validate("result", { operationId: opBase.id, files: [{ target: "vendor/template-packs", action: "mkdir", contentHash: "d".repeat(64) }] }).valid, false, "mkdir result entries must reject arbitrary content hashes");
 
 console.log(`schema fixtures: valid/invalid cases behave correctly for all ${Object.keys(cases).length} schemas, including kind-conditional payloads and operation state invariants`);
