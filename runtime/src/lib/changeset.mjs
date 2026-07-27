@@ -12,6 +12,7 @@ import { StateError, StaleError } from "./errors.mjs";
 import { buildExpectedEvent, writeEventIdempotent } from "./journal.mjs";
 import { checkpoint } from "./faultInjection.mjs";
 import { runDiscoverScan } from "./discoverScan.mjs";
+import { bindAutonomyEvaluation, evaluateChangeSetAutonomy, currentPolicyFingerprint, hasAutonomousApprovalCapability, REASON_CODES } from "./autonomy.mjs";
 
 export function readFileState(planningRoot, relativePath) {
   const absolutePath = confineRuntimeWritePath(planningRoot, relativePath);
@@ -38,6 +39,7 @@ export function eventTypeFor(kind) {
   return {
     "workspace.init": "workspace.initialized",
     "config.update": "config.updated",
+    "config.autonomy.set": "config.autonomy.set",
     "scope.add": "scope.added",
     "scope.command.set": "scope.command.set",
     "discovery.propose": "discovery.proposed"
@@ -61,7 +63,7 @@ export function propose({ operationsRoot, planningRoot, kind, target, payload, t
 
     const reservedEvents = [{ eventId: generateUuidV7(), type: eventTypeFor(kind) }];
     proposedAt ??= new Date().toISOString();
-    writeOperation(operationsRoot, operationId, {
+    const operation = {
       id: operationId,
       kind,
       status: "PROPOSED",
@@ -69,9 +71,10 @@ export function propose({ operationsRoot, planningRoot, kind, target, payload, t
       proposedAt,
       reservedEvents,
       validation: { validatedAt: null, changeSetHash: null, errors: [] },
-      approval: { actor: null, approvedAt: null, changeSetHash: null, selfApproval: null },
+      approval: { actor: null, approvedAt: null, changeSetHash: null, selfApproval: null, mode: null },
       history: [{ at: proposedAt, from: null, to: "PROPOSED", actor, reason: null }]
-    });
+    };
+    writeOperation(operationsRoot, operationId, operation);
 
     return operationId;
   });
@@ -203,26 +206,64 @@ export function validateOperation({ operationsRoot, planningRoot, operationId, r
       return;
     }
 
-    writeOperation(operationsRoot, operationId, {
+    const nextOperation = {
       ...operation,
       status: "VALIDATED",
       validation: { validatedAt, changeSetHash: result.recomputedHash, errors: [] },
       history: [...operation.history, { at: validatedAt, from: operation.status, to: "VALIDATED", actor: "system:validator", reason: null }]
-    });
+    };
+    const evaluation = evaluateChangeSetAutonomy({ changeSet: result.changeSet, planningRoot });
+    if (evaluation) {
+      nextOperation.autonomyEvaluation = bindAutonomyEvaluation({
+        evaluation,
+        operationId,
+        changeSetHash: result.recomputedHash
+      });
+    } else {
+      delete nextOperation.autonomyEvaluation;
+    }
+    writeOperation(operationsRoot, operationId, nextOperation);
   });
 }
 
-export function approveOperation({ operationsRoot, planningRoot, operationId, actor, allowSelfApproval = false }) {
+export function approveOperation({ operationsRoot, planningRoot, operationId, actor, allowSelfApproval = false, mode = "human", authorizationContext = null }) {
   return withWorkspaceMutation({ planningRoot, operationsRoot, operationId }, () => {
     const operation = readOperation(operationsRoot, operationId);
     if (operation.status !== "VALIDATED") {
       throw new StateError(`cannot approve operation in status ${operation.status}`);
+    }
+    if (!["human", "autonomous"].includes(mode)) {
+      throw new StateError(`unsupported approval mode: ${mode}`);
     }
 
     const changeSet = readChangeSet(operationsRoot, operationId);
     const recomputedHash = computePersistedChangeSetHash(changeSet);
     if (recomputedHash !== changeSet.hash || recomputedHash !== operation.validation.changeSetHash) {
       transitionToStale(operationsRoot, operationId, operation, "change-set.json changed since validate; propose and validate again before approving");
+    }
+
+    if (mode === "autonomous") {
+      if (!hasAutonomousApprovalCapability(authorizationContext)) {
+        throw new StateError("autonomous approval requires a server-owned authorization capability");
+      }
+      if (!operation.autonomyEvaluation) {
+        throw new StateError("autonomous approval requires this operation's autonomyEvaluation");
+      }
+      if (operation.autonomyEvaluation.operationId !== operationId
+          || operation.autonomyEvaluation.changeSetHash !== recomputedHash) {
+        throw new StateError("autonomyEvaluation is not bound to this operation and validated ChangeSet");
+      }
+      if (currentPolicyFingerprint(planningRoot) !== operation.autonomyEvaluation.policyFingerprint) {
+        transitionToStale(operationsRoot, operationId, operation, REASON_CODES.POLICY_CHANGED_SINCE_VALIDATION);
+      }
+      const evaluation = evaluateChangeSetAutonomy({ changeSet, planningRoot });
+      const freshEvaluation = bindAutonomyEvaluation({ evaluation, operationId, changeSetHash: recomputedHash });
+      if (!freshEvaluation || revisionHash(freshEvaluation) !== revisionHash(operation.autonomyEvaluation)) {
+        throw new StateError("autonomyEvaluation does not match this operation");
+      }
+      if (!operation.autonomyEvaluation.autoApprovable) {
+        throw new StateError("autonomous approval requires autoApprovable true");
+      }
     }
 
     const selfApproval = actor === operation.proposedBy;
@@ -234,7 +275,7 @@ export function approveOperation({ operationsRoot, planningRoot, operationId, ac
     writeOperation(operationsRoot, operationId, {
       ...operation,
       status: "APPROVED",
-      approval: { actor, approvedAt, changeSetHash: recomputedHash, selfApproval },
+      approval: { actor, approvedAt, changeSetHash: recomputedHash, selfApproval, mode },
       history: [...operation.history, { at: approvedAt, from: "VALIDATED", to: "APPROVED", actor, reason: selfApproval ? "self-approved" : null }]
     });
   });

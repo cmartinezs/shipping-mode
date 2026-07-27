@@ -1,7 +1,7 @@
 import { generateUuidV7 } from "../lib/ids.mjs";
 import { UsageError } from "../lib/errors.mjs";
 
-const SUPPORTED_KINDS = new Set(["workspace.init", "config.update", "scope.add", "scope.command.set"]);
+const SUPPORTED_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set"]);
 
 function requireObjectPayload(rawPayload) {
   if (rawPayload === null || typeof rawPayload !== "object" || Array.isArray(rawPayload)) {
@@ -25,6 +25,9 @@ export function prepareProposal(kind, rawPayload, { operationId = null, actor = 
     return { payload: rawPayload, targetFiles: ["config.yml", "plugin.lock.yml", ".gitignore"] };
   }
   if (kind === "config.update") {
+    return { payload: rawPayload, targetFiles: ["config.yml"] };
+  }
+  if (kind === "config.autonomy.set") {
     return { payload: rawPayload, targetFiles: ["config.yml"] };
   }
 

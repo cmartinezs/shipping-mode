@@ -13,7 +13,7 @@ import { PathConfinementError } from "./lib/paths.mjs";
 
 export { UsageError, StateError, StaleError, RecoveryRequiredError, LockHeldError, PathConfinementError };
 
-const IN_SCOPE_KINDS = new Set(["workspace.init", "config.update", "scope.add", "scope.command.set"]);
+const IN_SCOPE_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set"]);
 
 function notImplemented(command) {
   return {
@@ -54,7 +54,7 @@ function readPayloadText(payloadFileArg, cwd, usage) {
   return fs.readFileSync(resolved, "utf8");
 }
 
-export function dispatch(command, args, cwd) {
+export function dispatch(command, args, cwd, runtimeContext = null) {
   const planningRoot = path.join(cwd, ".planning");
   const operationsRoot = path.join(planningRoot, "operations");
 
@@ -95,6 +95,12 @@ export function dispatch(command, args, cwd) {
       });
       return runChangesetPropose({ planningRoot, kind: "scope.command.set", payloadText, actor: options.actor });
     }
+    if (stage === "autonomy" && rest[0] === "set") {
+      const options = argsToOptions(rest.slice(1));
+      if (!options.actor) throw new UsageError("config autonomy set requires --actor");
+      const payloadText = readPayloadText(options.file || (options.stdin ? "-" : undefined), cwd, "config autonomy set requires --file <path> or --stdin");
+      return runChangesetPropose({ planningRoot, kind: "config.autonomy.set", payloadText, actor: options.actor });
+    }
     return notImplemented(`config ${stage || ""}`.trim());
   }
 
@@ -115,7 +121,15 @@ export function dispatch(command, args, cwd) {
       const operationId = requireOperationId(rest[0]);
       const options = argsToOptions(rest.slice(1));
       if (!options.actor) throw new UsageError("changeset approve requires --actor");
-      return runChangesetApprove({ operationsRoot, planningRoot, operationId, actor: options.actor, allowSelfApproval: Boolean(options.allow_self_approval) });
+      return runChangesetApprove({
+        operationsRoot,
+        planningRoot,
+        operationId,
+        actor: options.actor,
+        allowSelfApproval: Boolean(options.allow_self_approval),
+        mode: options.mode || "human",
+        authorizationContext: runtimeContext?.authorizationContext || null
+      });
     }
     if (stage === "apply") {
       const operationId = requireOperationId(rest[0]);

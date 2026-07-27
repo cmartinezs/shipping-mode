@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { validateOperation, approveOperation, applyOperation, propose } from "../lib/changeset.mjs";
 import { generateUuidV7 } from "../lib/ids.mjs";
-import { renderWorkspaceInit, renderConfigUpdate, renderScopeAdd, renderScopeCommandSet, renderDiscoveryPropose } from "./renderers.mjs";
+import { renderWorkspaceInit, renderConfigUpdate, renderConfigAutonomySet, renderScopeAdd, renderScopeCommandSet, renderDiscoveryPropose } from "./renderers.mjs";
 import { readChangeSet, readOperation } from "../lib/operationStore.mjs";
 import { parseYaml } from "../lib/yaml.mjs";
 import { prepareProposal } from "./proposalPreparation.mjs";
@@ -15,15 +15,16 @@ function readCurrentConfig(planningRoot) {
   return fs.existsSync(configPath) ? parseYaml(fs.readFileSync(configPath, "utf8")) : null;
 }
 
-function renderFor(kind, payload, currentConfig, workspaceRoot, { currentSources = [], currentScopes = [] } = {}) {
+function renderFor(kind, payload, currentConfig, workspaceRoot, { currentSources = [], currentScopes = [], approvalMode = "human" } = {}) {
   if (kind === "workspace.init") return renderWorkspaceInit(payload);
   if (kind === "config.update") return renderConfigUpdate(payload, currentConfig);
+  if (kind === "config.autonomy.set") return renderConfigAutonomySet(payload, currentConfig);
   if (kind === "scope.add") return renderScopeAdd(payload, currentConfig, workspaceRoot);
   if (kind === "scope.command.set") {
     const currentScope = currentScopes.find((scope) => scope.id === payload.scopeId);
     return renderScopeCommandSet(payload, currentScope);
   }
-  if (kind === "discovery.propose") return renderDiscoveryPropose(payload, currentConfig, workspaceRoot, { currentSources, currentScopes });
+  if (kind === "discovery.propose") return renderDiscoveryPropose(payload, currentConfig, workspaceRoot, { currentSources, currentScopes, approvalMode });
   throw new UsageError(`unsupported changeset kind: ${kind}`);
 }
 
@@ -69,14 +70,15 @@ export function runChangesetValidate({ planningRoot, operationsRoot, operationId
   return { status: operation.status, errors: operation.validation?.errors || [] };
 }
 
-export function runChangesetApprove({ operationsRoot, planningRoot, operationId, actor, allowSelfApproval }) {
-  approveOperation({ operationsRoot, planningRoot, operationId, actor, allowSelfApproval: Boolean(allowSelfApproval) });
+export function runChangesetApprove({ operationsRoot, planningRoot, operationId, actor, allowSelfApproval, mode = "human", authorizationContext = null }) {
+  approveOperation({ operationsRoot, planningRoot, operationId, actor, allowSelfApproval: Boolean(allowSelfApproval), mode, authorizationContext });
   return { status: readOperation(operationsRoot, operationId).status };
 }
 
 export function runChangesetApply({ planningRoot, operationsRoot, operationId, actor }) {
   const changeSet = readChangeSet(operationsRoot, operationId);
+  const operation = readOperation(operationsRoot, operationId);
   const currentConfig = changeSet.kind === "workspace.init" ? null : readCurrentConfig(planningRoot);
-  const render = (payload) => renderFor(changeSet.kind, payload, currentConfig, path.dirname(planningRoot), { currentSources: readConfirmedSources(planningRoot), currentScopes: readConfirmedScopes(planningRoot) });
+  const render = (payload) => renderFor(changeSet.kind, payload, currentConfig, path.dirname(planningRoot), { currentSources: readConfirmedSources(planningRoot), currentScopes: readConfirmedScopes(planningRoot), approvalMode: operation.approval?.mode || "human" });
   return applyOperation({ operationsRoot, planningRoot, operationId, actor, render });
 }

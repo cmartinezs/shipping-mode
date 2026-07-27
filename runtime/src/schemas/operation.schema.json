@@ -5,7 +5,7 @@
   "required": ["id", "kind", "status", "proposedBy", "proposedAt", "reservedEvents", "history"],
   "properties": {
     "id": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
-    "kind": { "enum": ["workspace.init", "config.update", "scope.add", "scope.command.set", "discovery.propose"] },
+    "kind": { "enum": ["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "discovery.propose"] },
     "status": { "enum": ["PROPOSED", "VALIDATED", "APPROVED", "APPLYING", "APPLIED", "INVALID", "STALE", "RECOVERY_REQUIRED"] },
     "proposedBy": { "type": "string" },
     "proposedAt": { "type": "string" },
@@ -38,7 +38,44 @@
         "actor": { "type": ["string", "null"] },
         "approvedAt": { "type": ["string", "null"] },
         "changeSetHash": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
-        "selfApproval": { "type": ["boolean", "null"] }
+        "selfApproval": { "type": ["boolean", "null"] },
+        "mode": { "type": ["string", "null"], "enum": ["human", "autonomous", null] }
+      }
+    },
+    "autonomyEvaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operationId", "changeSetHash", "policyFingerprint", "autoApprovable", "blockedBy"],
+      "properties": {
+        "operationId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+        "changeSetHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "policyFingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "autoApprovable": { "type": "boolean" },
+        "blockedBy": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["itemRef", "reason"],
+            "properties": {
+              "itemRef": { "type": "string", "minLength": 1 },
+              "reason": {
+                "enum": [
+                  "family_not_allowlisted",
+                  "authority_above_ceiling",
+                  "authority_escalation",
+                  "low_confidence",
+                  "alternatives_present",
+                  "destructive_action",
+                  "new_scope_always_pauses",
+                  "default_pause",
+                  "autonomy_config_change",
+                  "policy_changed_since_validation"
+                ]
+              }
+            }
+          }
+        }
       }
     },
     "filePlan": {
@@ -127,18 +164,32 @@
       }
     },
     {
+      "if": {
+        "required": ["kind", "status"],
+        "properties": {
+          "kind": { "enum": ["discovery.propose", "config.autonomy.set"] },
+          "status": { "enum": ["VALIDATED", "APPROVED", "APPLYING", "APPLIED"] }
+        }
+      },
+      "then": {
+        "required": ["autonomyEvaluation"],
+        "properties": { "autonomyEvaluation": { "$ref": "#/properties/autonomyEvaluation" } }
+      }
+    },
+    {
       "if": { "properties": { "status": { "enum": ["APPROVED", "APPLYING", "APPLIED"] } } },
       "then": {
         "required": ["approval"],
         "properties": {
           "approval": {
             "type": "object",
-            "required": ["actor", "approvedAt", "changeSetHash", "selfApproval"],
+            "required": ["actor", "approvedAt", "changeSetHash", "selfApproval", "mode"],
             "properties": {
               "actor": { "type": "string" },
               "approvedAt": { "type": "string" },
               "changeSetHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-              "selfApproval": { "type": "boolean" }
+              "selfApproval": { "type": "boolean" },
+              "mode": { "enum": ["human", "autonomous"] }
             }
           }
         }

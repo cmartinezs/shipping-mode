@@ -64,7 +64,7 @@ const opBase = {
   history: []
 };
 const validation = { validatedAt: "2026-07-24T00:00:01.000Z", changeSetHash: "a".repeat(64), errors: [] };
-const approval = { actor: "carlos", approvedAt: "2026-07-24T00:00:02.000Z", changeSetHash: "a".repeat(64), selfApproval: true };
+const approval = { actor: "carlos", approvedAt: "2026-07-24T00:00:02.000Z", changeSetHash: "a".repeat(64), selfApproval: true, mode: "human" };
 const filePlan = [{ target: "config.yml", action: "write", stagedRelativePath: "config.yml", expectedBefore: "ABSENT", beforeContentHash: "ABSENT", beforeRevisionHash: "ABSENT", stagedContentHash: "b".repeat(64), stagedRevisionHash: "c".repeat(64) }];
 const expectedEvents = [{ eventId: "018f0000-0000-7000-8000-000000000001", relativePath: "2026/07/018f0000-0000-7000-8000-000000000001.json", contentHash: "d".repeat(64), document: {} }];
 
@@ -120,6 +120,23 @@ const scopeCommandSetChangeSet = {
   hash: "a".repeat(64)
 };
 assert.equal(validate("change-set", scopeCommandSetChangeSet).valid, true, "scope.command.set fixture must pass");
+
+const autonomyEvaluation = {
+  operationId: discoveryChangeSet.operationId,
+  changeSetHash: "a".repeat(64),
+  policyFingerprint: "b".repeat(64),
+  autoApprovable: true,
+  blockedBy: []
+};
+const validatedDiscoveryOperation = {
+  ...opBase,
+  kind: "discovery.propose",
+  status: "VALIDATED",
+  validation,
+  autonomyEvaluation
+};
+assert.equal(validate("operation", validatedDiscoveryOperation).valid, true, "validated discovery operation requires a bound autonomyEvaluation");
+assert.equal(validate("operation", { ...validatedDiscoveryOperation, autonomyEvaluation: { policyFingerprint: "b".repeat(64), autoApprovable: true, blockedBy: [] } }).valid, false, "unbound autonomyEvaluation must fail schema validation");
 
 const deleteFilePlanOperation = {
   ...opBase,

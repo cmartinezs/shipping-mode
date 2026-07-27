@@ -29,7 +29,6 @@ export function prepareDiscoveryChangeSet({ planningRoot, workspaceRoot, proposa
     .map((entry, index) => entry.action === "add" ? assignmentForSource(index) : null)
     .filter(Boolean);
   const scopeIdAssignments = (proposal.scopes || []).map((_, index) => assignmentForScope(index));
-
   const targetFiles = new Set();
   if ((proposal.scopes || []).length > 0) targetFiles.add("config.yml");
 

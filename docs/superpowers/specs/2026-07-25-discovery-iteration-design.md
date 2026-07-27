@@ -218,6 +218,11 @@ already passed an applied ChangeSet):
 - `inferred`: came from `discover propose`, auto-approved by autonomy policy (no human looked at this specific item).
 - `reviewed`: came from `discover propose`, paused, and a human approved it explicitly.
 
+For `DiscoveryProposal` input, `method` is untrusted proposal data used only to
+validate the evidence shape. The persisted catalog command's `method` is
+server-owned at apply time: `--mode autonomous` stores `inferred`, and
+`--mode human` stores `reviewed`.
+
 **Well-known roles:** `build | test | smoke | lint | verify` (schema slots).
 Anything else goes under `custom.<role>`, pattern `^[a-z][a-z0-9-]{0,63}$`,
 must not reuse a well-known name.
@@ -418,7 +423,7 @@ JSON like `discover propose`, same `propose→validate→approve→apply` gate.
 **`effectiveMode(item)` resolution, in order:**
 1. Source `move`/`remove` → hard pause (`destructive_action`), `effectiveMode` never consulted.
 2. Scope `add` → hard pause (`new_scope_always_pauses`), never consulted.
-3. Otherwise: `effectiveMode = most-specific-applicable-override ?? autonomy.discovery.default` (family override for sources; `scopeCommand.mode` for commands).
+3. Otherwise: `effectiveMode = most-specific-applicable-override ?? autonomy.discovery.default` (family override for sources; `scopeCommand.mode` for commands). For sources specifically, `default:auto-approve` does **not** implicitly whitelist an unconfigured family: source auto-approval requires an explicit family override because the required `authorityCeiling` lives on that override. A source family with no override therefore blocks with `family_not_allowlisted`, even when the fallback mode is `auto-approve`.
 4. Only if `effectiveMode == auto-approve` does the item proceed to its own gate:
    - source `add`/`update`: `authority.standing <= ceiling.standing` **and** `authority.force <= ceiling.force` (both inclusive); on `update`, any dimension escalating past the *previously confirmed* value → hard pause (`authority_escalation`) regardless of ceiling.
    - scope command `inferred`: `confidence >= scopeCommandConfidenceFloor` **and** `alternatives.length == 0`.
@@ -430,7 +435,7 @@ JSON like `discover propose`, same `propose→validate→approve→apply` gate.
 ```json
 {
   "autonomyEvaluation": {
-    "policyFingerprint": "sha256:...",
+    "policyFingerprint": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     "autoApprovable": false,
     "blockedBy": [
       { "itemRef": "sources[0]", "reason": "authority_above_ceiling" },
@@ -467,7 +472,8 @@ shipping-mode changeset approve <operation-id> --actor carlos --mode human
 from the caller):
 - this operation's own persisted `autonomyEvaluation.autoApprovable === true` (an `autonomyEvaluation` belonging to another operation, or not associated with this one, is rejected);
 - the **currently confirmed** autonomy policy still matches `policyFingerprint` — else `StaleError` / `policy_changed_since_validation` (same precondition-recheck pattern as D.4, applied to policy instead of workspace);
-- the actor is a recognized automation-capable identity, not an arbitrary human actor name (kept intentionally minimal — a full capability/RBAC model is out of scope for this iteration).
+- the runtime invocation carries a server-owned `discovery.autonomous-approve` capability in trusted authorization context. `--actor` is audit metadata only and can never grant this capability; a caller spelling an actor such as `discovery-skill` is insufficient. The bare CLI has no way to manufacture this trusted context. A full capability/RBAC model remains out of scope for this iteration.
+- the persisted evaluation is structurally bound to this exact `operationId` and validated `changeSetHash`, in addition to its `policyFingerprint`; copying an otherwise identical evaluation from another operation is rejected.
 
 `--mode human` approves a paused operation under the existing actor model,
 **unaffected by `autoApprovable`** and **unaffected by the `policyFingerprint` check** (that check applies only to `autonomous`, and must never block or alter normal human review).

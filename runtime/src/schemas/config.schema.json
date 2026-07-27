@@ -19,6 +19,73 @@
           "key": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" }
         }
       }
+    },
+    "autonomy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["discovery"],
+      "properties": {
+        "discovery": { "$ref": "#/$defs/discoveryAutonomyPolicy" }
+      }
+    }
+  },
+  "$defs": {
+    "mode": { "enum": ["pause", "auto-approve"] },
+    "confidence": { "enum": ["low", "medium", "high"] },
+    "sourceFamily": {
+      "enum": [
+        "product-sources", "functional-sources", "technical-sources", "agent-repository-instructions",
+        "project-module-manifests", "execution-commands", "quality-definitions", "local-runtime-environment",
+        "public-data-contracts", "delivery-ci-deployment", "ownership", "decision-sources", "developer-guides",
+        "engineering-standards", "repository-map", "evidence-contracts", "design-system", "prompt-sources",
+        "custom-automation"
+      ]
+    },
+    "sourceAuthority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["standing", "force"],
+      "properties": {
+        "standing": { "enum": ["contextual", "supporting", "authoritative"] },
+        "force": { "enum": ["unknown", "informational", "advisory", "normative"] }
+      }
+    },
+    "discoveryAutonomyPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["default", "scopeCommandConfidenceFloor", "sourceOverrides", "scopeCommand"],
+      "properties": {
+        "default": { "$ref": "#/$defs/mode" },
+        "scopeCommandConfidenceFloor": { "$ref": "#/$defs/confidence" },
+        "sourceOverrides": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["family", "mode"],
+            "properties": {
+              "family": { "$ref": "#/$defs/sourceFamily" },
+              "mode": { "$ref": "#/$defs/mode" },
+              "authorityCeiling": { "$ref": "#/$defs/sourceAuthority" }
+            },
+            "allOf": [
+              {
+                "if": { "required": ["mode"], "properties": { "mode": { "const": "auto-approve" } } },
+                "then": {
+                  "required": ["authorityCeiling"],
+                  "properties": { "authorityCeiling": { "$ref": "#/$defs/sourceAuthority" } }
+                }
+              }
+            ]
+          }
+        },
+        "scopeCommand": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": { "mode": { "$ref": "#/$defs/mode" } }
+        }
+      }
     }
   }
 }
