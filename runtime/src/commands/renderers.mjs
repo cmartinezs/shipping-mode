@@ -193,6 +193,8 @@ function readScopeForGuide(planningRoot, scopeId) {
   const scopePath = path.join(planningRoot, "scopes", scopeId, "scope.yml");
   if (!fs.existsSync(scopePath)) throw new Error(`scope not found for guide.update: ${scopeId}`);
   const scope = parseYaml(fs.readFileSync(scopePath, "utf8"));
+  const scopeResult = validate("scope", scope);
+  if (!scopeResult.valid) throw new Error(`existing scope is invalid: ${scopeResult.errors.map((error) => `${error.path} ${error.message}`).join("; ")}`);
   if (scope.id !== scopeId) throw new Error(`scope id does not match its directory: ${scopeId}`);
   return scope;
 }
@@ -258,19 +260,65 @@ function guideMetadata(document, status, scopeId, content, approval = null) {
   };
 }
 
+function sameCanonicalValue(left, right) {
+  return revisionHash(left) === revisionHash(right);
+}
+
+function assertGuideAggregateIntegrity({ document, metadata, scopeId, guideKind, guideContent, currentSources }) {
+  const result = validate("guide", document);
+  if (!result.valid) throw new Error(`existing guide is invalid: ${result.errors.map((error) => `${error.path} ${error.message}`).join("; ")}`);
+  if (document.id !== metadata.id || document.scopeId !== scopeId || document.kind !== guideKind) {
+    throw new Error("guide metadata does not match canonical guide document");
+  }
+  const { revision, ...withoutRevision } = document;
+  const expectedRevision = `sha256:${revisionHash(withoutRevision)}`;
+  if (revision !== expectedRevision) throw new Error("guide revision does not match canonical guide content");
+  const fingerprintKeys = Object.keys(document.provenance?.sourceFingerprints || {}).sort();
+  const sourceRefKeys = [...document.sourceRefs].sort();
+  if (!sameCanonicalValue(fingerprintKeys, sourceRefKeys)) throw new Error("guide provenance sourceFingerprints keys do not match sourceRefs");
+  const expectedSourceMapRevision = revisionHash({ sourceRefs: document.sourceRefs, sourceFingerprints: document.provenance.sourceFingerprints });
+  if (document.provenance.sourceMapRevision !== expectedSourceMapRevision) throw new Error("guide provenance sourceMapRevision does not match its source fingerprint map");
+  const knownSourceIds = new Set(currentSources.map((source) => source.id));
+  for (const sourceId of document.sourceRefs) {
+    if (!knownSourceIds.has(sourceId)) throw new Error(`guide sourceRef does not resolve: ${sourceId}`);
+  }
+  const actualContentHash = contentHash(guideContent);
+  if (metadata.revision !== document.revision || metadata.contentHash !== actualContentHash || !sameCanonicalValue(metadata.sourceRefs, document.sourceRefs) || !sameCanonicalValue(metadata.provenance, document.provenance)) {
+    throw new Error("guide metadata revision/content/provenance does not match canonical guide document");
+  }
+  if (metadata.status === "approved") {
+    if (!metadata.approval || metadata.approval.revision !== document.revision || metadata.approval.contentHash !== actualContentHash) {
+      throw new Error("approved guide metadata is not bound to the canonical guide revision/content hash");
+    }
+  } else if (metadata.approval !== null) {
+    throw new Error("non-approved guide metadata must not retain approval binding");
+  }
+}
+
+function readExistingGuide({ planningRoot, scopeId, guideKind, metadata, currentSources }) {
+  const relativePath = `scopes/${scopeId}/${guideFileName(guideKind)}`;
+  const absolutePath = path.join(planningRoot, relativePath);
+  if (!fs.existsSync(absolutePath)) throw new Error(`guide does not exist for ${guideKind}/${scopeId}`);
+  const guideContent = fs.readFileSync(absolutePath, "utf8");
+  const document = parseYaml(guideContent);
+  assertGuideAggregateIntegrity({ document, metadata, scopeId, guideKind, guideContent, currentSources });
+  return { document, guideContent };
+}
+
 function updateGuideGap(config, scopeId, guides) {
   const bothApproved = ["task", "test"].every((kind) => guides[kind]?.status === "approved");
   const documentation = config.documentation || { source_refs: [], gaps: [] };
   const gaps = documentation.gaps || [];
+  const isMissingGuideGap = (gap) => gap.concern === "guides" && gap.status === "missing" && gap.scope_ref === scopeId;
   return {
     ...config,
     documentation: {
       ...documentation,
       gaps: bothApproved
-        ? gaps.filter((gap) => !(gap.concern === "guides" && gap.scope_ref === scopeId))
-        : gaps.some((gap) => gap.concern === "guides" && gap.scope_ref === scopeId)
+        ? gaps.filter((gap) => !isMissingGuideGap(gap))
+        : gaps.some(isMissingGuideGap)
           ? gaps
-          : [...gaps, { id: generateUuidV7(), concern: "guides", status: "missing", description: `scope ${scope.key} has no approved task and test guides`, scope_ref: scopeId }]
+          : [...gaps, { id: generateUuidV7(), concern: "guides", status: "missing", description: `scope ${scopeId} has no approved task and test guides`, scope_ref: scopeId }]
     }
   };
 }
@@ -280,7 +328,17 @@ export function renderGuideUpdate(payload, currentConfig, planningRoot, { curren
   const scope = readScopeForGuide(planningRoot, payload.scopeId);
   const currentMetadata = scope.guides?.[payload.guideKind] || null;
   const guideRelativePath = `scopes/${payload.scopeId}/${guideFileName(payload.guideKind)}`;
-  const guideAbsolutePath = path.join(planningRoot, guideRelativePath);
+
+  // A Guide aggregate transition may depend on the other Guide when deciding
+  // whether the Corte 0 missing-guide gap can be resolved. Validate every
+  // existing canonical Guide before deriving the new aggregate state.
+  const existingGuides = {};
+  for (const kind of ["task", "test"]) {
+    const metadata = scope.guides?.[kind];
+    if (!metadata) continue;
+    existingGuides[kind] = readExistingGuide({ planningRoot, scopeId: payload.scopeId, guideKind: kind, metadata, currentSources });
+  }
+
   let document = null;
   let guideContent = null;
   if (["generate", "regenerate"].includes(payload.action)) {
@@ -289,12 +347,8 @@ export function renderGuideUpdate(payload, currentConfig, planningRoot, { curren
     document = buildGuideDocument({ payload, scopeId: payload.scopeId, guideKind: payload.guideKind, guideId, proposedAt, currentSources });
     guideContent = stringifyYaml(document);
   } else {
-    if (!currentMetadata || !fs.existsSync(guideAbsolutePath)) throw new Error(`guide does not exist for ${payload.guideKind}/${payload.scopeId}`);
-    guideContent = fs.readFileSync(guideAbsolutePath, "utf8");
-    document = parseYaml(guideContent);
-    const result = validate("guide", document);
-    if (!result.valid) throw new Error(`existing guide is invalid: ${result.errors.map((error) => `${error.path} ${error.message}`).join("; ")}`);
-    if (document.id !== currentMetadata.id || document.scopeId !== payload.scopeId || document.kind !== payload.guideKind) throw new Error("guide metadata does not match canonical guide document");
+    if (!currentMetadata || !existingGuides[payload.guideKind]) throw new Error(`guide does not exist for ${payload.guideKind}/${payload.scopeId}`);
+    ({ document, guideContent } = existingGuides[payload.guideKind]);
   }
 
   const currentStatus = currentMetadata?.status || null;
@@ -326,8 +380,11 @@ export function renderGuideUpdate(payload, currentConfig, planningRoot, { curren
     }
   };
   const nextConfig = updateGuideGap(currentConfig, payload.scopeId, nextScope.guides);
-  const rendered = new Map([[`scopes/${payload.scopeId}/scope.yml`, stringifyYaml(nextScope)], ["config.yml", stringifyYaml(nextConfig)]]);
-  if (["generate", "regenerate"].includes(payload.action)) rendered.set(guideRelativePath, guideContent);
+  const rendered = new Map([
+    [`scopes/${payload.scopeId}/scope.yml`, stringifyYaml(nextScope)],
+    ["config.yml", stringifyYaml(nextConfig)],
+    [guideRelativePath, guideContent]
+  ]);
   return rendered;
 }
 

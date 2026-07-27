@@ -114,14 +114,16 @@ function checkKindInvariants(changeSet) {
   }
   if (changeSet.kind === "guide.update") {
     const guidePath = `scopes/${changeSet.payload.scopeId}/${changeSet.payload.guideKind}-guide.yml`;
-    const requiresGuideFile = ["generate", "regenerate"].includes(changeSet.payload.action);
-    const expectedPaths = new Set(["config.yml", `scopes/${changeSet.payload.scopeId}/scope.yml`, ...(requiresGuideFile ? [guidePath] : [])]);
+    const expectedPaths = new Set(["config.yml", `scopes/${changeSet.payload.scopeId}/scope.yml`, guidePath]);
     const actualPaths = new Set(Object.keys(changeSet.baseRevisions));
     if (expectedPaths.size !== actualPaths.size || [...expectedPaths].some((target) => !actualPaths.has(target))) {
-      errors.push("guide.update baseRevisions must contain exactly the scope metadata and, for generation, the canonical guide file");
+      errors.push("guide.update baseRevisions must contain exactly config.yml, scope.yml, and the canonical guide YAML");
     }
-    if (changeSet.payload.action === "generate" && [...actualPaths].some((target) => target === guidePath && changeSet.baseRevisions[target].contentHash !== ABSENT)) {
-      errors.push(`${guidePath} must be ABSENT for initial guide.generate`);
+    const guideBase = changeSet.baseRevisions[guidePath];
+    if (changeSet.payload.action === "generate") {
+      if (!guideBase || guideBase.contentHash !== ABSENT) errors.push(`${guidePath} must be ABSENT for initial guide.generate`);
+    } else if (!guideBase || guideBase.contentHash === ABSENT) {
+      errors.push(`${guidePath} must already exist for guide.${changeSet.payload.action}`);
     }
   }
   return errors;

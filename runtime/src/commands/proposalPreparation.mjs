@@ -60,10 +60,9 @@ export function prepareProposal(kind, rawPayload, { operationId = null, actor = 
       proposedAt,
       guideId: generateUuidV7()
     };
-    const needsGuideFile = ["generate", "regenerate"].includes(payload.action);
     return {
       payload,
-      targetFiles: ["config.yml", `scopes/${payload.scopeId}/scope.yml`, ...(needsGuideFile ? [`scopes/${payload.scopeId}/${payload.guideKind}-guide.yml`] : [])]
+      targetFiles: ["config.yml", `scopes/${payload.scopeId}/scope.yml`, `scopes/${payload.scopeId}/${payload.guideKind}-guide.yml`]
     };
   }
 

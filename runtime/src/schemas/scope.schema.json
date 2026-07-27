@@ -106,7 +106,7 @@
     "guideMetadata": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "scopeId", "kind", "status", "path", "projection", "revision", "contentHash", "sourceRefs", "provenance"],
+      "required": ["id", "scopeId", "kind", "status", "path", "projection", "revision", "contentHash", "sourceRefs", "provenance", "approval"],
       "properties": {
         "id": { "$ref": "#/$defs/uuid" },
         "scopeId": { "$ref": "#/$defs/uuid" },
@@ -142,7 +142,8 @@
         },
         {
           "if": { "properties": { "status": { "const": "approved" } } },
-          "then": { "required": ["approval"], "properties": { "approval": { "type": "object" } } }
+          "then": { "properties": { "approval": { "type": "object" } } },
+          "else": { "properties": { "approval": { "type": "null" } } }
         }
       ]
     }

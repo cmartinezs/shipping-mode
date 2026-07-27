@@ -5,6 +5,7 @@ import path from "node:path";
 import { runInit } from "../init.mjs";
 import { runChangesetPropose, runChangesetValidate, runChangesetApprove, runChangesetApply } from "../changesetCommand.mjs";
 import { readOperation } from "../../lib/operationStore.mjs";
+import { StaleError } from "../../lib/errors.mjs";
 import { parseYaml } from "../../lib/yaml.mjs";
 import { validate } from "../../lib/schema.mjs";
 import { checkSchema } from "../check.mjs";
@@ -36,6 +37,11 @@ const scope = runChangesetPropose({
 finish(scope.operationId);
 const scopeId = "018f0000-0000-7000-8000-000000000021";
 
+const configPath = path.join(planningRoot, "config.yml");
+const configWithoutGuideGap = parseYaml(fs.readFileSync(configPath, "utf8"));
+configWithoutGuideGap.documentation.gaps = [];
+fs.writeFileSync(configPath, JSON.stringify(configWithoutGuideGap));
+
 const document = {
   sourceRefs: [sourceId],
   sections: [{ id: "constraints", kind: "rules", required: true, entries: [{ key: "boundary", value: "api" }] }],
@@ -55,6 +61,19 @@ const generated = proposeGuide("generate", { document });
 const generatedOperation = readOperation(operationsRoot, generated.operationId);
 assert.equal(generatedOperation.kind, "guide.update");
 finish(generated.operationId);
+
+// Every transition over an existing Guide must bind the exact canonical YAML
+// bytes observed at propose/validate. A post-approval edit must stale the
+// operation instead of approving or reviewing unvalidated content.
+const staleByGuideEdit = proposeGuide("submit_review");
+assert.equal(runChangesetValidate({ planningRoot, operationsRoot, operationId: staleByGuideEdit.operationId }).status, "VALIDATED");
+runChangesetApprove({ planningRoot, operationsRoot, operationId: staleByGuideEdit.operationId, actor: "reviewer", mode: "human" });
+const guidePath = path.join(planningRoot, "scopes", scopeId, "task-guide.yml");
+const originalGuideBytes = fs.readFileSync(guidePath, "utf8");
+fs.writeFileSync(guidePath, `${originalGuideBytes}\n`);
+assert.throws(() => runChangesetApply({ planningRoot, operationsRoot, operationId: staleByGuideEdit.operationId, actor: "reviewer" }), StaleError);
+assert.equal(readOperation(operationsRoot, staleByGuideEdit.operationId).status, "STALE");
+fs.writeFileSync(guidePath, originalGuideBytes);
 
 let scopeDocument = parseYaml(fs.readFileSync(path.join(planningRoot, "scopes", scopeId, "scope.yml"), "utf8"));
 assert.equal(scopeDocument.guides.task.status, "generated");

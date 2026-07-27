@@ -213,3 +213,11 @@ git diff --check
   bundle builds, unit, CLI E2E, real crash E2E, security E2E, bundle,
   artifact, next-generation, and `git diff --check`.
 - [x] Draft PR opened against `develop` as PR #18.
+
+## Post-review integrity corrections
+
+Adversarial PR review found and closed three Plan 1 integrity gaps before merge:
+
+- Every `guide.update` action now tracks the canonical `task-guide.yml` / `test-guide.yml` in `baseRevisions`, including metadata-only transitions. A Guide edit between validate/approve/apply therefore produces `STALE` rather than binding lifecycle state to unvalidated bytes.
+- Existing Guide aggregates are revalidated before transitions: canonical revision, content hash, source/provenance mapping, metadata parity, and approval revision/content binding must agree before apply. `check schema` verifies the same relationships query-only.
+- The Corte 0 `guides/missing` gap is restored deterministically when absent, and approval removes only that exact `guides` + `missing` gap; unrelated/conflicting Guide gaps are preserved.

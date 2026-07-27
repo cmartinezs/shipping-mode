@@ -91,9 +91,22 @@ function checkGuideConsistency(planningRoot, scope, scopeId, knownSourceIds, fin
     const { revision, ...withoutRevision } = guide;
     if (guide.revision !== `sha256:${revisionHash(withoutRevision)}`) findings.push(`${relativePath}: revision does not match canonical guide content`);
     const bytes = fs.readFileSync(path.join(planningRoot, relativePath));
-    if (metadata.contentHash !== contentHash(bytes)) findings.push(`${relativePath}: contentHash does not match scope.yml`);
-    if (metadata.revision !== guide.revision || JSON.stringify(metadata.sourceRefs) !== JSON.stringify(guide.sourceRefs) || metadata.status === "approved" && !metadata.approval) {
-      findings.push(`${relativePath}: guide revision/status metadata is inconsistent`);
+    const actualContentHash = contentHash(bytes);
+    if (metadata.contentHash !== actualContentHash) findings.push(`${relativePath}: contentHash does not match scope.yml`);
+    if (metadata.revision !== guide.revision || revisionHash(metadata.sourceRefs) !== revisionHash(guide.sourceRefs) || revisionHash(metadata.provenance) !== revisionHash(guide.provenance)) {
+      findings.push(`${relativePath}: guide revision/source/provenance metadata is inconsistent`);
+    }
+    const fingerprintKeys = Object.keys(guide.provenance?.sourceFingerprints || {}).sort();
+    const sourceRefKeys = [...(guide.sourceRefs || [])].sort();
+    if (revisionHash(fingerprintKeys) !== revisionHash(sourceRefKeys)) findings.push(`${relativePath}: provenance sourceFingerprints keys do not match sourceRefs`);
+    const expectedSourceMapRevision = revisionHash({ sourceRefs: guide.sourceRefs, sourceFingerprints: guide.provenance?.sourceFingerprints || {} });
+    if (guide.provenance?.sourceMapRevision !== expectedSourceMapRevision) findings.push(`${relativePath}: provenance sourceMapRevision is inconsistent`);
+    if (metadata.status === "approved") {
+      if (!metadata.approval || metadata.approval.revision !== guide.revision || metadata.approval.contentHash !== actualContentHash) {
+        findings.push(`${relativePath}: approved metadata is not bound to the canonical guide revision/content hash`);
+      }
+    } else if (metadata.approval !== null) {
+      findings.push(`${relativePath}: non-approved guide retains approval metadata`);
     }
     for (const sourceId of guide.sourceRefs || []) {
       if (!knownSourceIds.includes(sourceId)) findings.push(`${relativePath}: sourceRef ${sourceId} does not resolve`);

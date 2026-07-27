@@ -266,3 +266,24 @@ assert.equal(validate("result", { operationId: opBase.id, files: [{ target: "ven
 assert.equal(validate("result", { operationId: opBase.id, files: [{ target: "vendor/template-packs", action: "mkdir", contentHash: "d".repeat(64) }] }).valid, false, "mkdir result entries must reject arbitrary content hashes");
 
 console.log(`schema fixtures: valid/invalid cases behave correctly for all ${Object.keys(cases).length} schemas, including kind-conditional payloads and operation state invariants`);
+
+// Corte 1 Guide metadata: approval is explicit and only legal for approved state.
+{
+  const scopeWithGuide = structuredClone(cases.scope.valid);
+  scopeWithGuide.guides = {
+    task: {
+      id: "018f0000-0000-7000-8000-000000000091",
+      scopeId: scopeWithGuide.id,
+      kind: "task",
+      status: "generated",
+      path: "task-guide.yml",
+      projection: "task-guide.md",
+      revision: `sha256:${"a".repeat(64)}`,
+      contentHash: "b".repeat(64),
+      sourceRefs: ["018f0000-0000-7000-8000-000000000092"],
+      provenance: {},
+      approval: { actor: "reviewer", approvedAt: "2026-07-27T00:00:00Z", changeSetHash: "c".repeat(64), revision: `sha256:${"a".repeat(64)}`, contentHash: "b".repeat(64) }
+    }
+  };
+  assert.equal(validate("scope", scopeWithGuide).valid, false, "non-approved Guide metadata must not retain approval binding");
+}

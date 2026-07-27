@@ -12869,7 +12869,7 @@ function validate48(data, { instancePath = "", parentData, parentDataProperty, r
   }
   return validate48.errors = vErrors, errors === 0;
 }
-var validate_scope = validate49, schema105 = { $id: "https://shipping-mode.dev/schemas/scope.schema.json", type: "object", additionalProperties: !1, required: ["schemaVersion", "id", "key", "label", "kind", "path"], properties: { schemaVersion: { const: 1 }, id: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, key: { type: "string", pattern: "^[a-z0-9]+(-[a-z0-9]+)*$" }, label: { type: "string", minLength: 1 }, kind: { enum: ["code", "non_code"] }, path: { type: "string", minLength: 1 }, owner: { type: ["string", "null"] }, commands: { $ref: "#/$defs/commands" }, guides: { $ref: "#/$defs/guides" } }, $defs: { uuid: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, sourceRefs: { type: "array", items: { $ref: "#/$defs/uuid" }, minItems: 1, uniqueItems: !0 }, confidence: { enum: ["low", "medium", "high"] }, alternative: { type: "object", additionalProperties: !1, required: ["command", "sourceRefs", "sourceFingerprintAtSelection", "confidence", "requiresEnvironment", "requiresSecrets"], properties: { command: { type: "string", minLength: 1 }, sourceRefs: { $ref: "#/$defs/sourceRefs" }, sourceFingerprintAtSelection: { type: "object", additionalProperties: { type: "string", pattern: "^[0-9a-f]{64}$" } }, confidence: { $ref: "#/$defs/confidence" }, requiresEnvironment: { type: "boolean" }, requiresSecrets: { type: "boolean" } } }, commandEntry: { oneOf: [{ type: "object", additionalProperties: !1, required: ["command", "method", "declaredBy", "declaredAt", "declaredOperationId", "requiresEnvironment", "requiresSecrets", "alternatives"], properties: { command: { type: "string", minLength: 1 }, method: { const: "declared" }, declaredBy: { type: "string", minLength: 1 }, declaredAt: { type: "string", minLength: 1 }, declaredOperationId: { $ref: "#/$defs/uuid" }, requiresEnvironment: { type: "boolean" }, requiresSecrets: { type: "boolean" }, alternatives: { type: "array", maxItems: 0 } } }, { type: "object", additionalProperties: !1, required: ["command", "method", "confidence", "sourceRefs", "sourceFingerprintAtSelection", "requiresEnvironment", "requiresSecrets", "alternatives"], properties: { command: { type: "string", minLength: 1 }, method: { enum: ["inferred", "reviewed"] }, confidence: { $ref: "#/$defs/confidence" }, sourceRefs: { $ref: "#/$defs/sourceRefs" }, sourceFingerprintAtSelection: { type: "object", additionalProperties: { type: "string", pattern: "^[0-9a-f]{64}$" } }, requiresEnvironment: { type: "boolean" }, requiresSecrets: { type: "boolean" }, alternatives: { type: "array", items: { $ref: "#/$defs/alternative" } } } }] }, commands: { type: "object", additionalProperties: !1, properties: { build: { $ref: "#/$defs/commandEntry" }, test: { $ref: "#/$defs/commandEntry" }, smoke: { $ref: "#/$defs/commandEntry" }, lint: { $ref: "#/$defs/commandEntry" }, verify: { $ref: "#/$defs/commandEntry" }, custom: { type: "object", additionalProperties: { $ref: "#/$defs/commandEntry" }, propertyNames: { pattern: "^[a-z][a-z0-9-]{0,63}$", not: { enum: ["build", "test", "smoke", "lint", "verify"] } } } } }, guides: { type: "object", additionalProperties: !1, properties: { task: { $ref: "#/$defs/guideMetadata" }, test: { $ref: "#/$defs/guideMetadata" } } }, guideMetadata: { type: "object", additionalProperties: !1, required: ["id", "scopeId", "kind", "status", "path", "projection", "revision", "contentHash", "sourceRefs", "provenance"], properties: { id: { $ref: "#/$defs/uuid" }, scopeId: { $ref: "#/$defs/uuid" }, kind: { enum: ["task", "test"] }, status: { enum: ["generated", "reviewed", "approved", "stale", "rejected"] }, path: { enum: ["task-guide.yml", "test-guide.yml"] }, projection: { enum: ["task-guide.md", "test-guide.md"] }, revision: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" }, contentHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, sourceRefs: { $ref: "#/$defs/sourceRefs" }, provenance: { type: "object" }, approval: { type: ["object", "null"], additionalProperties: !1, required: ["actor", "approvedAt", "changeSetHash", "revision", "contentHash"], properties: { actor: { type: "string", minLength: 1 }, approvedAt: { type: "string", minLength: 1 }, changeSetHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, revision: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" }, contentHash: { type: "string", pattern: "^[0-9a-f]{64}$" } } } }, allOf: [{ if: { properties: { kind: { const: "task" } } }, then: { properties: { path: { const: "task-guide.yml" }, projection: { const: "task-guide.md" } } } }, { if: { properties: { kind: { const: "test" } } }, then: { properties: { path: { const: "test-guide.yml" }, projection: { const: "test-guide.md" } } } }, { if: { properties: { status: { const: "approved" } } }, then: { required: ["approval"], properties: { approval: { type: "object" } } } }] } } };
+var validate_scope = validate49, schema105 = { $id: "https://shipping-mode.dev/schemas/scope.schema.json", type: "object", additionalProperties: !1, required: ["schemaVersion", "id", "key", "label", "kind", "path"], properties: { schemaVersion: { const: 1 }, id: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, key: { type: "string", pattern: "^[a-z0-9]+(-[a-z0-9]+)*$" }, label: { type: "string", minLength: 1 }, kind: { enum: ["code", "non_code"] }, path: { type: "string", minLength: 1 }, owner: { type: ["string", "null"] }, commands: { $ref: "#/$defs/commands" }, guides: { $ref: "#/$defs/guides" } }, $defs: { uuid: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, sourceRefs: { type: "array", items: { $ref: "#/$defs/uuid" }, minItems: 1, uniqueItems: !0 }, confidence: { enum: ["low", "medium", "high"] }, alternative: { type: "object", additionalProperties: !1, required: ["command", "sourceRefs", "sourceFingerprintAtSelection", "confidence", "requiresEnvironment", "requiresSecrets"], properties: { command: { type: "string", minLength: 1 }, sourceRefs: { $ref: "#/$defs/sourceRefs" }, sourceFingerprintAtSelection: { type: "object", additionalProperties: { type: "string", pattern: "^[0-9a-f]{64}$" } }, confidence: { $ref: "#/$defs/confidence" }, requiresEnvironment: { type: "boolean" }, requiresSecrets: { type: "boolean" } } }, commandEntry: { oneOf: [{ type: "object", additionalProperties: !1, required: ["command", "method", "declaredBy", "declaredAt", "declaredOperationId", "requiresEnvironment", "requiresSecrets", "alternatives"], properties: { command: { type: "string", minLength: 1 }, method: { const: "declared" }, declaredBy: { type: "string", minLength: 1 }, declaredAt: { type: "string", minLength: 1 }, declaredOperationId: { $ref: "#/$defs/uuid" }, requiresEnvironment: { type: "boolean" }, requiresSecrets: { type: "boolean" }, alternatives: { type: "array", maxItems: 0 } } }, { type: "object", additionalProperties: !1, required: ["command", "method", "confidence", "sourceRefs", "sourceFingerprintAtSelection", "requiresEnvironment", "requiresSecrets", "alternatives"], properties: { command: { type: "string", minLength: 1 }, method: { enum: ["inferred", "reviewed"] }, confidence: { $ref: "#/$defs/confidence" }, sourceRefs: { $ref: "#/$defs/sourceRefs" }, sourceFingerprintAtSelection: { type: "object", additionalProperties: { type: "string", pattern: "^[0-9a-f]{64}$" } }, requiresEnvironment: { type: "boolean" }, requiresSecrets: { type: "boolean" }, alternatives: { type: "array", items: { $ref: "#/$defs/alternative" } } } }] }, commands: { type: "object", additionalProperties: !1, properties: { build: { $ref: "#/$defs/commandEntry" }, test: { $ref: "#/$defs/commandEntry" }, smoke: { $ref: "#/$defs/commandEntry" }, lint: { $ref: "#/$defs/commandEntry" }, verify: { $ref: "#/$defs/commandEntry" }, custom: { type: "object", additionalProperties: { $ref: "#/$defs/commandEntry" }, propertyNames: { pattern: "^[a-z][a-z0-9-]{0,63}$", not: { enum: ["build", "test", "smoke", "lint", "verify"] } } } } }, guides: { type: "object", additionalProperties: !1, properties: { task: { $ref: "#/$defs/guideMetadata" }, test: { $ref: "#/$defs/guideMetadata" } } }, guideMetadata: { type: "object", additionalProperties: !1, required: ["id", "scopeId", "kind", "status", "path", "projection", "revision", "contentHash", "sourceRefs", "provenance", "approval"], properties: { id: { $ref: "#/$defs/uuid" }, scopeId: { $ref: "#/$defs/uuid" }, kind: { enum: ["task", "test"] }, status: { enum: ["generated", "reviewed", "approved", "stale", "rejected"] }, path: { enum: ["task-guide.yml", "test-guide.yml"] }, projection: { enum: ["task-guide.md", "test-guide.md"] }, revision: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" }, contentHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, sourceRefs: { $ref: "#/$defs/sourceRefs" }, provenance: { type: "object" }, approval: { type: ["object", "null"], additionalProperties: !1, required: ["actor", "approvedAt", "changeSetHash", "revision", "contentHash"], properties: { actor: { type: "string", minLength: 1 }, approvedAt: { type: "string", minLength: 1 }, changeSetHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, revision: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" }, contentHash: { type: "string", pattern: "^[0-9a-f]{64}$" } } } }, allOf: [{ if: { properties: { kind: { const: "task" } } }, then: { properties: { path: { const: "task-guide.yml" }, projection: { const: "task-guide.md" } } } }, { if: { properties: { kind: { const: "test" } } }, then: { properties: { path: { const: "test-guide.yml" }, projection: { const: "test-guide.md" } } } }, { if: { properties: { status: { const: "approved" } } }, then: { properties: { approval: { type: "object" } } }, else: { properties: { approval: { type: "null" } } } }] } } };
 var schema107 = { oneOf: [{ type: "object", additionalProperties: !1, required: ["command", "method", "declaredBy", "declaredAt", "declaredOperationId", "requiresEnvironment", "requiresSecrets", "alternatives"], properties: { command: { type: "string", minLength: 1 }, method: { const: "declared" }, declaredBy: { type: "string", minLength: 1 }, declaredAt: { type: "string", minLength: 1 }, declaredOperationId: { $ref: "#/$defs/uuid" }, requiresEnvironment: { type: "boolean" }, requiresSecrets: { type: "boolean" }, alternatives: { type: "array", maxItems: 0 } } }, { type: "object", additionalProperties: !1, required: ["command", "method", "confidence", "sourceRefs", "sourceFingerprintAtSelection", "requiresEnvironment", "requiresSecrets", "alternatives"], properties: { command: { type: "string", minLength: 1 }, method: { enum: ["inferred", "reviewed"] }, confidence: { $ref: "#/$defs/confidence" }, sourceRefs: { $ref: "#/$defs/sourceRefs" }, sourceFingerprintAtSelection: { type: "object", additionalProperties: { type: "string", pattern: "^[0-9a-f]{64}$" } }, requiresEnvironment: { type: "boolean" }, requiresSecrets: { type: "boolean" }, alternatives: { type: "array", items: { $ref: "#/$defs/alternative" } } } }] };
 var schema109 = { enum: ["low", "medium", "high"] };
 function validate52(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
@@ -13275,7 +13275,7 @@ function validate50(data, { instancePath = "", parentData, parentDataProperty, r
   }
   return validate50.errors = vErrors, errors === 0;
 }
-var schema115 = { type: "object", additionalProperties: !1, required: ["id", "scopeId", "kind", "status", "path", "projection", "revision", "contentHash", "sourceRefs", "provenance"], properties: { id: { $ref: "#/$defs/uuid" }, scopeId: { $ref: "#/$defs/uuid" }, kind: { enum: ["task", "test"] }, status: { enum: ["generated", "reviewed", "approved", "stale", "rejected"] }, path: { enum: ["task-guide.yml", "test-guide.yml"] }, projection: { enum: ["task-guide.md", "test-guide.md"] }, revision: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" }, contentHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, sourceRefs: { $ref: "#/$defs/sourceRefs" }, provenance: { type: "object" }, approval: { type: ["object", "null"], additionalProperties: !1, required: ["actor", "approvedAt", "changeSetHash", "revision", "contentHash"], properties: { actor: { type: "string", minLength: 1 }, approvedAt: { type: "string", minLength: 1 }, changeSetHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, revision: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" }, contentHash: { type: "string", pattern: "^[0-9a-f]{64}$" } } } }, allOf: [{ if: { properties: { kind: { const: "task" } } }, then: { properties: { path: { const: "task-guide.yml" }, projection: { const: "task-guide.md" } } } }, { if: { properties: { kind: { const: "test" } } }, then: { properties: { path: { const: "test-guide.yml" }, projection: { const: "test-guide.md" } } } }, { if: { properties: { status: { const: "approved" } } }, then: { required: ["approval"], properties: { approval: { type: "object" } } } }] };
+var schema115 = { type: "object", additionalProperties: !1, required: ["id", "scopeId", "kind", "status", "path", "projection", "revision", "contentHash", "sourceRefs", "provenance", "approval"], properties: { id: { $ref: "#/$defs/uuid" }, scopeId: { $ref: "#/$defs/uuid" }, kind: { enum: ["task", "test"] }, status: { enum: ["generated", "reviewed", "approved", "stale", "rejected"] }, path: { enum: ["task-guide.yml", "test-guide.yml"] }, projection: { enum: ["task-guide.md", "test-guide.md"] }, revision: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" }, contentHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, sourceRefs: { $ref: "#/$defs/sourceRefs" }, provenance: { type: "object" }, approval: { type: ["object", "null"], additionalProperties: !1, required: ["actor", "approvedAt", "changeSetHash", "revision", "contentHash"], properties: { actor: { type: "string", minLength: 1 }, approvedAt: { type: "string", minLength: 1 }, changeSetHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, revision: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" }, contentHash: { type: "string", pattern: "^[0-9a-f]{64}$" } } } }, allOf: [{ if: { properties: { kind: { const: "task" } } }, then: { properties: { path: { const: "task-guide.yml" }, projection: { const: "task-guide.md" } } } }, { if: { properties: { kind: { const: "test" } } }, then: { properties: { path: { const: "test-guide.yml" }, projection: { const: "test-guide.md" } } } }, { if: { properties: { status: { const: "approved" } } }, then: { properties: { approval: { type: "object" } } }, else: { properties: { approval: { type: "null" } } } }] };
 function validate65(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
   let vErrors = null, errors = 0, _errs2 = errors, valid1 = !0, _errs3 = errors;
   if (data && typeof data == "object" && !Array.isArray(data) && data.kind !== void 0 && data.kind !== "task") {
@@ -13333,26 +13333,30 @@ function validate65(data, { instancePath = "", parentData, parentDataProperty, r
     vErrors === null ? vErrors = [err8] : vErrors.push(err8), errors++;
   }
   var _valid2 = _errs17 === errors;
-  if (errors = _errs16, vErrors !== null && (_errs16 ? vErrors.length = _errs16 : vErrors = null), _valid2) {
+  errors = _errs16, vErrors !== null && (_errs16 ? vErrors.length = _errs16 : vErrors = null);
+  let ifClause0;
+  if (_valid2) {
     let _errs19 = errors;
-    if (data && typeof data == "object" && !Array.isArray(data)) {
-      if (data.approval === void 0) {
-        let err9 = { instancePath, schemaPath: "#/allOf/2/then/required", keyword: "required", params: { missingProperty: "approval" }, message: "must have required property 'approval'" };
+    if (data && typeof data == "object" && !Array.isArray(data) && data.approval !== void 0) {
+      let data7 = data.approval;
+      if (!(data7 && typeof data7 == "object" && !Array.isArray(data7))) {
+        let err9 = { instancePath: instancePath + "/approval", schemaPath: "#/allOf/2/then/properties/approval/type", keyword: "type", params: { type: "object" }, message: "must be object" };
         vErrors === null ? vErrors = [err9] : vErrors.push(err9), errors++;
-      }
-      if (data.approval !== void 0) {
-        let data7 = data.approval;
-        if (!(data7 && typeof data7 == "object" && !Array.isArray(data7))) {
-          let err10 = { instancePath: instancePath + "/approval", schemaPath: "#/allOf/2/then/properties/approval/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-          vErrors === null ? vErrors = [err10] : vErrors.push(err10), errors++;
-        }
       }
     }
     var _valid2 = _errs19 === errors;
-    valid7 = _valid2;
+    valid7 = _valid2, ifClause0 = "then";
+  } else {
+    let _errs22 = errors;
+    if (data && typeof data == "object" && !Array.isArray(data) && data.approval !== void 0 && data.approval !== null) {
+      let err10 = { instancePath: instancePath + "/approval", schemaPath: "#/allOf/2/else/properties/approval/type", keyword: "type", params: { type: "null" }, message: "must be null" };
+      vErrors === null ? vErrors = [err10] : vErrors.push(err10), errors++;
+    }
+    var _valid2 = _errs22 === errors;
+    valid7 = _valid2, ifClause0 = "else";
   }
   if (!valid7) {
-    let err11 = { instancePath, schemaPath: "#/allOf/2/if", keyword: "if", params: { failingKeyword: "then" }, message: 'must match "then" schema' };
+    let err11 = { instancePath, schemaPath: "#/allOf/2/if", keyword: "if", params: { failingKeyword: ifClause0 }, message: 'must match "' + ifClause0 + '" schema' };
     vErrors === null ? vErrors = [err11] : vErrors.push(err11), errors++;
   }
   if (data && typeof data == "object" && !Array.isArray(data)) {
@@ -13396,191 +13400,195 @@ function validate65(data, { instancePath = "", parentData, parentDataProperty, r
       let err21 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "provenance" }, message: "must have required property 'provenance'" };
       vErrors === null ? vErrors = [err21] : vErrors.push(err21), errors++;
     }
+    if (data.approval === void 0) {
+      let err22 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "approval" }, message: "must have required property 'approval'" };
+      vErrors === null ? vErrors = [err22] : vErrors.push(err22), errors++;
+    }
     for (let key0 in data)
       if (!func5.call(schema115.properties, key0)) {
-        let err22 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
-        vErrors === null ? vErrors = [err22] : vErrors.push(err22), errors++;
+        let err23 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
+        vErrors === null ? vErrors = [err23] : vErrors.push(err23), errors++;
       }
     if (data.id !== void 0) {
-      let data8 = data.id;
-      if (typeof data8 == "string") {
-        if (!pattern5.test(data8)) {
-          let err23 = { instancePath: instancePath + "/id", schemaPath: "#/$defs/uuid/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, message: 'must match pattern "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"' };
-          vErrors === null ? vErrors = [err23] : vErrors.push(err23), errors++;
+      let data9 = data.id;
+      if (typeof data9 == "string") {
+        if (!pattern5.test(data9)) {
+          let err24 = { instancePath: instancePath + "/id", schemaPath: "#/$defs/uuid/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, message: 'must match pattern "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"' };
+          vErrors === null ? vErrors = [err24] : vErrors.push(err24), errors++;
         }
       } else {
-        let err24 = { instancePath: instancePath + "/id", schemaPath: "#/$defs/uuid/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        vErrors === null ? vErrors = [err24] : vErrors.push(err24), errors++;
+        let err25 = { instancePath: instancePath + "/id", schemaPath: "#/$defs/uuid/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        vErrors === null ? vErrors = [err25] : vErrors.push(err25), errors++;
       }
     }
     if (data.scopeId !== void 0) {
-      let data9 = data.scopeId;
-      if (typeof data9 == "string") {
-        if (!pattern5.test(data9)) {
-          let err25 = { instancePath: instancePath + "/scopeId", schemaPath: "#/$defs/uuid/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, message: 'must match pattern "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"' };
-          vErrors === null ? vErrors = [err25] : vErrors.push(err25), errors++;
+      let data10 = data.scopeId;
+      if (typeof data10 == "string") {
+        if (!pattern5.test(data10)) {
+          let err26 = { instancePath: instancePath + "/scopeId", schemaPath: "#/$defs/uuid/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, message: 'must match pattern "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"' };
+          vErrors === null ? vErrors = [err26] : vErrors.push(err26), errors++;
         }
       } else {
-        let err26 = { instancePath: instancePath + "/scopeId", schemaPath: "#/$defs/uuid/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        vErrors === null ? vErrors = [err26] : vErrors.push(err26), errors++;
-      }
-    }
-    if (data.kind !== void 0) {
-      let data10 = data.kind;
-      if (!(data10 === "task" || data10 === "test")) {
-        let err27 = { instancePath: instancePath + "/kind", schemaPath: "#/properties/kind/enum", keyword: "enum", params: { allowedValues: schema115.properties.kind.enum }, message: "must be equal to one of the allowed values" };
+        let err27 = { instancePath: instancePath + "/scopeId", schemaPath: "#/$defs/uuid/type", keyword: "type", params: { type: "string" }, message: "must be string" };
         vErrors === null ? vErrors = [err27] : vErrors.push(err27), errors++;
       }
     }
-    if (data.status !== void 0) {
-      let data11 = data.status;
-      if (!(data11 === "generated" || data11 === "reviewed" || data11 === "approved" || data11 === "stale" || data11 === "rejected")) {
-        let err28 = { instancePath: instancePath + "/status", schemaPath: "#/properties/status/enum", keyword: "enum", params: { allowedValues: schema115.properties.status.enum }, message: "must be equal to one of the allowed values" };
+    if (data.kind !== void 0) {
+      let data11 = data.kind;
+      if (!(data11 === "task" || data11 === "test")) {
+        let err28 = { instancePath: instancePath + "/kind", schemaPath: "#/properties/kind/enum", keyword: "enum", params: { allowedValues: schema115.properties.kind.enum }, message: "must be equal to one of the allowed values" };
         vErrors === null ? vErrors = [err28] : vErrors.push(err28), errors++;
       }
     }
-    if (data.path !== void 0) {
-      let data12 = data.path;
-      if (!(data12 === "task-guide.yml" || data12 === "test-guide.yml")) {
-        let err29 = { instancePath: instancePath + "/path", schemaPath: "#/properties/path/enum", keyword: "enum", params: { allowedValues: schema115.properties.path.enum }, message: "must be equal to one of the allowed values" };
+    if (data.status !== void 0) {
+      let data12 = data.status;
+      if (!(data12 === "generated" || data12 === "reviewed" || data12 === "approved" || data12 === "stale" || data12 === "rejected")) {
+        let err29 = { instancePath: instancePath + "/status", schemaPath: "#/properties/status/enum", keyword: "enum", params: { allowedValues: schema115.properties.status.enum }, message: "must be equal to one of the allowed values" };
         vErrors === null ? vErrors = [err29] : vErrors.push(err29), errors++;
       }
     }
-    if (data.projection !== void 0) {
-      let data13 = data.projection;
-      if (!(data13 === "task-guide.md" || data13 === "test-guide.md")) {
-        let err30 = { instancePath: instancePath + "/projection", schemaPath: "#/properties/projection/enum", keyword: "enum", params: { allowedValues: schema115.properties.projection.enum }, message: "must be equal to one of the allowed values" };
+    if (data.path !== void 0) {
+      let data13 = data.path;
+      if (!(data13 === "task-guide.yml" || data13 === "test-guide.yml")) {
+        let err30 = { instancePath: instancePath + "/path", schemaPath: "#/properties/path/enum", keyword: "enum", params: { allowedValues: schema115.properties.path.enum }, message: "must be equal to one of the allowed values" };
         vErrors === null ? vErrors = [err30] : vErrors.push(err30), errors++;
       }
     }
+    if (data.projection !== void 0) {
+      let data14 = data.projection;
+      if (!(data14 === "task-guide.md" || data14 === "test-guide.md")) {
+        let err31 = { instancePath: instancePath + "/projection", schemaPath: "#/properties/projection/enum", keyword: "enum", params: { allowedValues: schema115.properties.projection.enum }, message: "must be equal to one of the allowed values" };
+        vErrors === null ? vErrors = [err31] : vErrors.push(err31), errors++;
+      }
+    }
     if (data.revision !== void 0) {
-      let data14 = data.revision;
-      if (typeof data14 == "string") {
-        if (!pattern0.test(data14)) {
-          let err31 = { instancePath: instancePath + "/revision", schemaPath: "#/properties/revision/pattern", keyword: "pattern", params: { pattern: "^sha256:[0-9a-f]{64}$" }, message: 'must match pattern "^sha256:[0-9a-f]{64}$"' };
-          vErrors === null ? vErrors = [err31] : vErrors.push(err31), errors++;
+      let data15 = data.revision;
+      if (typeof data15 == "string") {
+        if (!pattern0.test(data15)) {
+          let err32 = { instancePath: instancePath + "/revision", schemaPath: "#/properties/revision/pattern", keyword: "pattern", params: { pattern: "^sha256:[0-9a-f]{64}$" }, message: 'must match pattern "^sha256:[0-9a-f]{64}$"' };
+          vErrors === null ? vErrors = [err32] : vErrors.push(err32), errors++;
         }
       } else {
-        let err32 = { instancePath: instancePath + "/revision", schemaPath: "#/properties/revision/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        vErrors === null ? vErrors = [err32] : vErrors.push(err32), errors++;
+        let err33 = { instancePath: instancePath + "/revision", schemaPath: "#/properties/revision/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        vErrors === null ? vErrors = [err33] : vErrors.push(err33), errors++;
       }
     }
     if (data.contentHash !== void 0) {
-      let data15 = data.contentHash;
-      if (typeof data15 == "string") {
-        if (!pattern27.test(data15)) {
-          let err33 = { instancePath: instancePath + "/contentHash", schemaPath: "#/properties/contentHash/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
-          vErrors === null ? vErrors = [err33] : vErrors.push(err33), errors++;
+      let data16 = data.contentHash;
+      if (typeof data16 == "string") {
+        if (!pattern27.test(data16)) {
+          let err34 = { instancePath: instancePath + "/contentHash", schemaPath: "#/properties/contentHash/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
+          vErrors === null ? vErrors = [err34] : vErrors.push(err34), errors++;
         }
       } else {
-        let err34 = { instancePath: instancePath + "/contentHash", schemaPath: "#/properties/contentHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        vErrors === null ? vErrors = [err34] : vErrors.push(err34), errors++;
-      }
-    }
-    if (data.sourceRefs !== void 0 && (validate52(data.sourceRefs, { instancePath: instancePath + "/sourceRefs", parentData: data, parentDataProperty: "sourceRefs", rootData }) || (vErrors = vErrors === null ? validate52.errors : vErrors.concat(validate52.errors), errors = vErrors.length)), data.provenance !== void 0) {
-      let data17 = data.provenance;
-      if (!(data17 && typeof data17 == "object" && !Array.isArray(data17))) {
-        let err35 = { instancePath: instancePath + "/provenance", schemaPath: "#/properties/provenance/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        let err35 = { instancePath: instancePath + "/contentHash", schemaPath: "#/properties/contentHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
         vErrors === null ? vErrors = [err35] : vErrors.push(err35), errors++;
       }
     }
-    if (data.approval !== void 0) {
-      let data18 = data.approval;
-      if (!(data18 && typeof data18 == "object" && !Array.isArray(data18)) && data18 !== null) {
-        let err36 = { instancePath: instancePath + "/approval", schemaPath: "#/properties/approval/type", keyword: "type", params: { type: schema115.properties.approval.type }, message: "must be object,null" };
+    if (data.sourceRefs !== void 0 && (validate52(data.sourceRefs, { instancePath: instancePath + "/sourceRefs", parentData: data, parentDataProperty: "sourceRefs", rootData }) || (vErrors = vErrors === null ? validate52.errors : vErrors.concat(validate52.errors), errors = vErrors.length)), data.provenance !== void 0) {
+      let data18 = data.provenance;
+      if (!(data18 && typeof data18 == "object" && !Array.isArray(data18))) {
+        let err36 = { instancePath: instancePath + "/provenance", schemaPath: "#/properties/provenance/type", keyword: "type", params: { type: "object" }, message: "must be object" };
         vErrors === null ? vErrors = [err36] : vErrors.push(err36), errors++;
       }
-      if (data18 && typeof data18 == "object" && !Array.isArray(data18)) {
-        if (data18.actor === void 0) {
-          let err37 = { instancePath: instancePath + "/approval", schemaPath: "#/properties/approval/required", keyword: "required", params: { missingProperty: "actor" }, message: "must have required property 'actor'" };
-          vErrors === null ? vErrors = [err37] : vErrors.push(err37), errors++;
-        }
-        if (data18.approvedAt === void 0) {
-          let err38 = { instancePath: instancePath + "/approval", schemaPath: "#/properties/approval/required", keyword: "required", params: { missingProperty: "approvedAt" }, message: "must have required property 'approvedAt'" };
+    }
+    if (data.approval !== void 0) {
+      let data19 = data.approval;
+      if (!(data19 && typeof data19 == "object" && !Array.isArray(data19)) && data19 !== null) {
+        let err37 = { instancePath: instancePath + "/approval", schemaPath: "#/properties/approval/type", keyword: "type", params: { type: schema115.properties.approval.type }, message: "must be object,null" };
+        vErrors === null ? vErrors = [err37] : vErrors.push(err37), errors++;
+      }
+      if (data19 && typeof data19 == "object" && !Array.isArray(data19)) {
+        if (data19.actor === void 0) {
+          let err38 = { instancePath: instancePath + "/approval", schemaPath: "#/properties/approval/required", keyword: "required", params: { missingProperty: "actor" }, message: "must have required property 'actor'" };
           vErrors === null ? vErrors = [err38] : vErrors.push(err38), errors++;
         }
-        if (data18.changeSetHash === void 0) {
-          let err39 = { instancePath: instancePath + "/approval", schemaPath: "#/properties/approval/required", keyword: "required", params: { missingProperty: "changeSetHash" }, message: "must have required property 'changeSetHash'" };
+        if (data19.approvedAt === void 0) {
+          let err39 = { instancePath: instancePath + "/approval", schemaPath: "#/properties/approval/required", keyword: "required", params: { missingProperty: "approvedAt" }, message: "must have required property 'approvedAt'" };
           vErrors === null ? vErrors = [err39] : vErrors.push(err39), errors++;
         }
-        if (data18.revision === void 0) {
-          let err40 = { instancePath: instancePath + "/approval", schemaPath: "#/properties/approval/required", keyword: "required", params: { missingProperty: "revision" }, message: "must have required property 'revision'" };
+        if (data19.changeSetHash === void 0) {
+          let err40 = { instancePath: instancePath + "/approval", schemaPath: "#/properties/approval/required", keyword: "required", params: { missingProperty: "changeSetHash" }, message: "must have required property 'changeSetHash'" };
           vErrors === null ? vErrors = [err40] : vErrors.push(err40), errors++;
         }
-        if (data18.contentHash === void 0) {
-          let err41 = { instancePath: instancePath + "/approval", schemaPath: "#/properties/approval/required", keyword: "required", params: { missingProperty: "contentHash" }, message: "must have required property 'contentHash'" };
+        if (data19.revision === void 0) {
+          let err41 = { instancePath: instancePath + "/approval", schemaPath: "#/properties/approval/required", keyword: "required", params: { missingProperty: "revision" }, message: "must have required property 'revision'" };
           vErrors === null ? vErrors = [err41] : vErrors.push(err41), errors++;
         }
-        for (let key1 in data18)
-          if (!(key1 === "actor" || key1 === "approvedAt" || key1 === "changeSetHash" || key1 === "revision" || key1 === "contentHash")) {
-            let err42 = { instancePath: instancePath + "/approval", schemaPath: "#/properties/approval/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key1 }, message: "must NOT have additional properties" };
-            vErrors === null ? vErrors = [err42] : vErrors.push(err42), errors++;
-          }
-        if (data18.actor !== void 0) {
-          let data19 = data18.actor;
-          if (typeof data19 == "string") {
-            if (func2(data19) < 1) {
-              let err43 = { instancePath: instancePath + "/approval/actor", schemaPath: "#/properties/approval/properties/actor/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-              vErrors === null ? vErrors = [err43] : vErrors.push(err43), errors++;
-            }
-          } else {
-            let err44 = { instancePath: instancePath + "/approval/actor", schemaPath: "#/properties/approval/properties/actor/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-            vErrors === null ? vErrors = [err44] : vErrors.push(err44), errors++;
-          }
+        if (data19.contentHash === void 0) {
+          let err42 = { instancePath: instancePath + "/approval", schemaPath: "#/properties/approval/required", keyword: "required", params: { missingProperty: "contentHash" }, message: "must have required property 'contentHash'" };
+          vErrors === null ? vErrors = [err42] : vErrors.push(err42), errors++;
         }
-        if (data18.approvedAt !== void 0) {
-          let data20 = data18.approvedAt;
+        for (let key1 in data19)
+          if (!(key1 === "actor" || key1 === "approvedAt" || key1 === "changeSetHash" || key1 === "revision" || key1 === "contentHash")) {
+            let err43 = { instancePath: instancePath + "/approval", schemaPath: "#/properties/approval/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key1 }, message: "must NOT have additional properties" };
+            vErrors === null ? vErrors = [err43] : vErrors.push(err43), errors++;
+          }
+        if (data19.actor !== void 0) {
+          let data20 = data19.actor;
           if (typeof data20 == "string") {
             if (func2(data20) < 1) {
-              let err45 = { instancePath: instancePath + "/approval/approvedAt", schemaPath: "#/properties/approval/properties/approvedAt/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-              vErrors === null ? vErrors = [err45] : vErrors.push(err45), errors++;
+              let err44 = { instancePath: instancePath + "/approval/actor", schemaPath: "#/properties/approval/properties/actor/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+              vErrors === null ? vErrors = [err44] : vErrors.push(err44), errors++;
             }
           } else {
-            let err46 = { instancePath: instancePath + "/approval/approvedAt", schemaPath: "#/properties/approval/properties/approvedAt/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-            vErrors === null ? vErrors = [err46] : vErrors.push(err46), errors++;
+            let err45 = { instancePath: instancePath + "/approval/actor", schemaPath: "#/properties/approval/properties/actor/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            vErrors === null ? vErrors = [err45] : vErrors.push(err45), errors++;
           }
         }
-        if (data18.changeSetHash !== void 0) {
-          let data21 = data18.changeSetHash;
+        if (data19.approvedAt !== void 0) {
+          let data21 = data19.approvedAt;
           if (typeof data21 == "string") {
-            if (!pattern27.test(data21)) {
-              let err47 = { instancePath: instancePath + "/approval/changeSetHash", schemaPath: "#/properties/approval/properties/changeSetHash/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
-              vErrors === null ? vErrors = [err47] : vErrors.push(err47), errors++;
+            if (func2(data21) < 1) {
+              let err46 = { instancePath: instancePath + "/approval/approvedAt", schemaPath: "#/properties/approval/properties/approvedAt/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+              vErrors === null ? vErrors = [err46] : vErrors.push(err46), errors++;
             }
           } else {
-            let err48 = { instancePath: instancePath + "/approval/changeSetHash", schemaPath: "#/properties/approval/properties/changeSetHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-            vErrors === null ? vErrors = [err48] : vErrors.push(err48), errors++;
+            let err47 = { instancePath: instancePath + "/approval/approvedAt", schemaPath: "#/properties/approval/properties/approvedAt/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            vErrors === null ? vErrors = [err47] : vErrors.push(err47), errors++;
           }
         }
-        if (data18.revision !== void 0) {
-          let data22 = data18.revision;
+        if (data19.changeSetHash !== void 0) {
+          let data22 = data19.changeSetHash;
           if (typeof data22 == "string") {
-            if (!pattern0.test(data22)) {
-              let err49 = { instancePath: instancePath + "/approval/revision", schemaPath: "#/properties/approval/properties/revision/pattern", keyword: "pattern", params: { pattern: "^sha256:[0-9a-f]{64}$" }, message: 'must match pattern "^sha256:[0-9a-f]{64}$"' };
-              vErrors === null ? vErrors = [err49] : vErrors.push(err49), errors++;
+            if (!pattern27.test(data22)) {
+              let err48 = { instancePath: instancePath + "/approval/changeSetHash", schemaPath: "#/properties/approval/properties/changeSetHash/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
+              vErrors === null ? vErrors = [err48] : vErrors.push(err48), errors++;
             }
           } else {
-            let err50 = { instancePath: instancePath + "/approval/revision", schemaPath: "#/properties/approval/properties/revision/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-            vErrors === null ? vErrors = [err50] : vErrors.push(err50), errors++;
+            let err49 = { instancePath: instancePath + "/approval/changeSetHash", schemaPath: "#/properties/approval/properties/changeSetHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            vErrors === null ? vErrors = [err49] : vErrors.push(err49), errors++;
           }
         }
-        if (data18.contentHash !== void 0) {
-          let data23 = data18.contentHash;
+        if (data19.revision !== void 0) {
+          let data23 = data19.revision;
           if (typeof data23 == "string") {
-            if (!pattern27.test(data23)) {
-              let err51 = { instancePath: instancePath + "/approval/contentHash", schemaPath: "#/properties/approval/properties/contentHash/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
-              vErrors === null ? vErrors = [err51] : vErrors.push(err51), errors++;
+            if (!pattern0.test(data23)) {
+              let err50 = { instancePath: instancePath + "/approval/revision", schemaPath: "#/properties/approval/properties/revision/pattern", keyword: "pattern", params: { pattern: "^sha256:[0-9a-f]{64}$" }, message: 'must match pattern "^sha256:[0-9a-f]{64}$"' };
+              vErrors === null ? vErrors = [err50] : vErrors.push(err50), errors++;
             }
           } else {
-            let err52 = { instancePath: instancePath + "/approval/contentHash", schemaPath: "#/properties/approval/properties/contentHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-            vErrors === null ? vErrors = [err52] : vErrors.push(err52), errors++;
+            let err51 = { instancePath: instancePath + "/approval/revision", schemaPath: "#/properties/approval/properties/revision/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            vErrors === null ? vErrors = [err51] : vErrors.push(err51), errors++;
+          }
+        }
+        if (data19.contentHash !== void 0) {
+          let data24 = data19.contentHash;
+          if (typeof data24 == "string") {
+            if (!pattern27.test(data24)) {
+              let err52 = { instancePath: instancePath + "/approval/contentHash", schemaPath: "#/properties/approval/properties/contentHash/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
+              vErrors === null ? vErrors = [err52] : vErrors.push(err52), errors++;
+            }
+          } else {
+            let err53 = { instancePath: instancePath + "/approval/contentHash", schemaPath: "#/properties/approval/properties/contentHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            vErrors === null ? vErrors = [err53] : vErrors.push(err53), errors++;
           }
         }
       }
     }
   } else {
-    let err53 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    vErrors === null ? vErrors = [err53] : vErrors.push(err53), errors++;
+    let err54 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    vErrors === null ? vErrors = [err54] : vErrors.push(err54), errors++;
   }
   return validate65.errors = vErrors, errors === 0;
 }
@@ -14604,12 +14612,12 @@ function readConfirmedScopes(planningRoot) {
   }
   return scopes;
 }
-function allCommandEntries(scope2) {
-  if (!scope2.commands) return [];
+function allCommandEntries(scope) {
+  if (!scope.commands) return [];
   let entries = [];
   for (let role of ["build", "test", "smoke", "lint", "verify"])
-    scope2.commands[role] && entries.push({ role, entry: scope2.commands[role] });
-  for (let [role, entry] of Object.entries(scope2.commands.custom || {}))
+    scope.commands[role] && entries.push({ role, entry: scope.commands[role] });
+  for (let [role, entry] of Object.entries(scope.commands.custom || {}))
     entries.push({ role: `custom.${role}`, entry });
   return entries;
 }
@@ -14618,9 +14626,9 @@ function fingerprintKeyMismatch(label, entry) {
   let refSet = new Set(entry.sourceRefs), keySet = new Set(Object.keys(entry.sourceFingerprintAtSelection || {})), missing = [...refSet].filter((r) => !keySet.has(r)), extra = [...keySet].filter((k) => !refSet.has(k));
   return missing.length === 0 && extra.length === 0 ? null : { label, missing, extra };
 }
-function findCommandFingerprintKeyMismatches(scope2) {
+function findCommandFingerprintKeyMismatches(scope) {
   let mismatches = [];
-  for (let { role, entry } of allCommandEntries(scope2)) {
+  for (let { role, entry } of allCommandEntries(scope)) {
     let selfMismatch = fingerprintKeyMismatch(role, entry);
     selfMismatch && mismatches.push(selfMismatch);
     for (let [index, alternative] of (entry.alternatives || []).entries()) {
@@ -14647,10 +14655,10 @@ function evaluateCommandEvidence(commandEntry, knownSourceDrift) {
 }
 function computeCommandEvidence({ planningRoot, knownSourceDrift }) {
   let scopes = readConfirmedScopes(planningRoot), results = [];
-  for (let scope2 of scopes)
-    for (let { role, entry } of allCommandEntries(scope2)) {
+  for (let scope of scopes)
+    for (let { role, entry } of allCommandEntries(scope)) {
       let { evidenceState, reasons } = evaluateCommandEvidence(entry, knownSourceDrift);
-      results.push({ scopeId: scope2.id, role, evidenceState, reasons });
+      results.push({ scopeId: scope.id, role, evidenceState, reasons });
     }
   return results;
 }
@@ -14915,8 +14923,10 @@ function checkKindInvariants(changeSet) {
     (!entry || entry.revisionHash !== ABSENT || entry.contentHash !== ABSENT) && errors.push(`${scopePath} must be ABSENT for a new scope.add, but baseRevisions recorded something else`);
   }
   if (changeSet.kind === "guide.update") {
-    let guidePath = `scopes/${changeSet.payload.scopeId}/${changeSet.payload.guideKind}-guide.yml`, requiresGuideFile = ["generate", "regenerate"].includes(changeSet.payload.action), expectedPaths = /* @__PURE__ */ new Set(["config.yml", `scopes/${changeSet.payload.scopeId}/scope.yml`, ...requiresGuideFile ? [guidePath] : []]), actualPaths = new Set(Object.keys(changeSet.baseRevisions));
-    (expectedPaths.size !== actualPaths.size || [...expectedPaths].some((target) => !actualPaths.has(target))) && errors.push("guide.update baseRevisions must contain exactly the scope metadata and, for generation, the canonical guide file"), changeSet.payload.action === "generate" && [...actualPaths].some((target) => target === guidePath && changeSet.baseRevisions[target].contentHash !== ABSENT) && errors.push(`${guidePath} must be ABSENT for initial guide.generate`);
+    let guidePath = `scopes/${changeSet.payload.scopeId}/${changeSet.payload.guideKind}-guide.yml`, expectedPaths = /* @__PURE__ */ new Set(["config.yml", `scopes/${changeSet.payload.scopeId}/scope.yml`, guidePath]), actualPaths = new Set(Object.keys(changeSet.baseRevisions));
+    (expectedPaths.size !== actualPaths.size || [...expectedPaths].some((target) => !actualPaths.has(target))) && errors.push("guide.update baseRevisions must contain exactly config.yml, scope.yml, and the canonical guide YAML");
+    let guideBase = changeSet.baseRevisions[guidePath];
+    changeSet.payload.action === "generate" ? (!guideBase || guideBase.contentHash !== ABSENT) && errors.push(`${guidePath} must be ABSENT for initial guide.generate`) : (!guideBase || guideBase.contentHash === ABSENT) && errors.push(`${guidePath} must already exist for guide.${changeSet.payload.action}`);
   }
   return errors;
 }
@@ -15181,10 +15191,10 @@ function prepareProposal(kind, rawPayload, { operationId = null, actor = null, p
       operationId,
       proposedAt,
       guideId: generateUuidV7()
-    }, needsGuideFile = ["generate", "regenerate"].includes(payload2.action);
+    };
     return {
       payload: payload2,
-      targetFiles: ["config.yml", `scopes/${payload2.scopeId}/scope.yml`, ...needsGuideFile ? [`scopes/${payload2.scopeId}/${payload2.guideKind}-guide.yml`] : []]
+      targetFiles: ["config.yml", `scopes/${payload2.scopeId}/scope.yml`, `scopes/${payload2.scopeId}/${payload2.guideKind}-guide.yml`]
     };
   }
   let payload = {
@@ -15373,14 +15383,14 @@ function renderScopeAdd({ id, key, label, kind, path: scopePath, owner = null, g
         scope_ref: id
       }]
     }
-  }, id), scope2 = { schemaVersion: 1, id, key: normalizedKey, label, kind, path: scopePath, owner };
+  }, id), scope = { schemaVersion: 1, id, key: normalizedKey, label, kind, path: scopePath, owner };
   return /* @__PURE__ */ new Map([
     ["config.yml", stringifyYaml(nextConfig)],
-    [`scopes/${id}/scope.yml`, stringifyYaml(scope2)]
+    [`scopes/${id}/scope.yml`, stringifyYaml(scope)]
   ]);
 }
-function setCommand(scope2, role, entry) {
-  let next = { ...scope2, commands: { ...scope2.commands || {} } };
+function setCommand(scope, role, entry) {
+  let next = { ...scope, commands: { ...scope.commands || {} } };
   return role.startsWith("custom.") ? next.commands.custom = { ...next.commands.custom || {}, [role.slice(7)]: entry } : next.commands[role] = entry, next;
 }
 function renderInferredCommand(entry, approvalMode = "human") {
@@ -15420,9 +15430,10 @@ function guideProjectionName(kind) {
 function readScopeForGuide(planningRoot, scopeId) {
   let scopePath = path12.join(planningRoot, "scopes", scopeId, "scope.yml");
   if (!fs12.existsSync(scopePath)) throw new Error(`scope not found for guide.update: ${scopeId}`);
-  let scope2 = parseYaml(fs12.readFileSync(scopePath, "utf8"));
-  if (scope2.id !== scopeId) throw new Error(`scope id does not match its directory: ${scopeId}`);
-  return scope2;
+  let scope = parseYaml(fs12.readFileSync(scopePath, "utf8")), scopeResult = validate("scope", scope);
+  if (!scopeResult.valid) throw new Error(`existing scope is invalid: ${scopeResult.errors.map((error) => `${error.path} ${error.message}`).join("; ")}`);
+  if (scope.id !== scopeId) throw new Error(`scope id does not match its directory: ${scopeId}`);
+  return scope;
 }
 function assertClosedGuideInput(document) {
   let allowed = /* @__PURE__ */ new Set(["sourceRefs", "sections", "openGaps"]);
@@ -15476,29 +15487,63 @@ function guideMetadata(document, status, scopeId, content, approval = null) {
     approval
   };
 }
+function sameCanonicalValue(left, right) {
+  return revisionHash(left) === revisionHash(right);
+}
+function assertGuideAggregateIntegrity({ document, metadata, scopeId, guideKind, guideContent, currentSources }) {
+  let result = validate("guide", document);
+  if (!result.valid) throw new Error(`existing guide is invalid: ${result.errors.map((error) => `${error.path} ${error.message}`).join("; ")}`);
+  if (document.id !== metadata.id || document.scopeId !== scopeId || document.kind !== guideKind)
+    throw new Error("guide metadata does not match canonical guide document");
+  let { revision, ...withoutRevision } = document, expectedRevision = `sha256:${revisionHash(withoutRevision)}`;
+  if (revision !== expectedRevision) throw new Error("guide revision does not match canonical guide content");
+  let fingerprintKeys = Object.keys(document.provenance?.sourceFingerprints || {}).sort(), sourceRefKeys = [...document.sourceRefs].sort();
+  if (!sameCanonicalValue(fingerprintKeys, sourceRefKeys)) throw new Error("guide provenance sourceFingerprints keys do not match sourceRefs");
+  let expectedSourceMapRevision = revisionHash({ sourceRefs: document.sourceRefs, sourceFingerprints: document.provenance.sourceFingerprints });
+  if (document.provenance.sourceMapRevision !== expectedSourceMapRevision) throw new Error("guide provenance sourceMapRevision does not match its source fingerprint map");
+  let knownSourceIds = new Set(currentSources.map((source) => source.id));
+  for (let sourceId of document.sourceRefs)
+    if (!knownSourceIds.has(sourceId)) throw new Error(`guide sourceRef does not resolve: ${sourceId}`);
+  let actualContentHash = contentHash(guideContent);
+  if (metadata.revision !== document.revision || metadata.contentHash !== actualContentHash || !sameCanonicalValue(metadata.sourceRefs, document.sourceRefs) || !sameCanonicalValue(metadata.provenance, document.provenance))
+    throw new Error("guide metadata revision/content/provenance does not match canonical guide document");
+  if (metadata.status === "approved") {
+    if (!metadata.approval || metadata.approval.revision !== document.revision || metadata.approval.contentHash !== actualContentHash)
+      throw new Error("approved guide metadata is not bound to the canonical guide revision/content hash");
+  } else if (metadata.approval !== null)
+    throw new Error("non-approved guide metadata must not retain approval binding");
+}
+function readExistingGuide({ planningRoot, scopeId, guideKind, metadata, currentSources }) {
+  let relativePath = `scopes/${scopeId}/${guideFileName(guideKind)}`, absolutePath = path12.join(planningRoot, relativePath);
+  if (!fs12.existsSync(absolutePath)) throw new Error(`guide does not exist for ${guideKind}/${scopeId}`);
+  let guideContent = fs12.readFileSync(absolutePath, "utf8"), document = parseYaml(guideContent);
+  return assertGuideAggregateIntegrity({ document, metadata, scopeId, guideKind, guideContent, currentSources }), { document, guideContent };
+}
 function updateGuideGap(config, scopeId, guides) {
-  let bothApproved = ["task", "test"].every((kind) => guides[kind]?.status === "approved"), documentation = config.documentation || { source_refs: [], gaps: [] }, gaps = documentation.gaps || [];
+  let bothApproved = ["task", "test"].every((kind) => guides[kind]?.status === "approved"), documentation = config.documentation || { source_refs: [], gaps: [] }, gaps = documentation.gaps || [], isMissingGuideGap = (gap) => gap.concern === "guides" && gap.status === "missing" && gap.scope_ref === scopeId;
   return {
     ...config,
     documentation: {
       ...documentation,
-      gaps: bothApproved ? gaps.filter((gap) => !(gap.concern === "guides" && gap.scope_ref === scopeId)) : gaps.some((gap) => gap.concern === "guides" && gap.scope_ref === scopeId) ? gaps : [...gaps, { id: generateUuidV7(), concern: "guides", status: "missing", description: `scope ${scope.key} has no approved task and test guides`, scope_ref: scopeId }]
+      gaps: bothApproved ? gaps.filter((gap) => !isMissingGuideGap(gap)) : gaps.some(isMissingGuideGap) ? gaps : [...gaps, { id: generateUuidV7(), concern: "guides", status: "missing", description: `scope ${scopeId} has no approved task and test guides`, scope_ref: scopeId }]
     }
   };
 }
 function renderGuideUpdate(payload, currentConfig, planningRoot, { currentSources = [], proposedAt, approval = null } = {}) {
   if (!GUIDE_KINDS.has(payload.guideKind) || !GUIDE_ACTIONS.has(payload.action)) throw new Error("guide.update has an unsupported kind or action");
-  let scope2 = readScopeForGuide(planningRoot, payload.scopeId), currentMetadata = scope2.guides?.[payload.guideKind] || null, guideRelativePath = `scopes/${payload.scopeId}/${guideFileName(payload.guideKind)}`, guideAbsolutePath = path12.join(planningRoot, guideRelativePath), document = null, guideContent = null;
+  let scope = readScopeForGuide(planningRoot, payload.scopeId), currentMetadata = scope.guides?.[payload.guideKind] || null, guideRelativePath = `scopes/${payload.scopeId}/${guideFileName(payload.guideKind)}`, existingGuides = {};
+  for (let kind of ["task", "test"]) {
+    let metadata = scope.guides?.[kind];
+    metadata && (existingGuides[kind] = readExistingGuide({ planningRoot, scopeId: payload.scopeId, guideKind: kind, metadata, currentSources }));
+  }
+  let document = null, guideContent = null;
   if (["generate", "regenerate"].includes(payload.action)) {
     let guideId = payload.action === "regenerate" ? currentMetadata?.id : payload.guideId;
     if (!guideId) throw new Error("guide generation requires a server-owned guide id");
     document = buildGuideDocument({ payload, scopeId: payload.scopeId, guideKind: payload.guideKind, guideId, proposedAt, currentSources }), guideContent = stringifyYaml(document);
   } else {
-    if (!currentMetadata || !fs12.existsSync(guideAbsolutePath)) throw new Error(`guide does not exist for ${payload.guideKind}/${payload.scopeId}`);
-    guideContent = fs12.readFileSync(guideAbsolutePath, "utf8"), document = parseYaml(guideContent);
-    let result = validate("guide", document);
-    if (!result.valid) throw new Error(`existing guide is invalid: ${result.errors.map((error) => `${error.path} ${error.message}`).join("; ")}`);
-    if (document.id !== currentMetadata.id || document.scopeId !== payload.scopeId || document.kind !== payload.guideKind) throw new Error("guide metadata does not match canonical guide document");
+    if (!currentMetadata || !existingGuides[payload.guideKind]) throw new Error(`guide does not exist for ${payload.guideKind}/${payload.scopeId}`);
+    ({ document, guideContent } = existingGuides[payload.guideKind]);
   }
   let currentStatus = currentMetadata?.status || null;
   if (!{
@@ -15516,13 +15561,17 @@ function renderGuideUpdate(payload, currentConfig, planningRoot, { currentSource
     revision: document.revision,
     contentHash: contentHash(guideContent)
   } : null, nextScope = {
-    ...scope2,
+    ...scope,
     guides: {
-      ...scope2.guides || {},
+      ...scope.guides || {},
       [payload.guideKind]: guideMetadata(document, nextStatus, payload.scopeId, guideContent, nextApproval)
     }
-  }, nextConfig = updateGuideGap(currentConfig, payload.scopeId, nextScope.guides), rendered = /* @__PURE__ */ new Map([[`scopes/${payload.scopeId}/scope.yml`, stringifyYaml(nextScope)], ["config.yml", stringifyYaml(nextConfig)]]);
-  return ["generate", "regenerate"].includes(payload.action) && rendered.set(guideRelativePath, guideContent), rendered;
+  }, nextConfig = updateGuideGap(currentConfig, payload.scopeId, nextScope.guides);
+  return /* @__PURE__ */ new Map([
+    [`scopes/${payload.scopeId}/scope.yml`, stringifyYaml(nextScope)],
+    ["config.yml", stringifyYaml(nextConfig)],
+    [guideRelativePath, guideContent]
+  ]);
 }
 function sourceIdForAction(index, entry, assignments) {
   if (entry.action === "add") {
@@ -15565,7 +15614,7 @@ function renderSource(entry, existing, { id, operationId, confirmedBy, confirmed
   };
 }
 function renderDiscoveryPropose({ operationId, proposal, sourceIdAssignments, scopeIdAssignments, confirmedBy, confirmedAt }, currentConfig, workspaceRoot, { currentSources = [], currentScopes = [], approvalMode = "human" } = {}) {
-  let rendered = /* @__PURE__ */ new Map(), sourcesById = new Map(currentSources.map((source) => [source.id, source])), scopesById = new Map(currentScopes.map((scope2) => [scope2.id, scope2])), protectedDocumentationSourceIds = referencedDocumentationSourceIds(currentConfig);
+  let rendered = /* @__PURE__ */ new Map(), sourcesById = new Map(currentSources.map((source) => [source.id, source])), scopesById = new Map(currentScopes.map((scope) => [scope.id, scope])), protectedDocumentationSourceIds = referencedDocumentationSourceIds(currentConfig);
   for (let [index, entry] of (proposal.sources || []).entries()) {
     let sourceId = sourceIdForAction(index, entry, sourceIdAssignments);
     if (entry.action === "remove" && protectedDocumentationSourceIds.has(sourceId))
@@ -15576,7 +15625,7 @@ function renderDiscoveryPropose({ operationId, proposal, sourceIdAssignments, sc
   let nextConfig = currentConfig;
   for (let [index, entry] of (proposal.scopes || []).entries()) {
     confineScopePath(workspaceRoot, entry.path);
-    let scopeAssignment = scopeAssignmentForProposal(index, scopeIdAssignments), scopeId = scopeAssignment.scopeId, scope2 = {
+    let scopeAssignment = scopeAssignmentForProposal(index, scopeIdAssignments), scopeId = scopeAssignment.scopeId, scope = {
       schemaVersion: 1,
       id: scopeId,
       key: toKebabCase(entry.key),
@@ -15585,16 +15634,16 @@ function renderDiscoveryPropose({ operationId, proposal, sourceIdAssignments, sc
       path: entry.path,
       owner: entry.owner ?? null
     };
-    rendered.set(`scopes/${scopeId}/scope.yml`, stringifyYaml(scope2)), nextConfig = withEnabledScope({
+    rendered.set(`scopes/${scopeId}/scope.yml`, stringifyYaml(scope)), nextConfig = withEnabledScope({
       ...nextConfig,
-      scopeRefs: [...nextConfig.scopeRefs || [], { id: scopeId, key: scope2.key }],
+      scopeRefs: [...nextConfig.scopeRefs || [], { id: scopeId, key: scope.key }],
       documentation: {
         ...nextConfig.documentation || { source_refs: [], gaps: [] },
         gaps: [...nextConfig.documentation?.gaps || [], {
           id: scopeAssignment.guideGapId,
           concern: "guides",
           status: "missing",
-          description: `scope ${scope2.key} has no approved guide`,
+          description: `scope ${scope.key} has no approved guide`,
           scope_ref: scopeId
         }]
       }
@@ -15621,7 +15670,7 @@ function renderFor(kind, payload, currentConfig, workspaceRoot, planningRoot, { 
   if (kind === "config.autonomy.set") return renderConfigAutonomySet(payload, currentConfig);
   if (kind === "scope.add") return renderScopeAdd(payload, currentConfig, workspaceRoot);
   if (kind === "scope.command.set") {
-    let currentScope = currentScopes.find((scope2) => scope2.id === payload.scopeId);
+    let currentScope = currentScopes.find((scope) => scope.id === payload.scopeId);
     return renderScopeCommandSet(payload, currentScope);
   }
   if (kind === "discovery.propose") return renderDiscoveryPropose(payload, currentConfig, workspaceRoot, { currentSources, currentScopes, approvalMode });
@@ -15720,17 +15769,21 @@ function checkRequiredDirectory(planningRoot, relativePath, findings) {
   }
   stat.isDirectory() || findings.push(`${relativePath}: entry must be a directory`);
 }
-function checkGuideConsistency(planningRoot, scope2, scopeId, knownSourceIds, findings) {
+function checkGuideConsistency(planningRoot, scope, scopeId, knownSourceIds, findings) {
   for (let kind of ["task", "test"]) {
-    let metadata = scope2.guides?.[kind];
+    let metadata = scope.guides?.[kind];
     if (!metadata) continue;
     let relativePath = path14.join("scopes", scopeId, `${kind}-guide.yml`), guide = checkRequiredFile(planningRoot, relativePath, "guide", findings);
     if (!guide) continue;
     (guide.id !== metadata.id || guide.scopeId !== scopeId || guide.kind !== kind) && findings.push(`${relativePath}: guide metadata identity does not match scope.yml`);
     let { revision, ...withoutRevision } = guide;
     guide.revision !== `sha256:${revisionHash(withoutRevision)}` && findings.push(`${relativePath}: revision does not match canonical guide content`);
-    let bytes = fs14.readFileSync(path14.join(planningRoot, relativePath));
-    metadata.contentHash !== contentHash(bytes) && findings.push(`${relativePath}: contentHash does not match scope.yml`), (metadata.revision !== guide.revision || JSON.stringify(metadata.sourceRefs) !== JSON.stringify(guide.sourceRefs) || metadata.status === "approved" && !metadata.approval) && findings.push(`${relativePath}: guide revision/status metadata is inconsistent`);
+    let bytes = fs14.readFileSync(path14.join(planningRoot, relativePath)), actualContentHash = contentHash(bytes);
+    metadata.contentHash !== actualContentHash && findings.push(`${relativePath}: contentHash does not match scope.yml`), (metadata.revision !== guide.revision || revisionHash(metadata.sourceRefs) !== revisionHash(guide.sourceRefs) || revisionHash(metadata.provenance) !== revisionHash(guide.provenance)) && findings.push(`${relativePath}: guide revision/source/provenance metadata is inconsistent`);
+    let fingerprintKeys = Object.keys(guide.provenance?.sourceFingerprints || {}).sort(), sourceRefKeys = [...guide.sourceRefs || []].sort();
+    revisionHash(fingerprintKeys) !== revisionHash(sourceRefKeys) && findings.push(`${relativePath}: provenance sourceFingerprints keys do not match sourceRefs`);
+    let expectedSourceMapRevision = revisionHash({ sourceRefs: guide.sourceRefs, sourceFingerprints: guide.provenance?.sourceFingerprints || {} });
+    guide.provenance?.sourceMapRevision !== expectedSourceMapRevision && findings.push(`${relativePath}: provenance sourceMapRevision is inconsistent`), metadata.status === "approved" ? (!metadata.approval || metadata.approval.revision !== guide.revision || metadata.approval.contentHash !== actualContentHash) && findings.push(`${relativePath}: approved metadata is not bound to the canonical guide revision/content hash`) : metadata.approval !== null && findings.push(`${relativePath}: non-approved guide retains approval metadata`);
     for (let sourceId of guide.sourceRefs || [])
       knownSourceIds.includes(sourceId) || findings.push(`${relativePath}: sourceRef ${sourceId} does not resolve`);
   }
@@ -15766,9 +15819,9 @@ function checkSchema({ planningRoot }) {
       }
       let scopeBeforeCount = findings.length;
       if (checkRequiredFile(planningRoot, path14.join("scopes", scopeId, "scope.yml"), "scope", findings), findings.length === scopeBeforeCount) {
-        let scopeFile = confineWritePath(planningRoot, path14.join("scopes", scopeId, "scope.yml")), scope2 = parseYaml(fs14.readFileSync(scopeFile, "utf8"));
-        checkGuideConsistency(planningRoot, scope2, scopeId, knownSourceIds, findings);
-        for (let mismatch of findCommandFingerprintKeyMismatches(scope2))
+        let scopeFile = confineWritePath(planningRoot, path14.join("scopes", scopeId, "scope.yml")), scope = parseYaml(fs14.readFileSync(scopeFile, "utf8"));
+        checkGuideConsistency(planningRoot, scope, scopeId, knownSourceIds, findings);
+        for (let mismatch of findCommandFingerprintKeyMismatches(scope))
           findings.push(`scopes/${scopeId}/scope.yml: commands.${mismatch.label} sourceFingerprintAtSelection keys do not match sourceRefs (missing=${JSON.stringify(mismatch.missing)}, extra=${JSON.stringify(mismatch.extra)})`);
       }
     }
@@ -16006,9 +16059,9 @@ function allProposalSourceRefs(proposal) {
 }
 function confirmedSourceRefsExcludingTouchedCommands(planningRoot, touchedCommandKeys) {
   let refs = /* @__PURE__ */ new Set();
-  for (let scope2 of readConfirmedScopes(planningRoot))
-    for (let { role, entry } of allCommandEntries(scope2))
-      if (!touchedCommandKeys.has(`${scope2.id}:${role}`)) {
+  for (let scope of readConfirmedScopes(planningRoot))
+    for (let { role, entry } of allCommandEntries(scope))
+      if (!touchedCommandKeys.has(`${scope.id}:${role}`)) {
         for (let ref of entry.sourceRefs || []) refs.add(ref);
         for (let alternative of entry.alternatives || [])
           for (let ref of alternative.sourceRefs || []) refs.add(ref);
