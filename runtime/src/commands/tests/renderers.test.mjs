@@ -10,14 +10,48 @@ const init = renderWorkspaceInit({ name: "demo", baseBranch: "main", vcs: "git",
 assert.ok(init.has("config.yml"));
 assert.ok(init.has("plugin.lock.yml"));
 assert.ok(init.has(".gitignore"));
+for (const requiredDirectory of [
+  "scopes",
+  "sources",
+  "concerns",
+  "gates",
+  "gate-profiles",
+  "execution-contexts",
+  "environments",
+  "decisions",
+  "releases",
+  "vendor",
+  "vendor/template-packs"
+]) {
+  assert.ok(init.has(requiredDirectory), `workspace.init must render ${requiredDirectory} as a directory target`);
+  assert.equal(init.get(requiredDirectory).kind, "directory");
+}
 assert.equal(init.get(".gitignore"), ".runtime/\n");
 const parsedConfig = parseYaml(init.get("config.yml"));
 assert.equal(parsedConfig.name, "demo");
+assert.equal(parsedConfig.project.name, "demo");
+assert.equal(parsedConfig.project.type, "software");
+assert.equal(parsedConfig.plugin.schemaVersion, 1);
+assert.equal(parsedConfig.plugin.launcher, "shipping-mode");
+assert.deepEqual(parsedConfig.scopeCatalog, { directory: ".planning/scopes", enabled: [] });
+assert.equal(parsedConfig.policies.release.mode, "strict_sequence");
+assert.equal(parsedConfig.policies.workSources.defaultSyncMode, "import_only");
+assert.equal(parsedConfig.policies.paths.workspaceBoundary, "current_directory");
+assert.equal(parsedConfig.runtime.eventStore, ".planning/events");
+assert.equal(parsedConfig.runtime.templateVendor, ".planning/vendor/template-packs");
 assert.deepEqual(parsedConfig.scopeRefs, []);
+const parsedPluginLock = parseYaml(init.get("plugin.lock.yml"));
+assert.equal(parsedPluginLock.plugin.version, "1.0.0");
+assert.equal(parsedPluginLock.plugin.schemaVersion, 1);
+assert.equal(parsedPluginLock.plugin.templatePack.id, "default");
+assert.equal(parsedPluginLock.plugin.templatePack.version, "1.0.0");
+assert.equal(parsedPluginLock.plugin.templatePack.fingerprint, `sha256:${"a".repeat(64)}`);
+assert.equal(parsedPluginLock.plugin.templatePack.vendorSnapshot, `.planning/vendor/template-packs/sha256-${"a".repeat(64)}`);
 
 const updated = renderConfigUpdate({ name: "renamed" }, parsedConfig);
 const parsedUpdated = parseYaml(updated.get("config.yml"));
 assert.equal(parsedUpdated.name, "renamed");
+assert.equal(parsedUpdated.project.name, "renamed");
 assert.equal(parsedUpdated.vcs, "git", "fields not touched by config set must be preserved");
 
 const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "renderers-"));

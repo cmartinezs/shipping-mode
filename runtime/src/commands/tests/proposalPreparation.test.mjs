@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import { prepareProposal } from "../proposalPreparation.mjs";
 import { isUuidV7 } from "../../lib/ids.mjs";
 import { UsageError } from "../../lib/errors.mjs";
+import { BOOTSTRAP_CANONICAL_DIRECTORIES } from "../../lib/bootstrapTopology.mjs";
 
 const init = prepareProposal("workspace.init", { name: "demo", vcs: "git", pluginVersion: "1.0.0", templatePackFingerprint: `sha256:${"a".repeat(64)}` });
-assert.deepEqual(init.targetFiles, ["config.yml", "plugin.lock.yml", ".gitignore"]);
+assert.deepEqual(init.targetFiles, ["config.yml", "plugin.lock.yml", ".gitignore", ...BOOTSTRAP_CANONICAL_DIRECTORIES]);
 
 const configUpdate = prepareProposal("config.update", { name: "renamed" });
 assert.deepEqual(configUpdate.targetFiles, ["config.yml"]);

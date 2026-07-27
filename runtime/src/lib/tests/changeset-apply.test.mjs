@@ -7,6 +7,9 @@ import { renderWorkspaceInit } from "../../commands/renderers.mjs";
 import { readOperation, readResult } from "../operationStore.mjs";
 import { parseYaml } from "../yaml.mjs";
 import { StateError } from "../errors.mjs";
+import { BOOTSTRAP_CANONICAL_DIRECTORIES } from "../bootstrapTopology.mjs";
+
+const INIT_TARGET_FILES = ["config.yml", "plugin.lock.yml", ".gitignore", ...BOOTSTRAP_CANONICAL_DIRECTORIES];
 
 const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "apply-"));
 const operationsRoot = path.join(planningRoot, "operations");
@@ -14,14 +17,14 @@ const payload = { name: "demo", vcs: "git", pluginVersion: "1.0.0", templatePack
 
 const operationId = propose({
   operationsRoot, planningRoot, kind: "workspace.init", target: {},
-  payload, targetFiles: ["config.yml", "plugin.lock.yml", ".gitignore"], actor: "carlos"
+  payload, targetFiles: INIT_TARGET_FILES, actor: "carlos"
 });
 validateOperation({ operationsRoot, planningRoot, operationId, render: renderWorkspaceInit });
 approveOperation({ operationsRoot, planningRoot, operationId, actor: "carlos", allowSelfApproval: true });
 
 const outcome = applyOperation({ operationsRoot, planningRoot, operationId, render: renderWorkspaceInit, actor: "carlos" });
 assert.equal(outcome.status, "APPLIED");
-assert.equal(outcome.files.length, 3);
+assert.equal(outcome.files.length, INIT_TARGET_FILES.length);
 
 assert.equal(parseYaml(fs.readFileSync(path.join(planningRoot, "config.yml"), "utf8")).name, "demo");
 assert.equal(fs.readFileSync(path.join(planningRoot, ".gitignore"), "utf8"), ".runtime/\n");
@@ -31,7 +34,7 @@ assert.equal(operation.status, "APPLIED");
 assert.ok(operation.appliedAt);
 
 const result = readResult(operationsRoot, operationId);
-assert.equal(result.files.length, 3);
+assert.equal(result.files.length, INIT_TARGET_FILES.length);
 
 const eventFile = path.join(planningRoot, "events", operation.expectedEvents[0].relativePath);
 assert.ok(fs.existsSync(eventFile));

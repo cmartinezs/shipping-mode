@@ -1,5 +1,6 @@
 import { generateUuidV7 } from "../lib/ids.mjs";
 import { UsageError } from "../lib/errors.mjs";
+import { BOOTSTRAP_CANONICAL_DIRECTORIES } from "../lib/bootstrapTopology.mjs";
 
 const SUPPORTED_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set"]);
 
@@ -22,7 +23,7 @@ export function prepareProposal(kind, rawPayload, { operationId = null, actor = 
   requireObjectPayload(rawPayload);
 
   if (kind === "workspace.init") {
-    return { payload: rawPayload, targetFiles: ["config.yml", "plugin.lock.yml", ".gitignore"] };
+    return { payload: rawPayload, targetFiles: ["config.yml", "plugin.lock.yml", ".gitignore", ...BOOTSTRAP_CANONICAL_DIRECTORIES] };
   }
   if (kind === "config.update") {
     return { payload: rawPayload, targetFiles: ["config.yml"] };

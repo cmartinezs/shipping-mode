@@ -1,22 +1,68 @@
 import { stringifyYaml } from "../lib/yaml.mjs";
 import { confineScopePath } from "../lib/paths.mjs";
+import { BOOTSTRAP_CANONICAL_DIRECTORIES, DIRECTORY_RENDER_ENTRY } from "../lib/bootstrapTopology.mjs";
 
 function toKebabCase(value) {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-+|-+$)/g, "");
 }
 
 export function renderWorkspaceInit({ name, baseBranch = null, vcs, pluginVersion, templatePackFingerprint }) {
-  const config = { schemaVersion: 1, name, baseBranch, vcs, scopeRefs: [] };
-  const pluginLock = { schemaVersion: 1, pluginVersion, templatePackFingerprint };
+  const templatePackVendorSnapshot = `.planning/vendor/template-packs/${templatePackFingerprint.replace(":", "-")}`;
+  const config = {
+    schemaVersion: 1,
+    name,
+    baseBranch,
+    vcs,
+    project: { name, type: "software" },
+    plugin: { schemaVersion: 1, launcher: "shipping-mode" },
+    policies: {
+      release: { mode: "strict_sequence", defaultLane: "main" },
+      workSources: {
+        defaultSyncMode: "import_only",
+        defaultSourcePolicy: "import_snapshot",
+        externalWrites: "approval_required"
+      },
+      paths: { workspaceBoundary: "current_directory" }
+    },
+    scopeCatalog: { directory: ".planning/scopes", enabled: [] },
+    runtime: {
+      eventStore: ".planning/events",
+      operationStore: ".planning/operations",
+      runtimeStore: ".planning/.runtime",
+      templateVendor: ".planning/vendor/template-packs",
+      operationRetentionDays: 7,
+      retainFailedOperations: true,
+      retainBeforeSnapshots: false,
+      eventRetention: "permanent"
+    },
+    scopeRefs: []
+  };
+  const pluginLock = {
+    schemaVersion: 1,
+    pluginVersion,
+    templatePackFingerprint,
+    plugin: {
+      version: pluginVersion,
+      schemaVersion: 1,
+      templatePack: {
+        id: "default",
+        version: pluginVersion,
+        fingerprint: templatePackFingerprint,
+        vendorSnapshot: templatePackVendorSnapshot
+      }
+    }
+  };
   return new Map([
     ["config.yml", stringifyYaml(config)],
     ["plugin.lock.yml", stringifyYaml(pluginLock)],
-    [".gitignore", ".runtime/\n"]
+    [".gitignore", ".runtime/\n"],
+    ...BOOTSTRAP_CANONICAL_DIRECTORIES.map((relativeDirectory) => [relativeDirectory, DIRECTORY_RENDER_ENTRY])
   ]);
 }
 
 export function renderConfigUpdate({ name }, currentConfig) {
-  const nextConfig = { ...currentConfig, name };
+  const baseConfig = currentConfig || {};
+  const nextConfig = { ...baseConfig, name, project: { ...(baseConfig.project || {}), name } };
   return new Map([["config.yml", stringifyYaml(nextConfig)]]);
 }
 

@@ -13,7 +13,7 @@
         "required": ["target", "action", "contentHash"],
         "properties": {
           "target": { "type": "string" },
-          "action": { "enum": ["write", "delete"] },
+          "action": { "enum": ["write", "delete", "mkdir"] },
           "contentHash": { "type": "string", "pattern": "^([0-9a-f]{64}|ABSENT)$" }
         }
       }

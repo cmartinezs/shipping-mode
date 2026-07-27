@@ -6,6 +6,7 @@ import { readOperation } from "../lib/operationStore.mjs";
 import { isUuidV7 } from "../lib/ids.mjs";
 import { assertTrustedRoots, confineWritePath } from "../lib/paths.mjs";
 import { findCommandFingerprintKeyMismatches } from "../lib/discoverScan.mjs";
+import { REQUIRED_BOOTSTRAP_DIRECTORIES } from "../lib/bootstrapTopology.mjs";
 
 function checkRequiredFile(planningRoot, relativePath, schemaName, findings) {
   let filePath;
@@ -32,6 +33,28 @@ function checkRequiredFile(planningRoot, relativePath, schemaName, findings) {
   }
 }
 
+function checkRequiredDirectory(planningRoot, relativePath, findings) {
+  let directoryPath;
+  try {
+    directoryPath = confineWritePath(planningRoot, relativePath);
+  } catch (error) {
+    findings.push(`${relativePath}: untrusted path (${error.message})`);
+    return;
+  }
+  if (!fs.existsSync(directoryPath)) {
+    findings.push(`${relativePath}: required directory is missing`);
+    return;
+  }
+  const stat = fs.lstatSync(directoryPath);
+  if (stat.isSymbolicLink()) {
+    findings.push(`${relativePath}: symlink entries are not permitted`);
+    return;
+  }
+  if (!stat.isDirectory()) {
+    findings.push(`${relativePath}: entry must be a directory`);
+  }
+}
+
 export function checkSchema({ planningRoot }) {
   if (!fs.existsSync(planningRoot)) {
     return { status: "NOT_INITIALIZED", findings: ["workspace is not initialized: .planning/ does not exist"], pendingOperations: [] };
@@ -46,6 +69,9 @@ export function checkSchema({ planningRoot }) {
 
   checkRequiredFile(planningRoot, "config.yml", "config", findings);
   checkRequiredFile(planningRoot, "plugin.lock.yml", "plugin-lock", findings);
+  for (const relativeDirectory of REQUIRED_BOOTSTRAP_DIRECTORIES) {
+    checkRequiredDirectory(planningRoot, relativeDirectory, findings);
+  }
 
   const scopesRoot = path.join(planningRoot, "scopes");
   if (fs.existsSync(scopesRoot)) {

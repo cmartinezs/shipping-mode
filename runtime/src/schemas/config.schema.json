@@ -2,12 +2,101 @@
   "$id": "https://shipping-mode.dev/schemas/config.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "name", "vcs", "scopeRefs"],
+  "required": ["schemaVersion", "name", "vcs", "project", "plugin", "policies", "scopeCatalog", "runtime", "scopeRefs"],
   "properties": {
     "schemaVersion": { "const": 1 },
     "name": { "type": "string", "minLength": 1 },
     "baseBranch": { "type": ["string", "null"] },
     "vcs": { "enum": ["git", "none"] },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "type": { "enum": ["software", "non_software", "mixed", "unknown"] }
+      }
+    },
+    "plugin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaVersion", "launcher"],
+      "properties": {
+        "schemaVersion": { "const": 1 },
+        "launcher": { "const": "shipping-mode" }
+      }
+    },
+    "policies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["release", "workSources", "paths"],
+      "properties": {
+        "release": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "defaultLane"],
+          "properties": {
+            "mode": { "enum": ["strict_sequence"] },
+            "defaultLane": { "type": "string", "minLength": 1 }
+          }
+        },
+        "workSources": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["defaultSyncMode", "defaultSourcePolicy", "externalWrites"],
+          "properties": {
+            "defaultSyncMode": { "enum": ["import_only"] },
+            "defaultSourcePolicy": { "enum": ["import_snapshot"] },
+            "externalWrites": { "enum": ["approval_required"] }
+          }
+        },
+        "paths": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["workspaceBoundary"],
+          "properties": {
+            "workspaceBoundary": { "enum": ["current_directory"] }
+          }
+        }
+      }
+    },
+    "scopeCatalog": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["directory", "enabled"],
+      "properties": {
+        "directory": { "const": ".planning/scopes" },
+        "enabled": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "eventStore",
+        "operationStore",
+        "runtimeStore",
+        "templateVendor",
+        "operationRetentionDays",
+        "retainFailedOperations",
+        "retainBeforeSnapshots",
+        "eventRetention"
+      ],
+      "properties": {
+        "eventStore": { "const": ".planning/events" },
+        "operationStore": { "const": ".planning/operations" },
+        "runtimeStore": { "const": ".planning/.runtime" },
+        "templateVendor": { "const": ".planning/vendor/template-packs" },
+        "operationRetentionDays": { "type": "integer", "minimum": 1 },
+        "retainFailedOperations": { "type": "boolean" },
+        "retainBeforeSnapshots": { "type": "boolean" },
+        "eventRetention": { "const": "permanent" }
+      }
+    },
     "scopeRefs": {
       "type": "array",
       "items": {

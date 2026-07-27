@@ -7,6 +7,9 @@ import { readOperation, writeOperation } from "../operationStore.mjs";
 import { StateError, StaleError } from "../errors.mjs";
 import { RecoveryRequiredError } from "../journal.mjs";
 import { renderWorkspaceInit, renderConfigUpdate, renderScopeAdd } from "../../commands/renderers.mjs";
+import { BOOTSTRAP_CANONICAL_DIRECTORIES } from "../bootstrapTopology.mjs";
+
+const INIT_TARGET_FILES = ["config.yml", "plugin.lock.yml", ".gitignore", ...BOOTSTRAP_CANONICAL_DIRECTORIES];
 
 function freshPlanningRoot() {
   const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "validate-"));
@@ -17,7 +20,7 @@ function proposeWorkspaceInit(planningRoot, operationsRoot) {
   return propose({
     operationsRoot, planningRoot, kind: "workspace.init", target: {},
     payload: { name: "demo", vcs: "git", pluginVersion: "1.0.0", templatePackFingerprint: `sha256:${"a".repeat(64)}` },
-    targetFiles: ["config.yml", "plugin.lock.yml", ".gitignore"], actor: "carlos"
+    targetFiles: INIT_TARGET_FILES, actor: "carlos"
   });
 }
 
@@ -35,7 +38,7 @@ function proposeWorkspaceInit(planningRoot, operationsRoot) {
   const operationId = propose({
     operationsRoot, planningRoot, kind: "workspace.init", target: {},
     payload: { name: "demo", vcs: "git" }, // missing pluginVersion, templatePackFingerprint
-    targetFiles: ["config.yml", "plugin.lock.yml", ".gitignore"], actor: "carlos"
+    targetFiles: INIT_TARGET_FILES, actor: "carlos"
   });
   validateOperation({ operationsRoot, planningRoot, operationId, render: renderWorkspaceInit });
   const op = readOperation(operationsRoot, operationId);

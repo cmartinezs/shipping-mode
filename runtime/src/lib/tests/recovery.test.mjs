@@ -8,6 +8,9 @@ import { runRecovery } from "../recovery.mjs";
 import { renderWorkspaceInit } from "../../commands/renderers.mjs";
 import { readOperation, writeOperation } from "../operationStore.mjs";
 import { RecoveryRequiredError } from "../journal.mjs";
+import { BOOTSTRAP_CANONICAL_DIRECTORIES } from "../bootstrapTopology.mjs";
+
+const INIT_TARGET_FILES = ["config.yml", "plugin.lock.yml", ".gitignore", ...BOOTSTRAP_CANONICAL_DIRECTORIES];
 
 function stuckApplyingOperation() {
   const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "recovery-"));
@@ -15,7 +18,7 @@ function stuckApplyingOperation() {
   const payload = { name: "demo", vcs: "git", pluginVersion: "1.0.0", templatePackFingerprint: `sha256:${"a".repeat(64)}` };
   const operationId = propose({
     operationsRoot, planningRoot, kind: "workspace.init", target: {},
-    payload, targetFiles: ["config.yml", "plugin.lock.yml", ".gitignore"], actor: "carlos"
+    payload, targetFiles: INIT_TARGET_FILES, actor: "carlos"
   });
   validateOperation({ operationsRoot, planningRoot, operationId, render: renderWorkspaceInit });
   approveOperation({ operationsRoot, planningRoot, operationId, actor: "carlos", allowSelfApproval: true });

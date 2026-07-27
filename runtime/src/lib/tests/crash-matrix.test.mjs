@@ -8,6 +8,9 @@ import { setFaultCheckpoint, clearFaultCheckpoint, SimulatedCrashError } from ".
 import { renderWorkspaceInit } from "../../commands/renderers.mjs";
 import { readOperation, readResult } from "../operationStore.mjs";
 import { RecoveryRequiredError } from "../journal.mjs";
+import { BOOTSTRAP_CANONICAL_DIRECTORIES } from "../bootstrapTopology.mjs";
+
+const INIT_TARGET_FILES = ["config.yml", "plugin.lock.yml", ".gitignore", ...BOOTSTRAP_CANONICAL_DIRECTORIES];
 
 function freshApprovedOperation() {
   const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "crash-"));
@@ -15,7 +18,7 @@ function freshApprovedOperation() {
   const payload = { name: "demo", vcs: "git", pluginVersion: "1.0.0", templatePackFingerprint: `sha256:${"a".repeat(64)}` };
   const operationId = propose({
     operationsRoot, planningRoot, kind: "workspace.init", target: {},
-    payload, targetFiles: ["config.yml", "plugin.lock.yml", ".gitignore"], actor: "carlos"
+    payload, targetFiles: INIT_TARGET_FILES, actor: "carlos"
   });
   validateOperation({ operationsRoot, planningRoot, operationId, render: renderWorkspaceInit });
   approveOperation({ operationsRoot, planningRoot, operationId, actor: "carlos", allowSelfApproval: true });
@@ -76,7 +79,7 @@ for (const boundary of postApplyingBoundaries) {
   assert.equal(readOperation(operationsRoot, operationId).status, "APPLIED", `${boundary}: final status must be APPLIED`);
 
   const result = readResult(operationsRoot, operationId);
-  assert.equal(result.files.length, 3, `${boundary}: result.json must list all 3 files, never duplicated`);
+  assert.equal(result.files.length, INIT_TARGET_FILES.length, `${boundary}: result.json must list all filePlan entries, never duplicated`);
 
   const operation = readOperation(operationsRoot, operationId);
   assert.equal(operation.expectedEvents.length, 1, `${boundary}: exactly one expected event, never duplicated`);

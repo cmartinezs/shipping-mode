@@ -86,7 +86,7 @@
           "required": ["target", "action", "expectedBefore", "beforeContentHash", "beforeRevisionHash", "stagedContentHash", "stagedRevisionHash"],
           "properties": {
             "target": { "type": "string" },
-          "action": { "enum": ["write", "delete"] },
+          "action": { "enum": ["write", "delete", "mkdir"] },
           "stagedRelativePath": { "type": "string" },
           "expectedBefore": { "enum": ["ABSENT", "PRESENT"] },
           "beforeContentHash": { "type": "string", "pattern": "^([0-9a-f]{64}|ABSENT)$" },
@@ -109,6 +109,12 @@
                 "stagedContentHash": { "const": "ABSENT" },
                 "stagedRevisionHash": { "const": "ABSENT" }
               }
+            }
+          },
+          {
+            "if": { "properties": { "action": { "const": "mkdir" } } },
+            "then": {
+              "not": { "required": ["stagedRelativePath"] }
             }
           }
         ]
