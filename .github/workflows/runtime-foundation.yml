@@ -38,25 +38,38 @@ jobs:
           npm run build:runtime
           npm run build:test-bundle
           npm run verify:artifacts
-      - name: Attempt product-only commit and capture publication result
+      - name: Capture git publication diagnostics
         run: |
           git config user.name "shipping-mode-review-bot"
           git config user.email "shipping-mode-review-bot@users.noreply.github.com"
           git add bin runtime docs/superpowers/plans/2026-07-27-corte-0-completion-plan-1-project-context-bootstrap.md spikes/host-integration/tests/host-integration.test.mjs
-          git diff --cached --check
-          git commit -m "fix(corte-0): address Plan 1 review findings"
           set +e
-          git push origin HEAD:agent/corte-0-plan-1-project-context-bootstrap > /tmp/pr15-publish.log 2>&1
-          status=$?
+          git diff --cached --check > /tmp/check.log 2>&1
+          check_status=$?
+          echo "check_exit=$check_status" >> /tmp/check.log
+          git status --short > /tmp/status.log 2>&1
+          git diff --cached --name-only > /tmp/staged.log 2>&1
+          git commit -m "fix(corte-0): address Plan 1 review findings" > /tmp/commit.log 2>&1
+          commit_status=$?
+          echo "commit_exit=$commit_status" >> /tmp/commit.log
+          if [ "$commit_status" -eq 0 ]; then
+            git push origin HEAD:agent/corte-0-plan-1-project-context-bootstrap > /tmp/push.log 2>&1
+            push_status=$?
+          else
+            echo "push skipped because commit failed" > /tmp/push.log
+            push_status=99
+          fi
+          echo "push_exit=$push_status" >> /tmp/push.log
           set -e
-          echo "push_exit=$status" | tee -a /tmp/pr15-publish.log
-          cat /tmp/pr15-publish.log
-          printf '%s\n' "$status" > /tmp/pr15-push-exit.txt
+          cat /tmp/check.log /tmp/status.log /tmp/staged.log /tmp/commit.log /tmp/push.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: pr15-publish-diagnostic
+          name: pr15-git-diagnostic
           path: |
-            /tmp/pr15-publish.log
-            /tmp/pr15-push-exit.txt
-          if-no-files-found: warn
+            /tmp/check.log
+            /tmp/status.log
+            /tmp/staged.log
+            /tmp/commit.log
+            /tmp/push.log
+          if-no-files-found: error
