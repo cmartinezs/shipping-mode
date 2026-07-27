@@ -5,6 +5,9 @@ import path from "node:path";
 import { propose, computePersistedChangeSetHash } from "../changeset.mjs";
 import { readOperation, readChangeSet } from "../operationStore.mjs";
 import { isUuidV7 } from "../ids.mjs";
+import { BOOTSTRAP_CANONICAL_DIRECTORIES } from "../bootstrapTopology.mjs";
+
+const INIT_TARGET_FILES = ["config.yml", "plugin.lock.yml", ".gitignore", ...BOOTSTRAP_CANONICAL_DIRECTORIES];
 
 const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "propose-"));
 const operationsRoot = path.join(planningRoot, "operations");
@@ -15,7 +18,7 @@ const operationId = propose({
   kind: "workspace.init",
   target: {},
   payload: { name: "demo", vcs: "git", pluginVersion: "1.0.0", templatePackFingerprint: `sha256:${"a".repeat(64)}` },
-  targetFiles: ["config.yml", "plugin.lock.yml", ".gitignore"],
+  targetFiles: INIT_TARGET_FILES,
   actor: "carlos"
 });
 

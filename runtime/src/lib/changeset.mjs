@@ -13,11 +13,16 @@ import { buildExpectedEvent, writeEventIdempotent } from "./journal.mjs";
 import { checkpoint } from "./faultInjection.mjs";
 import { runDiscoverScan } from "./discoverScan.mjs";
 import { bindAutonomyEvaluation, evaluateChangeSetAutonomy, currentPolicyFingerprint, hasAutonomousApprovalCapability, REASON_CODES } from "./autonomy.mjs";
+import { DIRECTORY_CONTENT_HASH, isDirectoryRenderEntry } from "./bootstrapTopology.mjs";
 
 export function readFileState(planningRoot, relativePath) {
   const absolutePath = confineRuntimeWritePath(planningRoot, relativePath);
   if (!fs.existsSync(absolutePath)) {
     return { revisionHash: ABSENT, contentHash: ABSENT };
+  }
+  const stat = fs.lstatSync(absolutePath);
+  if (stat.isDirectory()) {
+    return { revisionHash: DIRECTORY_CONTENT_HASH, contentHash: DIRECTORY_CONTENT_HASH };
   }
   const bytes = fs.readFileSync(absolutePath);
   const isStructured = relativePath.endsWith(".yml") || relativePath.endsWith(".yaml") || relativePath.endsWith(".json");
@@ -91,7 +96,7 @@ function schemaNameForRenderedPath(relativePath) {
 function checkKindInvariants(changeSet) {
   const errors = [];
   if (changeSet.kind === "workspace.init") {
-    for (const relativePath of ["config.yml", "plugin.lock.yml", ".gitignore"]) {
+    for (const relativePath of Object.keys(changeSet.baseRevisions)) {
       const entry = changeSet.baseRevisions[relativePath];
       if (!entry || entry.revisionHash !== ABSENT || entry.contentHash !== ABSENT) {
         errors.push(`${relativePath} must be ABSENT for workspace.init; the workspace already appears initialized -- use config set to update it instead`);
@@ -160,7 +165,7 @@ function revalidateChangeSet({ operationsRoot, planningRoot, operationId, render
 
   const renderErrors = [];
   for (const [relativePath, content] of rendered) {
-    if (content === null) continue;
+    if (content === null || isDirectoryRenderEntry(content)) continue;
     const schemaName = schemaNameForRenderedPath(relativePath);
     if (!schemaName) continue;
     const value = parseYaml(content);
@@ -321,10 +326,20 @@ function prepareApply({ operationsRoot, planningRoot, operationId, render, actor
   for (const [relativePath, newContent] of rendered) {
     const before = changeSet.baseRevisions[relativePath];
     confineRuntimeWritePath(planningRoot, relativePath);
-    if (before.contentHash !== ABSENT) {
+    if (before.contentHash !== ABSENT && !isDirectoryRenderEntry(newContent)) {
       copyFileAtomic(planningRoot, relativePath, path.join(beforeRelative, relativePath));
     }
-    if (newContent === null) {
+    if (isDirectoryRenderEntry(newContent)) {
+      filePlan.push({
+        target: relativePath,
+        action: "mkdir",
+        expectedBefore: before.contentHash === ABSENT ? "ABSENT" : "PRESENT",
+        beforeContentHash: before.contentHash,
+        beforeRevisionHash: before.revisionHash,
+        stagedContentHash: DIRECTORY_CONTENT_HASH,
+        stagedRevisionHash: DIRECTORY_CONTENT_HASH
+      });
+    } else if (newContent === null) {
       filePlan.push({
         target: relativePath,
         action: "delete",
@@ -350,7 +365,7 @@ function prepareApply({ operationsRoot, planningRoot, operationId, render, actor
   checkpoint("AFTER_BEFORE");
 
   for (const [relativePath, newContent] of rendered) {
-    if (newContent === null) continue;
+    if (newContent === null || isDirectoryRenderEntry(newContent)) continue;
     writeFileAtomic(planningRoot, path.join(stagingRelative, relativePath), newContent);
   }
   checkpoint("AFTER_STAGED");
@@ -412,6 +427,8 @@ export function applyOperation({ operationsRoot, planningRoot, operationId, rend
         if (operation.kind === "discovery.propose") {
           removeEmptyParentDirectoryWithinRoot(planningRoot, entry.target);
         }
+      } else if (entry.action === "mkdir") {
+        ensureDirectoryTree(planningRoot, entry.target);
       } else {
         renameWithinRoot(planningRoot, path.join(stagingRelative, entry.stagedRelativePath), entry.target);
       }

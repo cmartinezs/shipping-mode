@@ -2,8 +2,10 @@
 
 Tracks execution of the full design in
 `docs/superpowers/specs/2026-07-25-discovery-iteration-design.md` (Sections A–H).
-**The Discovery Iteration is not complete until every plan below is merged.**
-Completing Plan 1 alone must never be read as "discovery iteration done."
+**Discovery Iteration: COMPLETE.**
+
+All plans below are merged to `develop`. Completing Plan 1 alone was never enough
+to read the iteration as done; completion is declared only after Plan 5 merged.
 
 | # | Plan | Design sections covered | Status | Doc |
 |---|------|--------------------------|--------|-----|
@@ -11,7 +13,7 @@ Completing Plan 1 alone must never be read as "discovery iteration done."
 | 2 | `DiscoveryProposal` and validation | D.2 (proposal contract), D.3 steps 1–4 (structural/semantic validation, live re-verification, reference resolution, drift reconciliation) | **Merged** (PR #10 to `develop`) | `2026-07-25-discovery-proposal-validation.md` |
 | 3 | ChangeSet integration and apply precondition | D.3 step 5 handoff into a real ChangeSet, D.4 (`preconditions.discoveryWorkspace`, `StaleError` re-check at apply) — new `discovery.propose` (and `scope.command.set`) kinds wired into `changeset.mjs`/`changesetCommand.mjs` | **Merged** (PR #12 to `develop`) | `2026-07-26-discovery-changeset-integration.md` |
 | 4 | Autonomy and server-side `approve` | E (autonomy config, `effectiveMode`, gates, `autonomyEvaluation`, `policyFingerprint`, `changeset approve --mode autonomous\|human`, self-approval prevention) | **Merged** (PR #13 to `develop`) | `2026-07-26-discovery-autonomy-server-approve.md` |
-| 5 | E2E, real crash recovery, DoD closure | H.1–H.6 traceability, end-to-end Discovery semantics, real process-kill Discovery apply, recovery/idempotency, final Definition of Done sign-off | Implementation complete locally; pending PR review/merge | `2026-07-26-discovery-e2e-dod-closure.md` |
+| 5 | E2E, real crash recovery, DoD closure | H.1–H.6 traceability, end-to-end Discovery semantics, real process-kill Discovery apply, recovery/idempotency, final Definition of Done sign-off | **Merged** (PR #14 to `develop`) | `2026-07-26-discovery-e2e-dod-closure.md` |
 
 ## Sequencing
 

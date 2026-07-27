@@ -5,8 +5,10 @@ import path from "node:path";
 import { propose, validateOperation, approveOperation, applyOperation } from "../changeset.mjs";
 import { renderWorkspaceInit } from "../../commands/renderers.mjs";
 import { PathConfinementError } from "../paths.mjs";
+import { BOOTSTRAP_CANONICAL_DIRECTORIES } from "../bootstrapTopology.mjs";
 
 const payload = { name: "demo", vcs: "git", pluginVersion: "1.0.0", templatePackFingerprint: `sha256:${"a".repeat(64)}` };
+const INIT_TARGET_FILES = ["config.yml", "plugin.lock.yml", ".gitignore", ...BOOTSTRAP_CANONICAL_DIRECTORIES];
 
 function approvedOperation() {
   const planningRoot = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "staging-confine-")), ".planning");
@@ -17,7 +19,7 @@ function approvedOperation() {
     kind: "workspace.init",
     target: {},
     payload,
-    targetFiles: ["config.yml", "plugin.lock.yml", ".gitignore"],
+    targetFiles: INIT_TARGET_FILES,
     actor: "carlos"
   });
   validateOperation({ operationsRoot, planningRoot, operationId, render: renderWorkspaceInit });

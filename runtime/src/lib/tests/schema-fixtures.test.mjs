@@ -1,13 +1,52 @@
 import assert from "node:assert/strict";
 import { validate } from "../schema.mjs";
+import { DIRECTORY_CONTENT_HASH } from "../bootstrapTopology.mjs";
 
 const cases = {
   config: {
-    valid: { schemaVersion: 1, name: "demo", baseBranch: null, vcs: "none", scopeRefs: [] },
+    valid: {
+      schemaVersion: 1,
+      name: "demo",
+      baseBranch: null,
+      vcs: "none",
+      project: { name: "demo", type: "software" },
+      plugin: { schemaVersion: 1, launcher: "shipping-mode" },
+      policies: {
+        release: { mode: "strict_sequence", defaultLane: "main" },
+        workSources: { defaultSyncMode: "import_only", defaultSourcePolicy: "import_snapshot", externalWrites: "approval_required" },
+        paths: { workspaceBoundary: "current_directory" }
+      },
+      scopeCatalog: { directory: ".planning/scopes", enabled: [] },
+      runtime: {
+        eventStore: ".planning/events",
+        operationStore: ".planning/operations",
+        runtimeStore: ".planning/.runtime",
+        templateVendor: ".planning/vendor/template-packs",
+        operationRetentionDays: 7,
+        retainFailedOperations: true,
+        retainBeforeSnapshots: false,
+        eventRetention: "permanent"
+      },
+      scopeRefs: []
+    },
     invalid: { schemaVersion: 1, name: "", vcs: "none", scopeRefs: [] }
   },
   "plugin-lock": {
-    valid: { schemaVersion: 1, pluginVersion: "1.0.0", templatePackFingerprint: `sha256:${"a".repeat(64)}` },
+    valid: {
+      schemaVersion: 1,
+      pluginVersion: "1.0.0",
+      templatePackFingerprint: `sha256:${"a".repeat(64)}`,
+      plugin: {
+        version: "1.0.0",
+        schemaVersion: 1,
+        templatePack: {
+          id: "default",
+          version: "1.0.0",
+          fingerprint: `sha256:${"a".repeat(64)}`,
+          vendorSnapshot: `.planning/vendor/template-packs/sha256-${"a".repeat(64)}`
+        }
+      }
+    },
     invalid: { schemaVersion: 1, pluginVersion: "1.0.0" }
   },
   scope: {
@@ -149,4 +188,19 @@ const deleteFilePlanOperation = {
 assert.equal(validate("operation", deleteFilePlanOperation).valid, true, "delete filePlan entries must be schema-valid");
 assert.equal(validate("result", { operationId: opBase.id, files: [{ target: "sources/018f0000-0000-7000-8000-000000000002/source.yml", action: "delete", contentHash: "ABSENT" }] }).valid, true, "delete result entries must be schema-valid");
 
-console.log("schema fixtures: valid/invalid cases behave correctly for all 7 schemas, including kind-conditional payloads and operation state invariants");
+const mkdirFilePlanOperation = {
+  ...opBase,
+  status: "APPLYING",
+  validation,
+  approval,
+  filePlan: [{ target: "vendor/template-packs", action: "mkdir", expectedBefore: "ABSENT", beforeContentHash: "ABSENT", beforeRevisionHash: "ABSENT", stagedContentHash: DIRECTORY_CONTENT_HASH, stagedRevisionHash: DIRECTORY_CONTENT_HASH }],
+  expectedEvents
+};
+assert.equal(validate("operation", mkdirFilePlanOperation).valid, true, "mkdir filePlan entries must be schema-valid");
+const forgedMkdirOperation = structuredClone(mkdirFilePlanOperation);
+forgedMkdirOperation.filePlan[0].stagedContentHash = "d".repeat(64);
+assert.equal(validate("operation", forgedMkdirOperation).valid, false, "mkdir stagedContentHash is server-owned and must not be forgeable");
+assert.equal(validate("result", { operationId: opBase.id, files: [{ target: "vendor/template-packs", action: "mkdir", contentHash: DIRECTORY_CONTENT_HASH }] }).valid, true, "mkdir result entries must carry the canonical directory marker");
+assert.equal(validate("result", { operationId: opBase.id, files: [{ target: "vendor/template-packs", action: "mkdir", contentHash: "d".repeat(64) }] }).valid, false, "mkdir result entries must reject arbitrary content hashes");
+
+console.log(`schema fixtures: valid/invalid cases behave correctly for all ${Object.keys(cases).length} schemas, including kind-conditional payloads and operation state invariants`);

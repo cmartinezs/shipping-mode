@@ -3,18 +3,26 @@ import path from "node:path";
 import { readOperation, writeOperation, writeResult, readResult } from "./operationStore.mjs";
 import { writeEventIdempotent, RecoveryRequiredError } from "./journal.mjs";
 import { contentHash, ABSENT } from "./canonical.mjs";
-import { confineRuntimeWritePath, confineWritePath } from "./paths.mjs";
+import { confineRuntimeWritePath, confineWritePath, ensureDirectoryTree } from "./paths.mjs";
 import { deleteWithinRoot, removeEmptyParentDirectoryWithinRoot, renameWithinRoot } from "./safeFs.mjs";
 import { isUuidV7 } from "./ids.mjs";
 import { validate as validateSchema } from "./schema.mjs";
+import { DIRECTORY_CONTENT_HASH } from "./bootstrapTopology.mjs";
 
 function currentContentHash(planningRoot, relativePath) {
   const absolutePath = confineRuntimeWritePath(planningRoot, relativePath);
   if (!fs.existsSync(absolutePath)) return ABSENT;
+  const stat = fs.lstatSync(absolutePath);
+  if (stat.isDirectory()) return DIRECTORY_CONTENT_HASH;
   return contentHash(fs.readFileSync(absolutePath));
 }
 
 function classify(entry, actualHash) {
+  if (entry.action === "mkdir") {
+    if (actualHash === DIRECTORY_CONTENT_HASH) return "APPLIED";
+    if (actualHash === entry.beforeContentHash) return "PENDING";
+    return "DIVERGENT";
+  }
   if (entry.action === "delete") {
     if (actualHash === ABSENT) return "APPLIED";
     if (actualHash === entry.beforeContentHash) return "PENDING";
@@ -105,6 +113,10 @@ export function runRecovery({ operationsRoot, planningRoot, lock }) {
       }
 
       if (classification === "PENDING") {
+        if (entry.action === "mkdir") {
+          ensureDirectoryTree(planningRoot, entry.target);
+          continue;
+        }
         if (entry.action === "delete") {
           deleteWithinRoot(planningRoot, entry.target);
           if (operation.kind === "discovery.propose") {

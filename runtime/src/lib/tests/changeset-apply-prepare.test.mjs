@@ -7,6 +7,9 @@ import { acquireWorkspaceLock } from "../lock.mjs";
 import { renderWorkspaceInit } from "../../commands/renderers.mjs";
 import { readOperation } from "../operationStore.mjs";
 import { StaleError } from "../errors.mjs";
+import { BOOTSTRAP_CANONICAL_DIRECTORIES } from "../bootstrapTopology.mjs";
+
+const INIT_TARGET_FILES = ["config.yml", "plugin.lock.yml", ".gitignore", ...BOOTSTRAP_CANONICAL_DIRECTORIES];
 
 const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "apply-prepare-"));
 const operationsRoot = path.join(planningRoot, "operations");
@@ -14,7 +17,7 @@ const payload = { name: "demo", vcs: "git", pluginVersion: "1.0.0", templatePack
 
 const operationId = propose({
   operationsRoot, planningRoot, kind: "workspace.init", target: {},
-  payload, targetFiles: ["config.yml", "plugin.lock.yml", ".gitignore"], actor: "carlos"
+  payload, targetFiles: INIT_TARGET_FILES, actor: "carlos"
 });
 validateOperation({ operationsRoot, planningRoot, operationId, render: renderWorkspaceInit });
 approveOperation({ operationsRoot, planningRoot, operationId, actor: "carlos", allowSelfApproval: true });
@@ -22,11 +25,13 @@ approveOperation({ operationsRoot, planningRoot, operationId, actor: "carlos", a
 const lock = acquireWorkspaceLock(planningRoot, operationId);
 const { filePlan, expectedEvents } = __prepareApplyForTests({ operationsRoot, planningRoot, operationId, render: renderWorkspaceInit, actor: "carlos" });
 
-assert.equal(filePlan.length, 3);
+assert.equal(filePlan.length, INIT_TARGET_FILES.length);
 for (const entry of filePlan) {
   assert.equal(entry.expectedBefore, "ABSENT");
   assert.ok(entry.stagedContentHash);
-  assert.ok(fs.existsSync(path.join(planningRoot, ".runtime", "operations", operationId, "staged", entry.stagedRelativePath)));
+  if (entry.action === "write") {
+    assert.ok(fs.existsSync(path.join(planningRoot, ".runtime", "operations", operationId, "staged", entry.stagedRelativePath)));
+  }
 }
 assert.equal(expectedEvents.length, 1);
 assert.equal(readOperation(operationsRoot, operationId).status, "APPLYING");
@@ -41,7 +46,7 @@ lock.release();
   const operationsRoot2 = path.join(planningRoot2, "operations");
   const operationId2 = propose({
     operationsRoot: operationsRoot2, planningRoot: planningRoot2, kind: "workspace.init", target: {},
-    payload, targetFiles: ["config.yml", "plugin.lock.yml", ".gitignore"], actor: "carlos"
+    payload, targetFiles: INIT_TARGET_FILES, actor: "carlos"
   });
   validateOperation({ operationsRoot: operationsRoot2, planningRoot: planningRoot2, operationId: operationId2, render: renderWorkspaceInit });
   approveOperation({ operationsRoot: operationsRoot2, planningRoot: planningRoot2, operationId: operationId2, actor: "carlos", allowSelfApproval: true });

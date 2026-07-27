@@ -7,6 +7,7 @@ export function runInit({ planningRoot, args }) {
   const operationsRoot = path.join(planningRoot, "operations");
   const { payload, targetFiles } = prepareProposal("workspace.init", {
     name: args.name,
+    projectType: args.projectType || "unknown",
     baseBranch: args.baseBranch || null,
     vcs: args.vcs || "none",
     pluginVersion: PLUGIN_VERSION,

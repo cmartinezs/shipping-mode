@@ -47,7 +47,7 @@ function fullyInit(cwd) {
 // happy path: init -> validate -> approve -> apply -> check schema
 {
   const cwd = freshWorkspace();
-  const init = run(["init", "--name", "demo", "--vcs", "git", "--actor", "carlos"], cwd);
+  const init = run(["init", "--name", "demo", "--project-type", "software", "--vcs", "git", "--actor", "carlos"], cwd);
   assert.equal(init.code, 0);
   const operationId = init.json.operationId;
   assert.equal(run(["changeset", "validate", operationId], cwd).code, 0);
@@ -58,12 +58,46 @@ function fullyInit(cwd) {
   const check = run(["check", "schema"], cwd);
   assert.equal(check.code, 0);
   assert.equal(check.json.status, "PASS");
+  for (const requiredDirectory of [
+    "events",
+    "operations",
+    ".runtime",
+    "scopes",
+    "sources",
+    "concerns",
+    "gates",
+    "gate-profiles",
+    "execution-contexts",
+    "environments",
+    "decisions",
+    "releases",
+    "vendor/template-packs"
+  ]) {
+    assert.equal(fs.lstatSync(path.join(cwd, ".planning", requiredDirectory)).isDirectory(), true, `${requiredDirectory} must exist after workspace.init apply`);
+  }
 
   // the real bundle must produce the exact build-time version/fingerprint,
   // never a runtime-derived or placeholder value (Revision 3 note 5)
   const pluginLock = parseYaml(fs.readFileSync(path.join(cwd, ".planning", "plugin.lock.yml"), "utf8"));
   assert.equal(pluginLock.pluginVersion, PLUGIN_VERSION);
   assert.equal(pluginLock.templatePackFingerprint, TEMPLATE_PACK_FINGERPRINT);
+  assert.equal(pluginLock.plugin.version, PLUGIN_VERSION);
+  assert.equal(pluginLock.plugin.schemaVersion, 1);
+  assert.equal(pluginLock.plugin.templatePack.fingerprint, TEMPLATE_PACK_FINGERPRINT);
+  assert.equal(pluginLock.plugin.templatePack.vendorSnapshot, `.planning/vendor/template-packs/${TEMPLATE_PACK_FINGERPRINT.replace(":", "-")}`);
+  const config = parseYaml(fs.readFileSync(path.join(cwd, ".planning", "config.yml"), "utf8"));
+  assert.deepEqual(config.project, { name: "demo", type: "software" });
+  assert.equal(config.plugin.launcher, "shipping-mode");
+  assert.equal(config.runtime.operationStore, ".planning/operations");
+  assert.equal(config.policies.paths.workspaceBoundary, "current_directory");
+}
+
+// invalid project type is rejected before an operation is proposed.
+{
+  const cwd = freshWorkspace();
+  const result = run(["init", "--name", "demo", "--project-type", "invalid", "--actor", "carlos"], cwd);
+  assert.equal(result.code, 1);
+  assert.match(result.json.error, /--project-type/);
 }
 
 // config set

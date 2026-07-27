@@ -6,6 +6,7 @@ import { readOperation } from "../lib/operationStore.mjs";
 import { isUuidV7 } from "../lib/ids.mjs";
 import { assertTrustedRoots, confineWritePath } from "../lib/paths.mjs";
 import { findCommandFingerprintKeyMismatches } from "../lib/discoverScan.mjs";
+import { REQUIRED_BOOTSTRAP_DIRECTORIES } from "../lib/bootstrapTopology.mjs";
 
 function checkRequiredFile(planningRoot, relativePath, schemaName, findings) {
   let filePath;
@@ -13,22 +14,73 @@ function checkRequiredFile(planningRoot, relativePath, schemaName, findings) {
     filePath = confineWritePath(planningRoot, relativePath);
   } catch (error) {
     findings.push(`${relativePath}: untrusted path (${error.message})`);
-    return;
+    return null;
   }
   if (!fs.existsSync(filePath)) {
     findings.push(`${relativePath}: required file is missing`);
-    return;
+    return null;
   }
   let value;
   try {
     value = parseYaml(fs.readFileSync(filePath, "utf8"));
   } catch (error) {
     findings.push(`${relativePath}: failed to parse (${error.message})`);
-    return;
+    return null;
   }
   const result = validate(schemaName, value);
   if (!result.valid) {
     for (const error of result.errors) findings.push(`${relativePath}${error.path}: ${error.message}`);
+    return null;
+  }
+  return value;
+}
+
+function checkProjectContextConsistency(config, findings) {
+  if (!config) return;
+  if (config.project.name !== config.name) {
+    findings.push("config.yml: project.name must match compatibility field name");
+  }
+  const scopeRefIds = new Set((config.scopeRefs || []).map((entry) => entry.id));
+  for (const enabledId of config.scopeCatalog.enabled || []) {
+    if (!scopeRefIds.has(enabledId)) {
+      findings.push(`config.yml: scopeCatalog.enabled references unknown scope id ${enabledId}`);
+    }
+  }
+}
+
+function checkPluginLockConsistency(pluginLock, findings) {
+  if (!pluginLock) return;
+  if (pluginLock.plugin.version !== pluginLock.pluginVersion) {
+    findings.push("plugin.lock.yml: plugin.version must match compatibility field pluginVersion");
+  }
+  if (pluginLock.plugin.templatePack.fingerprint !== pluginLock.templatePackFingerprint) {
+    findings.push("plugin.lock.yml: plugin.templatePack.fingerprint must match compatibility field templatePackFingerprint");
+  }
+  const expectedVendorSnapshot = `.planning/vendor/template-packs/${pluginLock.templatePackFingerprint.replace(":", "-")}`;
+  if (pluginLock.plugin.templatePack.vendorSnapshot !== expectedVendorSnapshot) {
+    findings.push("plugin.lock.yml: plugin.templatePack.vendorSnapshot must be derived from templatePackFingerprint");
+  }
+}
+
+function checkRequiredDirectory(planningRoot, relativePath, findings) {
+  let directoryPath;
+  try {
+    directoryPath = confineWritePath(planningRoot, relativePath);
+  } catch (error) {
+    findings.push(`${relativePath}: untrusted path (${error.message})`);
+    return;
+  }
+  if (!fs.existsSync(directoryPath)) {
+    findings.push(`${relativePath}: required directory is missing`);
+    return;
+  }
+  const stat = fs.lstatSync(directoryPath);
+  if (stat.isSymbolicLink()) {
+    findings.push(`${relativePath}: symlink entries are not permitted`);
+    return;
+  }
+  if (!stat.isDirectory()) {
+    findings.push(`${relativePath}: entry must be a directory`);
   }
 }
 
@@ -44,8 +96,13 @@ export function checkSchema({ planningRoot }) {
     return { status: "FAIL", findings: [`trusted roots: ${error.message}`], pendingOperations: [] };
   }
 
-  checkRequiredFile(planningRoot, "config.yml", "config", findings);
-  checkRequiredFile(planningRoot, "plugin.lock.yml", "plugin-lock", findings);
+  const config = checkRequiredFile(planningRoot, "config.yml", "config", findings);
+  const pluginLock = checkRequiredFile(planningRoot, "plugin.lock.yml", "plugin-lock", findings);
+  checkProjectContextConsistency(config, findings);
+  checkPluginLockConsistency(pluginLock, findings);
+  for (const relativeDirectory of REQUIRED_BOOTSTRAP_DIRECTORIES) {
+    checkRequiredDirectory(planningRoot, relativeDirectory, findings);
+  }
 
   const scopesRoot = path.join(planningRoot, "scopes");
   if (fs.existsSync(scopesRoot)) {

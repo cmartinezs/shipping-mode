@@ -2,23 +2,67 @@
   "$id": "https://shipping-mode.dev/schemas/operation.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "kind", "status", "proposedBy", "proposedAt", "reservedEvents", "history"],
+  "required": [
+    "id",
+    "kind",
+    "status",
+    "proposedBy",
+    "proposedAt",
+    "reservedEvents",
+    "history"
+  ],
   "properties": {
-    "id": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
-    "kind": { "enum": ["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "discovery.propose"] },
-    "status": { "enum": ["PROPOSED", "VALIDATED", "APPROVED", "APPLYING", "APPLIED", "INVALID", "STALE", "RECOVERY_REQUIRED"] },
-    "proposedBy": { "type": "string" },
-    "proposedAt": { "type": "string" },
+    "id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "kind": {
+      "enum": [
+        "workspace.init",
+        "config.update",
+        "config.autonomy.set",
+        "scope.add",
+        "scope.command.set",
+        "discovery.propose"
+      ]
+    },
+    "status": {
+      "enum": [
+        "PROPOSED",
+        "VALIDATED",
+        "APPROVED",
+        "APPLYING",
+        "APPLIED",
+        "INVALID",
+        "STALE",
+        "RECOVERY_REQUIRED"
+      ]
+    },
+    "proposedBy": {
+      "type": "string"
+    },
+    "proposedAt": {
+      "type": "string"
+    },
     "reservedEvents": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["eventId", "type"],
+        "required": [
+          "eventId",
+          "type"
+        ],
         "properties": {
-          "eventId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
-          "type": { "type": "string", "minLength": 1 }
+          "eventId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "type": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
@@ -26,39 +70,109 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "validatedAt": { "type": ["string", "null"] },
-        "changeSetHash": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
-        "errors": { "type": "array", "items": { "type": "string" } }
+        "validatedAt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "changeSetHash": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
     "approval": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "actor": { "type": ["string", "null"] },
-        "approvedAt": { "type": ["string", "null"] },
-        "changeSetHash": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
-        "selfApproval": { "type": ["boolean", "null"] },
-        "mode": { "type": ["string", "null"], "enum": ["human", "autonomous", null] }
+        "actor": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "approvedAt": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "changeSetHash": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "selfApproval": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "mode": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "human",
+            "autonomous",
+            null
+          ]
+        }
       }
     },
     "autonomyEvaluation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["operationId", "changeSetHash", "policyFingerprint", "autoApprovable", "blockedBy"],
+      "required": [
+        "operationId",
+        "changeSetHash",
+        "policyFingerprint",
+        "autoApprovable",
+        "blockedBy"
+      ],
       "properties": {
-        "operationId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
-        "changeSetHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-        "policyFingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-        "autoApprovable": { "type": "boolean" },
+        "operationId": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "changeSetHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "policyFingerprint": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "autoApprovable": {
+          "type": "boolean"
+        },
         "blockedBy": {
           "type": "array",
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["itemRef", "reason"],
+            "required": [
+              "itemRef",
+              "reason"
+            ],
             "properties": {
-              "itemRef": { "type": "string", "minLength": 1 },
+              "itemRef": {
+                "type": "string",
+                "minLength": 1
+              },
               "reason": {
                 "enum": [
                   "family_not_allowlisted",
@@ -83,31 +197,112 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-          "required": ["target", "action", "expectedBefore", "beforeContentHash", "beforeRevisionHash", "stagedContentHash", "stagedRevisionHash"],
-          "properties": {
-            "target": { "type": "string" },
-          "action": { "enum": ["write", "delete"] },
-          "stagedRelativePath": { "type": "string" },
-          "expectedBefore": { "enum": ["ABSENT", "PRESENT"] },
-          "beforeContentHash": { "type": "string", "pattern": "^([0-9a-f]{64}|ABSENT)$" },
-          "beforeRevisionHash": { "type": "string", "pattern": "^([0-9a-f]{64}|ABSENT)$" },
-          "stagedContentHash": { "type": "string", "pattern": "^([0-9a-f]{64}|ABSENT)$" },
-          "stagedRevisionHash": { "type": "string", "pattern": "^([0-9a-f]{64}|ABSENT)$" }
+        "required": [
+          "target",
+          "action",
+          "expectedBefore",
+          "beforeContentHash",
+          "beforeRevisionHash",
+          "stagedContentHash",
+          "stagedRevisionHash"
+        ],
+        "properties": {
+          "target": {
+            "type": "string"
+          },
+          "action": {
+            "enum": [
+              "write",
+              "delete",
+              "mkdir"
+            ]
+          },
+          "stagedRelativePath": {
+            "type": "string"
+          },
+          "expectedBefore": {
+            "enum": [
+              "ABSENT",
+              "PRESENT"
+            ]
+          },
+          "beforeContentHash": {
+            "type": "string",
+            "pattern": "^([0-9a-f]{64}|ABSENT)$"
+          },
+          "beforeRevisionHash": {
+            "type": "string",
+            "pattern": "^([0-9a-f]{64}|ABSENT)$"
+          },
+          "stagedContentHash": {
+            "type": "string",
+            "pattern": "^([0-9a-f]{64}|ABSENT)$"
+          },
+          "stagedRevisionHash": {
+            "type": "string",
+            "pattern": "^([0-9a-f]{64}|ABSENT)$"
+          }
         },
         "allOf": [
           {
-            "if": { "properties": { "action": { "const": "write" } } },
+            "if": {
+              "properties": {
+                "action": {
+                  "const": "write"
+                }
+              }
+            },
             "then": {
-              "required": ["stagedRelativePath"],
-              "properties": { "stagedRelativePath": { "type": "string" } }
+              "required": [
+                "stagedRelativePath"
+              ],
+              "properties": {
+                "stagedRelativePath": {
+                  "type": "string"
+                }
+              }
             }
           },
           {
-            "if": { "properties": { "action": { "const": "delete" } } },
+            "if": {
+              "properties": {
+                "action": {
+                  "const": "delete"
+                }
+              }
+            },
             "then": {
               "properties": {
-                "stagedContentHash": { "const": "ABSENT" },
-                "stagedRevisionHash": { "const": "ABSENT" }
+                "stagedContentHash": {
+                  "const": "ABSENT"
+                },
+                "stagedRevisionHash": {
+                  "const": "ABSENT"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "action": {
+                  "const": "mkdir"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "stagedContentHash": {
+                  "const": "20dc703a130e4ad628a2659be71da655ef204d7c774431a82908cf46c2498c75"
+                },
+                "stagedRevisionHash": {
+                  "const": "20dc703a130e4ad628a2659be71da655ef204d7c774431a82908cf46c2498c75"
+                }
+              },
+              "not": {
+                "required": [
+                  "stagedRelativePath"
+                ]
               }
             }
           }
@@ -119,45 +314,111 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["eventId", "relativePath", "contentHash", "document"],
+        "required": [
+          "eventId",
+          "relativePath",
+          "contentHash",
+          "document"
+        ],
         "properties": {
-          "eventId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
-          "relativePath": { "type": "string" },
-          "contentHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-          "document": { "type": "object" }
+          "eventId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+          },
+          "relativePath": {
+            "type": "string"
+          },
+          "contentHash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "document": {
+            "type": "object"
+          }
         }
       }
     },
-    "appliedAt": { "type": ["string", "null"] },
-    "conflict": { "type": ["object", "null"] },
+    "appliedAt": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "conflict": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
     "history": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["at", "to", "actor"],
+        "required": [
+          "at",
+          "to",
+          "actor"
+        ],
         "properties": {
-          "at": { "type": "string" },
-          "from": { "type": ["string", "null"] },
-          "to": { "type": "string" },
-          "actor": { "type": "string" },
-          "reason": { "type": ["string", "null"] }
+          "at": {
+            "type": "string"
+          },
+          "from": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "to": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string"
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
         }
       }
     }
   },
   "allOf": [
     {
-      "if": { "properties": { "status": { "enum": ["VALIDATED", "APPROVED", "APPLYING", "APPLIED"] } } },
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "VALIDATED",
+              "APPROVED",
+              "APPLYING",
+              "APPLIED"
+            ]
+          }
+        }
+      },
       "then": {
-        "required": ["validation"],
+        "required": [
+          "validation"
+        ],
         "properties": {
           "validation": {
             "type": "object",
-            "required": ["validatedAt", "changeSetHash"],
+            "required": [
+              "validatedAt",
+              "changeSetHash"
+            ],
             "properties": {
-              "validatedAt": { "type": "string" },
-              "changeSetHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+              "validatedAt": {
+                "type": "string"
+              },
+              "changeSetHash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
             }
           }
         }
@@ -165,58 +426,153 @@
     },
     {
       "if": {
-        "required": ["kind", "status"],
+        "required": [
+          "kind",
+          "status"
+        ],
         "properties": {
-          "kind": { "enum": ["discovery.propose", "config.autonomy.set"] },
-          "status": { "enum": ["VALIDATED", "APPROVED", "APPLYING", "APPLIED"] }
+          "kind": {
+            "enum": [
+              "discovery.propose",
+              "config.autonomy.set"
+            ]
+          },
+          "status": {
+            "enum": [
+              "VALIDATED",
+              "APPROVED",
+              "APPLYING",
+              "APPLIED"
+            ]
+          }
         }
       },
       "then": {
-        "required": ["autonomyEvaluation"],
-        "properties": { "autonomyEvaluation": { "$ref": "#/properties/autonomyEvaluation" } }
+        "required": [
+          "autonomyEvaluation"
+        ],
+        "properties": {
+          "autonomyEvaluation": {
+            "$ref": "#/properties/autonomyEvaluation"
+          }
+        }
       }
     },
     {
-      "if": { "properties": { "status": { "enum": ["APPROVED", "APPLYING", "APPLIED"] } } },
+      "if": {
+        "properties": {
+          "status": {
+            "enum": [
+              "APPROVED",
+              "APPLYING",
+              "APPLIED"
+            ]
+          }
+        }
+      },
       "then": {
-        "required": ["approval"],
+        "required": [
+          "approval"
+        ],
         "properties": {
           "approval": {
             "type": "object",
-            "required": ["actor", "approvedAt", "changeSetHash", "selfApproval", "mode"],
+            "required": [
+              "actor",
+              "approvedAt",
+              "changeSetHash",
+              "selfApproval",
+              "mode"
+            ],
             "properties": {
-              "actor": { "type": "string" },
-              "approvedAt": { "type": "string" },
-              "changeSetHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-              "selfApproval": { "type": "boolean" },
-              "mode": { "enum": ["human", "autonomous"] }
+              "actor": {
+                "type": "string"
+              },
+              "approvedAt": {
+                "type": "string"
+              },
+              "changeSetHash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "selfApproval": {
+                "type": "boolean"
+              },
+              "mode": {
+                "enum": [
+                  "human",
+                  "autonomous"
+                ]
+              }
             }
           }
         }
       }
     },
     {
-      "if": { "properties": { "status": { "enum": ["APPLYING", "APPLIED"] } } },
-      "then": {
-        "required": ["filePlan", "expectedEvents"],
+      "if": {
         "properties": {
-          "filePlan": { "type": "array", "minItems": 1 },
-          "expectedEvents": { "type": "array", "minItems": 1 }
+          "status": {
+            "enum": [
+              "APPLYING",
+              "APPLIED"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "filePlan",
+          "expectedEvents"
+        ],
+        "properties": {
+          "filePlan": {
+            "type": "array",
+            "minItems": 1
+          },
+          "expectedEvents": {
+            "type": "array",
+            "minItems": 1
+          }
         }
       }
     },
     {
-      "if": { "properties": { "status": { "const": "APPLIED" } } },
+      "if": {
+        "properties": {
+          "status": {
+            "const": "APPLIED"
+          }
+        }
+      },
       "then": {
-        "required": ["appliedAt"],
-        "properties": { "appliedAt": { "type": "string" } }
+        "required": [
+          "appliedAt"
+        ],
+        "properties": {
+          "appliedAt": {
+            "type": "string"
+          }
+        }
       }
     },
     {
-      "if": { "properties": { "status": { "const": "RECOVERY_REQUIRED" } } },
+      "if": {
+        "properties": {
+          "status": {
+            "const": "RECOVERY_REQUIRED"
+          }
+        }
+      },
       "then": {
-        "required": ["conflict"],
-        "properties": { "conflict": { "type": "object" } }
+        "required": [
+          "conflict"
+        ],
+        "properties": {
+          "conflict": {
+            "type": "object"
+          }
+        }
       }
     }
   ]

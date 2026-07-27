@@ -8,6 +8,69 @@ import { acquireWorkspaceLock } from "../../lib/lock.mjs";
 import { renderConfigUpdate } from "../renderers.mjs";
 import { parseYaml, stringifyYaml } from "../../lib/yaml.mjs";
 
+function writeValidBaseFiles(planningRoot) {
+  fs.writeFileSync(path.join(planningRoot, "config.yml"), stringifyYaml({
+    schemaVersion: 1,
+    name: "demo",
+    baseBranch: null,
+    vcs: "git",
+    project: { name: "demo", type: "software" },
+    plugin: { schemaVersion: 1, launcher: "shipping-mode" },
+    policies: {
+      release: { mode: "strict_sequence", defaultLane: "main" },
+      workSources: { defaultSyncMode: "import_only", defaultSourcePolicy: "import_snapshot", externalWrites: "approval_required" },
+      paths: { workspaceBoundary: "current_directory" }
+    },
+    scopeCatalog: { directory: ".planning/scopes", enabled: [] },
+    runtime: {
+      eventStore: ".planning/events",
+      operationStore: ".planning/operations",
+      runtimeStore: ".planning/.runtime",
+      templateVendor: ".planning/vendor/template-packs",
+      operationRetentionDays: 7,
+      retainFailedOperations: true,
+      retainBeforeSnapshots: false,
+      eventRetention: "permanent"
+    },
+    scopeRefs: []
+  }));
+  fs.writeFileSync(path.join(planningRoot, "plugin.lock.yml"), stringifyYaml({
+    schemaVersion: 1,
+    pluginVersion: "1.0.0",
+    templatePackFingerprint: `sha256:${"a".repeat(64)}`,
+    plugin: {
+      version: "1.0.0",
+      schemaVersion: 1,
+      templatePack: {
+        id: "default",
+        version: "1.0.0",
+        fingerprint: `sha256:${"a".repeat(64)}`,
+        vendorSnapshot: `.planning/vendor/template-packs/sha256-${"a".repeat(64)}`
+      }
+    }
+  }));
+}
+
+function ensureBaseTopology(planningRoot) {
+  for (const relativeDirectory of [
+    "events",
+    "operations",
+    ".runtime",
+    "scopes",
+    "sources",
+    "concerns",
+    "gates",
+    "gate-profiles",
+    "execution-contexts",
+    "environments",
+    "decisions",
+    "releases",
+    "vendor/template-packs"
+  ]) {
+    fs.mkdirSync(path.join(planningRoot, relativeDirectory), { recursive: true });
+  }
+}
+
 // uninitialized workspace
 {
   const planningRoot = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "check-uninit-")), ".planning");
@@ -28,13 +91,81 @@ import { parseYaml, stringifyYaml } from "../../lib/yaml.mjs";
 // fully valid workspace -- PASS, and check schema never writes anything
 {
   const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-valid-"));
-  fs.writeFileSync(path.join(planningRoot, "config.yml"), "schemaVersion: 1\nname: demo\nvcs: git\nbaseBranch: null\nscopeRefs: []\n");
-  fs.writeFileSync(path.join(planningRoot, "plugin.lock.yml"), `schemaVersion: 1\npluginVersion: 1.0.0\ntemplatePackFingerprint: sha256:${"a".repeat(64)}\n`);
+  writeValidBaseFiles(planningRoot);
+  ensureBaseTopology(planningRoot);
   const beforeMtime = fs.statSync(path.join(planningRoot, "config.yml")).mtimeMs;
   const result = checkSchema({ planningRoot });
   assert.equal(result.status, "PASS");
   assert.deepEqual(result.findings, []);
   assert.equal(fs.statSync(path.join(planningRoot, "config.yml")).mtimeMs, beforeMtime, "check schema must never write to config.yml");
+}
+
+// canonical/compatibility Project Context fields must not silently diverge.
+{
+  const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-context-drift-"));
+  writeValidBaseFiles(planningRoot);
+  ensureBaseTopology(planningRoot);
+  const configPath = path.join(planningRoot, "config.yml");
+  const config = parseYaml(fs.readFileSync(configPath, "utf8"));
+  config.project.name = "different-name";
+  fs.writeFileSync(configPath, stringifyYaml(config));
+  const result = checkSchema({ planningRoot });
+  assert.equal(result.status, "FAIL");
+  assert.ok(result.findings.some((finding) => finding.includes("project.name")));
+}
+
+// scopeCatalog.enabled contains primary ids and cannot point at an unknown scope ref.
+{
+  const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-enabled-scope-drift-"));
+  writeValidBaseFiles(planningRoot);
+  ensureBaseTopology(planningRoot);
+  const configPath = path.join(planningRoot, "config.yml");
+  const config = parseYaml(fs.readFileSync(configPath, "utf8"));
+  config.scopeCatalog.enabled = ["018f0000-0000-7000-8000-000000000123"];
+  fs.writeFileSync(configPath, stringifyYaml(config));
+  const result = checkSchema({ planningRoot });
+  assert.equal(result.status, "FAIL");
+  assert.ok(result.findings.some((finding) => finding.includes("scopeCatalog.enabled") && finding.includes("unknown scope id")));
+}
+
+// structured plugin lock metadata must agree with the temporary compatibility fields.
+{
+  const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-plugin-lock-drift-"));
+  writeValidBaseFiles(planningRoot);
+  ensureBaseTopology(planningRoot);
+  const lockPath = path.join(planningRoot, "plugin.lock.yml");
+  const pluginLock = parseYaml(fs.readFileSync(lockPath, "utf8"));
+  pluginLock.plugin.version = "9.9.9";
+  fs.writeFileSync(lockPath, stringifyYaml(pluginLock));
+  const result = checkSchema({ planningRoot });
+  assert.equal(result.status, "FAIL");
+  assert.ok(result.findings.some((finding) => finding.includes("plugin.version")));
+}
+
+// missing required bootstrap topology -- FAIL, and check schema remains query-only
+{
+  const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-topology-missing-"));
+  writeValidBaseFiles(planningRoot);
+  fs.mkdirSync(path.join(planningRoot, "events"), { recursive: true });
+  const result = checkSchema({ planningRoot });
+  assert.equal(result.status, "FAIL");
+  assert.ok(result.findings.some((f) => f.includes("scopes") && f.includes("required directory is missing")));
+  assert.equal(fs.existsSync(path.join(planningRoot, "scopes")), false, "check schema must not create missing topology");
+}
+
+// unsafe required bootstrap topology entries -- symlinks/files are findings, never followed
+{
+  const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-topology-unsafe-"));
+  writeValidBaseFiles(planningRoot);
+  ensureBaseTopology(planningRoot);
+  fs.rmSync(path.join(planningRoot, "gates"), { recursive: true, force: true });
+  fs.writeFileSync(path.join(planningRoot, "gates"), "not a directory\n");
+  fs.rmSync(path.join(planningRoot, "concerns"), { recursive: true, force: true });
+  fs.symlinkSync(os.tmpdir(), path.join(planningRoot, "concerns"));
+  const result = checkSchema({ planningRoot });
+  assert.equal(result.status, "FAIL");
+  assert.ok(result.findings.some((f) => f.includes("gates") && f.includes("must be a directory")));
+  assert.ok(result.findings.some((f) => f.includes("concerns") && f.includes("symlink")));
 }
 
 // invalid config.yml -- FAIL with a finding
@@ -95,8 +226,8 @@ import { parseYaml, stringifyYaml } from "../../lib/yaml.mjs";
 // genuinely schema-valid would never exercise this path.
 {
   const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-pending-"));
-  fs.writeFileSync(path.join(planningRoot, "config.yml"), "schemaVersion: 1\nname: demo\nvcs: git\nbaseBranch: null\nscopeRefs: []\n");
-  fs.writeFileSync(path.join(planningRoot, "plugin.lock.yml"), `schemaVersion: 1\npluginVersion: 1.0.0\ntemplatePackFingerprint: sha256:${"a".repeat(64)}\n`);
+  writeValidBaseFiles(planningRoot);
+  ensureBaseTopology(planningRoot);
   const operationsRoot = path.join(planningRoot, "operations");
 
   const currentConfig = parseYaml(fs.readFileSync(path.join(planningRoot, "config.yml"), "utf8"));
@@ -143,8 +274,8 @@ import { parseYaml, stringifyYaml } from "../../lib/yaml.mjs";
 // sources/<id>/source.yml is now validated the same way scopes/<id>/scope.yml already is
 {
   const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-source-valid-"));
-  fs.writeFileSync(path.join(planningRoot, "config.yml"), "schemaVersion: 1\nname: demo\nvcs: git\nbaseBranch: null\nscopeRefs: []\n");
-  fs.writeFileSync(path.join(planningRoot, "plugin.lock.yml"), `schemaVersion: 1\npluginVersion: 1.0.0\ntemplatePackFingerprint: sha256:${"a".repeat(64)}\n`);
+  writeValidBaseFiles(planningRoot);
+  ensureBaseTopology(planningRoot);
   const sourcesRoot = path.join(planningRoot, "sources");
   const id = "018f4d1e-0000-7000-8000-000000000001";
   fs.mkdirSync(path.join(sourcesRoot, id), { recursive: true });
@@ -236,8 +367,8 @@ import { parseYaml, stringifyYaml } from "../../lib/yaml.mjs";
 // a declared command (no sourceRefs at all) never triggers this check
 {
   const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-fingerprint-declared-ok-"));
-  fs.writeFileSync(path.join(planningRoot, "config.yml"), "schemaVersion: 1\nname: demo\nvcs: git\nbaseBranch: null\nscopeRefs: []\n");
-  fs.writeFileSync(path.join(planningRoot, "plugin.lock.yml"), `schemaVersion: 1\npluginVersion: 1.0.0\ntemplatePackFingerprint: sha256:${"a".repeat(64)}\n`);
+  writeValidBaseFiles(planningRoot);
+  ensureBaseTopology(planningRoot);
   const scopeId = "018f4d1e-0000-7000-8000-000000000016";
   fs.mkdirSync(path.join(planningRoot, "scopes", scopeId), { recursive: true });
   fs.writeFileSync(path.join(planningRoot, "scopes", scopeId, "scope.yml"), stringifyYaml({
