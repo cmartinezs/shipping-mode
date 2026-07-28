@@ -14,10 +14,12 @@ function sourceSnapshot(source) {
 }
 
 export function buildGuideGenerationInput({ scope, guideKind, sources, config }) {
-  const configuredRefs = config.documentation?.source_refs || [];
-  const refs = [...new Set(configuredRefs.length ? configuredRefs : sources.map((source) => source.id))].sort();
+  const refs = [...new Set(config.documentation?.source_refs || [])].sort();
+  if (refs.length === 0) throw new Error("guide generation requires approved Project Context documentation.source_refs");
   const byId = new Map(sources.map((source) => [source.id, source]));
-  const selected = refs.map((id) => byId.get(id)).filter(Boolean).sort((left, right) => left.id.localeCompare(right.id));
+  const missing = refs.filter((id) => !byId.has(id));
+  if (missing.length > 0) throw new Error(`approved Documentation Source refs do not resolve: ${missing.join(", ")}`);
+  const selected = refs.map((id) => byId.get(id));
   const input = {
     schemaVersion: 1,
     dslVersion: 1,
@@ -35,17 +37,12 @@ export function buildGuideGenerationInput({ scope, guideKind, sources, config })
 
 export function genericGuideOutput(input) {
   const sourceRefs = [...input.sourceRefs].sort();
-  const authoritative = input.sources.filter((source) => source.role === "canonical" || source.authority?.standing === "authoritative");
-  const groups = new Map();
-  for (const source of authoritative) {
-    const key = `${source.family}:${source.kind}`;
-    const group = groups.get(key) || [];
-    group.push(source);
-    groups.set(key, group);
-  }
-  const conflicts = [...groups.values()].filter((group) => new Set(group.map((source) => source.confirmedFingerprint)).size > 1);
-  const openGaps = conflicts.map((group) => ({ id: group[0].id, category: "source_conflict", description: `conflicting authoritative Documentation Sources for ${group[0].family}/${group[0].kind}`, sourceRefs: group.map((source) => source.id).sort() }));
-  if (!sourceRefs.length) openGaps.push({ id: "018f0000-0000-7000-8000-000000000000", description: "no approved Documentation Sources are configured" });
+  const openGaps = [{
+    id: sourceRefs[0],
+    category: "generation_incomplete",
+    description: "generic metadata-only generation cannot derive executable guide rules; human or custom-generator input is required",
+    sourceRefs
+  }];
   if (input.guideKind === "task") {
     return { sourceRefs, workPackageTypes: [], taskTypes: [], requiredSections: [], requiredGateRefs: [], templateRefs: [], decompositionRules: [], automation: { fallback: "markGaps" }, openGaps };
   }
@@ -57,7 +54,26 @@ export function generateGuideOutput({ workspaceRoot, scope, guideKind, sources, 
   const generator = scope.customGenerators?.[guideKind];
   if (generator) {
     const result = runConfiguredGuideGenerator({ workspaceRoot, generator, input: built.input, timeoutMs: generator.timeoutMs || 1000, maxOutputBytes: generator.maxOutputBytes || 256 * 1024 });
-    return { document: result.output, inputHash: result.inputHash, outputHash: result.outputHash, generatorFingerprint: result.generatorFingerprint };
+    return {
+      document: result.output,
+      evidence: {
+        generationMethod: "custom",
+        generatorVersion: generator.version,
+        generatorFingerprint: result.generatorFingerprint,
+        generationInputHash: built.inputHash,
+        generationOutputHash: result.outputHash
+      }
+    };
   }
-  return { document: genericGuideOutput(built.input), inputHash: built.inputHash, outputHash: revisionHash(genericGuideOutput(built.input)), generatorFingerprint: null };
+  const document = genericGuideOutput(built.input);
+  return {
+    document,
+    evidence: {
+      generationMethod: "generic",
+      generatorVersion: "shipping-mode:generic-guide/1",
+      generatorFingerprint: null,
+      generationInputHash: built.inputHash,
+      generationOutputHash: revisionHash(document)
+    }
+  };
 }

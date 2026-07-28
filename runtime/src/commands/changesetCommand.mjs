@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { validateOperation, approveOperation, applyOperation, propose } from "../lib/changeset.mjs";
 import { generateUuidV7 } from "../lib/ids.mjs";
-import { renderWorkspaceInit, renderConfigUpdate, renderConfigAutonomySet, renderScopeAdd, renderScopeCommandSet, renderDiscoveryPropose, renderGuideUpdate } from "./renderers.mjs";
+import { renderWorkspaceInit, renderConfigUpdate, renderConfigAutonomySet, renderScopeAdd, renderScopeCommandSet, renderScopeGeneratorSet, renderDiscoveryPropose, renderGuideUpdate } from "./renderers.mjs";
 import { readChangeSet, readOperation } from "../lib/operationStore.mjs";
 import { parseYaml } from "../lib/yaml.mjs";
 import { prepareProposal } from "./proposalPreparation.mjs";
@@ -10,6 +10,7 @@ import { UsageError } from "../lib/errors.mjs";
 import { confineRuntimeWritePath } from "../lib/paths.mjs";
 import { readConfirmedSources, readConfirmedScopes } from "../lib/discoverScan.mjs";
 import { generateGuideOutput } from "../lib/guideGeneration.mjs";
+import { revisionHash } from "../lib/canonical.mjs";
 
 function readCurrentConfig(planningRoot) {
   const configPath = confineRuntimeWritePath(planningRoot, "config.yml");
@@ -24,6 +25,10 @@ function renderFor(kind, payload, currentConfig, workspaceRoot, planningRoot, { 
   if (kind === "scope.command.set") {
     const currentScope = currentScopes.find((scope) => scope.id === payload.scopeId);
     return renderScopeCommandSet(payload, currentScope);
+  }
+  if (kind === "scope.generator.set") {
+    const currentScope = currentScopes.find((scope) => scope.id === payload.scopeId);
+    return renderScopeGeneratorSet(payload, currentScope, workspaceRoot);
   }
   if (kind === "discovery.propose") return renderDiscoveryPropose(payload, currentConfig, workspaceRoot, { currentSources, currentScopes, approvalMode });
   if (kind === "guide.update") return renderGuideUpdate(payload, currentConfig, planningRoot, { currentSources, proposedAt: payload.proposedAt || proposedAt || new Date().toISOString(), approval });
@@ -41,15 +46,34 @@ export function runChangesetPropose({ planningRoot, kind, payloadText, actor }) 
   if (rawPayload === null || typeof rawPayload !== "object" || Array.isArray(rawPayload)) {
     throw new UsageError("changeset payload must be a mapping/object");
   }
-  if (kind === "guide.update" && ["generate", "regenerate"].includes(rawPayload.action) && rawPayload.document === undefined) {
-    const config = readCurrentConfig(planningRoot);
-    const scope = readConfirmedScopes(planningRoot).find((candidate) => candidate.id === rawPayload.scopeId);
-    if (!scope) throw new UsageError(`guide scope not found: ${rawPayload.scopeId}`);
-    const generated = generateGuideOutput({ workspaceRoot: path.dirname(planningRoot), scope, guideKind: rawPayload.guideKind, sources: readConfirmedSources(planningRoot), config });
-    rawPayload = { ...rawPayload, document: generated.document };
+  if (kind === "guide.update" && ["generate", "regenerate"].includes(rawPayload.action)) {
+    if (rawPayload.generationEvidence !== undefined) throw new UsageError("generationEvidence is server-owned");
+    if (rawPayload.document === undefined) {
+      const config = readCurrentConfig(planningRoot);
+      const scope = readConfirmedScopes(planningRoot).find((candidate) => candidate.id === rawPayload.scopeId);
+      if (!scope) throw new UsageError(`guide scope not found: ${rawPayload.scopeId}`);
+      let generated;
+      try {
+        generated = generateGuideOutput({ workspaceRoot: path.dirname(planningRoot), scope, guideKind: rawPayload.guideKind, sources: readConfirmedSources(planningRoot), config });
+      } catch (error) {
+        throw new UsageError(error.message);
+      }
+      rawPayload = { ...rawPayload, document: generated.document, generationEvidence: generated.evidence };
+    } else {
+      rawPayload = {
+        ...rawPayload,
+        generationEvidence: {
+          generationMethod: "manual",
+          generatorVersion: "shipping-mode:manual-guide-input/1",
+          generatorFingerprint: null,
+          generationInputHash: revisionHash({ scopeId: rawPayload.scopeId, guideKind: rawPayload.guideKind, document: rawPayload.document }),
+          generationOutputHash: revisionHash(rawPayload.document)
+        }
+      };
+    }
   }
   const runtimeContext = {};
-  if (kind === "scope.command.set" || kind === "guide.update") {
+  if (kind === "scope.command.set" || kind === "scope.generator.set" || kind === "guide.update") {
     runtimeContext.operationId = generateUuidV7();
     runtimeContext.actor = actor;
     runtimeContext.proposedAt = new Date().toISOString();

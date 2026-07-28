@@ -47,6 +47,7 @@ export function eventTypeFor(kind) {
     "config.autonomy.set": "config.autonomy.set",
     "scope.add": "scope.added",
     "scope.command.set": "scope.command.set",
+    "scope.generator.set": "scope.generator.set",
     "discovery.propose": "discovery.proposed",
     "guide.update": "guide.updated"
   }[kind];

@@ -39,6 +39,7 @@ const scopeId = "018f0000-0000-7000-8000-000000000021";
 
 const configPath = path.join(planningRoot, "config.yml");
 const configWithoutGuideGap = parseYaml(fs.readFileSync(configPath, "utf8"));
+configWithoutGuideGap.documentation.source_refs = [sourceId];
 configWithoutGuideGap.documentation.gaps = [];
 fs.writeFileSync(configPath, JSON.stringify(configWithoutGuideGap));
 
@@ -87,6 +88,8 @@ assert.equal(scopeDocument.guides.task.scopeId, scopeId);
 assert.equal(scopeDocument.guides.task.path, "task-guide.yml");
 assert.ok(scopeDocument.guides.task.revision.startsWith("sha256:"));
 assert.equal(scopeDocument.guides.task.approval, null);
+assert.equal(scopeDocument.guides.task.provenance.generationMethod, "generic");
+assert.equal(scopeDocument.guides.task.provenance.generatorFingerprint, null);
 assert.ok(parseYaml(fs.readFileSync(path.join(planningRoot, "scopes", scopeId, "task-guide.yml"), "utf8")).id);
 assert.equal(parseYaml(fs.readFileSync(path.join(planningRoot, "config.yml"), "utf8")).documentation.gaps.length, 1, "generation must not resolve the Corte 0 guide gap");
 

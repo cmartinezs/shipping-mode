@@ -2,7 +2,7 @@ import { generateUuidV7 } from "../lib/ids.mjs";
 import { UsageError } from "../lib/errors.mjs";
 import { BOOTSTRAP_CANONICAL_DIRECTORIES } from "../lib/bootstrapTopology.mjs";
 
-const SUPPORTED_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "guide.update"]);
+const SUPPORTED_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "scope.generator.set", "guide.update"]);
 
 function requireObjectPayload(rawPayload) {
   if (rawPayload === null || typeof rawPayload !== "object" || Array.isArray(rawPayload)) {
@@ -43,6 +43,19 @@ export function prepareProposal(kind, rawPayload, { operationId = null, actor = 
       command: rawPayload.command,
       requiresEnvironment: requireExplicitBoolean(rawPayload, "requiresEnvironment"),
       requiresSecrets: requireExplicitBoolean(rawPayload, "requiresSecrets"),
+      declaredBy: actor,
+      declaredAt: proposedAt
+    };
+    return { payload, targetFiles: [`scopes/${payload.scopeId}/scope.yml`] };
+  }
+
+  if (kind === "scope.generator.set") {
+    if (!operationId || !actor || !proposedAt) throw new UsageError("scope.generator.set requires runtime operationId, actor, and proposedAt");
+    const payload = {
+      operationId,
+      scopeId: rawPayload.scopeId,
+      guideKind: rawPayload.guideKind,
+      generator: rawPayload.generator ?? null,
       declaredBy: actor,
       declaredAt: proposedAt
     };

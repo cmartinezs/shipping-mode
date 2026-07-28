@@ -9,9 +9,10 @@ const second = buildGuideGenerationInput({ scope, guideKind: "task", sources: [{
 assert.deepEqual(first.input, second.input, "generator input excludes unneeded source paths");
 assert.equal(first.inputHash, second.inputHash);
 assert.deepEqual(genericGuideOutput(first.input).automation, { fallback: "markGaps" });
-assert.deepEqual(genericGuideOutput(first.input).openGaps, []);
-const testOutput = genericGuideOutput({ ...first.input, guideKind: "test" });
-assert.deepEqual(testOutput.commandRefs, []);
-const conflict = genericGuideOutput({ ...first.input, sources: [source, { ...source, id: "018f0000-0000-7000-8000-000000000012", confirmedFingerprint: "c".repeat(64) }], sourceRefs: [source.id, "018f0000-0000-7000-8000-000000000012"] });
-assert.equal(conflict.openGaps[0].category, "source_conflict");
-console.log("guide-generation: bounded source snapshot, deterministic input hashes, safe fallback, and task/test variants pass");
+assert.equal(genericGuideOutput(first.input).openGaps[0].category, "generation_incomplete");
+assert.throws(() => buildGuideGenerationInput({ scope, guideKind: "task", sources: [source], config: { documentation: { source_refs: [] } } }), /approved Project Context/);
+assert.throws(() => buildGuideGenerationInput({ scope, guideKind: "task", sources: [], config }), /do not resolve/);
+const secondSource = { ...source, id: "018f0000-0000-7000-8000-000000000012", confirmedFingerprint: "c".repeat(64) };
+const twoSourceInput = buildGuideGenerationInput({ scope, guideKind: "task", sources: [source, secondSource], config: { ...config, documentation: { source_refs: [source.id, secondSource.id] } } }).input;
+assert.equal(genericGuideOutput(twoSourceInput).openGaps[0].category, "generation_incomplete", "different fingerprints are not automatically a semantic conflict");
+console.log("guide-generation: approved refs only, deterministic input hashes, no false fingerprint conflicts, and explicit incomplete-generation gaps pass");

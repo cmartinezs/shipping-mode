@@ -189,3 +189,12 @@ Automatic source/config staleness, strict atomization blocking, waivers,
 public `check guides`, full gate execution, environment lifecycle, Release,
 Release Item, Work Package, Task, Jira/MCP, Work Source providers, Git
 execution, deployment, and task/test execution remain Plan 3 or later.
+
+## Post-review integrity corrections
+
+- Generation evidence is server-owned and carries the actual approved-input hash, normalized output hash, generator version, and executable fingerprint through the persisted ChangeSet into Guide provenance.
+- Generation resolves only `documentation.source_refs` approved by Project Context; an empty or dangling approved source set fails closed and never falls back to every discovered source.
+- Metadata-only generic generation records an explicit incomplete-generation gap and no longer treats different source fingerprints as proof of semantic conflict.
+- `scope.generator.set` is the narrow ChangeSet mutation for adding/removing custom generator configuration; direct `scope.yml` edits are not required.
+- Task/test schemas are fully discriminated, typed date/datetime values are closed, and `matches` requires an explicit engine/timeout/input-pattern bound policy.
+- Generator tests cover symlink escape, minimal environment, output limits, malformed/non-zero output, timeout, and redacted failure messages.

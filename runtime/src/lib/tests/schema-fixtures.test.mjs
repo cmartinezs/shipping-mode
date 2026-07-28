@@ -65,7 +65,7 @@ const cases = {
       kind: "task",
       revision: `sha256:${"a".repeat(64)}`,
       sourceRefs: ["018f0000-0000-7000-8000-000000000010"],
-      provenance: { sourceMapRevision: "a".repeat(64), generatorVersion: "test", generationInputHash: "c".repeat(64), generationOutputHash: "d".repeat(64), model: null, promptVersion: null, generatedAt: "2026-07-27T00:00:00Z", sourceFingerprints: { "018f0000-0000-7000-8000-000000000010": "b".repeat(64) } },
+      provenance: { sourceMapRevision: "a".repeat(64), generationMethod: "generic", generatorVersion: "test", generatorFingerprint: null, generationInputHash: "c".repeat(64), generationOutputHash: "d".repeat(64), model: null, promptVersion: null, generatedAt: "2026-07-27T00:00:00Z", sourceFingerprints: { "018f0000-0000-7000-8000-000000000010": "b".repeat(64) } },
       workPackageTypes: [], taskTypes: [], requiredSections: [], requiredGateRefs: [], templateRefs: [], decompositionRules: [], automation: { fallback: "markGaps" },
       openGaps: []
     },
@@ -146,6 +146,17 @@ assert.equal(validate("config", missingGit).valid, false, "git is canonical and 
 const missingWorkSources = structuredClone(cases.config.valid);
 delete missingWorkSources.work_sources;
 assert.equal(validate("config", missingWorkSources).valid, false, "work_sources is canonical and required");
+
+
+const taskGuideFixture = structuredClone(cases.guide.valid);
+const mixedTaskGuide = { ...taskGuideFixture, commandRefs: [] };
+assert.equal(validate("guide", mixedTaskGuide).valid, false, "task Guide must reject test-only fields");
+const arbitraryTypedObject = structuredClone(taskGuideFixture);
+arbitraryTypedObject.workPackageTypes = [{ id: "x", appliesWhen: { field: "item.when", op: "equals", value: { type: "date", value: "not-a-date" } }, requiredSections: ["x"], requiredGateRefs: ["x"] }];
+assert.equal(validate("guide", arbitraryTypedObject).valid, false, "typed date values must use the closed valid representation");
+const missingRegexPolicy = structuredClone(taskGuideFixture);
+missingRegexPolicy.workPackageTypes = [{ id: "x", appliesWhen: { field: "item.kind", op: "matches", value: "^x" }, requiredSections: ["x"], requiredGateRefs: ["x"] }];
+assert.equal(validate("guide", missingRegexPolicy).valid, false, "matches must declare its execution policy");
 
 for (const [schemaName, { valid, invalid }] of Object.entries(cases)) {
   const validResult = validate(schemaName, valid);

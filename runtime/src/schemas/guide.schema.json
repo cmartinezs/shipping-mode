@@ -2,58 +2,880 @@
   "$id": "https://shipping-mode.dev/schemas/guide.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "dslVersion", "id", "scopeId", "kind", "revision", "sourceRefs", "provenance", "openGaps"],
-  "properties": {
-    "schemaVersion": { "const": 1 },
-    "dslVersion": { "const": 1 },
-    "id": { "$ref": "#/$defs/uuid" },
-    "scopeId": { "$ref": "#/$defs/uuid" },
-    "kind": { "enum": ["task", "test"] },
-    "revision": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
-    "sourceRefs": { "$ref": "#/$defs/uuidList" },
-    "provenance": { "$ref": "#/$defs/provenance" },
-    "openGaps": { "type": "array", "items": { "$ref": "#/$defs/gap" }, "uniqueItems": true },
-    "workPackageTypes": { "type": "array", "items": { "$ref": "#/$defs/workPackageType" }, "uniqueItems": true },
-    "taskTypes": { "type": "array", "items": { "$ref": "#/$defs/taskType" }, "uniqueItems": true },
-    "requiredSections": { "type": "array", "items": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9_.-]*$" }, "uniqueItems": true },
-    "requiredGateRefs": { "$ref": "#/$defs/stringList" },
-    "templateRefs": { "$ref": "#/$defs/stringList" },
-    "decompositionRules": { "type": "array", "items": { "$ref": "#/$defs/decompositionRule" }, "uniqueItems": true },
-    "automation": { "$ref": "#/$defs/automation" },
-    "gatesByWorkPackageType": { "type": "array", "items": { "$ref": "#/$defs/gateRule" }, "uniqueItems": true },
-    "gatesByTaskType": { "type": "array", "items": { "$ref": "#/$defs/gateRule" }, "uniqueItems": true },
-    "commandRefs": { "$ref": "#/$defs/stringList" },
-    "evidenceRequirements": { "type": "array", "items": { "$ref": "#/$defs/evidenceRequirement" }, "uniqueItems": true },
-    "testData": { "type": "array", "items": { "$ref": "#/$defs/testData" }, "uniqueItems": true },
-    "executionContexts": { "$ref": "#/$defs/stringList" },
-    "environments": { "$ref": "#/$defs/stringList" }
-  },
-  "allOf": [
-    { "if": { "properties": { "kind": { "const": "task" } } }, "then": { "required": ["workPackageTypes", "taskTypes", "requiredSections", "requiredGateRefs", "templateRefs", "decompositionRules", "automation"], "properties": { "workPackageTypes": {}, "taskTypes": {}, "requiredSections": {}, "requiredGateRefs": {}, "templateRefs": {}, "decompositionRules": {}, "automation": {}, "gatesByWorkPackageType": {} }, "not": { "required": ["gatesByWorkPackageType"], "properties": { "gatesByWorkPackageType": {} } } } },
-    { "if": { "properties": { "kind": { "const": "test" } } }, "then": { "required": ["gatesByWorkPackageType", "gatesByTaskType", "commandRefs", "evidenceRequirements", "testData", "executionContexts", "environments"], "properties": { "gatesByWorkPackageType": {}, "gatesByTaskType": {}, "commandRefs": {}, "evidenceRequirements": {}, "testData": {}, "executionContexts": {}, "environments": {}, "workPackageTypes": {} }, "not": { "required": ["workPackageTypes"], "properties": { "workPackageTypes": {} } } } }
+  "required": [
+    "schemaVersion",
+    "dslVersion",
+    "id",
+    "scopeId",
+    "kind",
+    "revision",
+    "sourceRefs",
+    "provenance",
+    "openGaps"
   ],
-  "$defs": {
-    "uuid": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
-    "uuidList": { "type": "array", "items": { "$ref": "#/$defs/uuid" }, "minItems": 1, "uniqueItems": true },
-    "stringList": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
-    "gap": { "type": "object", "additionalProperties": false, "required": ["id", "description"], "properties": { "id": { "$ref": "#/$defs/uuid" }, "description": { "type": "string", "minLength": 1 }, "category": { "type": "string", "minLength": 1 }, "sourceRefs": { "$ref": "#/$defs/uuidList" } } },
-    "condition": {
-      "oneOf": [
-        { "type": "object", "additionalProperties": false, "required": ["field", "op", "value"], "properties": { "field": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)*$" }, "op": { "enum": ["equals", "not_equals", "contains", "exists", "in", "matches"] }, "value": { "$ref": "#/$defs/value" } } },
-        { "type": "object", "additionalProperties": false, "required": ["all"], "properties": { "all": { "type": "array", "items": { "$ref": "#/$defs/condition" }, "minItems": 1 } } },
-        { "type": "object", "additionalProperties": false, "required": ["any"], "properties": { "any": { "type": "array", "items": { "$ref": "#/$defs/condition" }, "minItems": 1 } } },
-        { "type": "object", "additionalProperties": false, "required": ["not"], "properties": { "not": { "$ref": "#/$defs/condition" } } }
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "dslVersion": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "scopeId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "kind": {
+      "enum": [
+        "task",
+        "test"
       ]
     },
-    "value": { "anyOf": [{ "type": "string" }, { "type": "number" }, { "type": "boolean" }, { "type": "null" }, { "type": "array", "items": {} }, { "type": "object", "additionalProperties": true }] },
-    "typedValue": { "type": "object", "additionalProperties": false, "required": ["type", "value"], "properties": { "type": { "enum": ["date", "datetime"] }, "value": { "type": "string", "minLength": 1 } } },
-    "workPackageType": { "type": "object", "additionalProperties": false, "required": ["id", "appliesWhen", "requiredSections", "requiredGateRefs"], "properties": { "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }, "appliesWhen": { "$ref": "#/$defs/condition" }, "requiredSections": { "$ref": "#/$defs/stringList" }, "requiredGateRefs": { "$ref": "#/$defs/stringList" } } },
-    "taskType": { "type": "object", "additionalProperties": false, "required": ["id", "appliesWhen", "requiredSections"], "properties": { "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }, "appliesWhen": { "$ref": "#/$defs/condition" }, "requiredSections": { "$ref": "#/$defs/stringList" }, "templateRef": { "type": "string", "minLength": 1 } } },
-    "decompositionRule": { "type": "object", "additionalProperties": false, "required": ["id", "ordering"], "properties": { "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }, "ordering": { "type": "object", "additionalProperties": false, "required": ["predecessorType", "successorType"], "properties": { "predecessorType": { "type": "string", "minLength": 1 }, "successorType": { "type": "string", "minLength": 1 } } } } },
-    "automation": { "type": "object", "additionalProperties": false, "required": ["fallback"], "properties": { "generatorRef": { "type": "string", "minLength": 1 }, "inputSchema": { "type": "string", "minLength": 1 }, "fallback": { "enum": ["markGaps", "referencesOnly"] } } },
-    "gateRule": { "type": "object", "additionalProperties": false, "required": ["type", "requiredGateRefs"], "properties": { "type": { "type": "string", "minLength": 1 }, "requiredGateRefs": { "$ref": "#/$defs/stringList" }, "commandRefs": { "$ref": "#/$defs/stringList" }, "evidenceRefs": { "$ref": "#/$defs/stringList" } } },
-    "evidenceRequirement": { "type": "object", "additionalProperties": false, "required": ["id", "kind"], "properties": { "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }, "kind": { "type": "string", "minLength": 1 }, "required": { "type": "boolean" } } },
-    "testData": { "type": "object", "additionalProperties": false, "required": ["id", "strategy"], "properties": { "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }, "strategy": { "type": "string", "minLength": 1 }, "fixtureRef": { "type": "string", "minLength": 1 } } },
-    "provenance": { "type": "object", "additionalProperties": false, "required": ["sourceMapRevision", "generatorVersion", "generatedAt", "sourceFingerprints", "generationInputHash", "generationOutputHash"], "properties": { "sourceMapRevision": { "type": "string", "pattern": "^[0-9a-f]{64}$" }, "generatorVersion": { "type": "string", "minLength": 1 }, "generatorFingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" }, "generationInputHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }, "generationOutputHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }, "generatedAt": { "type": "string", "minLength": 1 }, "sourceFingerprints": { "type": "object", "additionalProperties": { "type": "string", "pattern": "^[0-9a-f]{64}$" } }, "model": { "type": ["string", "null"] }, "promptVersion": { "type": ["string", "null"] } } }
+    "revision": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "sourceRefs": {
+      "$ref": "#/$defs/uuidList"
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
+    },
+    "openGaps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/gap"
+      },
+      "uniqueItems": true
+    },
+    "workPackageTypes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/workPackageType"
+      },
+      "uniqueItems": true
+    },
+    "taskTypes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/taskType"
+      },
+      "uniqueItems": true
+    },
+    "requiredSections": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-zA-Z0-9_.-]*$"
+      },
+      "uniqueItems": true
+    },
+    "requiredGateRefs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "templateRefs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "decompositionRules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/decompositionRule"
+      },
+      "uniqueItems": true
+    },
+    "automation": {
+      "$ref": "#/$defs/automation"
+    },
+    "gatesByWorkPackageType": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/gateRule"
+      },
+      "uniqueItems": true
+    },
+    "gatesByTaskType": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/gateRule"
+      },
+      "uniqueItems": true
+    },
+    "commandRefs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "evidenceRequirements": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/evidenceRequirement"
+      },
+      "uniqueItems": true
+    },
+    "testData": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/testData"
+      },
+      "uniqueItems": true
+    },
+    "executionContexts": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "environments": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "kind": {
+          "const": "task"
+        },
+        "workPackageTypes": {},
+        "taskTypes": {},
+        "requiredSections": {},
+        "requiredGateRefs": {},
+        "templateRefs": {},
+        "decompositionRules": {},
+        "automation": {}
+      },
+      "required": [
+        "workPackageTypes",
+        "taskTypes",
+        "requiredSections",
+        "requiredGateRefs",
+        "templateRefs",
+        "decompositionRules",
+        "automation"
+      ],
+      "not": {
+        "anyOf": [
+          {
+            "required": [
+              "gatesByWorkPackageType"
+            ],
+            "properties": {
+              "gatesByWorkPackageType": {}
+            }
+          },
+          {
+            "required": [
+              "gatesByTaskType"
+            ],
+            "properties": {
+              "gatesByTaskType": {}
+            }
+          },
+          {
+            "required": [
+              "commandRefs"
+            ],
+            "properties": {
+              "commandRefs": {}
+            }
+          },
+          {
+            "required": [
+              "evidenceRequirements"
+            ],
+            "properties": {
+              "evidenceRequirements": {}
+            }
+          },
+          {
+            "required": [
+              "testData"
+            ],
+            "properties": {
+              "testData": {}
+            }
+          },
+          {
+            "required": [
+              "executionContexts"
+            ],
+            "properties": {
+              "executionContexts": {}
+            }
+          },
+          {
+            "required": [
+              "environments"
+            ],
+            "properties": {
+              "environments": {}
+            }
+          }
+        ]
+      }
+    },
+    {
+      "properties": {
+        "kind": {
+          "const": "test"
+        },
+        "gatesByWorkPackageType": {},
+        "gatesByTaskType": {},
+        "commandRefs": {},
+        "evidenceRequirements": {},
+        "testData": {},
+        "executionContexts": {},
+        "environments": {}
+      },
+      "required": [
+        "gatesByWorkPackageType",
+        "gatesByTaskType",
+        "commandRefs",
+        "evidenceRequirements",
+        "testData",
+        "executionContexts",
+        "environments"
+      ],
+      "not": {
+        "anyOf": [
+          {
+            "required": [
+              "workPackageTypes"
+            ],
+            "properties": {
+              "workPackageTypes": {}
+            }
+          },
+          {
+            "required": [
+              "taskTypes"
+            ],
+            "properties": {
+              "taskTypes": {}
+            }
+          },
+          {
+            "required": [
+              "requiredSections"
+            ],
+            "properties": {
+              "requiredSections": {}
+            }
+          },
+          {
+            "required": [
+              "requiredGateRefs"
+            ],
+            "properties": {
+              "requiredGateRefs": {}
+            }
+          },
+          {
+            "required": [
+              "templateRefs"
+            ],
+            "properties": {
+              "templateRefs": {}
+            }
+          },
+          {
+            "required": [
+              "decompositionRules"
+            ],
+            "properties": {
+              "decompositionRules": {}
+            }
+          },
+          {
+            "required": [
+              "automation"
+            ],
+            "properties": {
+              "automation": {}
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "uuidList": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "stringList": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "fieldPath": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)*$"
+    },
+    "typedValue": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "value"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "date",
+            "datetime"
+          ]
+        },
+        "value": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "date"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                "type": "string"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "datetime"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$",
+                "type": "string"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "value": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/typedValue"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/value"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/value"
+          },
+          "not": {
+            "required": [
+              "type",
+              "value"
+            ],
+            "properties": {
+              "type": {
+                "enum": [
+                  "date",
+                  "datetime"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "regexPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "engine",
+        "timeoutMs",
+        "maxPatternBytes",
+        "maxInputBytes"
+      ],
+      "properties": {
+        "engine": {
+          "const": "ecmascript-unicode"
+        },
+        "timeoutMs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "maxPatternBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "maxInputBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1048576
+        }
+      }
+    },
+    "comparison": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "field",
+            "op",
+            "value"
+          ],
+          "properties": {
+            "field": {
+              "$ref": "#/$defs/fieldPath"
+            },
+            "op": {
+              "enum": [
+                "equals",
+                "not_equals",
+                "contains",
+                "exists",
+                "in"
+              ]
+            },
+            "value": {
+              "$ref": "#/$defs/value"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "field",
+            "op",
+            "value",
+            "regex"
+          ],
+          "properties": {
+            "field": {
+              "$ref": "#/$defs/fieldPath"
+            },
+            "op": {
+              "const": "matches"
+            },
+            "value": {
+              "type": "string"
+            },
+            "regex": {
+              "$ref": "#/$defs/regexPolicy"
+            }
+          }
+        }
+      ]
+    },
+    "condition": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/comparison"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "all"
+          ],
+          "properties": {
+            "all": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/condition"
+              },
+              "minItems": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "any"
+          ],
+          "properties": {
+            "any": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/condition"
+              },
+              "minItems": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "not"
+          ],
+          "properties": {
+            "not": {
+              "$ref": "#/$defs/condition"
+            }
+          }
+        }
+      ]
+    },
+    "gap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "description"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "category": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceRefs": {
+          "$ref": "#/$defs/uuidList"
+        }
+      }
+    },
+    "workPackageType": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "appliesWhen",
+        "requiredSections",
+        "requiredGateRefs"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "appliesWhen": {
+          "$ref": "#/$defs/condition"
+        },
+        "requiredSections": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "requiredGateRefs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "taskType": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "appliesWhen",
+        "requiredSections"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "appliesWhen": {
+          "$ref": "#/$defs/condition"
+        },
+        "requiredSections": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "templateRef": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "decompositionRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "ordering"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "ordering": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "predecessorType",
+            "successorType"
+          ],
+          "properties": {
+            "predecessorType": {
+              "type": "string",
+              "minLength": 1
+            },
+            "successorType": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "automation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fallback"
+      ],
+      "properties": {
+        "generatorRef": {
+          "type": "string",
+          "minLength": 1
+        },
+        "inputSchema": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fallback": {
+          "enum": [
+            "markGaps",
+            "referencesOnly"
+          ]
+        }
+      }
+    },
+    "gateRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "requiredGateRefs"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requiredGateRefs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "commandRefs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "evidenceRefs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        }
+      }
+    },
+    "evidenceRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "testData": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "strategy"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$"
+        },
+        "strategy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fixtureRef": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceMapRevision",
+        "generationMethod",
+        "generatorVersion",
+        "generatorFingerprint",
+        "generatedAt",
+        "sourceFingerprints",
+        "generationInputHash",
+        "generationOutputHash"
+      ],
+      "properties": {
+        "sourceMapRevision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "generationMethod": {
+          "enum": [
+            "generic",
+            "custom",
+            "manual"
+          ]
+        },
+        "generatorVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "generatorFingerprint": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "generationInputHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "generationOutputHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "generatedAt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceFingerprints": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "model": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "promptVersion": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
   }
 }

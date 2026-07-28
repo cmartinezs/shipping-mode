@@ -8,14 +8,22 @@ function error(code, message, path = null) {
   return { code, message, path };
 }
 
+function isDateValue(value) {
+  return value && typeof value === "object" && value.type === "date" && typeof value.value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.value);
+}
+
+function isDateTimeValue(value) {
+  return value && typeof value === "object" && value.type === "datetime" && typeof value.value === "string" && Number.isFinite(Date.parse(value.value));
+}
+
 function typeOf(value) {
   if (value === null) return "null";
   if (Array.isArray(value)) return "array";
   if (typeof value === "string") return "string";
   if (typeof value === "number" && Number.isFinite(value)) return "number";
   if (typeof value === "boolean") return "boolean";
-  if (typeof value === "object" && value?.type === "date" && typeof value.value === "string") return "date";
-  if (typeof value === "object" && value?.type === "datetime" && typeof value.value === "string") return "datetime";
+  if (isDateValue(value)) return "date";
+  if (isDateTimeValue(value)) return "datetime";
   if (typeof value === "object") return "object";
   return "unsupported";
 }
@@ -39,7 +47,7 @@ function resolveField(context, field) {
   }
   let current = context;
   for (const segment of segments) {
-    if (current === null || (typeof current !== "object" && typeof current !== "function") || !Object.prototype.hasOwnProperty.call(current, segment)) return { value: MISSING };
+    if (current === null || typeof current !== "object" || !Object.prototype.hasOwnProperty.call(current, segment)) return { value: MISSING };
     current = current[segment];
   }
   return { value: current };
@@ -61,7 +69,7 @@ function compare(operator, actual, expected, field) {
     return { matched: operator === "equals" ? sameValue(actual, expected) : !sameValue(actual, expected) };
   }
   if (operator === "contains") {
-    if (typeof actual === "string") return { matched: typeof expected === "string" && actual.includes(expected) };
+    if (typeof actual === "string") return typeof expected === "string" ? { matched: actual.includes(expected) } : { error: error("type_mismatch", "string contains requires a string value", field) };
     if (Array.isArray(actual)) return { matched: actual.some((item) => sameValue(item, expected)) };
     return { error: error("invalid_contains_target", "contains requires a string or array", field) };
   }
@@ -72,15 +80,26 @@ function compare(operator, actual, expected, field) {
   return { matched: sameValue(actual, expected) };
 }
 
-function runRegex(pattern, input, timeoutMs, workerUrl) {
+function validateRegexPolicy(policy) {
+  if (!policy || typeof policy !== "object" || Array.isArray(policy)) return error("regex_policy_required", "matches requires an explicit regex policy");
+  if (policy.engine !== "ecmascript-unicode") return error("regex_engine_unsupported", "matches supports only ecmascript-unicode");
+  for (const [field, min, max] of [["timeoutMs", 1, 1000], ["maxPatternBytes", 1, 4096], ["maxInputBytes", 1, 1048576]]) {
+    if (!Number.isInteger(policy[field]) || policy[field] < min || policy[field] > max) return error("regex_policy_invalid", `${field} is outside the allowed range`);
+  }
+  return null;
+}
+
+function runRegex(pattern, input, policy, workerUrl) {
   return new Promise((resolve) => {
     if (typeof pattern !== "string" || typeof input !== "string") return resolve({ error: error("type_mismatch", "matches requires string pattern and string input") });
-    if (pattern.length > 256) return resolve({ error: error("regex_pattern_too_large", "regex pattern exceeds the configured limit") });
-    if (input.length > 65536) return resolve({ error: error("regex_input_too_large", "regex input exceeds the configured limit") });
+    const policyError = validateRegexPolicy(policy);
+    if (policyError) return resolve({ error: policyError });
+    if (Buffer.byteLength(pattern, "utf8") > policy.maxPatternBytes) return resolve({ error: error("regex_pattern_too_large", "regex pattern exceeds the declared limit") });
+    if (Buffer.byteLength(input, "utf8") > policy.maxInputBytes) return resolve({ error: error("regex_input_too_large", "regex input exceeds the declared limit") });
     const worker = new Worker(workerUrl, { workerData: { pattern, input } });
     let settled = false;
     const finish = (result) => { if (!settled) { settled = true; clearTimeout(timer); resolve(result); } };
-    const timer = setTimeout(() => { worker.terminate(); finish({ error: error("regex_timeout", "regex evaluation exceeded its timeout") }); }, timeoutMs);
+    const timer = setTimeout(() => { worker.terminate(); finish({ error: error("regex_timeout", "regex evaluation exceeded its declared timeout") }); }, policy.timeoutMs);
     worker.once("message", (message) => { worker.terminate(); finish(message.ok ? { matched: message.matched } : { error: error("regex_error", message.message) }); });
     worker.once("error", (cause) => { worker.terminate(); finish({ error: error("regex_error", cause.message) }); });
   });
@@ -93,7 +112,8 @@ async function evaluateNode(node, context, options, trace, path = "$") {
   const comparison = ["field", "op", "value"].filter((key) => Object.prototype.hasOwnProperty.call(node, key));
   if ((compound.length + (comparison.length ? 1 : 0)) !== 1) return { error: error("invalid_condition", "condition must contain exactly one AST variant", path) };
   if (comparison.length) {
-    if (keys.some((key) => !["field", "op", "value"].includes(key)) || !OPERATORS.has(node.op)) return { error: error("invalid_condition", "comparison has unsupported fields or operator", path) };
+    const allowed = node.op === "matches" ? ["field", "op", "value", "regex"] : ["field", "op", "value"];
+    if (keys.some((key) => !allowed.includes(key)) || !OPERATORS.has(node.op)) return { error: error("invalid_condition", "comparison has unsupported fields or operator", path) };
     const resolved = resolveField(context, node.field);
     if (resolved.error) return { error: resolved.error };
     if (node.op === "exists") {
@@ -104,8 +124,7 @@ async function evaluateNode(node, context, options, trace, path = "$") {
     if (resolved.value === MISSING) return { error: error("missing_field", `field does not exist: ${node.field}`, node.field) };
     let result;
     if (node.op === "matches") {
-      const mismatch = typeOf(resolved.value) !== "string" || typeOf(node.value) !== "string" ? error("type_mismatch", "matches requires string values", node.field) : null;
-      result = mismatch || await runRegex(node.value, resolved.value, options.regexTimeoutMs, options.regexWorkerUrl);
+      result = await runRegex(node.value, resolved.value, node.regex, options.regexWorkerUrl);
     } else {
       result = compare(node.op, resolved.value, node.value, node.field);
     }
@@ -121,9 +140,7 @@ async function evaluateNode(node, context, options, trace, path = "$") {
     return result.error ? result : { matched: !result.matched };
   }
   const operator = compound[0];
-  if (keys.length !== 1 || !Array.isArray(node[operator])) return { error: error("invalid_condition", `${operator} requires an array`, path) };
-  if (operator === "all" && node.all.length === 0) return { matched: true };
-  if (operator === "any" && node.any.length === 0) return { matched: false };
+  if (keys.length !== 1 || !Array.isArray(node[operator]) || node[operator].length === 0) return { error: error("invalid_condition", `${operator} requires a non-empty array`, path) };
   for (let index = 0; index < node[operator].length; index += 1) {
     const result = await evaluateNode(node[operator][index], context, options, trace, `${path}.${operator}[${index}]`);
     if (result.error) return result;
@@ -137,7 +154,7 @@ async function evaluateNode(node, context, options, trace, path = "$") {
 
 export async function evaluateCondition(condition, context, options = {}) {
   const trace = [];
-  const result = await evaluateNode(condition, context, { regexTimeoutMs: options.regexTimeoutMs || 100, regexWorkerUrl: options.regexWorkerUrl || new URL("./regexWorker.mjs", import.meta.url) }, trace);
+  const result = await evaluateNode(condition, context, { regexWorkerUrl: options.regexWorkerUrl || new URL("./regexWorker.mjs", import.meta.url) }, trace);
   return { matched: result.error ? false : result.matched, trace, error: result.error || null };
 }
 
