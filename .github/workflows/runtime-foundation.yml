@@ -25,6 +25,7 @@ jobs:
           python3 .github/pr19-review-fix.py
           python3 .github/pr19-review-fix-2.py
           python3 .github/pr19-review-fix-3.py
+          python3 .github/pr19-review-fix-4.py
       - run: npm ci --silent
       - name: Build schemas
         run: |
