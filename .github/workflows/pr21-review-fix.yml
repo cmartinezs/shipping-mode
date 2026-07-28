@@ -37,6 +37,15 @@ jobs:
             exit "$code"
           fi
           tail -n 20 /tmp/unit.log
+      - name: Persist unit failure for review
+        if: failure()
+        run: |
+          cp /tmp/unit.log .github/pr21-unit-failure.log
+          git config user.name "shipping-mode-review-bot"
+          git config user.email "shipping-mode-review-bot@users.noreply.github.com"
+          git add .github/pr21-unit-failure.log
+          git commit -m "chore(review): capture PR21 unit failure" || true
+          git push origin HEAD:agent/corte-2-plan-1-release-core
       - run: npm run test:cli-e2e
       - run: npm run test:real-crash-e2e
       - run: npm run test:security-e2e
