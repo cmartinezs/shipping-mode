@@ -65,8 +65,8 @@ const cases = {
       kind: "task",
       revision: `sha256:${"a".repeat(64)}`,
       sourceRefs: ["018f0000-0000-7000-8000-000000000010"],
-      provenance: { sourceMapRevision: "a".repeat(64), generatorVersion: "test", model: null, promptVersion: null, generatedAt: "2026-07-27T00:00:00Z", sourceFingerprints: { "018f0000-0000-7000-8000-000000000010": "b".repeat(64) } },
-      sections: [{ id: "rules", kind: "constraints", required: true, entries: [{ key: "mode", value: "strict" }] }],
+      provenance: { sourceMapRevision: "a".repeat(64), generatorVersion: "test", generationInputHash: "c".repeat(64), generationOutputHash: "d".repeat(64), model: null, promptVersion: null, generatedAt: "2026-07-27T00:00:00Z", sourceFingerprints: { "018f0000-0000-7000-8000-000000000010": "b".repeat(64) } },
+      workPackageTypes: [], taskTypes: [], requiredSections: [], requiredGateRefs: [], templateRefs: [], decompositionRules: [], automation: { fallback: "markGaps" },
       openGaps: []
     },
     invalid: { schemaVersion: 1, id: "not-a-uuid", scopeId: "not-a-uuid", kind: "task", status: "approved" }

@@ -153,18 +153,18 @@ rejects unresolved references when the registry is available.
 
 Plan 2 is complete only when the following are demonstrated:
 
-- [ ] task/test Guide schemas are closed and discriminated;
-- [ ] evaluator is pure, strict, traced, short-circuiting, and regex-safe;
-- [ ] source-driven generic generation is deterministic and gap-preserving;
-- [ ] custom generator contract is confined, bounded, structured, and hashed;
-- [ ] YAML is canonical and Markdown projection is deterministic;
-- [ ] YAML+Markdown publication uses existing ChangeSet/recovery;
-- [ ] commands/gates are references, not duplicated definitions;
-- [ ] generated Guides remain unapproved;
-- [ ] all Plan 1 approval and gap invariants remain green;
-- [ ] mandatory build, unit, E2E, crash, security, bundle, artifact, and
+- [x] task/test Guide schemas are closed and discriminated;
+- [x] evaluator is pure, strict, traced, short-circuiting, and regex-safe;
+- [x] source-driven generic generation is deterministic and gap-preserving;
+- [x] custom generator contract is confined, bounded, structured, and hashed;
+- [x] YAML is canonical and Markdown projection is deterministic;
+- [x] YAML+Markdown publication uses existing ChangeSet/recovery;
+- [x] commands/gates are references, not duplicated definitions;
+- [x] generated Guides remain unapproved;
+- [x] all Plan 1 approval and gap invariants remain green;
+- [x] mandatory build, unit, E2E, crash, security, bundle, artifact, and
   next-generation gates pass;
-- [ ] no Plan 3 or later functionality is implemented.
+- [x] no Plan 3 or later functionality is implemented.
 
 ## Regression gates
 

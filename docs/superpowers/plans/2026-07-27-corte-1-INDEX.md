@@ -36,7 +36,7 @@ providers, Git execution, deployment ni lifecycle de environments.
 | # | Plan | Boundary | Status | Document |
 |---|---|---|---|---|
 | 1 | Guide domain, schemas, storage and lifecycle | Guide metadata/content envelopes, scope references, ChangeSet mutations, legal transitions, approval binding, gap resolution | **Merged (PR #18 to develop)** | `2026-07-27-corte-1-plan-1-guide-domain-lifecycle.md` |
-| 2 | Generation, DSL, projections and custom generators | Source-driven generation, closed executable DSL, deterministic Markdown projections, generator safety, gate/profile references | **Implementation in progress** | `2026-07-28-corte-1-plan-2-generation-projections-generators.md` |
+| 2 | Generation, DSL, projections and custom generators | Source-driven generation, closed executable DSL, deterministic Markdown projections, generator safety, gate/profile references | **Implementation complete; pending PR merge** | `2026-07-28-corte-1-plan-2-generation-projections-generators.md` |
 | 3 | Staleness, strict policy, `check guides` and DoD closure | Source drift, strict-mode primitive, query-only diagnostics, final traceability and regression closure | **Pending Plan 2** | `2026-07-27-corte-1-plan-3-staleness-strict-check-guides.md` |
 
 ## Completion Rule

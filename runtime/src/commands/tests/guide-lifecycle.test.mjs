@@ -44,7 +44,13 @@ fs.writeFileSync(configPath, JSON.stringify(configWithoutGuideGap));
 
 const document = {
   sourceRefs: [sourceId],
-  sections: [{ id: "constraints", kind: "rules", required: true, entries: [{ key: "boundary", value: "api" }] }],
+  workPackageTypes: [{ id: "api-change", appliesWhen: { field: "item.kind", op: "equals", value: "capability" }, requiredSections: ["contract"], requiredGateRefs: ["build"] }],
+  taskTypes: [{ id: "implementation", appliesWhen: { field: "item.kind", op: "exists", value: true }, requiredSections: ["implementation"] }],
+  requiredSections: ["contract"],
+  requiredGateRefs: ["build"],
+  templateRefs: ["default-task"],
+  decompositionRules: [{ id: "contract-first", ordering: { predecessorType: "contract", successorType: "implementation" } }],
+  automation: { fallback: "markGaps" },
   openGaps: []
 };
 
@@ -57,7 +63,7 @@ function proposeGuide(action, extra = {}) {
   });
 }
 
-const generated = proposeGuide("generate", { document });
+const generated = proposeGuide("generate");
 const generatedOperation = readOperation(operationsRoot, generated.operationId);
 assert.equal(generatedOperation.kind, "guide.update");
 finish(generated.operationId);
@@ -123,6 +129,6 @@ assert.equal(scopeDocument.guides.task.status, "generated");
 assert.equal(checkSchema({ planningRoot }).status, "PASS");
 const guide = parseYaml(fs.readFileSync(path.join(planningRoot, "scopes", scopeId, "task-guide.yml"), "utf8"));
 assert.equal(validate("guide", guide).valid, true);
-assert.equal(fs.existsSync(path.join(planningRoot, "scopes", scopeId, "task-guide.md")), false, "Plan 1 must not create Markdown projections");
+assert.equal(fs.existsSync(path.join(planningRoot, "scopes", scopeId, "task-guide.md")), true, "Plan 2 generation must publish the deterministic Markdown projection");
 
 console.log("guide-lifecycle: schema, server-owned identity, finite transitions, human approval binding, gap retention, autonomous rejection, and query-only integrity pass");

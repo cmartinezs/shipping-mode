@@ -1,0 +1,22 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { runConfiguredGuideGenerator } from "../customGuideGenerator.mjs";
+
+const root = fs.mkdtempSync(path.join(os.tmpdir(), "guide-generator-"));
+fs.writeFileSync(path.join(root, "generator.mjs"), "#!/usr/bin/env node\nlet data=''; process.stdin.on('data', c => data += c).on('end', () => process.stdout.write(JSON.stringify({openGaps: [], sourceRefs: JSON.parse(data).sourceRefs})));\n");
+fs.chmodSync(path.join(root, "generator.mjs"), 0o755);
+const input = { sourceRefs: ["018f0000-0000-7000-8000-000000000011"] };
+const result = await runConfiguredGuideGenerator({ workspaceRoot: root, generator: { executable: "generator.mjs", args: [], env: {} }, input });
+assert.deepEqual(result.output.sourceRefs, input.sourceRefs);
+assert.equal(result.inputHash.length, 64);
+assert.equal(result.outputHash.length, 64);
+assert.throws(() => runConfiguredGuideGenerator({ workspaceRoot: root, generator: { executable: "../outside.mjs", args: [] }, input }), /relative workspace path|escapes root/);
+fs.writeFileSync(path.join(root, "bad.mjs"), "#!/usr/bin/env node\nprocess.stdout.write(JSON.stringify({status:'approved'}));");
+fs.chmodSync(path.join(root, "bad.mjs"), 0o755);
+assert.throws(() => runConfiguredGuideGenerator({ workspaceRoot: root, generator: { executable: "bad.mjs", args: [] }, input }), /server-owned field/);
+fs.writeFileSync(path.join(root, "slow.mjs"), "#!/usr/bin/env node\nsetTimeout(() => {}, 1000);");
+fs.chmodSync(path.join(root, "slow.mjs"), 0o755);
+assert.throws(() => runConfiguredGuideGenerator({ workspaceRoot: root, generator: { executable: "slow.mjs", args: [] }, input, timeoutMs: 20 }), /timeout/);
+console.log("custom-guide-generator: structured stdin/stdout, confinement, server-owned output, hashes, and timeout pass");
