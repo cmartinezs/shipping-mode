@@ -1,0 +1,48 @@
+name: PR21 Final Review Correction
+
+on:
+  pull_request:
+    branches: [develop]
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    if: github.event.pull_request.head.ref == 'agent/corte-2-plan-1-release-core'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/corte-2-plan-1-release-core
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Apply final PR21 correction
+        run: bash .github/pr21-final-fix.sh
+      - run: npm ci --silent
+      - run: npm run build:schemas
+      - run: npm run build:runtime
+      - run: npm run build:test-bundle
+      - run: npm run test:unit
+      - run: npm run test:cli-e2e
+      - run: npm run test:real-crash-e2e
+      - run: npm run test:security-e2e
+      - run: npm run test:bundle
+      - run: npm run verify:artifacts
+      - run: npm run verify:next-generation
+      - run: git diff --check
+      - name: Commit final product correction
+        run: |
+          git config user.name "shipping-mode-review-bot"
+          git config user.email "shipping-mode-review-bot@users.noreply.github.com"
+          git add bin docs runtime skills spikes
+          if git diff --cached --quiet; then
+            echo "No product changes to commit"
+            exit 0
+          fi
+          git commit -m "fix(release): snapshot policy defaults at proposal time"
+          git push origin HEAD:agent/corte-2-plan-1-release-core
