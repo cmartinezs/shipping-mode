@@ -26,6 +26,7 @@ jobs:
           bash .github/pr21-review-fix.sh
           bash .github/pr21-review-fix2.sh
           bash .github/pr21-review-fix3.sh
+          bash .github/pr21-review-fix4.sh
       - run: npm ci --silent
       - run: npm run build:schemas
       - run: npm run build:runtime
