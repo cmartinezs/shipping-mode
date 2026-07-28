@@ -33,7 +33,7 @@ function renderFor(kind, payload, currentConfig, workspaceRoot, planningRoot, { 
   }
   if (kind === "discovery.propose") return renderDiscoveryPropose(payload, currentConfig, workspaceRoot, { currentSources, currentScopes, approvalMode });
   if (kind === "guide.update") return renderGuideUpdate(payload, currentConfig, planningRoot, { currentSources, proposedAt: payload.proposedAt || proposedAt || new Date().toISOString(), approval });
-  if (kind === "release.create") return renderReleaseCreate(payload, currentConfig);
+  if (kind === "release.create") return renderReleaseCreate(payload);
   throw new UsageError(`unsupported changeset kind: ${kind}`);
 }
 
@@ -80,7 +80,10 @@ export function runChangesetPropose({ planningRoot, kind, payloadText, actor }) 
     runtimeContext.actor = actor;
     runtimeContext.proposedAt = new Date().toISOString();
   }
-  if (kind === "release.create") runtimeContext.existingReleases = listReleaseDocuments(planningRoot);
+  if (kind === "release.create") {
+    runtimeContext.existingReleases = listReleaseDocuments(planningRoot);
+    runtimeContext.currentConfig = readCurrentConfig(planningRoot);
+  }
   const { payload, targetFiles } = prepareProposal(kind, rawPayload, runtimeContext);
   const operationsRoot = path.join(planningRoot, "operations");
   const candidateOperationId = runtimeContext.operationId || null;

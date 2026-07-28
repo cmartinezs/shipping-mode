@@ -95,11 +95,11 @@ function withReleaseRevision(releaseWithoutRevision) {
   };
 }
 
-export function renderReleaseCreate(payload, currentConfig) {
-  if (!currentConfig) throw new Error("release.create requires initialized Project Context");
-  const policyMode = payload.policyMode || currentConfig.policies?.release?.mode || "strict_sequence";
+export function renderReleaseCreate(payload) {
+  const policyMode = payload.policyMode;
   if (!["strict_sequence", "dependency_graph"].includes(policyMode)) throw new Error(`unsupported release policy mode: ${policyMode}`);
-  const laneId = payload.laneId || currentConfig.policies?.release?.defaultLane || "main";
+  const laneId = payload.laneId;
+  if (typeof laneId !== "string" || laneId.length === 0) throw new Error("release.create payload requires resolved laneId");
   const withoutRevision = {
     schemaVersion: 1,
     id: payload.id,

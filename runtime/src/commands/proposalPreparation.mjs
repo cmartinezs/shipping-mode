@@ -48,7 +48,7 @@ function normalizeSlug(value) {
   return slug || null;
 }
 
-export function prepareProposal(kind, rawPayload, { operationId = null, actor = null, proposedAt = null, existingReleases = [] } = {}) {
+export function prepareProposal(kind, rawPayload, { operationId = null, actor = null, proposedAt = null, existingReleases = [], currentConfig = null } = {}) {
   if (!SUPPORTED_KINDS.has(kind)) throw new UsageError(`unsupported changeset kind: ${kind}`);
   requireObjectPayload(rawPayload);
 
@@ -112,10 +112,14 @@ export function prepareProposal(kind, rawPayload, { operationId = null, actor = 
   if (kind === "release.create") {
     if (!operationId || !actor || !proposedAt) throw new UsageError("release.create requires runtime operationId, actor, and proposedAt");
     assertOnlyAllowedReleaseCreateFields(rawPayload);
+    if (!currentConfig?.policies?.release) throw new UsageError("release.create requires initialized Project Context release policy");
     const title = requireTrimmedString(rawPayload.title, "title");
     const objective = requireTrimmedString(rawPayload.objective, "objective");
-    const laneId = normalizeOptionalString(rawPayload.laneId, "laneId");
-    const policyMode = normalizeOptionalString(rawPayload.policyMode, "policyMode");
+    const laneId = normalizeOptionalString(rawPayload.laneId, "laneId")
+      ?? requireTrimmedString(currentConfig.policies.release.defaultLane, "Project Context policies.release.defaultLane");
+    const policyMode = normalizeOptionalString(rawPayload.policyMode, "policyMode")
+      ?? requireTrimmedString(currentConfig.policies.release.mode, "Project Context policies.release.mode");
+    if (!["strict_sequence", "dependency_graph"].includes(policyMode)) throw new UsageError(`unsupported release policy mode: ${policyMode}`);
     const slug = normalizeSlug(rawPayload.slug);
     const idempotencyKey = rawPayload.idempotencyKey === undefined
       ? operationId

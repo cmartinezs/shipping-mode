@@ -230,6 +230,8 @@ release.create
 
 Do not add `release.update`.
 
+Project Context defaults are resolved once during `propose` and persisted in the server-owned ChangeSet payload. Validation and apply never re-read mutable defaults to decide the Release content.
+
 Payload accepted from caller:
 
 ```yaml
@@ -375,6 +377,7 @@ This is audit evidence, not event sourcing.
 | Plan 1 could leak Corte 3 | No `items/`, `release-item.yml`, Work Packages or Tasks |
 | Idempotency key could alias different requests or differ by entrypoint | Bind the key to a server-owned request hash inside the workspace mutation lock for both `release new` and generic `changeset propose` |
 | `release status` could crash or trust a valid-looking corrupted aggregate | Safe resolver and shared schema/identity/revision integrity checks fail closed |
+| Project Context defaults could change between validate and apply | Resolve lane/policy at propose time and bind them into the ChangeSet/idempotency request hash |
 
 No production blocker remains after these corrections.
 

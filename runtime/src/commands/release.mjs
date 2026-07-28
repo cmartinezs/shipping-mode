@@ -8,6 +8,13 @@ import { readChangeSet, readOperation } from "../lib/operationStore.mjs";
 import { compareReleaseReadme } from "../lib/releaseProjection.mjs";
 import { confineWritePath } from "../lib/paths.mjs";
 import { validate } from "../lib/schema.mjs";
+import { parseYaml } from "../lib/yaml.mjs";
+
+function readCurrentConfig(planningRoot) {
+  const configPath = confineWritePath(planningRoot, "config.yml");
+  if (!fs.existsSync(configPath)) throw new Error("release.create requires initialized Project Context");
+  return parseYaml(fs.readFileSync(configPath, "utf8"));
+}
 
 function pendingRecovery(planningRoot) {
   const operationsRoot = path.join(planningRoot, "operations");
@@ -40,7 +47,8 @@ export function runReleaseNew({ planningRoot, args }) {
     operationId: candidateOperationId,
     actor: args.actor,
     proposedAt,
-    existingReleases: listReleaseDocuments(planningRoot)
+    existingReleases: listReleaseDocuments(planningRoot),
+    currentConfig: readCurrentConfig(planningRoot)
   });
   const persistedOperationId = propose({
     operationsRoot,
