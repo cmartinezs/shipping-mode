@@ -89,15 +89,15 @@ var require_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    function visit_(key, node, visitor, path20) {
-      let ctrl = callVisitor(key, node, visitor, path20);
+    function visit_(key, node, visitor, path21) {
+      let ctrl = callVisitor(key, node, visitor, path21);
       if (identity.isNode(ctrl) || identity.isPair(ctrl))
-        return replaceNode(key, path20, ctrl), visit_(key, ctrl, visitor, path20);
+        return replaceNode(key, path21, ctrl), visit_(key, ctrl, visitor, path21);
       if (typeof ctrl != "symbol") {
         if (identity.isCollection(node)) {
-          path20 = Object.freeze(path20.concat(node));
+          path21 = Object.freeze(path21.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
-            let ci = visit_(i, node.items[i], visitor, path20);
+            let ci = visit_(i, node.items[i], visitor, path21);
             if (typeof ci == "number")
               i = ci - 1;
             else {
@@ -107,12 +107,12 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path20 = Object.freeze(path20.concat(node));
-          let ck = visit_("key", node.key, visitor, path20);
+          path21 = Object.freeze(path21.concat(node));
+          let ck = visit_("key", node.key, visitor, path21);
           if (ck === BREAK)
             return BREAK;
           ck === REMOVE && (node.key = null);
-          let cv = visit_("value", node.value, visitor, path20);
+          let cv = visit_("value", node.value, visitor, path21);
           if (cv === BREAK)
             return BREAK;
           cv === REMOVE && (node.value = null);
@@ -127,15 +127,15 @@ var require_visit = __commonJS({
     visitAsync.BREAK = BREAK;
     visitAsync.SKIP = SKIP;
     visitAsync.REMOVE = REMOVE;
-    async function visitAsync_(key, node, visitor, path20) {
-      let ctrl = await callVisitor(key, node, visitor, path20);
+    async function visitAsync_(key, node, visitor, path21) {
+      let ctrl = await callVisitor(key, node, visitor, path21);
       if (identity.isNode(ctrl) || identity.isPair(ctrl))
-        return replaceNode(key, path20, ctrl), visitAsync_(key, ctrl, visitor, path20);
+        return replaceNode(key, path21, ctrl), visitAsync_(key, ctrl, visitor, path21);
       if (typeof ctrl != "symbol") {
         if (identity.isCollection(node)) {
-          path20 = Object.freeze(path20.concat(node));
+          path21 = Object.freeze(path21.concat(node));
           for (let i = 0; i < node.items.length; ++i) {
-            let ci = await visitAsync_(i, node.items[i], visitor, path20);
+            let ci = await visitAsync_(i, node.items[i], visitor, path21);
             if (typeof ci == "number")
               i = ci - 1;
             else {
@@ -145,12 +145,12 @@ var require_visit = __commonJS({
             }
           }
         } else if (identity.isPair(node)) {
-          path20 = Object.freeze(path20.concat(node));
-          let ck = await visitAsync_("key", node.key, visitor, path20);
+          path21 = Object.freeze(path21.concat(node));
+          let ck = await visitAsync_("key", node.key, visitor, path21);
           if (ck === BREAK)
             return BREAK;
           ck === REMOVE && (node.key = null);
-          let cv = await visitAsync_("value", node.value, visitor, path20);
+          let cv = await visitAsync_("value", node.value, visitor, path21);
           if (cv === BREAK)
             return BREAK;
           cv === REMOVE && (node.value = null);
@@ -173,22 +173,22 @@ var require_visit = __commonJS({
         Seq: visitor.Collection
       }, visitor) : visitor;
     }
-    function callVisitor(key, node, visitor, path20) {
+    function callVisitor(key, node, visitor, path21) {
       if (typeof visitor == "function")
-        return visitor(key, node, path20);
+        return visitor(key, node, path21);
       if (identity.isMap(node))
-        return visitor.Map?.(key, node, path20);
+        return visitor.Map?.(key, node, path21);
       if (identity.isSeq(node))
-        return visitor.Seq?.(key, node, path20);
+        return visitor.Seq?.(key, node, path21);
       if (identity.isPair(node))
-        return visitor.Pair?.(key, node, path20);
+        return visitor.Pair?.(key, node, path21);
       if (identity.isScalar(node))
-        return visitor.Scalar?.(key, node, path20);
+        return visitor.Scalar?.(key, node, path21);
       if (identity.isAlias(node))
-        return visitor.Alias?.(key, node, path20);
+        return visitor.Alias?.(key, node, path21);
     }
-    function replaceNode(key, path20, node) {
-      let parent = path20[path20.length - 1];
+    function replaceNode(key, path21, node) {
+      let parent = path21[path21.length - 1];
       if (identity.isCollection(parent))
         parent.items[key] = node;
       else if (identity.isPair(parent))
@@ -642,10 +642,10 @@ var require_Collection = __commonJS({
   "node_modules/yaml/dist/nodes/Collection.js"(exports) {
     "use strict";
     var createNode = require_createNode(), identity = require_identity(), Node = require_Node();
-    function collectionFromPath(schema, path20, value) {
+    function collectionFromPath(schema, path21, value) {
       let v = value;
-      for (let i = path20.length - 1; i >= 0; --i) {
-        let k = path20[i];
+      for (let i = path21.length - 1; i >= 0; --i) {
+        let k = path21[i];
         if (typeof k == "number" && Number.isInteger(k) && k >= 0) {
           let a = [];
           a[k] = v, v = a;
@@ -662,7 +662,7 @@ var require_Collection = __commonJS({
         sourceObjects: /* @__PURE__ */ new Map()
       });
     }
-    var isEmptyPath = (path20) => path20 == null || typeof path20 == "object" && !!path20[Symbol.iterator]().next().done, Collection = class extends Node.NodeBase {
+    var isEmptyPath = (path21) => path21 == null || typeof path21 == "object" && !!path21[Symbol.iterator]().next().done, Collection = class extends Node.NodeBase {
       constructor(type, schema) {
         super(type), Object.defineProperty(this, "schema", {
           value: schema,
@@ -685,11 +685,11 @@ var require_Collection = __commonJS({
        * be a Pair instance or a `{ key, value }` object, which may not have a key
        * that already exists in the map.
        */
-      addIn(path20, value) {
-        if (isEmptyPath(path20))
+      addIn(path21, value) {
+        if (isEmptyPath(path21))
           this.add(value);
         else {
-          let [key, ...rest] = path20, node = this.get(key, !0);
+          let [key, ...rest] = path21, node = this.get(key, !0);
           if (identity.isCollection(node))
             node.addIn(rest, value);
           else if (node === void 0 && this.schema)
@@ -702,8 +702,8 @@ var require_Collection = __commonJS({
        * Removes a value from the collection.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path20) {
-        let [key, ...rest] = path20;
+      deleteIn(path21) {
+        let [key, ...rest] = path21;
         if (rest.length === 0)
           return this.delete(key);
         let node = this.get(key, !0);
@@ -716,8 +716,8 @@ var require_Collection = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path20, keepScalar) {
-        let [key, ...rest] = path20, node = this.get(key, !0);
+      getIn(path21, keepScalar) {
+        let [key, ...rest] = path21, node = this.get(key, !0);
         return rest.length === 0 ? !keepScalar && identity.isScalar(node) ? node.value : node : identity.isCollection(node) ? node.getIn(rest, keepScalar) : void 0;
       }
       hasAllNullValues(allowScalar) {
@@ -731,8 +731,8 @@ var require_Collection = __commonJS({
       /**
        * Checks if the collection includes a value with the key `key`.
        */
-      hasIn(path20) {
-        let [key, ...rest] = path20;
+      hasIn(path21) {
+        let [key, ...rest] = path21;
         if (rest.length === 0)
           return this.has(key);
         let node = this.get(key, !0);
@@ -742,8 +742,8 @@ var require_Collection = __commonJS({
        * Sets a value in this collection. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path20, value) {
-        let [key, ...rest] = path20;
+      setIn(path21, value) {
+        let [key, ...rest] = path21;
         if (rest.length === 0)
           this.set(key, value);
         else {
@@ -2616,8 +2616,8 @@ var require_Document = __commonJS({
         assertCollection(this.contents) && this.contents.add(value);
       }
       /** Adds a value to the document. */
-      addIn(path20, value) {
-        assertCollection(this.contents) && this.contents.addIn(path20, value);
+      addIn(path21, value) {
+        assertCollection(this.contents) && this.contents.addIn(path21, value);
       }
       /**
        * Create a new `Alias` node, ensuring that the target `node` has the required anchor.
@@ -2678,8 +2678,8 @@ var require_Document = __commonJS({
        * Removes a value from the document.
        * @returns `true` if the item was found and removed.
        */
-      deleteIn(path20) {
-        return Collection.isEmptyPath(path20) ? this.contents == null ? !1 : (this.contents = null, !0) : assertCollection(this.contents) ? this.contents.deleteIn(path20) : !1;
+      deleteIn(path21) {
+        return Collection.isEmptyPath(path21) ? this.contents == null ? !1 : (this.contents = null, !0) : assertCollection(this.contents) ? this.contents.deleteIn(path21) : !1;
       }
       /**
        * Returns item at `key`, or `undefined` if not found. By default unwraps
@@ -2694,8 +2694,8 @@ var require_Document = __commonJS({
        * scalar values from their surrounding node; to disable set `keepScalar` to
        * `true` (collections are always returned intact).
        */
-      getIn(path20, keepScalar) {
-        return Collection.isEmptyPath(path20) ? !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents : identity.isCollection(this.contents) ? this.contents.getIn(path20, keepScalar) : void 0;
+      getIn(path21, keepScalar) {
+        return Collection.isEmptyPath(path21) ? !keepScalar && identity.isScalar(this.contents) ? this.contents.value : this.contents : identity.isCollection(this.contents) ? this.contents.getIn(path21, keepScalar) : void 0;
       }
       /**
        * Checks if the document includes a value with the key `key`.
@@ -2706,8 +2706,8 @@ var require_Document = __commonJS({
       /**
        * Checks if the document includes a value at `path`.
        */
-      hasIn(path20) {
-        return Collection.isEmptyPath(path20) ? this.contents !== void 0 : identity.isCollection(this.contents) ? this.contents.hasIn(path20) : !1;
+      hasIn(path21) {
+        return Collection.isEmptyPath(path21) ? this.contents !== void 0 : identity.isCollection(this.contents) ? this.contents.hasIn(path21) : !1;
       }
       /**
        * Sets a value in this document. For `!!set`, `value` needs to be a
@@ -2720,8 +2720,8 @@ var require_Document = __commonJS({
        * Sets a value in this document. For `!!set`, `value` needs to be a
        * boolean to add/remove the item from the set.
        */
-      setIn(path20, value) {
-        Collection.isEmptyPath(path20) ? this.contents = value : this.contents == null ? this.contents = Collection.collectionFromPath(this.schema, Array.from(path20), value) : assertCollection(this.contents) && this.contents.setIn(path20, value);
+      setIn(path21, value) {
+        Collection.isEmptyPath(path21) ? this.contents = value : this.contents == null ? this.contents = Collection.collectionFromPath(this.schema, Array.from(path21), value) : assertCollection(this.contents) && this.contents.setIn(path21, value);
       }
       /**
        * Change the YAML version and schema used by the document.
@@ -4116,9 +4116,9 @@ var require_cst_visit = __commonJS({
     visit.BREAK = BREAK;
     visit.SKIP = SKIP;
     visit.REMOVE = REMOVE;
-    visit.itemAtPath = (cst, path20) => {
+    visit.itemAtPath = (cst, path21) => {
       let item = cst;
-      for (let [field, index] of path20) {
+      for (let [field, index] of path21) {
         let tok = item?.[field];
         if (tok && "items" in tok)
           item = tok.items[index];
@@ -4127,21 +4127,21 @@ var require_cst_visit = __commonJS({
       }
       return item;
     };
-    visit.parentCollection = (cst, path20) => {
-      let parent = visit.itemAtPath(cst, path20.slice(0, -1)), field = path20[path20.length - 1][0], coll = parent?.[field];
+    visit.parentCollection = (cst, path21) => {
+      let parent = visit.itemAtPath(cst, path21.slice(0, -1)), field = path21[path21.length - 1][0], coll = parent?.[field];
       if (coll && "items" in coll)
         return coll;
       throw new Error("Parent collection not found");
     };
-    function _visit(path20, item, visitor) {
-      let ctrl = visitor(item, path20);
+    function _visit(path21, item, visitor) {
+      let ctrl = visitor(item, path21);
       if (typeof ctrl == "symbol")
         return ctrl;
       for (let field of ["key", "value"]) {
         let token = item[field];
         if (token && "items" in token) {
           for (let i = 0; i < token.items.length; ++i) {
-            let ci = _visit(Object.freeze(path20.concat([[field, i]])), token.items[i], visitor);
+            let ci = _visit(Object.freeze(path21.concat([[field, i]])), token.items[i], visitor);
             if (typeof ci == "number")
               i = ci - 1;
             else {
@@ -4150,10 +4150,10 @@ var require_cst_visit = __commonJS({
               ci === REMOVE && (token.items.splice(i, 1), i -= 1);
             }
           }
-          typeof ctrl == "function" && field === "key" && (ctrl = ctrl(item, path20));
+          typeof ctrl == "function" && field === "key" && (ctrl = ctrl(item, path21));
         }
       }
-      return typeof ctrl == "function" ? ctrl(item, path20) : ctrl;
+      return typeof ctrl == "function" ? ctrl(item, path21) : ctrl;
     }
     exports.visit = visit;
   }
@@ -5485,7 +5485,7 @@ var require_dist = __commonJS({
 
 // runtime/src/index.mjs
 import fs19 from "node:fs";
-import path19 from "node:path";
+import path20 from "node:path";
 
 // runtime/src/commands/init.mjs
 import path10 from "node:path";
@@ -18090,7 +18090,6 @@ function buildGuideDocument({ payload, scopeId, guideKind, guideId, proposedAt, 
         if (!scope.commands?.custom?.[ref.slice(7)]) throw new Error(`guide commandRef does not resolve: ${ref}`);
       } else if (!commandRefs.has(ref)) throw new Error(`guide commandRef does not resolve: ${ref}`);
   }
-  provenance.generationOutputHash = revisionHash(withoutRevision);
   let document = { ...withoutRevision, revision: `sha256:${revisionHash(withoutRevision)}` }, schemaResult = validate("guide", document);
   if (!schemaResult.valid) throw new Error(schemaResult.errors.map((error2) => `guide${error2.path}: ${error2.message}`).join("; "));
   return document;
@@ -18341,6 +18340,19 @@ function sourceSnapshot(source) {
     confirmedFingerprint: source.confirmedFingerprint
   };
 }
+function normalizeGuideGeneratorConfig(generator) {
+  return generator ? {
+    executable: generator.executable,
+    args: [...generator.args || []],
+    cwd: generator.cwd || null,
+    version: generator.version,
+    timeoutMs: generator.timeoutMs || 1e3,
+    maxOutputBytes: generator.maxOutputBytes || 256 * 1024
+  } : null;
+}
+function customGuideGenerationInputHash({ input, generator }) {
+  return revisionHash({ guideInput: input, generatorConfig: normalizeGuideGeneratorConfig(generator) });
+}
 function buildGuideGenerationInput({ scope, guideKind, sources, config }) {
   let refs = [...new Set(config.documentation?.source_refs || [])].sort();
   if (refs.length === 0) throw new Error("guide generation requires approved Project Context documentation.source_refs");
@@ -18379,7 +18391,7 @@ function generateGuideOutput({ workspaceRoot, scope, guideKind, sources, config 
         generationMethod: "custom",
         generatorVersion: generator.version,
         generatorFingerprint: result.generatorFingerprint,
-        generationInputHash: built.inputHash,
+        generationInputHash: customGuideGenerationInputHash({ input: built.input, generator }),
         generationOutputHash: result.outputHash
       }
     };
@@ -18651,6 +18663,7 @@ function checkSchema({ planningRoot }) {
 
 // runtime/src/commands/checkGuides.mjs
 import fs17 from "node:fs";
+import path17 from "node:path";
 
 // runtime/src/lib/guideHealth.mjs
 import fs16 from "node:fs";
@@ -18661,8 +18674,11 @@ var GUIDE_FINDING_CODES = Object.freeze({
   METADATA: "GUIDE_METADATA_MISMATCH",
   REVISION: "GUIDE_REVISION_MISMATCH",
   CONTENT_HASH: "GUIDE_CONTENT_HASH_MISMATCH",
+  OUTPUT_HASH: "GUIDE_GENERATION_OUTPUT_HASH_MISMATCH",
+  SOURCE_MAP: "GUIDE_SOURCE_MAP_REVISION_MISMATCH",
   STATUS: "GUIDE_STATUS_UNAPPROVED",
   REJECTED: "GUIDE_REJECTED",
+  PERSISTED_STALE: "GUIDE_PERSISTED_STALE",
   APPROVAL: "GUIDE_APPROVAL_MISSING",
   APPROVAL_REVISION: "GUIDE_APPROVAL_REVISION_MISMATCH",
   APPROVAL_CONTENT: "GUIDE_APPROVAL_CONTENT_HASH_MISMATCH",
@@ -18670,10 +18686,13 @@ var GUIDE_FINDING_CODES = Object.freeze({
   SOURCE_UNCONFIRMED: "GUIDE_SOURCE_UNCONFIRMED",
   SOURCE_CHANGED: "GUIDE_SOURCE_FINGERPRINT_CHANGED",
   SOURCE_NOT_APPROVED: "GUIDE_SOURCE_NOT_APPROVED",
+  SOURCE_UNAVAILABLE: "GUIDE_SOURCE_UNAVAILABLE",
+  SOURCE_OBSERVATION: "GUIDE_SOURCE_OBSERVATION_FAILED",
   INPUT_CHANGED: "GUIDE_GENERATION_INPUT_CHANGED",
   GENERATOR_MISSING: "GUIDE_GENERATOR_MISSING",
   GENERATOR_VERSION: "GUIDE_GENERATOR_VERSION_CHANGED",
   GENERATOR_FINGERPRINT: "GUIDE_GENERATOR_FINGERPRINT_CHANGED",
+  GENERATOR_CONFIG: "GUIDE_GENERATOR_CONFIG_CHANGED",
   PROJECTION_MISSING: "GUIDE_PROJECTION_MISSING",
   PROJECTION_DRIFT: "GUIDE_PROJECTION_DRIFT",
   DSL_VERSION: "GUIDE_DSL_VERSION_UNSUPPORTED",
@@ -18686,101 +18705,227 @@ function finding(code, scopeId, guideKind, message, evidence = {}, recommendedAc
 function guidePath(planningRoot, scopeId, kind, file) {
   return confineWritePath(planningRoot, path16.join("scopes", scopeId, file || `${kind}-guide.yml`));
 }
+function sameCanonicalValue2(left, right) {
+  return revisionHash(left) === revisionHash(right);
+}
+function guidePayloadDocument(guide) {
+  let common = { sourceRefs: guide.sourceRefs, openGaps: guide.openGaps };
+  return guide.kind === "task" ? {
+    ...common,
+    workPackageTypes: guide.workPackageTypes,
+    taskTypes: guide.taskTypes,
+    requiredSections: guide.requiredSections,
+    requiredGateRefs: guide.requiredGateRefs,
+    templateRefs: guide.templateRefs,
+    decompositionRules: guide.decompositionRules,
+    automation: guide.automation
+  } : {
+    ...common,
+    gatesByWorkPackageType: guide.gatesByWorkPackageType,
+    gatesByTaskType: guide.gatesByTaskType,
+    commandRefs: guide.commandRefs,
+    evidenceRequirements: guide.evidenceRequirements,
+    testData: guide.testData,
+    executionContexts: guide.executionContexts,
+    environments: guide.environments
+  };
+}
 function currentGenerator({ workspaceRoot, scope, kind }) {
   let configured = scope.customGenerators?.[kind];
   if (!configured) return null;
   try {
-    let executable = confineUnder(workspaceRoot, configured.executable), stat = fs16.lstatSync(executable);
-    return !stat.isFile() || stat.isSymbolicLink() ? { configured, missing: !0 } : { configured, fingerprint: contentHash(fs16.readFileSync(executable)) };
+    let executable = confineUnder(workspaceRoot, configured.executable);
+    return fs16.statSync(executable).isFile() ? { configured, fingerprint: contentHash(fs16.readFileSync(executable)) } : { configured, missing: !0 };
   } catch {
     return { configured, missing: !0 };
   }
 }
-function addSourceFindings({ guide, sources, config, scopeId, kind, reasons }) {
-  let byId = new Map(sources.map((source) => [source.id, source])), approvedRefs = new Set(config.documentation?.source_refs || []);
-  for (let sourceId of guide.sourceRefs || []) {
+function addSourceFindings({ guide, sources, config, scopeId, kind, reasons, sourceDrift, sourceDiagnostics }) {
+  let byId = new Map(sources.map((source) => [source.id, source])), approvedRefs = new Set(config.documentation?.source_refs || []), driftById = new Map((sourceDrift || []).map((entry) => [entry.sourceId, entry])), diagnosticsById = new Map((sourceDiagnostics || []).filter((entry) => entry.sourceId).map((entry) => [entry.sourceId, entry])), provenanceFingerprints = guide.provenance.sourceFingerprints || {};
+  for (let sourceId of guide.sourceRefs) {
     let source = byId.get(sourceId);
     if (!source) {
       reasons.push(finding(GUIDE_FINDING_CODES.SOURCE_MISSING, scopeId, kind, `Documentation Source ${sourceId} is missing`, { sourceId }, "rerun_discovery"));
       continue;
     }
-    approvedRefs.has(sourceId) || reasons.push(finding(GUIDE_FINDING_CODES.SOURCE_NOT_APPROVED, scopeId, kind, `Documentation Source ${sourceId} is not in approved Project Context refs`, { sourceId }, "repair_project_context_refs")), source.confirmedFingerprint ? guide.provenance.sourceFingerprints?.[sourceId] !== source.confirmedFingerprint && reasons.push(finding(GUIDE_FINDING_CODES.SOURCE_CHANGED, scopeId, kind, `Documentation Source ${sourceId} fingerprint changed`, { sourceId, expected: guide.provenance.sourceFingerprints?.[sourceId] || null, actual: source.confirmedFingerprint }, "regenerate")) : reasons.push(finding(GUIDE_FINDING_CODES.SOURCE_UNCONFIRMED, scopeId, kind, `Documentation Source ${sourceId} has no confirmed fingerprint`, { sourceId }, "rerun_discovery")), ["deprecated", "historical", "unknown"].includes(source.availability) && reasons.push(finding(GUIDE_FINDING_CODES.SOURCE_NOT_APPROVED, scopeId, kind, `Documentation Source ${sourceId} availability is ${source.availability}`, { sourceId, availability: source.availability }, "repair_project_context_refs"));
-  }
-  for (let sourceId of approvedRefs)
-    guide.sourceRefs.includes(sourceId) || reasons.push(finding(GUIDE_FINDING_CODES.INPUT_CHANGED, scopeId, kind, "approved Project Context source set changed for Guide", { sourceId }, "regenerate"));
-}
-function addGeneratorFindings({ guide, scope, workspaceRoot, config, kind, scopeId, reasons }) {
-  let method = guide.provenance.generationMethod, current = currentGenerator({ workspaceRoot, scope, kind });
-  method === "custom" ? !current || current.missing ? reasons.push(finding(GUIDE_FINDING_CODES.GENERATOR_MISSING, scopeId, kind, "configured custom generator is missing or unsafe", {}, "repair_generator_config")) : (guide.provenance.generatorVersion !== current.configured.version && reasons.push(finding(GUIDE_FINDING_CODES.GENERATOR_VERSION, scopeId, kind, "custom generator version changed", { expected: guide.provenance.generatorVersion, actual: current.configured.version }, "regenerate")), guide.provenance.generatorFingerprint !== current.fingerprint && reasons.push(finding(GUIDE_FINDING_CODES.GENERATOR_FINGERPRINT, scopeId, kind, "custom generator fingerprint changed", { expected: guide.provenance.generatorFingerprint, actual: current.fingerprint }, "regenerate"))) : method === "generic" && guide.provenance.generatorVersion !== "shipping-mode:generic-guide/1" && reasons.push(finding(GUIDE_FINDING_CODES.GENERATOR_VERSION, scopeId, kind, "generic generator version is no longer supported", { expected: guide.provenance.generatorVersion, actual: "shipping-mode:generic-guide/1" }, "regenerate"));
-  try {
-    let { inputHash } = buildGuideGenerationInput({ scope, guideKind: kind, sources: config.__currentSources || [], config });
-    guide.provenance.generationInputHash !== inputHash && reasons.push(finding(GUIDE_FINDING_CODES.INPUT_CHANGED, scopeId, kind, "Guide generation input changed", { expected: guide.provenance.generationInputHash, actual: inputHash }, "regenerate"));
-  } catch (error2) {
-    reasons.push(finding(GUIDE_FINDING_CODES.INPUT_CHANGED, scopeId, kind, `Guide generation input cannot be reconstructed: ${error2.message}`, {}, "repair_project_context_refs"));
-  }
-}
-function evaluateGuideHealth({ planningRoot, workspaceRoot, scope, guideKind, sources, config }) {
-  let scopeId = scope.id, relative = path16.join("scopes", scopeId, `${guideKind}-guide.yml`), reasons = [], metadata = scope.guides?.[guideKind] || null, guide, guideBytes;
-  try {
-    let file = guidePath(planningRoot, scopeId, guideKind);
-    if (!fs16.existsSync(file))
-      reasons.push(finding(GUIDE_FINDING_CODES.MISSING, scopeId, guideKind, "required Guide YAML is missing", { path: relative }, "generate"));
+    approvedRefs.has(sourceId) || reasons.push(finding(GUIDE_FINDING_CODES.SOURCE_NOT_APPROVED, scopeId, kind, `Documentation Source ${sourceId} is not in approved Project Context refs`, { sourceId }, "repair_project_context_refs")), source.confirmedFingerprint || reasons.push(finding(GUIDE_FINDING_CODES.SOURCE_UNCONFIRMED, scopeId, kind, `Documentation Source ${sourceId} has no confirmed fingerprint`, { sourceId }, "rerun_discovery")), ["deprecated", "historical", "unknown"].includes(source.availability) && reasons.push(finding(GUIDE_FINDING_CODES.SOURCE_UNAVAILABLE, scopeId, kind, `Documentation Source ${sourceId} availability is ${source.availability}`, { sourceId, availability: source.availability }, "repair_project_context_refs"));
+    let observation = driftById.get(sourceId), diagnostic = diagnosticsById.get(sourceId);
+    if (diagnostic)
+      reasons.push(finding(GUIDE_FINDING_CODES.SOURCE_OBSERVATION, scopeId, kind, `Documentation Source ${sourceId} could not be observed: ${diagnostic.message}`, { sourceId, diagnosticCode: diagnostic.code }, "rerun_discovery"));
+    else if (sourceDrift && !observation)
+      reasons.push(finding(GUIDE_FINDING_CODES.SOURCE_OBSERVATION, scopeId, kind, `Documentation Source ${sourceId} has no current repository observation`, { sourceId }, "rerun_discovery"));
+    else if (observation?.driftState === "missing" || observation?.driftState === "moved")
+      reasons.push(finding(GUIDE_FINDING_CODES.SOURCE_MISSING, scopeId, kind, `Documentation Source ${sourceId} is ${observation.driftState} in the current repository`, { sourceId, driftState: observation.driftState, observedAtPath: observation.observedAtPath || null }, "rerun_discovery"));
     else {
-      guideBytes = fs16.readFileSync(file), guide = parseYaml(guideBytes.toString("utf8"));
-      let schemaResult = validate("guide", guide);
-      schemaResult.valid || reasons.push(...schemaResult.errors.map((error2) => finding(GUIDE_FINDING_CODES.SCHEMA, scopeId, guideKind, `${relative}${error2.path}: ${error2.message}`, { path: relative, error: error2 }, "regenerate")));
+      let expected = provenanceFingerprints[sourceId] || null, catalog = source.confirmedFingerprint || null, observed = observation?.observedFingerprint || null;
+      (expected !== catalog || observation?.driftState === "changed") && reasons.push(finding(GUIDE_FINDING_CODES.SOURCE_CHANGED, scopeId, kind, `Documentation Source ${sourceId} fingerprint changed`, { sourceId, expected, catalog, observed }, "regenerate"));
     }
-  } catch (error2) {
-    reasons.push(finding(GUIDE_FINDING_CODES.SCHEMA, scopeId, guideKind, `${relative}: ${error2.message}`, { path: relative }, "regenerate"));
   }
-  if (!guide) return { state: "missing", usable: !1, persistedStatus: metadata?.status || null, reasons };
+  if (guide.provenance.generationMethod !== "manual")
+    for (let sourceId of approvedRefs)
+      guide.sourceRefs.includes(sourceId) || reasons.push(finding(GUIDE_FINDING_CODES.INPUT_CHANGED, scopeId, kind, "approved Project Context source set changed for Guide", { sourceId }, "regenerate"));
+}
+function addGeneratorFindings({ guide, scope, workspaceRoot, config, sources, kind, scopeId, reasons }) {
+  let method = guide.provenance.generationMethod, payloadDocument = guidePayloadDocument(guide), expectedInputHash;
+  if (method === "manual")
+    expectedInputHash = revisionHash({ scopeId, guideKind: kind, document: payloadDocument });
+  else {
+    let built;
+    try {
+      built = buildGuideGenerationInput({ scope, guideKind: kind, sources, config });
+    } catch (error2) {
+      reasons.push(finding(GUIDE_FINDING_CODES.INPUT_CHANGED, scopeId, kind, `Guide generation input cannot be reconstructed: ${error2.message}`, {}, "repair_project_context_refs"));
+      return;
+    }
+    if (method === "custom") {
+      let current = currentGenerator({ workspaceRoot, scope, kind });
+      if (!current || current.missing) {
+        reasons.push(finding(GUIDE_FINDING_CODES.GENERATOR_MISSING, scopeId, kind, "configured custom generator is missing or unsafe", {}, "repair_generator_config"));
+        return;
+      }
+      if (guide.provenance.generatorVersion !== current.configured.version && reasons.push(finding(GUIDE_FINDING_CODES.GENERATOR_VERSION, scopeId, kind, "custom generator version changed", { expected: guide.provenance.generatorVersion, actual: current.configured.version }, "regenerate")), guide.provenance.generatorFingerprint !== current.fingerprint && reasons.push(finding(GUIDE_FINDING_CODES.GENERATOR_FINGERPRINT, scopeId, kind, "custom generator fingerprint changed", { expected: guide.provenance.generatorFingerprint, actual: current.fingerprint }, "regenerate")), expectedInputHash = customGuideGenerationInputHash({ input: built.input, generator: current.configured }), guide.provenance.generationInputHash !== expectedInputHash && guide.provenance.generatorVersion === current.configured.version && guide.provenance.generatorFingerprint === current.fingerprint) {
+        reasons.push(finding(GUIDE_FINDING_CODES.GENERATOR_CONFIG, scopeId, kind, "custom generator configuration or structured generation input changed", { expected: guide.provenance.generationInputHash, actual: expectedInputHash }, "regenerate"));
+        return;
+      }
+    } else
+      guide.provenance.generatorVersion !== "shipping-mode:generic-guide/1" && reasons.push(finding(GUIDE_FINDING_CODES.GENERATOR_VERSION, scopeId, kind, "generic generator version is no longer supported", { expected: guide.provenance.generatorVersion, actual: "shipping-mode:generic-guide/1" }, "regenerate")), expectedInputHash = built.inputHash;
+  }
+  guide.provenance.generationInputHash !== expectedInputHash && reasons.push(finding(GUIDE_FINDING_CODES.INPUT_CHANGED, scopeId, kind, "Guide generation input changed", { expected: guide.provenance.generationInputHash, actual: expectedInputHash }, "regenerate"));
+}
+function sortedReasons(reasons) {
+  return reasons.sort((left, right) => `${left.code}:${JSON.stringify(left.evidence)}`.localeCompare(`${right.code}:${JSON.stringify(right.evidence)}`));
+}
+function evaluateGuideHealth({ planningRoot, workspaceRoot, scope, guideKind, sources, config, sourceDrift = null, sourceDiagnostics = [] }) {
+  let scopeId = scope.id, relative = path16.join("scopes", scopeId, `${guideKind}-guide.yml`), reasons = [], metadata = scope.guides?.[guideKind] || null, guide, guideBytes, file;
+  try {
+    file = guidePath(planningRoot, scopeId, guideKind);
+  } catch (error2) {
+    return reasons.push(finding(GUIDE_FINDING_CODES.SCHEMA, scopeId, guideKind, `${relative}: untrusted path (${error2.message})`, { path: relative }, "regenerate")), { state: "invalid", usable: !1, persistedStatus: metadata?.status || null, reasons: sortedReasons(reasons) };
+  }
+  if (!fs16.existsSync(file))
+    return reasons.push(finding(GUIDE_FINDING_CODES.MISSING, scopeId, guideKind, "required Guide YAML is missing", { path: relative }, "generate")), { state: "missing", usable: !1, persistedStatus: metadata?.status || null, reasons };
+  try {
+    guideBytes = fs16.readFileSync(file), guide = parseYaml(guideBytes.toString("utf8"));
+  } catch (error2) {
+    return reasons.push(finding(GUIDE_FINDING_CODES.SCHEMA, scopeId, guideKind, `${relative}: ${error2.message}`, { path: relative }, "regenerate")), { state: "invalid", usable: !1, persistedStatus: metadata?.status || null, reasons: sortedReasons(reasons) };
+  }
+  guide?.schemaVersion !== 1 && reasons.push(finding(GUIDE_FINDING_CODES.SCHEMA_VERSION, scopeId, guideKind, `unsupported Guide schemaVersion: ${guide?.schemaVersion}`, { actual: guide?.schemaVersion, supported: 1 }, "regenerate")), guide?.dslVersion !== 1 && reasons.push(finding(GUIDE_FINDING_CODES.DSL_VERSION, scopeId, guideKind, `unsupported Guide dslVersion: ${guide?.dslVersion}`, { actual: guide?.dslVersion, supported: 1 }, "regenerate"));
+  let schemaResult = validate("guide", guide);
+  if (!schemaResult.valid)
+    return reasons.push(...schemaResult.errors.map((error2) => finding(GUIDE_FINDING_CODES.SCHEMA, scopeId, guideKind, `${relative}${error2.path}: ${error2.message}`, { path: relative, error: error2 }, "regenerate"))), { state: "invalid", usable: !1, persistedStatus: metadata?.status || null, reasons: sortedReasons(reasons) };
   (!metadata || guide.id !== metadata.id || guide.scopeId !== scopeId || guide.kind !== guideKind) && reasons.push(finding(GUIDE_FINDING_CODES.METADATA, scopeId, guideKind, "Guide identity or scope metadata does not match", {}, "regenerate"));
   let { revision, ...withoutRevision } = guide, expectedRevision = `sha256:${revisionHash(withoutRevision)}`;
   revision !== expectedRevision && reasons.push(finding(GUIDE_FINDING_CODES.REVISION, scopeId, guideKind, "Guide revision does not match canonical content", { expected: expectedRevision, actual: revision }, "regenerate"));
   let actualContentHash = contentHash(guideBytes);
-  (!metadata || metadata.contentHash !== actualContentHash) && reasons.push(finding(GUIDE_FINDING_CODES.CONTENT_HASH, scopeId, guideKind, "Guide content hash does not match scope metadata", { expected: metadata?.contentHash || null, actual: actualContentHash }, "regenerate")), metadata?.status === "approved" ? metadata.approval ? (metadata.approval.revision !== revision && reasons.push(finding(GUIDE_FINDING_CODES.APPROVAL_REVISION, scopeId, guideKind, "approval revision does not match Guide revision", { expected: revision, actual: metadata.approval.revision }, "regenerate")), metadata.approval.contentHash !== actualContentHash && reasons.push(finding(GUIDE_FINDING_CODES.APPROVAL_CONTENT, scopeId, guideKind, "approval content hash does not match Guide content", { expected: actualContentHash, actual: metadata.approval.contentHash }, "regenerate"))) : reasons.push(finding(GUIDE_FINDING_CODES.APPROVAL, scopeId, guideKind, "approved Guide has no approval binding", {}, "submit_review")) : metadata?.status === "rejected" ? reasons.push(finding(GUIDE_FINDING_CODES.REJECTED, scopeId, guideKind, "Guide was rejected", {}, "regenerate")) : metadata?.status ? reasons.push(finding(GUIDE_FINDING_CODES.STATUS, scopeId, guideKind, `Guide status is ${metadata.status}`, { status: metadata.status }, "review")) : reasons.push(finding(GUIDE_FINDING_CODES.METADATA, scopeId, guideKind, "Guide lifecycle metadata is missing", {}, "regenerate"));
-  let healthConfig = { ...config, __currentSources: sources };
-  addSourceFindings({ guide, sources, config, scopeId, kind: guideKind, reasons }), addGeneratorFindings({ guide, scope, workspaceRoot, config: healthConfig, kind: guideKind, scopeId, reasons });
+  (!metadata || metadata.contentHash !== actualContentHash) && reasons.push(finding(GUIDE_FINDING_CODES.CONTENT_HASH, scopeId, guideKind, "Guide content hash does not match scope metadata", { expected: metadata?.contentHash || null, actual: actualContentHash }, "regenerate")), metadata && (metadata.revision !== guide.revision || !sameCanonicalValue2(metadata.sourceRefs, guide.sourceRefs) || !sameCanonicalValue2(metadata.provenance, guide.provenance)) && reasons.push(finding(GUIDE_FINDING_CODES.METADATA, scopeId, guideKind, "Guide revision/source/provenance metadata does not match canonical YAML", {}, "regenerate"));
+  let expectedSourceMapRevision = revisionHash({ sourceRefs: guide.sourceRefs, sourceFingerprints: guide.provenance.sourceFingerprints || {} });
+  guide.provenance.sourceMapRevision !== expectedSourceMapRevision && reasons.push(finding(GUIDE_FINDING_CODES.SOURCE_MAP, scopeId, guideKind, "Guide source map revision is inconsistent", { expected: expectedSourceMapRevision, actual: guide.provenance.sourceMapRevision }, "regenerate"));
+  let expectedOutputHash = revisionHash(guidePayloadDocument(guide));
+  guide.provenance.generationOutputHash !== expectedOutputHash && reasons.push(finding(GUIDE_FINDING_CODES.OUTPUT_HASH, scopeId, guideKind, "Guide generation output hash does not match executable Guide document", { expected: expectedOutputHash, actual: guide.provenance.generationOutputHash }, "regenerate")), metadata?.status === "approved" ? metadata.approval ? (metadata.approval.revision !== revision && reasons.push(finding(GUIDE_FINDING_CODES.APPROVAL_REVISION, scopeId, guideKind, "approval revision does not match Guide revision", { expected: revision, actual: metadata.approval.revision }, "regenerate")), metadata.approval.contentHash !== actualContentHash && reasons.push(finding(GUIDE_FINDING_CODES.APPROVAL_CONTENT, scopeId, guideKind, "approval content hash does not match Guide content", { expected: actualContentHash, actual: metadata.approval.contentHash }, "regenerate"))) : reasons.push(finding(GUIDE_FINDING_CODES.APPROVAL, scopeId, guideKind, "approved Guide has no approval binding", {}, "submit_review")) : metadata?.status === "rejected" ? reasons.push(finding(GUIDE_FINDING_CODES.REJECTED, scopeId, guideKind, "Guide was rejected", {}, "regenerate")) : metadata?.status === "stale" ? reasons.push(finding(GUIDE_FINDING_CODES.PERSISTED_STALE, scopeId, guideKind, "Guide is persistently marked stale", {}, "regenerate")) : metadata?.status ? reasons.push(finding(GUIDE_FINDING_CODES.STATUS, scopeId, guideKind, `Guide status is ${metadata.status}`, { status: metadata.status }, "review")) : reasons.push(finding(GUIDE_FINDING_CODES.METADATA, scopeId, guideKind, "Guide lifecycle metadata is missing", {}, "regenerate")), addSourceFindings({ guide, sources, config, scopeId, kind: guideKind, reasons, sourceDrift, sourceDiagnostics }), addGeneratorFindings({ guide, scope, workspaceRoot, config, sources, kind: guideKind, scopeId, reasons });
   for (let gap of guide.openGaps || []) reasons.push(finding(GUIDE_FINDING_CODES.OPEN_GAP, scopeId, guideKind, `Guide has open gap: ${gap.description}`, { gapId: gap.id }, "review"));
-  let projectionPath = guidePath(planningRoot, scopeId, guideKind, `${guideKind}-guide.md`);
-  fs16.existsSync(projectionPath) ? compareGuideProjection(guide, fs16.readFileSync(projectionPath, "utf8")).equal || reasons.push(finding(GUIDE_FINDING_CODES.PROJECTION_DRIFT, scopeId, guideKind, "Markdown projection differs from canonical Guide YAML", {}, "regenerate")) : reasons.push(finding(GUIDE_FINDING_CODES.PROJECTION_MISSING, scopeId, guideKind, "Markdown projection is missing", { path: `${guideKind}-guide.md` }, "regenerate")), reasons.sort((left, right) => `${left.code}:${JSON.stringify(left.evidence)}`.localeCompare(`${right.code}:${JSON.stringify(right.evidence)}`));
-  let hasBlocking = reasons.some((reason) => reason.severity === "error"), state = metadata?.status === "approved" ? hasBlocking ? "approved_stale" : "approved_current" : metadata?.status || "invalid";
+  try {
+    let projectionPath = guidePath(planningRoot, scopeId, guideKind, `${guideKind}-guide.md`);
+    fs16.existsSync(projectionPath) ? compareGuideProjection(guide, fs16.readFileSync(projectionPath, "utf8")).equal || reasons.push(finding(GUIDE_FINDING_CODES.PROJECTION_DRIFT, scopeId, guideKind, "Markdown projection differs from canonical Guide YAML", {}, "regenerate")) : reasons.push(finding(GUIDE_FINDING_CODES.PROJECTION_MISSING, scopeId, guideKind, "Markdown projection is missing", { path: `${guideKind}-guide.md` }, "regenerate"));
+  } catch (error2) {
+    reasons.push(finding(GUIDE_FINDING_CODES.PROJECTION_DRIFT, scopeId, guideKind, `Markdown projection path is untrusted: ${error2.message}`, {}, "regenerate"));
+  }
+  sortedReasons(reasons);
+  let blocking = reasons.filter((reason) => reason.severity === "error"), structuralCodes = /* @__PURE__ */ new Set([GUIDE_FINDING_CODES.SCHEMA, GUIDE_FINDING_CODES.SCHEMA_VERSION, GUIDE_FINDING_CODES.DSL_VERSION, GUIDE_FINDING_CODES.METADATA, GUIDE_FINDING_CODES.REVISION, GUIDE_FINDING_CODES.CONTENT_HASH, GUIDE_FINDING_CODES.OUTPUT_HASH, GUIDE_FINDING_CODES.SOURCE_MAP]), state = blocking.some((reason) => structuralCodes.has(reason.code)) ? "invalid" : metadata?.status === "approved" ? blocking.length > 0 ? "approved_stale" : "approved_current" : metadata?.status || "invalid";
   return { state, usable: state === "approved_current", persistedStatus: metadata?.status || null, reasons };
 }
 function evaluateGuideReadiness({ healthByKind, scopeId, requiredGuideKinds = ["task", "test"], policyMode = "strict" }) {
   if (!["strict", "advisory"].includes(policyMode)) throw new Error(`unsupported Guide readiness policy mode: ${policyMode}`);
+  let required = [...new Set(requiredGuideKinds)];
+  if (required.some((kind) => !["task", "test"].includes(kind))) throw new Error("requiredGuideKinds may contain only task and test");
   let findings = [];
-  for (let kind of requiredGuideKinds) {
+  for (let kind of required) {
     let health = healthByKind[kind] || { state: "missing", usable: !1, reasons: [finding(GUIDE_FINDING_CODES.MISSING, scopeId, kind, "required Guide is missing", {}, "generate")] };
     findings.push(...health.reasons);
   }
   let blocking = findings.filter((item) => item.severity === "error");
-  return { scopeId, policyMode, requiredGuideKinds: [...requiredGuideKinds], ready: policyMode === "advisory" || blocking.length === 0, findings };
+  return { scopeId, policyMode, requiredGuideKinds: required, ready: policyMode === "advisory" || blocking.length === 0, findings };
 }
 
 // runtime/src/commands/checkGuides.mjs
+function workspaceFinding(code, message, evidence = {}, recommendedAction = "inspect") {
+  return { code, severity: "error", scopeId: null, guideKind: null, message, evidence, recommendedAction };
+}
 function readConfig(planningRoot) {
-  return parseYaml(fs17.readFileSync(confineWritePath(planningRoot, "config.yml"), "utf8"));
+  let config = parseYaml(fs17.readFileSync(confineWritePath(planningRoot, "config.yml"), "utf8")), result = validate("config", config);
+  if (!result.valid) throw new Error(result.errors.map((entry) => `${entry.path}: ${entry.message}`).join("; "));
+  return config;
+}
+function readEnabledScopes(planningRoot, enabledIds, findings) {
+  let scopes = [];
+  for (let id of [...enabledIds].sort()) {
+    let relative = path17.join("scopes", id, "scope.yml"), file;
+    try {
+      file = confineWritePath(planningRoot, relative);
+    } catch (error2) {
+      findings.push(workspaceFinding("GUIDE_SCOPE_INVALID", `enabled Scope ${id} has an untrusted path: ${error2.message}`, { scopeId: id }, "repair_scope_catalog"));
+      continue;
+    }
+    if (!fs17.existsSync(file)) {
+      findings.push(workspaceFinding("GUIDE_SCOPE_MISSING", `enabled Scope ${id} is missing scope.yml`, { scopeId: id }, "repair_scope_catalog"));
+      continue;
+    }
+    try {
+      let scope = parseYaml(fs17.readFileSync(file, "utf8")), result = validate("scope", scope);
+      if (!result.valid) throw new Error(result.errors.map((entry) => `${entry.path}: ${entry.message}`).join("; "));
+      if (scope.id !== id) throw new Error(`scope.id ${scope.id} does not match directory ${id}`);
+      scopes.push(scope);
+    } catch (error2) {
+      findings.push(workspaceFinding("GUIDE_SCOPE_INVALID", `enabled Scope ${id} is invalid: ${error2.message}`, { scopeId: id }, "repair_scope_catalog"));
+    }
+  }
+  return scopes;
+}
+function stableFindings(findings) {
+  return findings.sort((left, right) => `${left.scopeId || ""}:${left.guideKind || ""}:${left.code}:${JSON.stringify(left.evidence || {})}`.localeCompare(`${right.scopeId || ""}:${right.guideKind || ""}:${right.code}:${JSON.stringify(right.evidence || {})}`));
 }
 function checkGuides({ planningRoot, workspaceRoot, scopeId = null, policyMode = "strict" }) {
-  if (!fs17.existsSync(planningRoot)) return { status: "NOT_INITIALIZED", findings: [{ code: "GUIDE_WORKSPACE_NOT_INITIALIZED", severity: "error", message: "workspace is not initialized" }], scopes: [] };
+  if (!fs17.existsSync(planningRoot)) return { status: "NOT_INITIALIZED", findings: [workspaceFinding("GUIDE_WORKSPACE_NOT_INITIALIZED", "workspace is not initialized")], scopes: [] };
+  if (!["strict", "advisory"].includes(policyMode)) throw new UsageError("check guides --mode must be strict or advisory");
+  if (scopeId && !isUuidV7(scopeId)) throw new UsageError(`invalid scope id: ${scopeId}`);
   assertTrustedRoots(planningRoot);
   let schema = checkSchema({ planningRoot });
   if (schema.status === "RECOVERY_REQUIRED") return { status: "RECOVERY_REQUIRED", findings: schema.findings, scopes: [], pendingOperations: schema.pendingOperations };
-  let config = readConfig(planningRoot), scopes = readConfirmedScopes(planningRoot).filter((scope) => !scopeId || scope.id === scopeId);
-  if (scopeId && !isUuidV7(scopeId)) throw new Error(`invalid scope id: ${scopeId}`);
-  let sources = readConfirmedSources(planningRoot), resultScopes = scopes.map((scope) => {
+  let findings = (schema.findings || []).map((message) => workspaceFinding("GUIDE_WORKSPACE_SCHEMA_INVALID", message, {}, "run_check_schema")), config;
+  try {
+    config = readConfig(planningRoot);
+  } catch (error2) {
+    return findings.push(workspaceFinding("GUIDE_PROJECT_CONTEXT_INVALID", `Project Context cannot be read: ${error2.message}`, {}, "run_check_schema")), { status: "FAIL", policyMode, scopes: [], findings: stableFindings(findings), pendingOperations: schema.pendingOperations || [] };
+  }
+  let enabledIds = new Set(config.scopeCatalog?.enabled || []);
+  if (scopeId && !enabledIds.has(scopeId))
+    return findings.push(workspaceFinding("GUIDE_SCOPE_NOT_ENABLED", `Scope ${scopeId} is not enabled in Project Context`, { scopeId }, "repair_scope_catalog")), { status: "FAIL", policyMode, scopes: [], findings: stableFindings(findings), pendingOperations: schema.pendingOperations || [] };
+  let scopes = readEnabledScopes(planningRoot, scopeId ? /* @__PURE__ */ new Set([scopeId]) : enabledIds, findings), sources;
+  try {
+    sources = readConfirmedSources(planningRoot);
+  } catch (error2) {
+    return findings.push(workspaceFinding("GUIDE_SOURCE_CATALOG_INVALID", `Documentation Source catalog cannot be read: ${error2.message}`, {}, "run_check_schema")), { status: "FAIL", policyMode, scopes: [], findings: stableFindings(findings), pendingOperations: schema.pendingOperations || [] };
+  }
+  let observation = { results: [], diagnostics: [] };
+  try {
+    observation = computeKnownSourceDrift({ planningRoot, workspaceRoot, sourceCandidates: [], maxSourceBytes: DEFAULT_MAX_SOURCE_BYTES });
+  } catch (error2) {
+    findings.push(workspaceFinding("GUIDE_SOURCE_OBSERVATION_FAILED", `current repository source state cannot be observed: ${error2.message}`, {}, "rerun_discovery"));
+  }
+  let resultScopes = scopes.map((scope) => {
     let guides = {};
-    for (let kind of ["task", "test"]) guides[kind] = evaluateGuideHealth({ planningRoot, workspaceRoot, scope, guideKind: kind, sources, config });
+    for (let kind of ["task", "test"])
+      guides[kind] = evaluateGuideHealth({ planningRoot, workspaceRoot, scope, guideKind: kind, sources, config, sourceDrift: observation.results, sourceDiagnostics: observation.diagnostics });
     let readiness = evaluateGuideReadiness({ healthByKind: guides, scopeId: scope.id, requiredGuideKinds: ["task", "test"], policyMode });
     return { scopeId: scope.id, guides, readiness };
-  }), findings = resultScopes.flatMap((entry) => entry.readiness.findings), hasErrors = findings.some((entry) => entry.severity === "error") || schema.status === "FAIL", hasWarnings = findings.some((entry) => entry.severity === "warning");
+  });
+  findings.push(...resultScopes.flatMap((entry) => entry.readiness.findings)), stableFindings(findings);
+  let hasErrors = findings.some((entry) => entry.severity === "error") || schema.status === "FAIL", hasWarnings = findings.some((entry) => entry.severity === "warning");
   return { status: hasErrors ? "FAIL" : hasWarnings ? "WARN" : "PASS", policyMode, scopes: resultScopes, findings, pendingOperations: schema.pendingOperations || [] };
 }
 
 // runtime/src/lib/discoveryProposal.mjs
 import fs18 from "node:fs";
-import path17 from "node:path";
+import path18 from "node:path";
 function checkScanParametersRange(proposal) {
   let bytes = proposal.scanParameters?.maxSourceBytes;
   return typeof bytes != "number" || bytes < MIN_MAX_SOURCE_BYTES || bytes > MAX_MAX_SOURCE_BYTES ? [{ code: "scan_parameters_out_of_range", message: `scanParameters.maxSourceBytes must be between ${MIN_MAX_SOURCE_BYTES} and ${MAX_MAX_SOURCE_BYTES}, got ${bytes}` }] : [];
@@ -18984,7 +19129,7 @@ function checkScopeProposals({ proposal, planningRoot, workspaceRoot }) {
   }
   return errors.length === 0 ? { ok: !0 } : { ok: !1, errors };
 }
-function checkSourcePathCollisions({ proposal, planningRoot, workspaceRoot = path17.dirname(planningRoot) }) {
+function checkSourcePathCollisions({ proposal, planningRoot, workspaceRoot = path18.dirname(planningRoot) }) {
   let displaced = new Set((proposal.sources || []).filter((e) => e.action === "move" || e.action === "remove").map((e) => e.sourceId)), occupants = /* @__PURE__ */ new Map(), occupy = (relativePath, sourceId) => {
     let identity;
     try {
@@ -19049,7 +19194,7 @@ function runDiscoverValidate({ planningRoot, workspaceRoot, proposalText }) {
 }
 
 // runtime/src/commands/discoveryChangeSet.mjs
-import path18 from "node:path";
+import path19 from "node:path";
 function parseProposalText(proposalText) {
   try {
     return JSON.parse(proposalText);
@@ -19100,7 +19245,7 @@ function prepareDiscoveryChangeSet({ planningRoot, workspaceRoot, proposalText, 
 function runDiscoveryPropose({ planningRoot, workspaceRoot, proposalText, actor }) {
   let prepared = prepareDiscoveryChangeSet({ planningRoot, workspaceRoot, proposalText, actor });
   if (!prepared.ok) return prepared;
-  let operationsRoot = path18.join(planningRoot, "operations");
+  let operationsRoot = path19.join(planningRoot, "operations");
   return { operationId: propose({
     operationsRoot,
     planningRoot,
@@ -19118,8 +19263,8 @@ function runDiscoveryPropose({ planningRoot, workspaceRoot, proposalText, actor 
 // runtime/src/lib/guideEvaluator.mjs
 import { Worker } from "node:worker_threads";
 var OPERATORS = /* @__PURE__ */ new Set(["equals", "not_equals", "contains", "exists", "in", "matches"]), FORBIDDEN_SEGMENTS = /* @__PURE__ */ new Set(["__proto__", "prototype", "constructor"]), MISSING = Symbol("missing");
-function error(code, message, path20 = null) {
-  return { code, message, path: path20 };
+function error(code, message, path21 = null) {
+  return { code, message, path: path21 };
 }
 function isDateValue(value) {
   return value && typeof value == "object" && value.type === "date" && typeof value.value == "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.value);
@@ -19185,40 +19330,40 @@ function runRegex(pattern, input, policy, workerUrl) {
     });
   });
 }
-async function evaluateNode(node, context, options, trace, path20 = "$") {
-  if (!node || typeof node != "object" || Array.isArray(node)) return { error: error("invalid_condition", "condition must be an object", path20) };
+async function evaluateNode(node, context, options, trace, path21 = "$") {
+  if (!node || typeof node != "object" || Array.isArray(node)) return { error: error("invalid_condition", "condition must be an object", path21) };
   let keys = Object.keys(node), compound = ["all", "any", "not"].filter((key) => Object.prototype.hasOwnProperty.call(node, key)), comparison = ["field", "op", "value"].filter((key) => Object.prototype.hasOwnProperty.call(node, key));
-  if (compound.length + (comparison.length ? 1 : 0) !== 1) return { error: error("invalid_condition", "condition must contain exactly one AST variant", path20) };
+  if (compound.length + (comparison.length ? 1 : 0) !== 1) return { error: error("invalid_condition", "condition must contain exactly one AST variant", path21) };
   if (comparison.length) {
     let allowed = node.op === "matches" ? ["field", "op", "value", "regex"] : ["field", "op", "value"];
-    if (keys.some((key) => !allowed.includes(key)) || !OPERATORS.has(node.op)) return { error: error("invalid_condition", "comparison has unsupported fields or operator", path20) };
+    if (keys.some((key) => !allowed.includes(key)) || !OPERATORS.has(node.op)) return { error: error("invalid_condition", "comparison has unsupported fields or operator", path21) };
     let resolved = resolveField(context, node.field);
     if (resolved.error) return { error: resolved.error };
     if (node.op === "exists") {
       let matched2 = resolved.value !== MISSING;
-      return trace.push({ path: path20, operator: node.op, field: node.field, matched: matched2 }), { matched: matched2 };
+      return trace.push({ path: path21, operator: node.op, field: node.field, matched: matched2 }), { matched: matched2 };
     }
     if (resolved.value === MISSING) return { error: error("missing_field", `field does not exist: ${node.field}`, node.field) };
     let result;
-    return node.op === "matches" ? result = await runRegex(node.value, resolved.value, node.regex, options.regexWorkerUrl) : result = compare(node.op, resolved.value, node.value, node.field), result.error || trace.push({ path: path20, operator: node.op, field: node.field, matched: result.matched }), result;
+    return node.op === "matches" ? result = await runRegex(node.value, resolved.value, node.regex, options.regexWorkerUrl) : result = compare(node.op, resolved.value, node.value, node.field), result.error || trace.push({ path: path21, operator: node.op, field: node.field, matched: result.matched }), result;
   }
   if (compound[0] === "not") {
-    if (keys.length !== 1) return { error: error("invalid_condition", "not accepts exactly one condition", path20) };
-    let childTrace = [], result = await evaluateNode(node.not, context, options, childTrace, `${path20}.not`);
-    return trace.push(...childTrace, { path: path20, operator: "not", matched: result.error ? !1 : !result.matched }), result.error ? result : { matched: !result.matched };
+    if (keys.length !== 1) return { error: error("invalid_condition", "not accepts exactly one condition", path21) };
+    let childTrace = [], result = await evaluateNode(node.not, context, options, childTrace, `${path21}.not`);
+    return trace.push(...childTrace, { path: path21, operator: "not", matched: result.error ? !1 : !result.matched }), result.error ? result : { matched: !result.matched };
   }
   let operator = compound[0];
-  if (keys.length !== 1 || !Array.isArray(node[operator]) || node[operator].length === 0) return { error: error("invalid_condition", `${operator} requires a non-empty array`, path20) };
+  if (keys.length !== 1 || !Array.isArray(node[operator]) || node[operator].length === 0) return { error: error("invalid_condition", `${operator} requires a non-empty array`, path21) };
   for (let index = 0; index < node[operator].length; index += 1) {
-    let result = await evaluateNode(node[operator][index], context, options, trace, `${path20}.${operator}[${index}]`);
+    let result = await evaluateNode(node[operator][index], context, options, trace, `${path21}.${operator}[${index}]`);
     if (result.error) return result;
     if (operator === "all" && !result.matched)
-      return trace.push({ path: path20, operator, matched: !1, shortCircuit: !0 }), result;
+      return trace.push({ path: path21, operator, matched: !1, shortCircuit: !0 }), result;
     if (operator === "any" && result.matched)
-      return trace.push({ path: path20, operator, matched: !0, shortCircuit: !0 }), result;
+      return trace.push({ path: path21, operator, matched: !0, shortCircuit: !0 }), result;
   }
   let matched = operator === "all";
-  return trace.push({ path: path20, operator, matched }), { matched };
+  return trace.push({ path: path21, operator, matched }), { matched };
 }
 async function evaluateCondition(condition, context, options = {}) {
   let trace = [], result = await evaluateNode(condition, context, { regexWorkerUrl: options.regexWorkerUrl || new URL("./regexWorker.mjs", import.meta.url) }, trace);
@@ -19226,7 +19371,7 @@ async function evaluateCondition(condition, context, options = {}) {
 }
 
 // runtime/src/index.mjs
-var IN_SCOPE_KINDS = /* @__PURE__ */ new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "guide.update"]), PROJECT_TYPES = /* @__PURE__ */ new Set(["software", "non_software", "mixed", "unknown"]);
+var IN_SCOPE_KINDS = /* @__PURE__ */ new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "scope.generator.set", "guide.update"]), PROJECT_TYPES = /* @__PURE__ */ new Set(["software", "non_software", "mixed", "unknown"]);
 function requireProjectType(value) {
   if (value === void 0) return "unknown";
   if (!PROJECT_TYPES.has(value))
@@ -19262,12 +19407,12 @@ function requireExplicitBooleanOption(value, flagName) {
 function readPayloadText(payloadFileArg, cwd, usage) {
   if (!payloadFileArg || payloadFileArg === !0) throw new UsageError(usage);
   if (payloadFileArg === "-") return fs19.readFileSync(0, "utf8");
-  let resolved = path19.resolve(cwd, payloadFileArg);
+  let resolved = path20.resolve(cwd, payloadFileArg);
   if (!fs19.existsSync(resolved)) throw new UsageError(`payload file not found: ${payloadFileArg}`);
   return fs19.readFileSync(resolved, "utf8");
 }
 function dispatch(command, args, cwd, runtimeContext = null) {
-  let planningRoot = path19.join(cwd, ".planning"), operationsRoot = path19.join(planningRoot, "operations");
+  let planningRoot = path20.join(cwd, ".planning"), operationsRoot = path20.join(planningRoot, "operations");
   if (command === "init") {
     let options = argsToOptions(args);
     if (!options.name || !options.actor) throw new UsageError("init requires --name and --actor");

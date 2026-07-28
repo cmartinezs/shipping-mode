@@ -13,6 +13,22 @@ function sourceSnapshot(source) {
   };
 }
 
+export function normalizeGuideGeneratorConfig(generator) {
+  if (!generator) return null;
+  return {
+    executable: generator.executable,
+    args: [...(generator.args || [])],
+    cwd: generator.cwd || null,
+    version: generator.version,
+    timeoutMs: generator.timeoutMs || 1000,
+    maxOutputBytes: generator.maxOutputBytes || 256 * 1024
+  };
+}
+
+export function customGuideGenerationInputHash({ input, generator }) {
+  return revisionHash({ guideInput: input, generatorConfig: normalizeGuideGeneratorConfig(generator) });
+}
+
 export function buildGuideGenerationInput({ scope, guideKind, sources, config }) {
   const refs = [...new Set(config.documentation?.source_refs || [])].sort();
   if (refs.length === 0) throw new Error("guide generation requires approved Project Context documentation.source_refs");
@@ -60,7 +76,7 @@ export function generateGuideOutput({ workspaceRoot, scope, guideKind, sources, 
         generationMethod: "custom",
         generatorVersion: generator.version,
         generatorFingerprint: result.generatorFingerprint,
-        generationInputHash: built.inputHash,
+        generationInputHash: customGuideGenerationInputHash({ input: built.input, generator }),
         generationOutputHash: result.outputHash
       }
     };

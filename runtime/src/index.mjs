@@ -17,7 +17,7 @@ import { evaluateGuideHealth, evaluateGuideReadiness } from "./lib/guideHealth.m
 
 export { UsageError, StateError, StaleError, RecoveryRequiredError, LockHeldError, PathConfinementError, evaluateCondition, renderGuideMarkdown, compareGuideProjection, evaluateGuideHealth, evaluateGuideReadiness };
 
-const IN_SCOPE_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "guide.update"]);
+const IN_SCOPE_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "scope.generator.set", "guide.update"]);
 const PROJECT_TYPES = new Set(["software", "non_software", "mixed", "unknown"]);
 
 function requireProjectType(value) {

@@ -149,3 +149,16 @@ git diff --check               PASS
 `npm ci` reports one moderate dependency advisory from the existing lockfile;
 it does not affect the Plan 3 runtime gates and no dependency upgrade is part
 of this plan.
+
+## Post-review corrections
+
+Adversarial PR review identified and closed six trust-boundary gaps before merge:
+
+1. manual Guides now reconstruct the manual server-owned input hash instead of the source-driven generator input; unrelated approved sources and later generator configuration do not stale them;
+2. custom generator executable, version and normalized non-secret configuration (`args`, `cwd`, timeout and output limit) participate in effective generation evidence;
+3. `check guides` observes the live repository through the existing Discovery fingerprint engine, so source-file drift blocks strict readiness before the confirmed catalog is mutated;
+4. schema-invalid Guides return structured `invalid` health instead of throwing during deeper provenance/source access;
+5. YAML-to-scope metadata revision, source refs and provenance are validated by the shared health primitive, and the persisted generation output hash remains bound to the actual generated payload;
+6. the public dispatcher recognizes `scope.generator.set`, matching the schema/runtime/help contract from Plan 2.
+
+`check guides` also evaluates only Project Context-enabled scopes, rejects an unknown selected scope, and includes workspace-schema findings in its machine-readable output.

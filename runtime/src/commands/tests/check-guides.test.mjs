@@ -22,4 +22,9 @@ assert.equal(result.status, "PASS");
 assert.deepEqual(fs.readFileSync(configPath), before, "check guides must not rewrite config");
 assert.equal(fs.statSync(configPath).mtimeMs, beforeMtime, "check guides must be query-only");
 assert.equal(fs.readdirSync(operationsRoot).length, 1, "check guides must not create an operation");
-console.log("check-guides: initialized workspace, query-only behavior and stable PASS pass");
+
+const unknownScope = checkGuides({ planningRoot, workspaceRoot: workspace, scopeId: "018f0000-0000-7000-8000-000000000099", policyMode: "strict" });
+assert.equal(unknownScope.status, "FAIL");
+assert.ok(unknownScope.findings.some((entry) => entry.code === "GUIDE_SCOPE_NOT_ENABLED"));
+
+console.log("check-guides: initialized workspace, query-only behavior, stable PASS and unknown-scope failure pass");
