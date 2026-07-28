@@ -37,10 +37,17 @@ providers, Git execution, deployment ni lifecycle de environments.
 |---|---|---|---|---|
 | 1 | Guide domain, schemas, storage and lifecycle | Guide metadata/content envelopes, scope references, ChangeSet mutations, legal transitions, approval binding, gap resolution | **Merged (PR #18 to develop)** | `2026-07-27-corte-1-plan-1-guide-domain-lifecycle.md` |
 | 2 | Generation, DSL, projections and custom generators | Source-driven generation, closed executable DSL, deterministic Markdown projections, generator safety, gate/profile references | **Merged (PR #19 to develop)** | `2026-07-28-corte-1-plan-2-generation-projections-generators.md` |
-| 3 | Staleness, strict policy, `check guides` and DoD closure | Source drift, strict-mode primitive, query-only diagnostics, final traceability and regression closure | **Implementation complete; pending PR merge** | `2026-07-27-corte-1-plan-3-staleness-strict-check-guides.md` |
+| 3 | Staleness, strict policy, `check guides` and DoD closure | Source drift, strict-mode primitive, query-only diagnostics, final traceability and regression closure | **Merged (PR #20 to develop)** | `2026-07-27-corte-1-plan-3-staleness-strict-check-guides.md` |
 
 ## Completion Rule
 
-Corte 1 remains open only until Plan 3 is reviewed and merged. Every Corte 1
-requirement is now `DONE` or `DEFERRED_BY_DESIGN` with an explicit future
-boundary. While PR #20 remains open, `Corte 1: OPEN`.
+Every Corte 1 requirement is now `DONE` or `DEFERRED_BY_DESIGN` with an
+explicit future boundary.
+
+```text
+Plan 1 — Merged (PR #18 to develop)
+Plan 2 — Merged (PR #19 to develop)
+Plan 3 — Merged (PR #20 to develop)
+
+Corte 1: COMPLETE
+```

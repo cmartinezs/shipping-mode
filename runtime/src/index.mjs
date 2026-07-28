@@ -4,6 +4,7 @@ import { runInit, runConfigSet, runConfigScopeAdd } from "./commands/init.mjs";
 import { runChangesetPropose, runChangesetValidate, runChangesetApprove, runChangesetApply } from "./commands/changesetCommand.mjs";
 import { checkSchema } from "./commands/check.mjs";
 import { checkGuides } from "./commands/checkGuides.mjs";
+import { runReleaseNew, runReleaseStatus } from "./commands/release.mjs";
 import { runDiscoverScan, runDiscoverValidate } from "./commands/discover.mjs";
 import { runDiscoveryPropose } from "./commands/discoveryChangeSet.mjs";
 import { isUuidV7 } from "./lib/ids.mjs";
@@ -17,7 +18,7 @@ import { evaluateGuideHealth, evaluateGuideReadiness } from "./lib/guideHealth.m
 
 export { UsageError, StateError, StaleError, RecoveryRequiredError, LockHeldError, PathConfinementError, evaluateCondition, renderGuideMarkdown, compareGuideProjection, evaluateGuideHealth, evaluateGuideReadiness };
 
-const IN_SCOPE_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "scope.generator.set", "guide.update"]);
+const IN_SCOPE_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "scope.generator.set", "guide.update", "release.create"]);
 const PROJECT_TYPES = new Set(["software", "non_software", "mixed", "unknown"]);
 
 function requireProjectType(value) {
@@ -151,6 +152,32 @@ export function dispatch(command, args, cwd, runtimeContext = null) {
       return runChangesetApply({ planningRoot, operationsRoot, operationId, actor: options.actor });
     }
     return notImplemented(`changeset ${stage || ""}`.trim());
+  }
+
+  if (command === "release") {
+    const [stage, ...rest] = args;
+    if (stage === "new") {
+      const options = argsToOptions(rest);
+      if (!options.title || !options.objective || !options.actor) throw new UsageError("release new requires --title, --objective and --actor");
+      return runReleaseNew({
+        planningRoot,
+        args: {
+          title: options.title,
+          objective: options.objective,
+          laneId: options.lane_id,
+          policyMode: options.policy_mode,
+          slug: options.slug,
+          idempotencyKey: options.idempotency_key,
+          actor: options.actor
+        }
+      });
+    }
+    if (stage === "status") {
+      const reference = rest[0];
+      if (!reference) throw new UsageError("release status requires <id-or-display-id>");
+      return runReleaseStatus({ planningRoot, reference });
+    }
+    return notImplemented(`release ${stage || ""}`.trim());
   }
 
   if (command === "check") {

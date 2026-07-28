@@ -28,7 +28,8 @@
         "scope.command.set",
         "discovery.propose",
         "guide.update",
-        "scope.generator.set"
+        "scope.generator.set",
+        "release.create"
       ]
     },
     "target": {
@@ -147,6 +148,104 @@
                   "mixed",
                   "unknown"
                 ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "release.create"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "operationId",
+              "id",
+              "displayId",
+              "displayIdStatus",
+              "title",
+              "objective",
+              "slug",
+              "status",
+              "createdAt",
+              "createdBy",
+              "updatedAt",
+              "updatedBy",
+              "idempotencyKey"
+            ],
+            "properties": {
+              "operationId": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "id": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "displayId": {
+                "type": "string",
+                "pattern": "^REL-([0-9A-F]{8}|[0-9A-F]{12}|[0-9A-F]{16}|[0-9A-F]{32})$"
+              },
+              "displayIdStatus": {
+                "const": "ACTIVE"
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1
+              },
+              "objective": {
+                "type": "string",
+                "minLength": 1
+              },
+              "laneId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+              },
+              "policyMode": {
+                "enum": [
+                  "strict_sequence",
+                  "dependency_graph"
+                ]
+              },
+              "slug": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+              },
+              "status": {
+                "const": "DRAFT"
+              },
+              "createdAt": {
+                "type": "string",
+                "minLength": 1
+              },
+              "createdBy": {
+                "type": "string",
+                "minLength": 1
+              },
+              "updatedAt": {
+                "type": "string",
+                "minLength": 1
+              },
+              "updatedBy": {
+                "type": "string",
+                "minLength": 1
+              },
+              "idempotencyKey": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 256
               }
             }
           }

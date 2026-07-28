@@ -7,10 +7,9 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const manifest = JSON.parse(fs.readFileSync(path.join(root, ".claude-plugin/plugin.json"), "utf8"));
-// Corte 0 keeps only init/config/check active (see Task 25); release, item,
-// task, report, decision, and update are deferred and their skill stubs were
-// removed, so they're no longer part of this discovery contract.
-const skillNames = ["init", "config", "check"];
+// Corte 2 Plan 1 adds the first end-to-end Release surface. Item, task,
+// report, decision, and update remain deferred.
+const skillNames = ["init", "config", "release", "check"];
 
 assert.equal(manifest.name, "shipping-mode", "manifest-name");
 assert.equal(manifest.version, "1.0.0", "manifest-version");
@@ -36,10 +35,12 @@ assert.deepEqual(help.commands, [
   "init --name <name> [--project-type software|non_software|mixed|unknown] [--base-branch <b>] [--vcs git|none] --actor <actor>",
   "config set --name <name> --actor <actor>",
   "config scope add --key <slug> --label <label> --kind code|non_code --path <path> [--owner <o>] --actor <actor>",
-  "changeset propose --kind <workspace.init|config.update|scope.add|scope.generator.set|guide.update> --payload-file <file|-> --actor <actor>",
+  "changeset propose --kind <workspace.init|config.update|scope.add|scope.generator.set|guide.update|release.create> --payload-file <file|-> --actor <actor>",
   "changeset validate <operation-id>",
   "changeset approve <operation-id> --actor <actor> [--allow-self-approval]",
   "changeset apply <operation-id> --actor <actor>",
+  "release new --title <title> --objective <objective> [--lane-id <id>] [--policy-mode strict_sequence|dependency_graph] [--slug <slug>] [--idempotency-key <key>] --actor <actor>",
+  "release status <id-or-display-id>",
   "check schema",
   "check guides [--scope-id <uuid>] [--mode strict|advisory]",
   "--help", "--version"

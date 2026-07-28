@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { runInit, runConfigSet, runConfigScopeAdd } from "../init.mjs";
 import { runChangesetPropose, runChangesetValidate, runChangesetApprove, runChangesetApply } from "../changesetCommand.mjs";
+import { runReleaseNew, runReleaseStatus } from "../release.mjs";
 import { readOperation, readChangeSet } from "../../lib/operationStore.mjs";
 import { parseYaml } from "../../lib/yaml.mjs";
 import { isUuidV7 } from "../../lib/ids.mjs";
@@ -139,6 +140,57 @@ const scopeWithCommand = parseYaml(fs.readFileSync(path.join(planningRoot, scope
 assert.equal(scopeWithCommand.commands.test.method, "declared");
 assert.equal(scopeWithCommand.commands.test.declaredOperationId, commandSet.operationId);
 assert.deepEqual(scopeWithCommand.commands.test.alternatives, []);
+
+const releaseCreate = runReleaseNew({
+  planningRoot,
+  args: {
+    title: "Release Core",
+    objective: "Create the Release aggregate core",
+    slug: "ignored-for-identity",
+    idempotencyKey: "release-core-key",
+    actor: "carlos"
+  }
+});
+assert.ok(isUuidV7(releaseCreate.releaseId));
+assert.match(releaseCreate.displayId, /^REL-[0-9A-F]{8}/);
+const releaseCreateChangeSet = readChangeSet(operationsRoot, releaseCreate.operationId);
+assert.equal(releaseCreateChangeSet.kind, "release.create");
+assert.equal(releaseCreateChangeSet.payload.status, "DRAFT");
+assert.equal(releaseCreateChangeSet.payload.slug, "ignored-for-identity");
+assert.equal(fs.existsSync(path.join(planningRoot, "releases", releaseCreate.releaseId, "release.yml")), false, "release new must only propose");
+assert.equal(runChangesetValidate({ planningRoot, operationsRoot, operationId: releaseCreate.operationId }).status, "VALIDATED");
+runChangesetApprove({ operationsRoot, planningRoot, operationId: releaseCreate.operationId, actor: "carlos", allowSelfApproval: true });
+runChangesetApply({ planningRoot, operationsRoot, operationId: releaseCreate.operationId, actor: "carlos" });
+const releaseYmlPath = path.join(planningRoot, "releases", releaseCreate.releaseId, "release.yml");
+const releaseReadmePath = path.join(planningRoot, "releases", releaseCreate.releaseId, "README.md");
+assert.equal(fs.existsSync(releaseYmlPath), true);
+assert.equal(fs.existsSync(releaseReadmePath), true);
+const releaseDocument = parseYaml(fs.readFileSync(releaseYmlPath, "utf8"));
+assert.equal(releaseDocument.id, releaseCreate.releaseId);
+assert.equal(releaseDocument.displayId, releaseCreate.displayId);
+assert.equal(releaseDocument.status, "DRAFT");
+assert.deepEqual(releaseDocument.itemRefs, []);
+assert.equal(releaseDocument.audit.createdBy, "carlos");
+const releaseOperation = readOperation(operationsRoot, releaseCreate.operationId);
+assert.equal(releaseOperation.expectedEvents[0].document.aggregate.id, releaseCreate.releaseId);
+assert.equal(releaseOperation.expectedEvents[0].document.payload.previousStatus, null);
+assert.equal(releaseOperation.expectedEvents[0].document.payload.nextStatus, "DRAFT");
+assert.equal(releaseOperation.expectedEvents[0].document.payload.changeSetHash, releaseCreateChangeSet.hash);
+assert.equal(runReleaseStatus({ planningRoot, reference: releaseCreate.releaseId }).status, "FOUND");
+assert.equal(runReleaseStatus({ planningRoot, reference: releaseCreate.displayId }).release.id, releaseCreate.releaseId);
+assert.equal(runReleaseStatus({ planningRoot, reference: "ignored-for-identity" }).status, "NOT_FOUND", "slug must not resolve");
+const idempotent = runReleaseNew({
+  planningRoot,
+  args: {
+    title: "Release Core",
+    objective: "Create the Release aggregate core",
+    idempotencyKey: "release-core-key",
+    actor: "carlos"
+  }
+});
+assert.equal(idempotent.operationId, releaseCreate.operationId);
+assert.equal(idempotent.releaseId, releaseCreate.releaseId);
+assert.equal(idempotent.idempotent, true);
 
 // changeset propose --payload-file equivalent: raw JSON text in, operationId out
 const proposeFromText = runChangesetPropose({

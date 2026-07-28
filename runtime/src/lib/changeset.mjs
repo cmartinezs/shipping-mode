@@ -49,7 +49,8 @@ export function eventTypeFor(kind) {
     "scope.command.set": "scope.command.set",
     "scope.generator.set": "scope.generator.set",
     "discovery.propose": "discovery.proposed",
-    "guide.update": "guide.updated"
+    "guide.update": "guide.updated",
+    "release.create": "release.created"
   }[kind];
 }
 
@@ -93,6 +94,7 @@ function schemaNameForRenderedPath(relativePath) {
   if (/^sources\/[^/]+\/source\.yml$/.test(relativePath)) return "source";
   if (/^scopes\/[^/]+\/scope\.yml$/.test(relativePath)) return "scope";
   if (/^scopes\/[^/]+\/(task|test)-guide\.yml$/.test(relativePath)) return "guide";
+  if (/^releases\/[^/]+\/release\.yml$/.test(relativePath)) return "release";
   return null;
 }
 
@@ -126,6 +128,20 @@ function checkKindInvariants(changeSet) {
       if (!guideBase || guideBase.contentHash !== ABSENT) errors.push(`${guidePath} must be ABSENT for initial guide.generate`);
     } else if (!guideBase || guideBase.contentHash === ABSENT) {
       errors.push(`${guidePath} must already exist for guide.${changeSet.payload.action}`);
+    }
+  }
+  if (changeSet.kind === "release.create") {
+    const releasePath = `releases/${changeSet.payload.id}/release.yml`;
+    const readmePath = `releases/${changeSet.payload.id}/README.md`;
+    const actualPaths = new Set(Object.keys(changeSet.baseRevisions));
+    if (actualPaths.size !== 2 || !actualPaths.has(releasePath) || !actualPaths.has(readmePath)) {
+      errors.push("release.create baseRevisions must contain exactly release.yml and README.md for the UUIDv7 release directory");
+    }
+    for (const relativePath of [releasePath, readmePath]) {
+      const entry = changeSet.baseRevisions[relativePath];
+      if (!entry || entry.revisionHash !== ABSENT || entry.contentHash !== ABSENT) {
+        errors.push(`${relativePath} must be ABSENT for release.create`);
+      }
     }
   }
   return errors;
@@ -401,15 +417,38 @@ function prepareApply({ operationsRoot, planningRoot, operationId, render, actor
         }
         return expectedEvent;
       })
-    : operation.reservedEvents.map((reserved) => buildExpectedEvent({
-        eventId: reserved.eventId,
-        type: reserved.type,
-        aggregate: { type: operation.kind.split(".")[0], id: operationId },
-        actor,
-        operationId,
-        idempotencyKey: operationId,
-        payload: changeSet.payload
-      }));
+    : operation.reservedEvents.map((reserved) => {
+        if (changeSet.kind === "release.create") {
+          const releasePath = `releases/${changeSet.payload.id}/release.yml`;
+          const release = parseYaml(rendered.get(releasePath));
+          return buildExpectedEvent({
+            eventId: reserved.eventId,
+            type: reserved.type,
+            aggregate: { type: "release", id: release.id },
+            actor,
+            operationId,
+            idempotencyKey: changeSet.payload.idempotencyKey,
+            payload: {
+              releaseId: release.id,
+              displayId: release.displayId,
+              previousStatus: null,
+              nextStatus: release.status,
+              changeSetHash: recomputedHash,
+              revisionBefore: changeSet.baseRevisions[releasePath].revisionHash,
+              revisionAfter: release.audit.revision
+            }
+          });
+        }
+        return buildExpectedEvent({
+          eventId: reserved.eventId,
+          type: reserved.type,
+          aggregate: { type: operation.kind.split(".")[0], id: operationId },
+          actor,
+          operationId,
+          idempotencyKey: operationId,
+          payload: changeSet.payload
+        });
+      });
 
   operation = readOperation(operationsRoot, operationId);
   writeOperation(operationsRoot, operationId, { ...operation, filePlan, expectedEvents });

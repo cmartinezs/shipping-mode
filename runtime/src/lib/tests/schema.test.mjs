@@ -55,4 +55,41 @@ assert.ok(bad.errors.length > 0);
 assert.ok(bad.errors[0].message, "each error must have a message");
 assert.ok(bad.errors[0].path !== undefined, "each error must have a path, even if empty string");
 
+const validRelease = {
+  schemaVersion: 1,
+  id: "018f0000-0000-7000-8000-000000000123",
+  displayId: "REL-018F0000",
+  displayIdStatus: "ACTIVE",
+  slug: "release-core",
+  title: "Release Core",
+  objective: "Create release aggregate core",
+  status: "DRAFT",
+  lane: { id: "main" },
+  policy: { mode: "strict_sequence", previousReleaseRefs: [], dependencyRefs: [] },
+  scopeRefs: [],
+  itemRefs: [],
+  blockers: [],
+  risks: [],
+  deploymentEvents: [],
+  finalization: { completed: false, completedAt: null, completedBy: null, retrospectiveStatus: "not_started" },
+  audit: {
+    createdAt: "2026-07-28T00:00:00.000Z",
+    createdBy: "carlos",
+    updatedAt: "2026-07-28T00:00:00.000Z",
+    updatedBy: "carlos",
+    operationId: "018f0000-0000-7000-8000-000000000999",
+    revision: `sha256:${"a".repeat(64)}`
+  }
+};
+assert.equal(validate("release", validRelease).valid, true, "valid Release schema must pass");
+const releaseWithExtra = structuredClone(validRelease);
+releaseWithExtra.readiness = { releasable: true };
+assert.equal(validate("release", releaseWithExtra).valid, false, "caller-controlled readiness must be rejected");
+const releaseWithItems = structuredClone(validRelease);
+releaseWithItems.items = [{ id: "018f0000-0000-7000-8000-000000000124" }];
+assert.equal(validate("release", releaseWithItems).valid, false, "embedded Release Items must be rejected");
+const releaseWithBlockedStatus = structuredClone(validRelease);
+releaseWithBlockedStatus.status = "BLOCKED";
+assert.equal(validate("release", releaseWithBlockedStatus).valid, false, "BLOCKED is not a lifecycle state");
+
 console.log("schema facade: all tests passed");

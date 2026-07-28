@@ -9,6 +9,8 @@ import { findCommandFingerprintKeyMismatches } from "../lib/discoverScan.mjs";
 import { REQUIRED_BOOTSTRAP_DIRECTORIES } from "../lib/bootstrapTopology.mjs";
 import { projectContextConsistencyFindings } from "../lib/projectContextValidation.mjs";
 import { contentHash, revisionHash } from "../lib/canonical.mjs";
+import { compareReleaseReadme } from "../lib/releaseProjection.mjs";
+import { isReleaseDisplayId } from "../lib/releaseIdentity.mjs";
 
 function checkRequiredFile(planningRoot, relativePath, schemaName, findings) {
   let filePath;
@@ -114,6 +116,86 @@ function checkGuideConsistency(planningRoot, scope, scopeId, knownSourceIds, fin
   }
 }
 
+function checkRequiredNonSymlinkFile(planningRoot, relativePath, findings) {
+  let filePath;
+  try {
+    filePath = confineWritePath(planningRoot, relativePath);
+  } catch (error) {
+    findings.push(`${relativePath}: untrusted path (${error.message})`);
+    return null;
+  }
+  if (!fs.existsSync(filePath)) {
+    findings.push(`${relativePath}: required file is missing`);
+    return null;
+  }
+  const stat = fs.lstatSync(filePath);
+  if (stat.isSymbolicLink()) {
+    findings.push(`${relativePath}: symlink entries are not permitted`);
+    return null;
+  }
+  if (!stat.isFile()) {
+    findings.push(`${relativePath}: entry must be a file`);
+    return null;
+  }
+  return filePath;
+}
+
+function checkReleaseConsistency(planningRoot, findings) {
+  const releasesRoot = path.join(planningRoot, "releases");
+  if (!fs.existsSync(releasesRoot)) return;
+  const displayIdOwners = new Map();
+  for (const releaseId of fs.readdirSync(releasesRoot).sort()) {
+    const releaseEntryPath = path.join(releasesRoot, releaseId);
+    const releaseStat = fs.lstatSync(releaseEntryPath);
+    if (releaseStat.isSymbolicLink()) {
+      findings.push(`releases/${releaseId}: symlink entries are not permitted`);
+      continue;
+    }
+    if (!isUuidV7(releaseId)) {
+      findings.push(`releases/${releaseId}: not a valid release id`);
+      continue;
+    }
+    if (!releaseStat.isDirectory()) {
+      findings.push(`releases/${releaseId}: entry must be a directory`);
+      continue;
+    }
+    const releaseRelativePath = path.join("releases", releaseId, "release.yml");
+    const readmeRelativePath = path.join("releases", releaseId, "README.md");
+    const releasePath = checkRequiredNonSymlinkFile(planningRoot, releaseRelativePath, findings);
+    if (!releasePath) continue;
+    const readmePath = checkRequiredNonSymlinkFile(planningRoot, readmeRelativePath, findings);
+    let release;
+    try {
+      release = parseYaml(fs.readFileSync(releasePath, "utf8"));
+    } catch (error) {
+      findings.push(`${releaseRelativePath}: failed to parse (${error.message})`);
+      continue;
+    }
+    const schemaResult = validate("release", release);
+    if (!schemaResult.valid) {
+      for (const error of schemaResult.errors) findings.push(`${releaseRelativePath}${error.path}: ${error.message}`);
+      continue;
+    }
+    if (release.id !== releaseId) findings.push(`${releaseRelativePath}: release.id ${release.id} does not match its directory`);
+    if (!isReleaseDisplayId(release.displayId)) findings.push(`${releaseRelativePath}: displayId is invalid`);
+    if (release.itemRefs.length > 0) findings.push(`${releaseRelativePath}: itemRefs cannot be resolved before Release Items exist`);
+    for (const scopeRef of release.scopeRefs) {
+      const scopePath = path.join(planningRoot, "scopes", scopeRef.scopeId, "scope.yml");
+      if (!fs.existsSync(scopePath)) findings.push(`${releaseRelativePath}: scopeRef ${scopeRef.scopeId} does not resolve`);
+    }
+    const existingOwner = displayIdOwners.get(release.displayId);
+    if (existingOwner && existingOwner !== releaseId) findings.push(`${releaseRelativePath}: displayId ${release.displayId} is ambiguous with releases/${existingOwner}/release.yml`);
+    displayIdOwners.set(release.displayId, releaseId);
+    const revisionless = { ...release, audit: { ...release.audit } };
+    delete revisionless.audit.revision;
+    if (release.audit.revision !== `sha256:${revisionHash(revisionless)}`) findings.push(`${releaseRelativePath}: audit.revision does not match canonical release content`);
+    if (readmePath) {
+      const currentReadme = fs.readFileSync(readmePath, "utf8");
+      if (!compareReleaseReadme(release, currentReadme).equal) findings.push(`${readmeRelativePath}: projection drift`);
+    }
+  }
+}
+
 export function checkSchema({ planningRoot }) {
   if (!fs.existsSync(planningRoot)) {
     return { status: "NOT_INITIALIZED", findings: ["workspace is not initialized: .planning/ does not exist"], pendingOperations: [] };
@@ -195,6 +277,8 @@ export function checkSchema({ planningRoot }) {
       }
     }
   }
+
+  checkReleaseConsistency(planningRoot, findings);
 
   const pendingOperations = [];
   const operationsRoot = path.join(planningRoot, "operations");

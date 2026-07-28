@@ -1,8 +1,12 @@
 import { generateUuidV7 } from "../lib/ids.mjs";
 import { UsageError } from "../lib/errors.mjs";
 import { BOOTSTRAP_CANONICAL_DIRECTORIES } from "../lib/bootstrapTopology.mjs";
+import { deriveUniqueReleaseDisplayId } from "../lib/releaseIdentity.mjs";
+import { releaseReadmeRelativePath, releaseYamlRelativePath } from "../lib/releaseStore.mjs";
 
-const SUPPORTED_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "scope.generator.set", "guide.update"]);
+const SUPPORTED_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "scope.generator.set", "guide.update", "release.create"]);
+const RELEASE_CREATE_ALLOWED_FIELDS = new Set(["title", "objective", "laneId", "policyMode", "slug", "idempotencyKey"]);
+const RELEASE_CREATE_SERVER_FIELDS = new Set(["id", "displayId", "displayIdStatus", "status", "createdAt", "createdBy", "updatedAt", "updatedBy", "audit", "completion", "readiness", "canonicalPath", "approval", "scopeRefs", "itemRefs", "blockers", "risks", "deploymentEvents", "finalization"]);
 
 function requireObjectPayload(rawPayload) {
   if (rawPayload === null || typeof rawPayload !== "object" || Array.isArray(rawPayload)) {
@@ -18,7 +22,21 @@ function requireExplicitBoolean(rawPayload, field) {
   return rawPayload[field];
 }
 
-export function prepareProposal(kind, rawPayload, { operationId = null, actor = null, proposedAt = null } = {}) {
+function assertOnlyAllowedReleaseCreateFields(rawPayload) {
+  for (const field of Object.keys(rawPayload)) {
+    if (RELEASE_CREATE_SERVER_FIELDS.has(field)) throw new UsageError(`release.create field is server-owned: ${field}`);
+    if (!RELEASE_CREATE_ALLOWED_FIELDS.has(field)) throw new UsageError(`release.create contains unsupported field: ${field}`);
+  }
+}
+
+function normalizeSlug(value) {
+  if (value === undefined || value === null || value === "") return null;
+  const slug = String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-+|-+$)/g, "");
+  if (!slug) return null;
+  return slug;
+}
+
+export function prepareProposal(kind, rawPayload, { operationId = null, actor = null, proposedAt = null, existingReleases = [] } = {}) {
   if (!SUPPORTED_KINDS.has(kind)) throw new UsageError(`unsupported changeset kind: ${kind}`);
   requireObjectPayload(rawPayload);
 
@@ -77,6 +95,32 @@ export function prepareProposal(kind, rawPayload, { operationId = null, actor = 
       payload,
       targetFiles: ["config.yml", `scopes/${payload.scopeId}/scope.yml`, `scopes/${payload.scopeId}/${payload.guideKind}-guide.yml`, ...(["generate", "regenerate"].includes(payload.action) ? [`scopes/${payload.scopeId}/${payload.guideKind}-guide.md`] : [])]
     };
+  }
+
+  if (kind === "release.create") {
+    if (!operationId || !actor || !proposedAt) throw new UsageError("release.create requires runtime operationId, actor, and proposedAt");
+    assertOnlyAllowedReleaseCreateFields(rawPayload);
+    if (!rawPayload.title || !rawPayload.objective) throw new UsageError("release.create requires title and objective");
+    const id = generateUuidV7();
+    const display = deriveUniqueReleaseDisplayId(id, existingReleases);
+    const payload = {
+      operationId,
+      id,
+      displayId: display.displayId,
+      displayIdStatus: "ACTIVE",
+      title: rawPayload.title,
+      objective: rawPayload.objective,
+      laneId: rawPayload.laneId,
+      policyMode: rawPayload.policyMode,
+      slug: normalizeSlug(rawPayload.slug),
+      status: "DRAFT",
+      createdAt: proposedAt,
+      createdBy: actor,
+      updatedAt: proposedAt,
+      updatedBy: actor,
+      idempotencyKey: rawPayload.idempotencyKey || operationId
+    };
+    return { payload, targetFiles: [releaseYamlRelativePath(id), releaseReadmeRelativePath(id)] };
   }
 
   const payload = {

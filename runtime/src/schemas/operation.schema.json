@@ -25,7 +25,8 @@
         "scope.command.set",
         "discovery.propose",
         "guide.update",
-        "scope.generator.set"
+        "scope.generator.set",
+        "release.create"
       ]
     },
     "status": {

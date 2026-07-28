@@ -153,6 +153,49 @@ function fullyInit(cwd) {
   assert.equal(applied.code, 0);
 }
 
+// release new/status: creates a ChangeSet only, then publishes release.yml and README.md atomically through apply
+{
+  const cwd = freshWorkspace();
+  fullyInit(cwd);
+  const release = run(["release", "new", "--title", "Release Core", "--objective", "Create release aggregate core", "--slug", "release-core", "--idempotency-key", "cli-release-core", "--actor", "carlos"], cwd);
+  assert.equal(release.code, 0);
+  assert.ok(isUuidV7(release.json.releaseId));
+  assert.match(release.json.displayId, /^REL-[0-9A-F]{8}/);
+  assert.equal(fs.existsSync(path.join(cwd, ".planning", "releases", release.json.releaseId, "release.yml")), false, "release new must not write canonical state");
+  run(["changeset", "validate", release.json.operationId], cwd);
+  run(["changeset", "approve", release.json.operationId, "--actor", "carlos", "--allow-self-approval"], cwd);
+  const applied = run(["changeset", "apply", release.json.operationId, "--actor", "carlos"], cwd);
+  assert.equal(applied.code, 0);
+  assert.equal(fs.existsSync(path.join(cwd, ".planning", "releases", release.json.releaseId, "release.yml")), true);
+  assert.equal(fs.existsSync(path.join(cwd, ".planning", "releases", release.json.releaseId, "README.md")), true);
+  const byId = run(["release", "status", release.json.releaseId], cwd);
+  assert.equal(byId.code, 0);
+  assert.equal(byId.json.status, "FOUND");
+  assert.equal(byId.json.release.lifecycle, "DRAFT");
+  assert.equal(byId.json.derivedHealth.readiness.available, false);
+  const byDisplay = run(["release", "status", release.json.displayId], cwd);
+  assert.equal(byDisplay.code, 0);
+  assert.equal(byDisplay.json.release.id, release.json.releaseId);
+  const bySlug = run(["release", "status", "release-core"], cwd);
+  assert.equal(bySlug.code, 1);
+  assert.equal(bySlug.json.status, "NOT_FOUND");
+  const sameKey = run(["release", "new", "--title", "Release Core", "--objective", "Create release aggregate core", "--idempotency-key", "cli-release-core", "--actor", "carlos"], cwd);
+  assert.equal(sameKey.json.operationId, release.json.operationId, "same idempotency key must not mint a second Release");
+  assert.equal(fs.readdirSync(path.join(cwd, ".planning", "releases")).length, 1);
+  const operationsBeforeStatus = fs.readdirSync(path.join(cwd, ".planning", "operations")).length;
+  run(["release", "status", release.json.displayId], cwd);
+  assert.equal(fs.readdirSync(path.join(cwd, ".planning", "operations")).length, operationsBeforeStatus, "release status must be query-only");
+}
+
+// release status unknown ID is structured
+{
+  const cwd = freshWorkspace();
+  fullyInit(cwd);
+  const unknown = run(["release", "status", "018f0000-0000-7000-8000-000000000999"], cwd);
+  assert.equal(unknown.code, 1);
+  assert.equal(unknown.json.status, "NOT_FOUND");
+}
+
 // changeset propose --payload-file <file>
 {
   const cwd = freshWorkspace();
@@ -268,7 +311,7 @@ function fullyInit(cwd) {
   const cwd = freshWorkspace();
   fullyInit(cwd);
   const cases = [
-    { args: ["release", "--name", "R1"], command: "release" },
+    { args: ["release", "plan"], command: "release plan" },
     { args: ["item", "--name", "I1"], command: "item" },
     { args: ["work-package", "--name", "W1"], command: "work-package" },
     { args: ["task", "--name", "T1"], command: "task" },
