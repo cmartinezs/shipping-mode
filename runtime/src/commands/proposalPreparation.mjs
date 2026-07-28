@@ -2,7 +2,7 @@ import { generateUuidV7 } from "../lib/ids.mjs";
 import { UsageError } from "../lib/errors.mjs";
 import { BOOTSTRAP_CANONICAL_DIRECTORIES } from "../lib/bootstrapTopology.mjs";
 
-const SUPPORTED_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "guide.update"]);
+const SUPPORTED_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "scope.generator.set", "guide.update"]);
 
 function requireObjectPayload(rawPayload) {
   if (rawPayload === null || typeof rawPayload !== "object" || Array.isArray(rawPayload)) {
@@ -49,6 +49,19 @@ export function prepareProposal(kind, rawPayload, { operationId = null, actor = 
     return { payload, targetFiles: [`scopes/${payload.scopeId}/scope.yml`] };
   }
 
+  if (kind === "scope.generator.set") {
+    if (!operationId || !actor || !proposedAt) throw new UsageError("scope.generator.set requires runtime operationId, actor, and proposedAt");
+    const payload = {
+      operationId,
+      scopeId: rawPayload.scopeId,
+      guideKind: rawPayload.guideKind,
+      generator: rawPayload.generator ?? null,
+      declaredBy: actor,
+      declaredAt: proposedAt
+    };
+    return { payload, targetFiles: [`scopes/${payload.scopeId}/scope.yml`] };
+  }
+
   if (kind === "guide.update") {
     if (!rawPayload.scopeId || !rawPayload.guideKind || !rawPayload.action) {
       throw new UsageError("guide.update requires scopeId, guideKind, and action");
@@ -62,7 +75,7 @@ export function prepareProposal(kind, rawPayload, { operationId = null, actor = 
     };
     return {
       payload,
-      targetFiles: ["config.yml", `scopes/${payload.scopeId}/scope.yml`, `scopes/${payload.scopeId}/${payload.guideKind}-guide.yml`]
+      targetFiles: ["config.yml", `scopes/${payload.scopeId}/scope.yml`, `scopes/${payload.scopeId}/${payload.guideKind}-guide.yml`, ...(["generate", "regenerate"].includes(payload.action) ? [`scopes/${payload.scopeId}/${payload.guideKind}-guide.md`] : [])]
     };
   }
 

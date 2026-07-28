@@ -1,10 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import { stringifyYaml, parseYaml } from "../lib/yaml.mjs";
-import { confineScopePath } from "../lib/paths.mjs";
+import { confineScopePath, confineUnder } from "../lib/paths.mjs";
 import { BOOTSTRAP_CANONICAL_DIRECTORIES, DIRECTORY_RENDER_ENTRY } from "../lib/bootstrapTopology.mjs";
 import { assertProjectContextConsistency } from "../lib/projectContextValidation.mjs";
 import { revisionHash, contentHash } from "../lib/canonical.mjs";
+import { renderGuideMarkdown } from "../lib/guideProjection.mjs";
 import { validate } from "../lib/schema.mjs";
 import { generateUuidV7 } from "../lib/ids.mjs";
 
@@ -178,6 +179,28 @@ export function renderScopeCommandSet({ operationId, scopeId, role, command, req
   return new Map([[`scopes/${scopeId}/scope.yml`, stringifyYaml(nextScope)]]);
 }
 
+export function renderScopeGeneratorSet({ scopeId, guideKind, generator }, currentScope, workspaceRoot) {
+  if (!currentScope || currentScope.id !== scopeId) throw new Error(`scope not found for scope.generator.set: ${scopeId}`);
+  if (!["task", "test"].includes(guideKind)) throw new Error("scope.generator.set guideKind must be task or test");
+  const customGenerators = { ...(currentScope.customGenerators || {}) };
+  if (generator === null) {
+    delete customGenerators[guideKind];
+  } else {
+    const executable = confineUnder(workspaceRoot, generator.executable);
+    if (!fs.existsSync(executable) || !fs.statSync(executable).isFile()) throw new Error("generator executable must resolve to an existing workspace file");
+    if (generator.cwd) {
+      const cwd = confineUnder(workspaceRoot, generator.cwd);
+      if (!fs.existsSync(cwd) || !fs.statSync(cwd).isDirectory()) throw new Error("generator cwd must resolve to an existing workspace directory");
+    }
+    customGenerators[guideKind] = generator;
+  }
+  const nextScope = { ...currentScope, customGenerators };
+  if (Object.keys(customGenerators).length === 0) delete nextScope.customGenerators;
+  const result = validate("scope", nextScope);
+  if (!result.valid) throw new Error(`scope.generator.set produced invalid scope: ${result.errors.map((entry) => `${entry.path} ${entry.message}`).join("; ")}`);
+  return new Map([[`scopes/${scopeId}/scope.yml`, stringifyYaml(nextScope)]]);
+}
+
 const GUIDE_KINDS = new Set(["task", "test"]);
 const GUIDE_ACTIONS = new Set(["generate", "submit_review", "approve", "reject", "mark_stale", "regenerate"]);
 
@@ -200,15 +223,20 @@ function readScopeForGuide(planningRoot, scopeId) {
 }
 
 function assertClosedGuideInput(document) {
-  const allowed = new Set(["sourceRefs", "sections", "openGaps"]);
+  const allowed = new Set([
+    "sourceRefs", "openGaps", "workPackageTypes", "taskTypes", "requiredSections",
+    "requiredGateRefs", "templateRefs", "decompositionRules", "automation",
+    "gatesByWorkPackageType", "gatesByTaskType", "commandRefs", "evidenceRequirements",
+    "testData", "executionContexts", "environments"
+  ]);
   for (const key of Object.keys(document || {})) {
     if (!allowed.has(key)) throw new Error(`guide document contains unsupported field: ${key}`);
   }
   if (!Array.isArray(document?.sourceRefs) || document.sourceRefs.length === 0) throw new Error("guide document requires at least one sourceRefs entry");
-  if (!Array.isArray(document.sections) || !Array.isArray(document.openGaps)) throw new Error("guide document requires sections and openGaps arrays");
+  if (!Array.isArray(document.openGaps)) throw new Error("guide document requires openGaps array");
 }
 
-function buildGuideDocument({ payload, scopeId, guideKind, guideId, proposedAt, currentSources }) {
+function buildGuideDocument({ payload, scopeId, guideKind, guideId, proposedAt, currentSources, planningRoot }) {
   assertClosedGuideInput(payload.document);
   const sourceById = new Map(currentSources.map((source) => [source.id, source]));
   const sourceRefs = [...new Set(payload.document.sourceRefs)];
@@ -219,15 +247,21 @@ function buildGuideDocument({ payload, scopeId, guideKind, guideId, proposedAt, 
     if (!source.confirmedFingerprint) throw new Error(`guide sourceRef has no confirmed fingerprint: ${sourceId}`);
     sourceFingerprints[sourceId] = source.confirmedFingerprint;
   }
+  const evidence = payload.generationEvidence;
+  if (!evidence || evidence.generationOutputHash !== revisionHash(payload.document)) throw new Error("guide generation evidence does not match the generated document");
   const provenance = {
     sourceMapRevision: revisionHash({ sourceRefs, sourceFingerprints }),
-    generatorVersion: "shipping-mode:guide-domain/1",
+    generationMethod: evidence.generationMethod,
+    generatorVersion: evidence.generatorVersion,
+    generatorFingerprint: evidence.generatorFingerprint,
     model: null,
     promptVersion: null,
     generatedAt: proposedAt,
-    sourceFingerprints
+    sourceFingerprints,
+    generationInputHash: evidence.generationInputHash,
+    generationOutputHash: evidence.generationOutputHash
   };
-  const withoutRevision = {
+  const common = {
     schemaVersion: 1,
     dslVersion: 1,
     id: guideId,
@@ -235,9 +269,37 @@ function buildGuideDocument({ payload, scopeId, guideKind, guideId, proposedAt, 
     kind: guideKind,
     sourceRefs,
     provenance,
-    sections: payload.document.sections,
     openGaps: payload.document.openGaps
   };
+  const withoutRevision = guideKind === "task" ? {
+    ...common,
+    workPackageTypes: payload.document.workPackageTypes,
+    taskTypes: payload.document.taskTypes,
+    requiredSections: payload.document.requiredSections,
+    requiredGateRefs: payload.document.requiredGateRefs,
+    templateRefs: payload.document.templateRefs,
+    decompositionRules: payload.document.decompositionRules,
+    automation: payload.document.automation
+  } : {
+    ...common,
+    gatesByWorkPackageType: payload.document.gatesByWorkPackageType,
+    gatesByTaskType: payload.document.gatesByTaskType,
+    commandRefs: payload.document.commandRefs,
+    evidenceRequirements: payload.document.evidenceRequirements,
+    testData: payload.document.testData,
+    executionContexts: payload.document.executionContexts,
+    environments: payload.document.environments
+  };
+  if (guideKind === "test") {
+    const scope = readScopeForGuide(planningRoot, scopeId);
+    const commandRefs = new Set(Object.keys(scope.commands || {}).filter((key) => key !== "custom"));
+    for (const ref of payload.document.commandRefs) {
+      if (ref.startsWith("custom.")) {
+        if (!scope.commands?.custom?.[ref.slice("custom.".length)]) throw new Error(`guide commandRef does not resolve: ${ref}`);
+      } else if (!commandRefs.has(ref)) throw new Error(`guide commandRef does not resolve: ${ref}`);
+    }
+  }
+  provenance.generationOutputHash = revisionHash(withoutRevision);
   const document = { ...withoutRevision, revision: `sha256:${revisionHash(withoutRevision)}` };
   const schemaResult = validate("guide", document);
   if (!schemaResult.valid) throw new Error(schemaResult.errors.map((error) => `guide${error.path}: ${error.message}`).join("; "));
@@ -344,7 +406,7 @@ export function renderGuideUpdate(payload, currentConfig, planningRoot, { curren
   if (["generate", "regenerate"].includes(payload.action)) {
     const guideId = payload.action === "regenerate" ? currentMetadata?.id : payload.guideId;
     if (!guideId) throw new Error("guide generation requires a server-owned guide id");
-    document = buildGuideDocument({ payload, scopeId: payload.scopeId, guideKind: payload.guideKind, guideId, proposedAt, currentSources });
+    document = buildGuideDocument({ payload, scopeId: payload.scopeId, guideKind: payload.guideKind, guideId, proposedAt, currentSources, planningRoot });
     guideContent = stringifyYaml(document);
   } else {
     if (!currentMetadata || !existingGuides[payload.guideKind]) throw new Error(`guide does not exist for ${payload.guideKind}/${payload.scopeId}`);
@@ -385,6 +447,7 @@ export function renderGuideUpdate(payload, currentConfig, planningRoot, { curren
     ["config.yml", stringifyYaml(nextConfig)],
     [guideRelativePath, guideContent]
   ]);
+  if (["generate", "regenerate"].includes(payload.action)) rendered.set(`scopes/${payload.scopeId}/${guideProjectionName(payload.guideKind)}`, renderGuideMarkdown(document));
   return rendered;
 }
 

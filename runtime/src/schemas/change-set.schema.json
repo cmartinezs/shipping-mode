@@ -27,7 +27,8 @@
         "scope.add",
         "scope.command.set",
         "discovery.propose",
-        "guide.update"
+        "guide.update",
+        "scope.generator.set"
       ]
     },
     "target": {
@@ -161,15 +162,15 @@
         }
       },
       "then": {
-          "properties": {
-            "payload": {
-              "type": "object",
-              "additionalProperties": false,
-              "minProperties": 1,
-              "properties": {
-                "name": {
-                  "type": "string",
-                  "minLength": 1
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "minProperties": 1,
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
               },
               "git": {
                 "$ref": "https://shipping-mode.dev/schemas/config.schema.json#/$defs/gitPolicy"
@@ -443,7 +444,9 @@
     {
       "if": {
         "properties": {
-          "kind": { "const": "guide.update" }
+          "kind": {
+            "const": "guide.update"
+          }
         }
       },
       "then": {
@@ -451,21 +454,310 @@
           "payload": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["operationId", "scopeId", "guideKind", "action", "guideId", "proposedAt"],
+            "required": [
+              "operationId",
+              "scopeId",
+              "guideKind",
+              "action",
+              "guideId",
+              "proposedAt"
+            ],
             "properties": {
-              "operationId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
-              "scopeId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
-              "guideKind": { "enum": ["task", "test"] },
-              "action": { "enum": ["generate", "regenerate", "submit_review", "approve", "reject", "mark_stale"] },
-              "guideId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
-              "proposedAt": { "type": "string", "minLength": 1 },
-              "document": { "type": "object", "additionalProperties": false, "required": ["sourceRefs", "sections", "openGaps"], "properties": { "sourceRefs": { "type": "array" }, "sections": { "type": "array" }, "openGaps": { "type": "array" } } },
-              "reason": { "type": "string", "minLength": 1 }
+              "operationId": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "scopeId": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "guideKind": {
+                "enum": [
+                  "task",
+                  "test"
+                ]
+              },
+              "action": {
+                "enum": [
+                  "generate",
+                  "regenerate",
+                  "submit_review",
+                  "approve",
+                  "reject",
+                  "mark_stale"
+                ]
+              },
+              "guideId": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "proposedAt": {
+                "type": "string",
+                "minLength": 1
+              },
+              "document": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "sourceRefs",
+                  "openGaps"
+                ],
+                "properties": {
+                  "sourceRefs": {
+                    "type": "array"
+                  },
+                  "openGaps": {
+                    "type": "array"
+                  },
+                  "workPackageTypes": {
+                    "type": "array"
+                  },
+                  "taskTypes": {
+                    "type": "array"
+                  },
+                  "requiredSections": {
+                    "type": "array"
+                  },
+                  "requiredGateRefs": {
+                    "type": "array"
+                  },
+                  "templateRefs": {
+                    "type": "array"
+                  },
+                  "decompositionRules": {
+                    "type": "array"
+                  },
+                  "automation": {
+                    "type": "object"
+                  },
+                  "gatesByWorkPackageType": {
+                    "type": "array"
+                  },
+                  "gatesByTaskType": {
+                    "type": "array"
+                  },
+                  "commandRefs": {
+                    "type": "array"
+                  },
+                  "evidenceRequirements": {
+                    "type": "array"
+                  },
+                  "testData": {
+                    "type": "array"
+                  },
+                  "executionContexts": {
+                    "type": "array"
+                  },
+                  "environments": {
+                    "type": "array"
+                  }
+                }
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              },
+              "generationEvidence": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "generationMethod",
+                  "generatorVersion",
+                  "generatorFingerprint",
+                  "generationInputHash",
+                  "generationOutputHash"
+                ],
+                "properties": {
+                  "generationMethod": {
+                    "enum": [
+                      "generic",
+                      "custom",
+                      "manual"
+                    ]
+                  },
+                  "generatorVersion": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "generatorFingerprint": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "generationInputHash": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  },
+                  "generationOutputHash": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$"
+                  }
+                }
+              }
             },
             "allOf": [
-              { "if": { "properties": { "action": { "enum": ["generate", "regenerate"] } } }, "then": { "required": ["document"], "properties": { "document": { "type": "object" } } } },
-              { "if": { "properties": { "action": { "enum": ["reject", "mark_stale"] } } }, "then": { "required": ["reason"], "properties": { "reason": { "type": "string" } } } }
+              {
+                "if": {
+                  "properties": {
+                    "action": {
+                      "enum": [
+                        "generate",
+                        "regenerate"
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "required": [
+                    "document",
+                    "generationEvidence"
+                  ],
+                  "properties": {
+                    "document": {
+                      "type": "object"
+                    },
+                    "generationEvidence": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "generationMethod",
+                        "generatorVersion",
+                        "generatorFingerprint",
+                        "generationInputHash",
+                        "generationOutputHash"
+                      ],
+                      "properties": {
+                        "generationMethod": {
+                          "enum": [
+                            "generic",
+                            "custom",
+                            "manual"
+                          ]
+                        },
+                        "generatorVersion": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "generatorFingerprint": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "pattern": "^[0-9a-f]{64}$"
+                        },
+                        "generationInputHash": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        },
+                        "generationOutputHash": {
+                          "type": "string",
+                          "pattern": "^[0-9a-f]{64}$"
+                        }
+                      }
+                    }
+                  }
+                },
+                "else": {
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "document"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "generationEvidence"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "action": {
+                      "enum": [
+                        "reject",
+                        "mark_stale"
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "required": [
+                    "reason"
+                  ],
+                  "properties": {
+                    "reason": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
             ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "scope.generator.set"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "operationId",
+              "scopeId",
+              "guideKind",
+              "generator",
+              "declaredBy",
+              "declaredAt"
+            ],
+            "properties": {
+              "operationId": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "scopeId": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+              },
+              "guideKind": {
+                "enum": [
+                  "task",
+                  "test"
+                ]
+              },
+              "generator": {
+                "anyOf": [
+                  {
+                    "$ref": "https://shipping-mode.dev/schemas/scope.schema.json#/$defs/generator"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "declaredBy": {
+                "type": "string",
+                "minLength": 1
+              },
+              "declaredAt": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
           }
         }
       }
@@ -598,9 +890,13 @@
         "scopeCommand": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["mode"],
+          "required": [
+            "mode"
+          ],
           "properties": {
-            "mode": { "$ref": "#/$defs/mode" }
+            "mode": {
+              "$ref": "#/$defs/mode"
+            }
           }
         }
       }

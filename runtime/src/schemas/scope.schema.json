@@ -2,41 +2,111 @@
   "$id": "https://shipping-mode.dev/schemas/scope.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "id", "key", "label", "kind", "path"],
+  "required": [
+    "schemaVersion",
+    "id",
+    "key",
+    "label",
+    "kind",
+    "path"
+  ],
   "properties": {
-    "schemaVersion": { "const": 1 },
-    "id": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
-    "key": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
-    "label": { "type": "string", "minLength": 1 },
-    "kind": { "enum": ["code", "non_code"] },
-    "path": { "type": "string", "minLength": 1 },
-    "owner": { "type": ["string", "null"] },
-    "commands": { "$ref": "#/$defs/commands" },
-    "guides": { "$ref": "#/$defs/guides" }
+    "schemaVersion": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "key": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "enum": [
+        "code",
+        "non_code"
+      ]
+    },
+    "path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "owner": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "commands": {
+      "$ref": "#/$defs/commands"
+    },
+    "customGenerators": {
+      "$ref": "#/$defs/customGenerators"
+    },
+    "guides": {
+      "$ref": "#/$defs/guides"
+    }
   },
   "$defs": {
-    "uuid": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
     "sourceRefs": {
       "type": "array",
-      "items": { "$ref": "#/$defs/uuid" },
+      "items": {
+        "$ref": "#/$defs/uuid"
+      },
       "minItems": 1,
       "uniqueItems": true
     },
-    "confidence": { "enum": ["low", "medium", "high"] },
+    "confidence": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ]
+    },
     "alternative": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["command", "sourceRefs", "sourceFingerprintAtSelection", "confidence", "requiresEnvironment", "requiresSecrets"],
+      "required": [
+        "command",
+        "sourceRefs",
+        "sourceFingerprintAtSelection",
+        "confidence",
+        "requiresEnvironment",
+        "requiresSecrets"
+      ],
       "properties": {
-        "command": { "type": "string", "minLength": 1 },
-        "sourceRefs": { "$ref": "#/$defs/sourceRefs" },
+        "command": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceRefs": {
+          "$ref": "#/$defs/sourceRefs"
+        },
         "sourceFingerprintAtSelection": {
           "type": "object",
-          "additionalProperties": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
         },
-        "confidence": { "$ref": "#/$defs/confidence" },
-        "requiresEnvironment": { "type": "boolean" },
-        "requiresSecrets": { "type": "boolean" }
+        "confidence": {
+          "$ref": "#/$defs/confidence"
+        },
+        "requiresEnvironment": {
+          "type": "boolean"
+        },
+        "requiresSecrets": {
+          "type": "boolean"
+        }
       }
     },
     "commandEntry": {
@@ -44,34 +114,96 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["command", "method", "declaredBy", "declaredAt", "declaredOperationId", "requiresEnvironment", "requiresSecrets", "alternatives"],
+          "required": [
+            "command",
+            "method",
+            "declaredBy",
+            "declaredAt",
+            "declaredOperationId",
+            "requiresEnvironment",
+            "requiresSecrets",
+            "alternatives"
+          ],
           "properties": {
-            "command": { "type": "string", "minLength": 1 },
-            "method": { "const": "declared" },
-            "declaredBy": { "type": "string", "minLength": 1 },
-            "declaredAt": { "type": "string", "minLength": 1 },
-            "declaredOperationId": { "$ref": "#/$defs/uuid" },
-            "requiresEnvironment": { "type": "boolean" },
-            "requiresSecrets": { "type": "boolean" },
-            "alternatives": { "type": "array", "maxItems": 0 }
+            "command": {
+              "type": "string",
+              "minLength": 1
+            },
+            "method": {
+              "const": "declared"
+            },
+            "declaredBy": {
+              "type": "string",
+              "minLength": 1
+            },
+            "declaredAt": {
+              "type": "string",
+              "minLength": 1
+            },
+            "declaredOperationId": {
+              "$ref": "#/$defs/uuid"
+            },
+            "requiresEnvironment": {
+              "type": "boolean"
+            },
+            "requiresSecrets": {
+              "type": "boolean"
+            },
+            "alternatives": {
+              "type": "array",
+              "maxItems": 0
+            }
           }
         },
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["command", "method", "confidence", "sourceRefs", "sourceFingerprintAtSelection", "requiresEnvironment", "requiresSecrets", "alternatives"],
+          "required": [
+            "command",
+            "method",
+            "confidence",
+            "sourceRefs",
+            "sourceFingerprintAtSelection",
+            "requiresEnvironment",
+            "requiresSecrets",
+            "alternatives"
+          ],
           "properties": {
-            "command": { "type": "string", "minLength": 1 },
-            "method": { "enum": ["inferred", "reviewed"] },
-            "confidence": { "$ref": "#/$defs/confidence" },
-            "sourceRefs": { "$ref": "#/$defs/sourceRefs" },
+            "command": {
+              "type": "string",
+              "minLength": 1
+            },
+            "method": {
+              "enum": [
+                "inferred",
+                "reviewed"
+              ]
+            },
+            "confidence": {
+              "$ref": "#/$defs/confidence"
+            },
+            "sourceRefs": {
+              "$ref": "#/$defs/sourceRefs"
+            },
             "sourceFingerprintAtSelection": {
               "type": "object",
-              "additionalProperties": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+              "additionalProperties": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
             },
-            "requiresEnvironment": { "type": "boolean" },
-            "requiresSecrets": { "type": "boolean" },
-            "alternatives": { "type": "array", "items": { "$ref": "#/$defs/alternative" } }
+            "requiresEnvironment": {
+              "type": "boolean"
+            },
+            "requiresSecrets": {
+              "type": "boolean"
+            },
+            "alternatives": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/alternative"
+              }
+            }
           }
         }
       ]
@@ -80,18 +212,90 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "build": { "$ref": "#/$defs/commandEntry" },
-        "test": { "$ref": "#/$defs/commandEntry" },
-        "smoke": { "$ref": "#/$defs/commandEntry" },
-        "lint": { "$ref": "#/$defs/commandEntry" },
-        "verify": { "$ref": "#/$defs/commandEntry" },
+        "build": {
+          "$ref": "#/$defs/commandEntry"
+        },
+        "test": {
+          "$ref": "#/$defs/commandEntry"
+        },
+        "smoke": {
+          "$ref": "#/$defs/commandEntry"
+        },
+        "lint": {
+          "$ref": "#/$defs/commandEntry"
+        },
+        "verify": {
+          "$ref": "#/$defs/commandEntry"
+        },
         "custom": {
           "type": "object",
-          "additionalProperties": { "$ref": "#/$defs/commandEntry" },
+          "additionalProperties": {
+            "$ref": "#/$defs/commandEntry"
+          },
           "propertyNames": {
             "pattern": "^[a-z][a-z0-9-]{0,63}$",
-            "not": { "enum": ["build", "test", "smoke", "lint", "verify"] }
+            "not": {
+              "enum": [
+                "build",
+                "test",
+                "smoke",
+                "lint",
+                "verify"
+              ]
+            }
           }
+        }
+      }
+    },
+    "customGenerators": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "task": {
+          "$ref": "#/$defs/generator"
+        },
+        "test": {
+          "$ref": "#/$defs/generator"
+        }
+      }
+    },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "executable",
+        "args"
+      ],
+      "properties": {
+        "executable": {
+          "type": "string",
+          "pattern": "^(?!/)(?!.*\\.\\.).+$"
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32
+        },
+        "cwd": {
+          "type": "string",
+          "pattern": "^(?!/)(?!.*\\.\\.).+$"
+        },
+        "timeoutMs": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 120000
+        },
+        "maxOutputBytes": {
+          "type": "integer",
+          "minimum": 1024,
+          "maximum": 10485760
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },
@@ -99,51 +303,176 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "task": { "$ref": "#/$defs/guideMetadata" },
-        "test": { "$ref": "#/$defs/guideMetadata" }
+        "task": {
+          "$ref": "#/$defs/guideMetadata"
+        },
+        "test": {
+          "$ref": "#/$defs/guideMetadata"
+        }
       }
     },
     "guideMetadata": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "scopeId", "kind", "status", "path", "projection", "revision", "contentHash", "sourceRefs", "provenance", "approval"],
+      "required": [
+        "id",
+        "scopeId",
+        "kind",
+        "status",
+        "path",
+        "projection",
+        "revision",
+        "contentHash",
+        "sourceRefs",
+        "provenance",
+        "approval"
+      ],
       "properties": {
-        "id": { "$ref": "#/$defs/uuid" },
-        "scopeId": { "$ref": "#/$defs/uuid" },
-        "kind": { "enum": ["task", "test"] },
-        "status": { "enum": ["generated", "reviewed", "approved", "stale", "rejected"] },
-        "path": { "enum": ["task-guide.yml", "test-guide.yml"] },
-        "projection": { "enum": ["task-guide.md", "test-guide.md"] },
-        "revision": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
-        "contentHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-        "sourceRefs": { "$ref": "#/$defs/sourceRefs" },
-        "provenance": { "type": "object" },
+        "id": {
+          "$ref": "#/$defs/uuid"
+        },
+        "scopeId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "kind": {
+          "enum": [
+            "task",
+            "test"
+          ]
+        },
+        "status": {
+          "enum": [
+            "generated",
+            "reviewed",
+            "approved",
+            "stale",
+            "rejected"
+          ]
+        },
+        "path": {
+          "enum": [
+            "task-guide.yml",
+            "test-guide.yml"
+          ]
+        },
+        "projection": {
+          "enum": [
+            "task-guide.md",
+            "test-guide.md"
+          ]
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "contentHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "sourceRefs": {
+          "$ref": "#/$defs/sourceRefs"
+        },
+        "provenance": {
+          "type": "object"
+        },
         "approval": {
-          "type": ["object", "null"],
+          "type": [
+            "object",
+            "null"
+          ],
           "additionalProperties": false,
-          "required": ["actor", "approvedAt", "changeSetHash", "revision", "contentHash"],
+          "required": [
+            "actor",
+            "approvedAt",
+            "changeSetHash",
+            "revision",
+            "contentHash"
+          ],
           "properties": {
-            "actor": { "type": "string", "minLength": 1 },
-            "approvedAt": { "type": "string", "minLength": 1 },
-            "changeSetHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-            "revision": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
-            "contentHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+            "actor": {
+              "type": "string",
+              "minLength": 1
+            },
+            "approvedAt": {
+              "type": "string",
+              "minLength": 1
+            },
+            "changeSetHash": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "revision": {
+              "type": "string",
+              "pattern": "^sha256:[0-9a-f]{64}$"
+            },
+            "contentHash": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
           }
         }
       },
       "allOf": [
         {
-          "if": { "properties": { "kind": { "const": "task" } } },
-          "then": { "properties": { "path": { "const": "task-guide.yml" }, "projection": { "const": "task-guide.md" } } }
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "task"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "path": {
+                "const": "task-guide.yml"
+              },
+              "projection": {
+                "const": "task-guide.md"
+              }
+            }
+          }
         },
         {
-          "if": { "properties": { "kind": { "const": "test" } } },
-          "then": { "properties": { "path": { "const": "test-guide.yml" }, "projection": { "const": "test-guide.md" } } }
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "test"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "path": {
+                "const": "test-guide.yml"
+              },
+              "projection": {
+                "const": "test-guide.md"
+              }
+            }
+          }
         },
         {
-          "if": { "properties": { "status": { "const": "approved" } } },
-          "then": { "properties": { "approval": { "type": "object" } } },
-          "else": { "properties": { "approval": { "type": "null" } } }
+          "if": {
+            "properties": {
+              "status": {
+                "const": "approved"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "approval": {
+                "type": "object"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "approval": {
+                "type": "null"
+              }
+            }
+          }
         }
       ]
     }
