@@ -119,7 +119,7 @@ id = server-owned UUIDv7
 Display ID:
 
 ```text
-displayId = REL-<first 8 uppercase hex chars of uuid without dashes>
+displayId = REL-<first 8 Crockford Base32 chars of SHA-256(UUID bytes)>
 ```
 
 Collision handling before persist:
@@ -128,7 +128,8 @@ Collision handling before persist:
 REL-<8>
 REL-<12>
 REL-<16>
-REL-<32>
+REL-<26>
+REL-<52>
 ```
 
 If the full UUID-derived token collides with a different Release, fail closed.
@@ -139,7 +140,8 @@ Rules:
 - slug never participates in identity or resolution;
 - cancellation does not free display ID;
 - no global sequence such as `REL-001`;
-- no identity from title, lane, scope or create order.
+- no identity from title, lane, scope or create order;
+- raw UUIDv7 timestamp prefixes are not used because releases created in the same time window would collide systematically.
 
 ## 5. Storage Contract
 
@@ -364,13 +366,15 @@ This is audit evidence, not event sourcing.
 | Finding | Correction |
 |---|---|
 | Release could become a monolithic root for future tree state | Schema stores refs and summaries only; no child payload fields |
-| Display ID could become `REL-001` or path identity | Derive from UUIDv7 and store under UUID directory only |
+| Display ID could become `REL-001`, path identity, or a truncated UUIDv7 timestamp | Derive a Crockford Base32 short-hash from UUID bytes and store under UUID directory only |
 | Slug could become a resolver | Resolver accepts UUIDv7/display ID only |
 | Empty Release could be declared releasable | Readiness reports unavailable dependencies and `available: false` |
 | A generic `release.update` could bypass guards | Plan 1 adds only `release.create` |
 | README could drift from YAML or become source of truth | Renderer/comparator are pure; query reports drift only |
 | Deployment tracking could imply lifecycle released | Deployment records are deferred and never auto-transition lifecycle |
 | Plan 1 could leak Corte 3 | No `items/`, `release-item.yml`, Work Packages or Tasks |
+| Idempotency key could alias different requests or differ by entrypoint | Bind the key to a server-owned request hash inside the workspace mutation lock for both `release new` and generic `changeset propose` |
+| `release status` could crash or trust a valid-looking corrupted aggregate | Safe resolver and shared schema/identity/revision integrity checks fail closed |
 
 No production blocker remains after these corrections.
 

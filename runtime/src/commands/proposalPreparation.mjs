@@ -3,10 +3,11 @@ import { UsageError } from "../lib/errors.mjs";
 import { BOOTSTRAP_CANONICAL_DIRECTORIES } from "../lib/bootstrapTopology.mjs";
 import { deriveUniqueReleaseDisplayId } from "../lib/releaseIdentity.mjs";
 import { releaseReadmeRelativePath, releaseYamlRelativePath } from "../lib/releaseStore.mjs";
+import { revisionHash } from "../lib/canonical.mjs";
 
 const SUPPORTED_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "scope.generator.set", "guide.update", "release.create"]);
 const RELEASE_CREATE_ALLOWED_FIELDS = new Set(["title", "objective", "laneId", "policyMode", "slug", "idempotencyKey"]);
-const RELEASE_CREATE_SERVER_FIELDS = new Set(["id", "displayId", "displayIdStatus", "status", "createdAt", "createdBy", "updatedAt", "updatedBy", "audit", "completion", "readiness", "canonicalPath", "approval", "scopeRefs", "itemRefs", "blockers", "risks", "deploymentEvents", "finalization"]);
+const RELEASE_CREATE_SERVER_FIELDS = new Set(["id", "displayId", "displayIdStatus", "status", "createdAt", "createdBy", "updatedAt", "updatedBy", "audit", "completion", "readiness", "canonicalPath", "approval", "scopeRefs", "itemRefs", "blockers", "risks", "deploymentEvents", "finalization", "idempotencyRequestHash"]);
 
 function requireObjectPayload(rawPayload) {
   if (rawPayload === null || typeof rawPayload !== "object" || Array.isArray(rawPayload)) {
@@ -29,11 +30,22 @@ function assertOnlyAllowedReleaseCreateFields(rawPayload) {
   }
 }
 
+function requireTrimmedString(value, field) {
+  if (typeof value !== "string" || value.trim().length === 0) throw new UsageError(`release.create requires non-blank ${field}`);
+  return value.trim();
+}
+
+function normalizeOptionalString(value, field) {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value !== "string" || value.trim().length === 0) throw new UsageError(`release.create ${field} must be a non-blank string`);
+  return value.trim();
+}
+
 function normalizeSlug(value) {
   if (value === undefined || value === null || value === "") return null;
-  const slug = String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-+|-+$)/g, "");
-  if (!slug) return null;
-  return slug;
+  if (typeof value !== "string") throw new UsageError("release.create slug must be a string or null");
+  const slug = value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-+|-+$)/g, "");
+  return slug || null;
 }
 
 export function prepareProposal(kind, rawPayload, { operationId = null, actor = null, proposedAt = null, existingReleases = [] } = {}) {
@@ -100,7 +112,15 @@ export function prepareProposal(kind, rawPayload, { operationId = null, actor = 
   if (kind === "release.create") {
     if (!operationId || !actor || !proposedAt) throw new UsageError("release.create requires runtime operationId, actor, and proposedAt");
     assertOnlyAllowedReleaseCreateFields(rawPayload);
-    if (!rawPayload.title || !rawPayload.objective) throw new UsageError("release.create requires title and objective");
+    const title = requireTrimmedString(rawPayload.title, "title");
+    const objective = requireTrimmedString(rawPayload.objective, "objective");
+    const laneId = normalizeOptionalString(rawPayload.laneId, "laneId");
+    const policyMode = normalizeOptionalString(rawPayload.policyMode, "policyMode");
+    const slug = normalizeSlug(rawPayload.slug);
+    const idempotencyKey = rawPayload.idempotencyKey === undefined
+      ? operationId
+      : requireTrimmedString(rawPayload.idempotencyKey, "idempotencyKey");
+    const idempotencyRequestHash = revisionHash({ actor, title, objective, laneId: laneId ?? null, policyMode: policyMode ?? null, slug });
     const id = generateUuidV7();
     const display = deriveUniqueReleaseDisplayId(id, existingReleases);
     const payload = {
@@ -108,17 +128,18 @@ export function prepareProposal(kind, rawPayload, { operationId = null, actor = 
       id,
       displayId: display.displayId,
       displayIdStatus: "ACTIVE",
-      title: rawPayload.title,
-      objective: rawPayload.objective,
-      laneId: rawPayload.laneId,
-      policyMode: rawPayload.policyMode,
-      slug: normalizeSlug(rawPayload.slug),
+      title,
+      objective,
+      laneId,
+      policyMode,
+      slug,
       status: "DRAFT",
       createdAt: proposedAt,
       createdBy: actor,
       updatedAt: proposedAt,
       updatedBy: actor,
-      idempotencyKey: rawPayload.idempotencyKey || operationId
+      idempotencyKey,
+      idempotencyRequestHash
     };
     return { payload, targetFiles: [releaseYamlRelativePath(id), releaseReadmeRelativePath(id)] };
   }

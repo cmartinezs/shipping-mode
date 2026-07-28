@@ -152,7 +152,7 @@ const releaseCreate = runReleaseNew({
   }
 });
 assert.ok(isUuidV7(releaseCreate.releaseId));
-assert.match(releaseCreate.displayId, /^REL-[0-9A-F]{8}/);
+assert.match(releaseCreate.displayId, /^REL-[0-9A-HJKMNP-TV-Z]{8}$/);
 const releaseCreateChangeSet = readChangeSet(operationsRoot, releaseCreate.operationId);
 assert.equal(releaseCreateChangeSet.kind, "release.create");
 assert.equal(releaseCreateChangeSet.payload.status, "DRAFT");
@@ -184,6 +184,7 @@ const idempotent = runReleaseNew({
   args: {
     title: "Release Core",
     objective: "Create the Release aggregate core",
+    slug: "ignored-for-identity",
     idempotencyKey: "release-core-key",
     actor: "carlos"
   }
@@ -191,6 +192,18 @@ const idempotent = runReleaseNew({
 assert.equal(idempotent.operationId, releaseCreate.operationId);
 assert.equal(idempotent.releaseId, releaseCreate.releaseId);
 assert.equal(idempotent.idempotent, true);
+assert.throws(() => runReleaseNew({
+  planningRoot,
+  args: { title: "Release Core", objective: "Different request", idempotencyKey: "release-core-key", actor: "carlos" }
+}), /idempotency key .* different release\.create request/, "same idempotency key must not alias a different create request");
+const pendingReleaseA = runReleaseNew({ planningRoot, args: { title: "Pending A", objective: "A", idempotencyKey: "pending-a", actor: "carlos" } });
+const pendingReleaseB = runReleaseNew({ planningRoot, args: { title: "Pending B", objective: "B", idempotencyKey: "pending-b", actor: "carlos" } });
+assert.notEqual(pendingReleaseA.displayId, pendingReleaseB.displayId, "separate pending releases must not inherit the same UUIDv7 timestamp-prefix display ID");
+const genericPayload = JSON.stringify({ title: "Generic", objective: "Generic path", idempotencyKey: "generic-release", slug: null });
+const genericFirst = runChangesetPropose({ planningRoot, kind: "release.create", actor: "carlos", payloadText: genericPayload });
+const genericSecond = runChangesetPropose({ planningRoot, kind: "release.create", actor: "carlos", payloadText: genericPayload });
+assert.equal(genericSecond.operationId, genericFirst.operationId, "generic changeset entrypoint must share release.create idempotency");
+assert.equal(genericSecond.idempotent, true);
 
 // changeset propose --payload-file equivalent: raw JSON text in, operationId out
 const proposeFromText = runChangesetPropose({

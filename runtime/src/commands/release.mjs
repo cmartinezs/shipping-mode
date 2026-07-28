@@ -9,29 +9,6 @@ import { compareReleaseReadme } from "../lib/releaseProjection.mjs";
 import { confineWritePath } from "../lib/paths.mjs";
 import { validate } from "../lib/schema.mjs";
 
-function findExistingIdempotentReleaseCreate(operationsRoot, idempotencyKey) {
-  if (!idempotencyKey || !fs.existsSync(operationsRoot)) return null;
-  for (const operationId of fs.readdirSync(operationsRoot).sort()) {
-    try {
-      const operation = readOperation(operationsRoot, operationId);
-      if (operation.kind !== "release.create" || ["INVALID", "STALE"].includes(operation.status)) continue;
-      const changeSet = readChangeSet(operationsRoot, operationId);
-      if (changeSet.payload.idempotencyKey === idempotencyKey) {
-        return {
-          operationId,
-          releaseId: changeSet.payload.id,
-          displayId: changeSet.payload.displayId,
-          operationStatus: operation.status,
-          idempotent: true
-        };
-      }
-    } catch {
-      continue;
-    }
-  }
-  return null;
-}
-
 function pendingRecovery(planningRoot) {
   const operationsRoot = path.join(planningRoot, "operations");
   if (!fs.existsSync(operationsRoot)) return [];
@@ -49,10 +26,7 @@ function pendingRecovery(planningRoot) {
 
 export function runReleaseNew({ planningRoot, args }) {
   const operationsRoot = path.join(planningRoot, "operations");
-  const existing = findExistingIdempotentReleaseCreate(operationsRoot, args.idempotencyKey || null);
-  if (existing) return existing;
-
-  const operationId = generateUuidV7();
+  const candidateOperationId = generateUuidV7();
   const proposedAt = new Date().toISOString();
   const rawPayload = {
     title: args.title,
@@ -63,7 +37,7 @@ export function runReleaseNew({ planningRoot, args }) {
     ...(args.idempotencyKey ? { idempotencyKey: args.idempotencyKey } : {})
   };
   const { payload, targetFiles } = prepareProposal("release.create", rawPayload, {
-    operationId,
+    operationId: candidateOperationId,
     actor: args.actor,
     proposedAt,
     existingReleases: listReleaseDocuments(planningRoot)
@@ -76,15 +50,18 @@ export function runReleaseNew({ planningRoot, args }) {
     payload,
     targetFiles,
     actor: args.actor,
-    operationId,
-    proposedAt
+    operationId: candidateOperationId,
+    proposedAt,
+    idempotency: { key: payload.idempotencyKey, requestHash: payload.idempotencyRequestHash }
   });
+  const persistedChangeSet = readChangeSet(operationsRoot, persistedOperationId);
+  const operation = readOperation(operationsRoot, persistedOperationId);
   return {
     operationId: persistedOperationId,
-    releaseId: payload.id,
-    displayId: payload.displayId,
-    operationStatus: "PROPOSED",
-    idempotent: false
+    releaseId: persistedChangeSet.payload.id,
+    displayId: persistedChangeSet.payload.displayId,
+    operationStatus: operation.status,
+    idempotent: persistedOperationId !== candidateOperationId
   };
 }
 
@@ -98,7 +75,7 @@ function projectionStatus(planningRoot, release) {
   }
   if (!fs.existsSync(filePath)) return { status: "MISSING", findings: [`${relativePath}: projection is missing`] };
   const stat = fs.lstatSync(filePath);
-  if (stat.isSymbolicLink()) return { status: "UNSAFE", findings: [`${relativePath}: symlink entries are not permitted`] };
+  if (stat.isSymbolicLink() || !stat.isFile()) return { status: "UNSAFE", findings: [`${relativePath}: projection must be a real file`] };
   const current = fs.readFileSync(filePath, "utf8");
   const comparison = compareReleaseReadme(release, current);
   return comparison.equal ? { status: "MATCH", findings: [] } : { status: "DRIFT", findings: [`${relativePath}: projection drift`] };
@@ -106,16 +83,10 @@ function projectionStatus(planningRoot, release) {
 
 export function runReleaseStatus({ planningRoot, reference }) {
   const pending = pendingRecovery(planningRoot);
-  if (pending.length > 0) {
-    return { status: "RECOVERY_REQUIRED", release: null, derivedHealth: null, refs: null, findings: ["workspace has pending or recovery-required operations"], pendingOperations: pending };
-  }
-  if (!fs.existsSync(planningRoot)) {
-    return { status: "NOT_FOUND", release: null, derivedHealth: null, refs: null, findings: ["workspace is not initialized: .planning/ does not exist"] };
-  }
+  if (pending.length > 0) return { status: "RECOVERY_REQUIRED", release: null, derivedHealth: null, refs: null, findings: ["workspace has pending or recovery-required operations"], pendingOperations: pending };
+  if (!fs.existsSync(planningRoot)) return { status: "NOT_FOUND", release: null, derivedHealth: null, refs: null, findings: ["workspace is not initialized: .planning/ does not exist"] };
   const resolution = resolveReleaseReference(planningRoot, reference);
-  if (resolution.status !== "FOUND") {
-    return { status: resolution.status, release: null, derivedHealth: null, refs: null, findings: resolution.findings, matches: resolution.matches || [] };
-  }
+  if (resolution.status !== "FOUND") return { status: resolution.status, release: null, derivedHealth: null, refs: null, findings: resolution.findings, matches: resolution.matches || [] };
   const release = resolution.release;
   const schemaResult = validate("release", release);
   const projection = projectionStatus(planningRoot, release);
@@ -123,26 +94,13 @@ export function runReleaseStatus({ planningRoot, reference }) {
   for (const error of schemaResult.errors) findings.push(`release.yml${error.path}: ${error.message}`);
   return {
     status: "FOUND",
-    release: {
-      id: release.id,
-      displayId: release.displayId,
-      lifecycle: release.status,
-      title: release.title,
-      objective: release.objective
-    },
+    release: { id: release.id, displayId: release.displayId, lifecycle: release.status, title: release.title, objective: release.objective },
     derivedHealth: {
       schemaValid: schemaResult.valid,
       projection: projection.status,
-      readiness: {
-        available: false,
-        releasable: false,
-        unavailableDependencies: ["release_items", "work_packages", "gates"]
-      }
+      readiness: { available: false, releasable: false, unavailableDependencies: ["release_items", "work_packages", "gates"] }
     },
-    refs: {
-      scopeRefs: release.scopeRefs,
-      itemRefs: release.itemRefs
-    },
+    refs: { scopeRefs: release.scopeRefs, itemRefs: release.itemRefs },
     findings
   };
 }

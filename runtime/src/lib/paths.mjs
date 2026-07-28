@@ -164,7 +164,7 @@ export function assertTrustedRoots(planningRoot) {
     if (error.code === "ENOENT") return;
     throw error;
   }
-  for (const name of ["operations", "events", ".runtime", "scopes", "sources"]) {
+  for (const name of ["operations", "events", ".runtime", "scopes", "sources", "releases"]) {
     assertTrustedRoot(planningRoot, name);
   }
 

@@ -180,7 +180,8 @@
               "createdBy",
               "updatedAt",
               "updatedBy",
-              "idempotencyKey"
+              "idempotencyKey",
+              "idempotencyRequestHash"
             ],
             "properties": {
               "operationId": {
@@ -193,7 +194,7 @@
               },
               "displayId": {
                 "type": "string",
-                "pattern": "^REL-([0-9A-F]{8}|[0-9A-F]{12}|[0-9A-F]{16}|[0-9A-F]{32})$"
+                "pattern": "^REL-([0-9A-HJKMNP-TV-Z]{8}|[0-9A-HJKMNP-TV-Z]{12}|[0-9A-HJKMNP-TV-Z]{16}|[0-9A-HJKMNP-TV-Z]{26}|[0-9A-HJKMNP-TV-Z]{52})$"
               },
               "displayIdStatus": {
                 "const": "ACTIVE"
@@ -246,6 +247,10 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 256
+              },
+              "idempotencyRequestHash": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
               }
             }
           }

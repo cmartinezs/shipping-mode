@@ -83,18 +83,20 @@ export function runChangesetPropose({ planningRoot, kind, payloadText, actor }) 
   if (kind === "release.create") runtimeContext.existingReleases = listReleaseDocuments(planningRoot);
   const { payload, targetFiles } = prepareProposal(kind, rawPayload, runtimeContext);
   const operationsRoot = path.join(planningRoot, "operations");
+  const candidateOperationId = runtimeContext.operationId || null;
   const operationId = propose({
     operationsRoot,
     planningRoot,
     kind,
-    target: {},
+    target: kind === "release.create" ? { releaseId: payload.id } : {},
     payload,
     targetFiles,
     actor,
-    operationId: runtimeContext.operationId || null,
-    proposedAt: runtimeContext.proposedAt || null
+    operationId: candidateOperationId,
+    proposedAt: runtimeContext.proposedAt || null,
+    ...(kind === "release.create" ? { idempotency: { key: payload.idempotencyKey, requestHash: payload.idempotencyRequestHash } } : {})
   });
-  return { operationId };
+  return { operationId, ...(kind === "release.create" ? { idempotent: operationId !== candidateOperationId } : {}) };
 }
 
 export function runChangesetValidate({ planningRoot, operationsRoot, operationId }) {

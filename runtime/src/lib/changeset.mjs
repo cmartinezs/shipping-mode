@@ -54,8 +54,33 @@ export function eventTypeFor(kind) {
   }[kind];
 }
 
-export function propose({ operationsRoot, planningRoot, kind, target, payload, targetFiles, actor, operationId = null, proposedAt = null, preconditions = null }) {
+function findIdempotentOperation(operationsRoot, { kind, key, requestHash }) {
+  if (!key || !fs.existsSync(operationsRoot)) return null;
+  for (const candidateId of fs.readdirSync(operationsRoot).sort()) {
+    let operation;
+    let changeSet;
+    try {
+      operation = readOperation(operationsRoot, candidateId);
+      if (operation.kind !== kind || ["INVALID", "STALE"].includes(operation.status)) continue;
+      changeSet = readChangeSet(operationsRoot, candidateId);
+    } catch {
+      continue;
+    }
+    if (changeSet.payload?.idempotencyKey !== key) continue;
+    if (changeSet.payload?.idempotencyRequestHash !== requestHash) {
+      throw new StateError(`idempotency key ${key} was already used for a different ${kind} request`);
+    }
+    return candidateId;
+  }
+  return null;
+}
+
+export function propose({ operationsRoot, planningRoot, kind, target, payload, targetFiles, actor, operationId = null, proposedAt = null, preconditions = null, idempotency = null }) {
   return withWorkspaceMutation({ planningRoot, operationsRoot, operationId: null }, () => {
+    if (idempotency) {
+      const existingOperationId = findIdempotentOperation(operationsRoot, { kind, ...idempotency });
+      if (existingOperationId) return existingOperationId;
+    }
     operationId ??= generateUuidV7();
     assertDistinctMutationTargets(planningRoot, targetFiles);
 

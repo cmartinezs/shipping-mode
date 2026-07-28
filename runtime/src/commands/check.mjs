@@ -10,7 +10,7 @@ import { REQUIRED_BOOTSTRAP_DIRECTORIES } from "../lib/bootstrapTopology.mjs";
 import { projectContextConsistencyFindings } from "../lib/projectContextValidation.mjs";
 import { contentHash, revisionHash } from "../lib/canonical.mjs";
 import { compareReleaseReadme } from "../lib/releaseProjection.mjs";
-import { isReleaseDisplayId } from "../lib/releaseIdentity.mjs";
+import { releaseIntegrityFindings } from "../lib/releaseStore.mjs";
 
 function checkRequiredFile(planningRoot, relativePath, schemaName, findings) {
   let filePath;
@@ -171,13 +171,9 @@ function checkReleaseConsistency(planningRoot, findings) {
       findings.push(`${releaseRelativePath}: failed to parse (${error.message})`);
       continue;
     }
-    const schemaResult = validate("release", release);
-    if (!schemaResult.valid) {
-      for (const error of schemaResult.errors) findings.push(`${releaseRelativePath}${error.path}: ${error.message}`);
-      continue;
-    }
-    if (release.id !== releaseId) findings.push(`${releaseRelativePath}: release.id ${release.id} does not match its directory`);
-    if (!isReleaseDisplayId(release.displayId)) findings.push(`${releaseRelativePath}: displayId is invalid`);
+    const integrity = releaseIntegrityFindings(release, { directoryId: releaseId });
+    for (const finding of integrity.findings) findings.push(`${releaseRelativePath}: ${finding}`);
+    if (!integrity.schemaValid) continue;
     if (release.itemRefs.length > 0) findings.push(`${releaseRelativePath}: itemRefs cannot be resolved before Release Items exist`);
     for (const scopeRef of release.scopeRefs) {
       const scopePath = path.join(planningRoot, "scopes", scopeRef.scopeId, "scope.yml");
@@ -186,9 +182,6 @@ function checkReleaseConsistency(planningRoot, findings) {
     const existingOwner = displayIdOwners.get(release.displayId);
     if (existingOwner && existingOwner !== releaseId) findings.push(`${releaseRelativePath}: displayId ${release.displayId} is ambiguous with releases/${existingOwner}/release.yml`);
     displayIdOwners.set(release.displayId, releaseId);
-    const revisionless = { ...release, audit: { ...release.audit } };
-    delete revisionless.audit.revision;
-    if (release.audit.revision !== `sha256:${revisionHash(revisionless)}`) findings.push(`${releaseRelativePath}: audit.revision does not match canonical release content`);
     if (readmePath) {
       const currentReadme = fs.readFileSync(readmePath, "utf8");
       if (!compareReleaseReadme(release, currentReadme).equal) findings.push(`${readmeRelativePath}: projection drift`);

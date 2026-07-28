@@ -160,7 +160,7 @@ function fullyInit(cwd) {
   const release = run(["release", "new", "--title", "Release Core", "--objective", "Create release aggregate core", "--slug", "release-core", "--idempotency-key", "cli-release-core", "--actor", "carlos"], cwd);
   assert.equal(release.code, 0);
   assert.ok(isUuidV7(release.json.releaseId));
-  assert.match(release.json.displayId, /^REL-[0-9A-F]{8}/);
+  assert.match(release.json.displayId, /^REL-[0-9A-HJKMNP-TV-Z]{8}$/);
   assert.equal(fs.existsSync(path.join(cwd, ".planning", "releases", release.json.releaseId, "release.yml")), false, "release new must not write canonical state");
   run(["changeset", "validate", release.json.operationId], cwd);
   run(["changeset", "approve", release.json.operationId, "--actor", "carlos", "--allow-self-approval"], cwd);
@@ -179,8 +179,15 @@ function fullyInit(cwd) {
   const bySlug = run(["release", "status", "release-core"], cwd);
   assert.equal(bySlug.code, 1);
   assert.equal(bySlug.json.status, "NOT_FOUND");
-  const sameKey = run(["release", "new", "--title", "Release Core", "--objective", "Create release aggregate core", "--idempotency-key", "cli-release-core", "--actor", "carlos"], cwd);
-  assert.equal(sameKey.json.operationId, release.json.operationId, "same idempotency key must not mint a second Release");
+  const sameKey = run(["release", "new", "--title", "Release Core", "--objective", "Create release aggregate core", "--slug", "release-core", "--idempotency-key", "cli-release-core", "--actor", "carlos"], cwd);
+  assert.equal(sameKey.code, 0);
+  assert.equal(sameKey.json.operationId, release.json.operationId, "same idempotency key and request must not mint a second Release");
+  assert.equal(sameKey.json.releaseId, release.json.releaseId);
+  assert.equal(sameKey.json.displayId, release.json.displayId);
+  assert.equal(sameKey.json.idempotent, true);
+  const conflictingKeyReuse = run(["release", "new", "--title", "Release Core", "--objective", "Different request", "--slug", "release-core", "--idempotency-key", "cli-release-core", "--actor", "carlos"], cwd);
+  assert.equal(conflictingKeyReuse.code, 1, "same idempotency key with a different request must fail closed");
+  assert.match(conflictingKeyReuse.json.error, /idempotency key .* different release\.create request/);
   assert.equal(fs.readdirSync(path.join(cwd, ".planning", "releases")).length, 1);
   const operationsBeforeStatus = fs.readdirSync(path.join(cwd, ".planning", "operations")).length;
   run(["release", "status", release.json.displayId], cwd);
