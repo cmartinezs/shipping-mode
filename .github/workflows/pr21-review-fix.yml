@@ -46,7 +46,23 @@ jobs:
           name: pr21-unit-failure
           path: /tmp/unit.log
           if-no-files-found: error
-      - run: npm run test:cli-e2e
+      - name: Run CLI E2E with focused failure output
+        run: |
+          set +e
+          npm run test:cli-e2e > /tmp/cli.log 2>&1
+          code=$?
+          if [ "$code" -ne 0 ]; then
+            tail -n 180 /tmp/cli.log
+            exit "$code"
+          fi
+          tail -n 20 /tmp/cli.log
+      - name: Upload CLI failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr21-cli-failure
+          path: /tmp/cli.log
+          if-no-files-found: error
       - run: npm run test:real-crash-e2e
       - run: npm run test:security-e2e
       - run: npm run test:bundle
