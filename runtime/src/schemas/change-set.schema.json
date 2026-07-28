@@ -459,7 +459,7 @@
               "action": { "enum": ["generate", "regenerate", "submit_review", "approve", "reject", "mark_stale"] },
               "guideId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
               "proposedAt": { "type": "string", "minLength": 1 },
-              "document": { "type": "object", "additionalProperties": false, "required": ["sourceRefs", "sections", "openGaps"], "properties": { "sourceRefs": { "type": "array" }, "sections": { "type": "array" }, "openGaps": { "type": "array" } } },
+              "document": { "type": "object", "additionalProperties": false, "required": ["sourceRefs", "openGaps"], "properties": { "sourceRefs": { "type": "array" }, "openGaps": { "type": "array" }, "workPackageTypes": { "type": "array" }, "taskTypes": { "type": "array" }, "requiredSections": { "type": "array" }, "requiredGateRefs": { "type": "array" }, "templateRefs": { "type": "array" }, "decompositionRules": { "type": "array" }, "automation": { "type": "object" }, "gatesByWorkPackageType": { "type": "array" }, "gatesByTaskType": { "type": "array" }, "commandRefs": { "type": "array" }, "evidenceRequirements": { "type": "array" }, "testData": { "type": "array" }, "executionContexts": { "type": "array" }, "environments": { "type": "array" } } },
               "reason": { "type": "string", "minLength": 1 }
             },
             "allOf": [

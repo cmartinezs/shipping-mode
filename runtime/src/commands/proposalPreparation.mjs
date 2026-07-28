@@ -62,7 +62,7 @@ export function prepareProposal(kind, rawPayload, { operationId = null, actor = 
     };
     return {
       payload,
-      targetFiles: ["config.yml", `scopes/${payload.scopeId}/scope.yml`, `scopes/${payload.scopeId}/${payload.guideKind}-guide.yml`]
+      targetFiles: ["config.yml", `scopes/${payload.scopeId}/scope.yml`, `scopes/${payload.scopeId}/${payload.guideKind}-guide.yml`, ...(["generate", "regenerate"].includes(payload.action) ? [`scopes/${payload.scopeId}/${payload.guideKind}-guide.md`] : [])]
     };
   }
 

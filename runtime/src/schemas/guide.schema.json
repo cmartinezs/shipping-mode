@@ -2,7 +2,7 @@
   "$id": "https://shipping-mode.dev/schemas/guide.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "dslVersion", "id", "scopeId", "kind", "revision", "sourceRefs", "provenance", "sections", "openGaps"],
+  "required": ["schemaVersion", "dslVersion", "id", "scopeId", "kind", "revision", "sourceRefs", "provenance", "openGaps"],
   "properties": {
     "schemaVersion": { "const": 1 },
     "dslVersion": { "const": 1 },
@@ -10,69 +10,50 @@
     "scopeId": { "$ref": "#/$defs/uuid" },
     "kind": { "enum": ["task", "test"] },
     "revision": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
-    "sourceRefs": { "$ref": "#/$defs/uuidArray" },
+    "sourceRefs": { "$ref": "#/$defs/uuidList" },
     "provenance": { "$ref": "#/$defs/provenance" },
-    "sections": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/section" },
-      "uniqueItems": true
-    },
-    "openGaps": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/openGap" },
-      "uniqueItems": true
-    }
+    "openGaps": { "type": "array", "items": { "$ref": "#/$defs/gap" }, "uniqueItems": true },
+    "workPackageTypes": { "type": "array", "items": { "$ref": "#/$defs/workPackageType" }, "uniqueItems": true },
+    "taskTypes": { "type": "array", "items": { "$ref": "#/$defs/taskType" }, "uniqueItems": true },
+    "requiredSections": { "type": "array", "items": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9_.-]*$" }, "uniqueItems": true },
+    "requiredGateRefs": { "$ref": "#/$defs/stringList" },
+    "templateRefs": { "$ref": "#/$defs/stringList" },
+    "decompositionRules": { "type": "array", "items": { "$ref": "#/$defs/decompositionRule" }, "uniqueItems": true },
+    "automation": { "$ref": "#/$defs/automation" },
+    "gatesByWorkPackageType": { "type": "array", "items": { "$ref": "#/$defs/gateRule" }, "uniqueItems": true },
+    "gatesByTaskType": { "type": "array", "items": { "$ref": "#/$defs/gateRule" }, "uniqueItems": true },
+    "commandRefs": { "$ref": "#/$defs/stringList" },
+    "evidenceRequirements": { "type": "array", "items": { "$ref": "#/$defs/evidenceRequirement" }, "uniqueItems": true },
+    "testData": { "type": "array", "items": { "$ref": "#/$defs/testData" }, "uniqueItems": true },
+    "executionContexts": { "$ref": "#/$defs/stringList" },
+    "environments": { "$ref": "#/$defs/stringList" }
   },
+  "allOf": [
+    { "if": { "properties": { "kind": { "const": "task" } } }, "then": { "required": ["workPackageTypes", "taskTypes", "requiredSections", "requiredGateRefs", "templateRefs", "decompositionRules", "automation"], "properties": { "workPackageTypes": {}, "taskTypes": {}, "requiredSections": {}, "requiredGateRefs": {}, "templateRefs": {}, "decompositionRules": {}, "automation": {}, "gatesByWorkPackageType": {} }, "not": { "required": ["gatesByWorkPackageType"], "properties": { "gatesByWorkPackageType": {} } } } },
+    { "if": { "properties": { "kind": { "const": "test" } } }, "then": { "required": ["gatesByWorkPackageType", "gatesByTaskType", "commandRefs", "evidenceRequirements", "testData", "executionContexts", "environments"], "properties": { "gatesByWorkPackageType": {}, "gatesByTaskType": {}, "commandRefs": {}, "evidenceRequirements": {}, "testData": {}, "executionContexts": {}, "environments": {}, "workPackageTypes": {} }, "not": { "required": ["workPackageTypes"], "properties": { "workPackageTypes": {} } } } }
+  ],
   "$defs": {
     "uuid": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
-    "uuidArray": { "type": "array", "items": { "$ref": "#/$defs/uuid" }, "uniqueItems": true },
-    "hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-    "provenance": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["sourceMapRevision", "generatorVersion", "generatedAt", "sourceFingerprints"],
-      "properties": {
-        "sourceMapRevision": { "$ref": "#/$defs/hash" },
-        "generatorVersion": { "type": "string", "minLength": 1 },
-        "model": { "type": ["string", "null"] },
-        "promptVersion": { "type": ["string", "null"] },
-        "generatedAt": { "type": "string", "minLength": 1 },
-        "sourceFingerprints": {
-          "type": "object",
-          "additionalProperties": { "$ref": "#/$defs/hash" }
-        }
-      }
+    "uuidList": { "type": "array", "items": { "$ref": "#/$defs/uuid" }, "minItems": 1, "uniqueItems": true },
+    "stringList": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+    "gap": { "type": "object", "additionalProperties": false, "required": ["id", "description"], "properties": { "id": { "$ref": "#/$defs/uuid" }, "description": { "type": "string", "minLength": 1 }, "category": { "type": "string", "minLength": 1 }, "sourceRefs": { "$ref": "#/$defs/uuidList" } } },
+    "condition": {
+      "oneOf": [
+        { "type": "object", "additionalProperties": false, "required": ["field", "op", "value"], "properties": { "field": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)*$" }, "op": { "enum": ["equals", "not_equals", "contains", "exists", "in", "matches"] }, "value": { "$ref": "#/$defs/value" } } },
+        { "type": "object", "additionalProperties": false, "required": ["all"], "properties": { "all": { "type": "array", "items": { "$ref": "#/$defs/condition" }, "minItems": 1 } } },
+        { "type": "object", "additionalProperties": false, "required": ["any"], "properties": { "any": { "type": "array", "items": { "$ref": "#/$defs/condition" }, "minItems": 1 } } },
+        { "type": "object", "additionalProperties": false, "required": ["not"], "properties": { "not": { "$ref": "#/$defs/condition" } } }
+      ]
     },
-    "section": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id", "kind", "required", "entries"],
-      "properties": {
-        "id": { "type": "string", "pattern": "^[a-z][a-z0-9._-]*$" },
-        "kind": { "type": "string", "pattern": "^[a-z][a-z0-9._-]*$" },
-        "required": { "type": "boolean" },
-        "entries": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": ["key", "value"],
-            "properties": {
-              "key": { "type": "string", "pattern": "^[a-z][a-z0-9._-]*$" },
-              "value": { "anyOf": [{ "type": "string" }, { "type": "number" }, { "type": "boolean" }, { "type": "null" }] }
-            }
-          }
-        }
-      }
-    },
-    "openGap": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["id", "description"],
-      "properties": {
-        "id": { "$ref": "#/$defs/uuid" },
-        "description": { "type": "string", "minLength": 1 }
-      }
-    }
+    "value": { "anyOf": [{ "type": "string" }, { "type": "number" }, { "type": "boolean" }, { "type": "null" }, { "type": "array", "items": {} }, { "type": "object", "additionalProperties": true }] },
+    "typedValue": { "type": "object", "additionalProperties": false, "required": ["type", "value"], "properties": { "type": { "enum": ["date", "datetime"] }, "value": { "type": "string", "minLength": 1 } } },
+    "workPackageType": { "type": "object", "additionalProperties": false, "required": ["id", "appliesWhen", "requiredSections", "requiredGateRefs"], "properties": { "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }, "appliesWhen": { "$ref": "#/$defs/condition" }, "requiredSections": { "$ref": "#/$defs/stringList" }, "requiredGateRefs": { "$ref": "#/$defs/stringList" } } },
+    "taskType": { "type": "object", "additionalProperties": false, "required": ["id", "appliesWhen", "requiredSections"], "properties": { "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }, "appliesWhen": { "$ref": "#/$defs/condition" }, "requiredSections": { "$ref": "#/$defs/stringList" }, "templateRef": { "type": "string", "minLength": 1 } } },
+    "decompositionRule": { "type": "object", "additionalProperties": false, "required": ["id", "ordering"], "properties": { "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }, "ordering": { "type": "object", "additionalProperties": false, "required": ["predecessorType", "successorType"], "properties": { "predecessorType": { "type": "string", "minLength": 1 }, "successorType": { "type": "string", "minLength": 1 } } } } },
+    "automation": { "type": "object", "additionalProperties": false, "required": ["fallback"], "properties": { "generatorRef": { "type": "string", "minLength": 1 }, "inputSchema": { "type": "string", "minLength": 1 }, "fallback": { "enum": ["markGaps", "referencesOnly"] } } },
+    "gateRule": { "type": "object", "additionalProperties": false, "required": ["type", "requiredGateRefs"], "properties": { "type": { "type": "string", "minLength": 1 }, "requiredGateRefs": { "$ref": "#/$defs/stringList" }, "commandRefs": { "$ref": "#/$defs/stringList" }, "evidenceRefs": { "$ref": "#/$defs/stringList" } } },
+    "evidenceRequirement": { "type": "object", "additionalProperties": false, "required": ["id", "kind"], "properties": { "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }, "kind": { "type": "string", "minLength": 1 }, "required": { "type": "boolean" } } },
+    "testData": { "type": "object", "additionalProperties": false, "required": ["id", "strategy"], "properties": { "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }, "strategy": { "type": "string", "minLength": 1 }, "fixtureRef": { "type": "string", "minLength": 1 } } },
+    "provenance": { "type": "object", "additionalProperties": false, "required": ["sourceMapRevision", "generatorVersion", "generatedAt", "sourceFingerprints", "generationInputHash", "generationOutputHash"], "properties": { "sourceMapRevision": { "type": "string", "pattern": "^[0-9a-f]{64}$" }, "generatorVersion": { "type": "string", "minLength": 1 }, "generatorFingerprint": { "type": "string", "pattern": "^[0-9a-f]{64}$" }, "generationInputHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }, "generationOutputHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }, "generatedAt": { "type": "string", "minLength": 1 }, "sourceFingerprints": { "type": "object", "additionalProperties": { "type": "string", "pattern": "^[0-9a-f]{64}$" } }, "model": { "type": ["string", "null"] }, "promptVersion": { "type": ["string", "null"] } } }
   }
 }

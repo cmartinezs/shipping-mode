@@ -115,6 +115,7 @@ function checkKindInvariants(changeSet) {
   if (changeSet.kind === "guide.update") {
     const guidePath = `scopes/${changeSet.payload.scopeId}/${changeSet.payload.guideKind}-guide.yml`;
     const expectedPaths = new Set(["config.yml", `scopes/${changeSet.payload.scopeId}/scope.yml`, guidePath]);
+    if (["generate", "regenerate"].includes(changeSet.payload.action)) expectedPaths.add(`scopes/${changeSet.payload.scopeId}/${changeSet.payload.guideKind}-guide.md`);
     const actualPaths = new Set(Object.keys(changeSet.baseRevisions));
     if (expectedPaths.size !== actualPaths.size || [...expectedPaths].some((target) => !actualPaths.has(target))) {
       errors.push("guide.update baseRevisions must contain exactly config.yml, scope.yml, and the canonical guide YAML");
@@ -376,7 +377,7 @@ function prepareApply({ operationsRoot, planningRoot, operationId, render, actor
         beforeContentHash: before.contentHash,
         beforeRevisionHash: before.revisionHash,
         stagedContentHash: contentHash(newContent),
-        stagedRevisionHash: relativePath.endsWith(".gitignore") ? contentHash(newContent) : revisionHash(parseYaml(newContent))
+        stagedRevisionHash: relativePath.endsWith(".yml") ? revisionHash(parseYaml(newContent)) : contentHash(newContent)
       });
     }
   }

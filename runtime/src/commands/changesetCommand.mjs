@@ -9,6 +9,7 @@ import { prepareProposal } from "./proposalPreparation.mjs";
 import { UsageError } from "../lib/errors.mjs";
 import { confineRuntimeWritePath } from "../lib/paths.mjs";
 import { readConfirmedSources, readConfirmedScopes } from "../lib/discoverScan.mjs";
+import { generateGuideOutput } from "../lib/guideGeneration.mjs";
 
 function readCurrentConfig(planningRoot) {
   const configPath = confineRuntimeWritePath(planningRoot, "config.yml");
@@ -39,6 +40,13 @@ export function runChangesetPropose({ planningRoot, kind, payloadText, actor }) 
   }
   if (rawPayload === null || typeof rawPayload !== "object" || Array.isArray(rawPayload)) {
     throw new UsageError("changeset payload must be a mapping/object");
+  }
+  if (kind === "guide.update" && ["generate", "regenerate"].includes(rawPayload.action) && rawPayload.document === undefined) {
+    const config = readCurrentConfig(planningRoot);
+    const scope = readConfirmedScopes(planningRoot).find((candidate) => candidate.id === rawPayload.scopeId);
+    if (!scope) throw new UsageError(`guide scope not found: ${rawPayload.scopeId}`);
+    const generated = generateGuideOutput({ workspaceRoot: path.dirname(planningRoot), scope, guideKind: rawPayload.guideKind, sources: readConfirmedSources(planningRoot), config });
+    rawPayload = { ...rawPayload, document: generated.document };
   }
   const runtimeContext = {};
   if (kind === "scope.command.set" || kind === "guide.update") {
