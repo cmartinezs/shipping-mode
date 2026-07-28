@@ -1,4 +1,4 @@
-name: PR19 Review Cleanup
+name: PR19 Helper Cleanup
 
 on:
   pull_request:
@@ -15,58 +15,14 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
-      - name: Remove temporary review tooling and restore CI
+      - name: Remove temporary review helpers
         run: |
           rm -f .github/pr19-review-fix.py .github/pr19-review-fix-2.py .github/pr19-review-fix-3.py .github/pr19-review-fix-4.py .github/pr19-review-fix-5.py .github/pr19-review-fix-6.py .github/pr19-review-fix-7.py .github/pr19-review-fix-8.py
-          cat > .github/workflows/runtime-foundation.yml <<'EOF'
-          name: Runtime Foundation
-
-          on:
-            pull_request:
-              branches: [develop]
-            push:
-              branches: [feat/corte-0-runtime-foundation]
-
-          permissions:
-            contents: read
-
-          jobs:
-            verify:
-              runs-on: ubuntu-latest
-              timeout-minutes: 15
-              steps:
-                - uses: actions/checkout@v4
-                - uses: actions/setup-node@v4
-                  with:
-                    node-version: 20
-                    cache: npm
-                - run: npm ci --silent
-                - name: Build review artifacts outside the source tree
-                  run: node scripts/build-runtime.mjs --out "$RUNNER_TEMP/generated" --bundle-out "$RUNNER_TEMP/shipping-mode.mjs"
-                - name: Stage review artifacts
-                  if: always()
-                  run: |
-                    mkdir -p ci-artifacts/runtime/src/generated ci-artifacts/runtime/dist
-                    cp "$RUNNER_TEMP/generated/validators.mjs" ci-artifacts/runtime/src/generated/validators.mjs
-                    cp "$RUNNER_TEMP/generated/build-meta.mjs" ci-artifacts/runtime/src/generated/build-meta.mjs
-                    cp "$RUNNER_TEMP/shipping-mode.mjs" ci-artifacts/runtime/dist/shipping-mode.mjs
-                - name: Upload generated runtime for review
-                  if: always()
-                  uses: actions/upload-artifact@v4
-                  with:
-                    name: runtime-foundation-generated
-                    path: ci-artifacts
-                    if-no-files-found: error
-                - run: npm run verify:next-generation
-                - name: Prove verification leaves committed artifacts unchanged
-                  run: git diff --exit-code -- runtime/src/generated runtime/dist/shipping-mode.mjs
-          EOF
-          sed -i 's/^          //' .github/workflows/runtime-foundation.yml
-      - name: Commit cleanup
+      - name: Commit helper cleanup
         run: |
           git config user.name "shipping-mode-review-bot"
           git config user.email "shipping-mode-review-bot@users.noreply.github.com"
-          git add -A .github
+          git add -A .github/pr19-review-fix.py .github/pr19-review-fix-2.py .github/pr19-review-fix-3.py .github/pr19-review-fix-4.py .github/pr19-review-fix-5.py .github/pr19-review-fix-6.py .github/pr19-review-fix-7.py .github/pr19-review-fix-8.py
           git diff --cached --check
-          git commit -m "chore: remove PR19 review tooling"
+          git commit -m "chore: remove PR19 review helpers"
           git push origin HEAD:agent/corte-1-plan-2-generation-dsl-projections
