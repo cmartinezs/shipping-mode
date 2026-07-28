@@ -22,7 +22,9 @@ jobs:
           node-version: 20
           cache: npm
       - name: Apply PR21 review corrections
-        run: bash .github/pr21-review-fix.sh
+        run: |
+          bash .github/pr21-review-fix.sh
+          bash .github/pr21-review-fix2.sh
       - run: npm ci --silent
       - run: npm run build:schemas
       - run: npm run build:runtime
