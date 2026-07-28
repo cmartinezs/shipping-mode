@@ -28,6 +28,7 @@ jobs:
           python3 .github/pr19-review-fix-4.py
           python3 .github/pr19-review-fix-5.py
           python3 .github/pr19-review-fix-6.py
+          python3 .github/pr19-review-fix-7.py
       - run: npm ci --silent
       - name: Build schemas
         run: npm run build:schemas
@@ -84,6 +85,7 @@ jobs:
             runtime/src/schemas/guide.schema.json \
             runtime/src/schemas/operation.schema.json \
             runtime/src/schemas/scope.schema.json \
+            runtime/src/schemas/tests/schemas-are-valid-json.test.mjs \
             runtime/src/generated/validators.mjs \
             runtime/src/generated/build-meta.mjs \
             runtime/dist/shipping-mode.mjs
