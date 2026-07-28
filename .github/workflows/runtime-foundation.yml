@@ -29,6 +29,7 @@ jobs:
           python3 .github/pr19-review-fix-5.py
           python3 .github/pr19-review-fix-6.py
           python3 .github/pr19-review-fix-7.py
+          python3 .github/pr19-review-fix-8.py
       - run: npm ci --silent
       - name: Build schemas
         run: npm run build:schemas
@@ -49,16 +50,7 @@ jobs:
       - name: Artifact verification
         run: npm run verify:artifacts
       - name: Full next-generation verification
-        run: |
-          set -o pipefail
-          npm run verify:next-generation 2>&1 | tee /tmp/full-verify.log
-      - name: Upload full verification diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pr19-full-verification-diagnostics
-          path: /tmp/full-verify.log
-          if-no-files-found: warn
+        run: npm run verify:next-generation
       - name: Diff hygiene
         run: git diff --check
       - name: Commit product corrections to PR branch
@@ -86,6 +78,7 @@ jobs:
             runtime/src/schemas/operation.schema.json \
             runtime/src/schemas/scope.schema.json \
             runtime/src/schemas/tests/schemas-are-valid-json.test.mjs \
+            spikes/host-integration/tests/host-integration.test.mjs \
             runtime/src/generated/validators.mjs \
             runtime/src/generated/build-meta.mjs \
             runtime/dist/shipping-mode.mjs
