@@ -274,7 +274,6 @@ function fullyInit(cwd) {
     { args: ["task", "--name", "T1"], command: "task" },
     { args: ["report"], command: "report" },
     { args: ["check", "health"], command: "check health" },
-    { args: ["check", "guides"], command: "check guides" },
     { args: ["check", "gates"], command: "check gates" },
     { args: ["changeset", "propose", "--kind", "task.create", "--payload-file", "-", "--actor", "carlos"], command: "changeset propose --kind task.create" }
   ];
@@ -289,6 +288,17 @@ function fullyInit(cwd) {
       message: "deferred to Corte N, see docs/plugin-redesign-release-flow/03-plan-incremental.md"
     }, `${args.join(" ")} must match the NOT_IMPLEMENTED contract exactly, field for field`);
   }
+}
+
+// check guides is a real query-only command after Corte 1 Plan 3.
+{
+  const cwd = freshWorkspace();
+  fullyInit(cwd);
+  const result = run(["check", "guides"], cwd);
+  assert.equal(result.code, 0);
+  assert.equal(result.json.product, "shipping-mode");
+  assert.equal(result.json.status, "PASS");
+  assert.deepEqual(result.json.scopes, []);
 }
 
 // scope path confinement: absolute path, traversal, .planning-internal path, and a symlink escaping the workspace

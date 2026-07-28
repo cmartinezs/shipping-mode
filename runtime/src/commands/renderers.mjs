@@ -299,7 +299,6 @@ function buildGuideDocument({ payload, scopeId, guideKind, guideId, proposedAt, 
       } else if (!commandRefs.has(ref)) throw new Error(`guide commandRef does not resolve: ${ref}`);
     }
   }
-  provenance.generationOutputHash = revisionHash(withoutRevision);
   const document = { ...withoutRevision, revision: `sha256:${revisionHash(withoutRevision)}` };
   const schemaResult = validate("guide", document);
   if (!schemaResult.valid) throw new Error(schemaResult.errors.map((error) => `guide${error.path}: ${error.message}`).join("; "));

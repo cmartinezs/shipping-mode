@@ -3,6 +3,7 @@ import path from "node:path";
 import { runInit, runConfigSet, runConfigScopeAdd } from "./commands/init.mjs";
 import { runChangesetPropose, runChangesetValidate, runChangesetApprove, runChangesetApply } from "./commands/changesetCommand.mjs";
 import { checkSchema } from "./commands/check.mjs";
+import { checkGuides } from "./commands/checkGuides.mjs";
 import { runDiscoverScan, runDiscoverValidate } from "./commands/discover.mjs";
 import { runDiscoveryPropose } from "./commands/discoveryChangeSet.mjs";
 import { isUuidV7 } from "./lib/ids.mjs";
@@ -12,10 +13,11 @@ import { LockHeldError } from "./lib/lock.mjs";
 import { PathConfinementError } from "./lib/paths.mjs";
 import { evaluateCondition } from "./lib/guideEvaluator.mjs";
 import { renderGuideMarkdown, compareGuideProjection } from "./lib/guideProjection.mjs";
+import { evaluateGuideHealth, evaluateGuideReadiness } from "./lib/guideHealth.mjs";
 
-export { UsageError, StateError, StaleError, RecoveryRequiredError, LockHeldError, PathConfinementError, evaluateCondition, renderGuideMarkdown, compareGuideProjection };
+export { UsageError, StateError, StaleError, RecoveryRequiredError, LockHeldError, PathConfinementError, evaluateCondition, renderGuideMarkdown, compareGuideProjection, evaluateGuideHealth, evaluateGuideReadiness };
 
-const IN_SCOPE_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "guide.update"]);
+const IN_SCOPE_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "scope.generator.set", "guide.update"]);
 const PROJECT_TYPES = new Set(["software", "non_software", "mixed", "unknown"]);
 
 function requireProjectType(value) {
@@ -152,8 +154,12 @@ export function dispatch(command, args, cwd, runtimeContext = null) {
   }
 
   if (command === "check") {
-    const [stage] = args;
+    const [stage, ...rest] = args;
     if (stage === "schema") return checkSchema({ planningRoot });
+    if (stage === "guides") {
+      const options = argsToOptions(rest);
+      return checkGuides({ planningRoot, workspaceRoot: cwd, scopeId: options.scope_id || null, policyMode: options.mode || "strict" });
+    }
     return notImplemented(`check ${stage || ""}`.trim());
   }
 

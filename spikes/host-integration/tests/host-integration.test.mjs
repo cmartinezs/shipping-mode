@@ -41,6 +41,7 @@ assert.deepEqual(help.commands, [
   "changeset approve <operation-id> --actor <actor> [--allow-self-approval]",
   "changeset apply <operation-id> --actor <actor>",
   "check schema",
+  "check guides [--scope-id <uuid>] [--mode strict|advisory]",
   "--help", "--version"
 ]);
 const version = JSON.parse(execFileSync(process.execPath, [launcher, "--version"], { encoding: "utf8" }));
