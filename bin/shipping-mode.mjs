@@ -47,6 +47,7 @@ if (args[0] === "--version") {
       "changeset approve <operation-id> --actor <actor> [--allow-self-approval]",
       "changeset apply <operation-id> --actor <actor>",
       "check schema",
+      "check guides [--scope-id <uuid>] [--mode strict|advisory]",
       "--help", "--version"
     ]
   });
