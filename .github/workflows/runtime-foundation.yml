@@ -1,48 +1,41 @@
-name: PR20 Review Corrections
+name: Runtime Foundation
 
 on:
   pull_request:
     branches: [develop]
+  push:
+    branches: [feat/corte-0-runtime-foundation]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   verify:
-    if: github.event.pull_request.head.ref == 'agent/corte-1-plan-3-staleness-strict-check-guides'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: agent/corte-1-plan-3-staleness-strict-check-guides
-          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-      - name: Apply PR20 review corrections
-        run: bash .github/pr20-review-fix.sh
       - run: npm ci --silent
-      - run: npm run build:schemas
-      - run: npm run build:runtime
-      - run: npm run build:test-bundle
-      - run: npm run test:unit
-      - run: npm run test:cli-e2e
-      - run: npm run test:real-crash-e2e
-      - run: npm run test:security-e2e
-      - run: npm run test:bundle
-      - run: npm run verify:artifacts
-      - run: npm run verify:next-generation
-      - run: git diff --check
-      - name: Commit product corrections to PR branch
+      - name: Build review artifacts outside the source tree
+        run: node scripts/build-runtime.mjs --out "$RUNNER_TEMP/generated" --bundle-out "$RUNNER_TEMP/shipping-mode.mjs"
+      - name: Stage review artifacts
+        if: always()
         run: |
-          git config user.name "shipping-mode-review-bot"
-          git config user.email "shipping-mode-review-bot@users.noreply.github.com"
-          git add bin docs runtime spikes
-          if git diff --cached --quiet; then
-            echo "No product changes to commit"
-            exit 0
-          fi
-          git commit -m "fix(guides): close Plan 3 health trust gaps"
-          git push origin HEAD:agent/corte-1-plan-3-staleness-strict-check-guides
+          mkdir -p ci-artifacts/runtime/src/generated ci-artifacts/runtime/dist
+          cp "$RUNNER_TEMP/generated/validators.mjs" ci-artifacts/runtime/src/generated/validators.mjs
+          cp "$RUNNER_TEMP/generated/build-meta.mjs" ci-artifacts/runtime/src/generated/build-meta.mjs
+          cp "$RUNNER_TEMP/shipping-mode.mjs" ci-artifacts/runtime/dist/shipping-mode.mjs
+      - name: Upload generated runtime for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-foundation-generated
+          path: ci-artifacts
+          if-no-files-found: error
+      - run: npm run verify:next-generation
+      - name: Prove verification leaves committed artifacts unchanged
+        run: git diff --exit-code -- runtime/src/generated runtime/dist/shipping-mode.mjs
