@@ -47,7 +47,8 @@ export function eventTypeFor(kind) {
     "config.autonomy.set": "config.autonomy.set",
     "scope.add": "scope.added",
     "scope.command.set": "scope.command.set",
-    "discovery.propose": "discovery.proposed"
+    "discovery.propose": "discovery.proposed",
+    "guide.update": "guide.updated"
   }[kind];
 }
 
@@ -90,6 +91,7 @@ function schemaNameForRenderedPath(relativePath) {
   if (relativePath === "plugin.lock.yml") return "plugin-lock";
   if (/^sources\/[^/]+\/source\.yml$/.test(relativePath)) return "source";
   if (/^scopes\/[^/]+\/scope\.yml$/.test(relativePath)) return "scope";
+  if (/^scopes\/[^/]+\/(task|test)-guide\.yml$/.test(relativePath)) return "guide";
   return null;
 }
 
@@ -108,6 +110,20 @@ function checkKindInvariants(changeSet) {
     const entry = changeSet.baseRevisions[scopePath];
     if (!entry || entry.revisionHash !== ABSENT || entry.contentHash !== ABSENT) {
       errors.push(`${scopePath} must be ABSENT for a new scope.add, but baseRevisions recorded something else`);
+    }
+  }
+  if (changeSet.kind === "guide.update") {
+    const guidePath = `scopes/${changeSet.payload.scopeId}/${changeSet.payload.guideKind}-guide.yml`;
+    const expectedPaths = new Set(["config.yml", `scopes/${changeSet.payload.scopeId}/scope.yml`, guidePath]);
+    const actualPaths = new Set(Object.keys(changeSet.baseRevisions));
+    if (expectedPaths.size !== actualPaths.size || [...expectedPaths].some((target) => !actualPaths.has(target))) {
+      errors.push("guide.update baseRevisions must contain exactly config.yml, scope.yml, and the canonical guide YAML");
+    }
+    const guideBase = changeSet.baseRevisions[guidePath];
+    if (changeSet.payload.action === "generate") {
+      if (!guideBase || guideBase.contentHash !== ABSENT) errors.push(`${guidePath} must be ABSENT for initial guide.generate`);
+    } else if (!guideBase || guideBase.contentHash === ABSENT) {
+      errors.push(`${guidePath} must already exist for guide.${changeSet.payload.action}`);
     }
   }
   return errors;
@@ -240,8 +256,10 @@ export function approveOperation({ operationsRoot, planningRoot, operationId, ac
     if (!["human", "autonomous"].includes(mode)) {
       throw new StateError(`unsupported approval mode: ${mode}`);
     }
-
     const changeSet = readChangeSet(operationsRoot, operationId);
+    if (changeSet.kind === "guide.update" && changeSet.payload.action === "approve" && mode !== "human") {
+      throw new StateError("Guide approval must use the human approval mode");
+    }
     const recomputedHash = computePersistedChangeSetHash(changeSet);
     if (recomputedHash !== changeSet.hash || recomputedHash !== operation.validation.changeSetHash) {
       transitionToStale(operationsRoot, operationId, operation, "change-set.json changed since validate; propose and validate again before approving");

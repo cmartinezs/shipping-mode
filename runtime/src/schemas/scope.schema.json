@@ -11,7 +11,8 @@
     "kind": { "enum": ["code", "non_code"] },
     "path": { "type": "string", "minLength": 1 },
     "owner": { "type": ["string", "null"] },
-    "commands": { "$ref": "#/$defs/commands" }
+    "commands": { "$ref": "#/$defs/commands" },
+    "guides": { "$ref": "#/$defs/guides" }
   },
   "$defs": {
     "uuid": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
@@ -93,6 +94,58 @@
           }
         }
       }
+    },
+    "guides": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "task": { "$ref": "#/$defs/guideMetadata" },
+        "test": { "$ref": "#/$defs/guideMetadata" }
+      }
+    },
+    "guideMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "scopeId", "kind", "status", "path", "projection", "revision", "contentHash", "sourceRefs", "provenance", "approval"],
+      "properties": {
+        "id": { "$ref": "#/$defs/uuid" },
+        "scopeId": { "$ref": "#/$defs/uuid" },
+        "kind": { "enum": ["task", "test"] },
+        "status": { "enum": ["generated", "reviewed", "approved", "stale", "rejected"] },
+        "path": { "enum": ["task-guide.yml", "test-guide.yml"] },
+        "projection": { "enum": ["task-guide.md", "test-guide.md"] },
+        "revision": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "contentHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "sourceRefs": { "$ref": "#/$defs/sourceRefs" },
+        "provenance": { "type": "object" },
+        "approval": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["actor", "approvedAt", "changeSetHash", "revision", "contentHash"],
+          "properties": {
+            "actor": { "type": "string", "minLength": 1 },
+            "approvedAt": { "type": "string", "minLength": 1 },
+            "changeSetHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "revision": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+            "contentHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "kind": { "const": "task" } } },
+          "then": { "properties": { "path": { "const": "task-guide.yml" }, "projection": { "const": "task-guide.md" } } }
+        },
+        {
+          "if": { "properties": { "kind": { "const": "test" } } },
+          "then": { "properties": { "path": { "const": "test-guide.yml" }, "projection": { "const": "test-guide.md" } } }
+        },
+        {
+          "if": { "properties": { "status": { "const": "approved" } } },
+          "then": { "properties": { "approval": { "type": "object" } } },
+          "else": { "properties": { "approval": { "type": "null" } } }
+        }
+      ]
     }
   }
 }

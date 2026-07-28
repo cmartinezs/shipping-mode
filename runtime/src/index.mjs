@@ -13,7 +13,7 @@ import { PathConfinementError } from "./lib/paths.mjs";
 
 export { UsageError, StateError, StaleError, RecoveryRequiredError, LockHeldError, PathConfinementError };
 
-const IN_SCOPE_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set"]);
+const IN_SCOPE_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "guide.update"]);
 const PROJECT_TYPES = new Set(["software", "non_software", "mixed", "unknown"]);
 
 function requireProjectType(value) {

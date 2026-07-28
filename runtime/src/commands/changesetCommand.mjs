@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { validateOperation, approveOperation, applyOperation, propose } from "../lib/changeset.mjs";
 import { generateUuidV7 } from "../lib/ids.mjs";
-import { renderWorkspaceInit, renderConfigUpdate, renderConfigAutonomySet, renderScopeAdd, renderScopeCommandSet, renderDiscoveryPropose } from "./renderers.mjs";
+import { renderWorkspaceInit, renderConfigUpdate, renderConfigAutonomySet, renderScopeAdd, renderScopeCommandSet, renderDiscoveryPropose, renderGuideUpdate } from "./renderers.mjs";
 import { readChangeSet, readOperation } from "../lib/operationStore.mjs";
 import { parseYaml } from "../lib/yaml.mjs";
 import { prepareProposal } from "./proposalPreparation.mjs";
@@ -15,7 +15,7 @@ function readCurrentConfig(planningRoot) {
   return fs.existsSync(configPath) ? parseYaml(fs.readFileSync(configPath, "utf8")) : null;
 }
 
-function renderFor(kind, payload, currentConfig, workspaceRoot, { currentSources = [], currentScopes = [], approvalMode = "human" } = {}) {
+function renderFor(kind, payload, currentConfig, workspaceRoot, planningRoot, { currentSources = [], currentScopes = [], approvalMode = "human", approval = null, proposedAt = null } = {}) {
   if (kind === "workspace.init") return renderWorkspaceInit(payload);
   if (kind === "config.update") return renderConfigUpdate(payload, currentConfig, { knownSourceIds: currentSources.map((source) => source.id) });
   if (kind === "config.autonomy.set") return renderConfigAutonomySet(payload, currentConfig);
@@ -25,6 +25,7 @@ function renderFor(kind, payload, currentConfig, workspaceRoot, { currentSources
     return renderScopeCommandSet(payload, currentScope);
   }
   if (kind === "discovery.propose") return renderDiscoveryPropose(payload, currentConfig, workspaceRoot, { currentSources, currentScopes, approvalMode });
+  if (kind === "guide.update") return renderGuideUpdate(payload, currentConfig, planningRoot, { currentSources, proposedAt: payload.proposedAt || proposedAt || new Date().toISOString(), approval });
   throw new UsageError(`unsupported changeset kind: ${kind}`);
 }
 
@@ -40,7 +41,7 @@ export function runChangesetPropose({ planningRoot, kind, payloadText, actor }) 
     throw new UsageError("changeset payload must be a mapping/object");
   }
   const runtimeContext = {};
-  if (kind === "scope.command.set") {
+  if (kind === "scope.command.set" || kind === "guide.update") {
     runtimeContext.operationId = generateUuidV7();
     runtimeContext.actor = actor;
     runtimeContext.proposedAt = new Date().toISOString();
@@ -64,7 +65,7 @@ export function runChangesetPropose({ planningRoot, kind, payloadText, actor }) 
 export function runChangesetValidate({ planningRoot, operationsRoot, operationId }) {
   const changeSet = readChangeSet(operationsRoot, operationId);
   const currentConfig = changeSet.kind === "workspace.init" ? null : readCurrentConfig(planningRoot);
-  const render = (payload) => renderFor(changeSet.kind, payload, currentConfig, path.dirname(planningRoot), { currentSources: readConfirmedSources(planningRoot), currentScopes: readConfirmedScopes(planningRoot) });
+  const render = (payload) => renderFor(changeSet.kind, payload, currentConfig, path.dirname(planningRoot), planningRoot, { currentSources: readConfirmedSources(planningRoot), currentScopes: readConfirmedScopes(planningRoot), proposedAt: changeSet.proposedAt });
   validateOperation({ operationsRoot, planningRoot, operationId, render });
   const operation = readOperation(operationsRoot, operationId);
   return { status: operation.status, errors: operation.validation?.errors || [] };
@@ -79,6 +80,6 @@ export function runChangesetApply({ planningRoot, operationsRoot, operationId, a
   const changeSet = readChangeSet(operationsRoot, operationId);
   const operation = readOperation(operationsRoot, operationId);
   const currentConfig = changeSet.kind === "workspace.init" ? null : readCurrentConfig(planningRoot);
-  const render = (payload) => renderFor(changeSet.kind, payload, currentConfig, path.dirname(planningRoot), { currentSources: readConfirmedSources(planningRoot), currentScopes: readConfirmedScopes(planningRoot), approvalMode: operation.approval?.mode || "human" });
+  const render = (payload) => renderFor(changeSet.kind, payload, currentConfig, path.dirname(planningRoot), planningRoot, { currentSources: readConfirmedSources(planningRoot), currentScopes: readConfirmedScopes(planningRoot), approvalMode: operation.approval?.mode || "human", approval: operation.approval, proposedAt: changeSet.proposedAt });
   return applyOperation({ operationsRoot, planningRoot, operationId, actor, render });
 }
