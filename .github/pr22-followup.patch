@@ -2,7 +2,7 @@ diff --git a/runtime/src/lib/releasePolicy.mjs b/runtime/src/lib/releasePolicy.m
 index 6ed5e8e..0000000 100644
 --- a/runtime/src/lib/releasePolicy.mjs
 +++ b/runtime/src/lib/releasePolicy.mjs
-@@ -58,13 +58,24 @@ function releaseRecordMap(releases, targetRelease = null, nextPolicy = null, nex
+@@ -58,11 +58,20 @@ function releaseRecordMap(releases, targetRelease = null, nextPolicy = null, nex
    const records = new Map();
    for (const release of releases) records.set(release.id, release);
    if (targetRelease) {
@@ -31,7 +31,7 @@ diff --git a/runtime/src/lib/releaseMutations.mjs b/runtime/src/lib/releaseMutat
 index 984645f..0000000 100644
 --- a/runtime/src/lib/releaseMutations.mjs
 +++ b/runtime/src/lib/releaseMutations.mjs
-@@ -115,8 +115,30 @@ export function releaseMutationInvariantFindings(changeSet, operation = null, pl
+@@ -115,7 +115,27 @@ export function releaseMutationInvariantFindings(changeSet, operation = null, pl
  
    const actor = operation?.proposedBy ?? payload.updatedBy;
    try {
