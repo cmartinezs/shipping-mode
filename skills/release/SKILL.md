@@ -39,9 +39,10 @@ shipping-mode changeset apply <operation-id> --actor <actor>
 ```
 
 Self-approval requires the explicit runtime flag and must follow host policy.
-Display-ID ownership is rechecked during validate and apply under the workspace
-mutation lock; a later concurrent proposal fails closed instead of publishing a
-duplicate display ID.
+Release identity allocation runs under the workspace mutation lock and includes
+pending non-terminal `release.create` Operations as reservations. Validate and
+apply also recheck persisted display-ID ownership, so concurrent proposals
+cannot publish duplicate display IDs.
 
 ## Stop Conditions
 
@@ -55,7 +56,8 @@ duplicate display ID.
 ## Error Handling
 
 Report the runtime error, operation ID and current operation status when they
-exist. An idempotency key is permanently bound to its first normalized request,
-including `INVALID` and `STALE` outcomes. An exact retry returns that original
-Operation; never create a replacement Release or alter the request while
-reusing the key.
+exist. An idempotency key is permanently bound to its first normalized caller
+request, including `INVALID` and `STALE` outcomes. Resolved Project Context
+defaults may change later without changing that request identity. An exact
+retry returns the original Operation; never create a replacement Release or
+alter the request while reusing the key.
