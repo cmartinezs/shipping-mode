@@ -27,9 +27,9 @@ export function releaseCreateInvariantFindings(changeSet, operation = null, exis
   }
 
   const displayIdCollision = existingReleases.find((release) => release.id !== payload.id && release.displayId === payload.displayId);
-if (displayIdCollision) {
-  findings.push(`release.create displayId ${payload.displayId} is already owned by release ${displayIdCollision.id}`);
-}
+  if (displayIdCollision) {
+    findings.push(`release.create displayId ${payload.displayId} is already owned by release ${displayIdCollision.id}`);
+  }
 
   for (const field of ["title", "objective", "laneId", "idempotencyKey"]) {
     if (!isCanonicalTrimmedString(payload[field])) {
