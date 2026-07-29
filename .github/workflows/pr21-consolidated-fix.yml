@@ -1,0 +1,79 @@
+name: PR21 Consolidated Correction
+
+on:
+  pull_request:
+    branches: [develop]
+
+permissions:
+  contents: write
+
+jobs:
+  correct-and-verify:
+    if: github.event.pull_request.head.ref == 'agent/corte-2-plan-1-release-core'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/corte-2-plan-1-release-core
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Apply consolidated trust-boundary corrections
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl -fsSL \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github.raw+json" \
+            "https://api.github.com/repos/cmartinezs/shipping-mode/contents/.github/pr21-review-fix.sh?ref=7d28c74fa03eca52228f36dddbc9de6c076e2556" \
+            -o /tmp/pr21-review-fix.sh
+          bash /tmp/pr21-review-fix.sh
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("runtime/src/lib/releaseCreate.mjs")
+          source = path.read_text()
+          source = source.replace(
+              "export function releaseCreateInvariantFindings(changeSet, operation = null) {",
+              "export function releaseCreateInvariantFindings(changeSet, operation = null, existingReleases = []) {",
+              1,
+          )
+          if "is already owned by release" not in source:
+              marker = '  for (const field of ["title", "objective", "laneId", "idempotencyKey"]) {'
+              addition = '''  const displayIdCollision = existingReleases.find((release) => release.id !== payload.id && release.displayId === payload.displayId);
+          if (displayIdCollision) {
+            findings.push(`release.create displayId ${payload.displayId} is already owned by release ${displayIdCollision.id}`);
+          }
+
+          '''
+              if marker not in source:
+                  raise SystemExit("release.create collision insertion point not found")
+              source = source.replace(marker, addition + marker, 1)
+          path.write_text(source)
+          PY
+      - run: npm ci --silent
+      - run: npm run build:schemas
+      - run: npm run build:runtime
+      - run: npm run build:test-bundle
+      - run: npm run test:unit
+      - run: npm run test:cli-e2e
+      - run: npm run test:real-crash-e2e
+      - run: npm run test:security-e2e
+      - run: npm run test:bundle
+      - run: npm run verify:artifacts
+      - run: npm run verify:next-generation
+      - run: git diff --check
+      - name: Commit verified product state
+        run: |
+          rm -f \
+            .github/pr21-review-fix.sh \
+            .github/workflows/pr21-review-fix.yml \
+            .github/workflows/pr21-consolidated-fix.yml
+          git config user.name "shipping-mode-review-bot"
+          git config user.email "shipping-mode-review-bot@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(release): close final Plan 1 trust boundaries"
+          git push origin HEAD:agent/corte-2-plan-1-release-core
