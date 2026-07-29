@@ -74,7 +74,7 @@ function findIdempotentOperation(operationsRoot, { kind, key, requestHash }) {
     } catch (error) {
       throw new StateError(`cannot establish ${kind} idempotency because ChangeSet ${candidateId} is unreadable: ${error.message}`);
     }
-    if (changeSet.kind !== kind || changeSet.operationId !== candidateId) {
+    if (changeSet.kind !== kind || changeSet.operationId !== candidateId || computePersistedChangeSetHash(changeSet) !== changeSet.hash) {
       throw new StateError(`cannot establish ${kind} idempotency because operation ${candidateId} is internally inconsistent`);
     }
     if (changeSet.payload?.idempotencyKey !== key) continue;
@@ -89,12 +89,22 @@ function findIdempotentOperation(operationsRoot, { kind, key, requestHash }) {
   return matchingOperationId;
 }
 
-export function propose({ operationsRoot, planningRoot, kind, target, payload, targetFiles, actor, operationId = null, proposedAt = null, preconditions = null, idempotency = null }) {
+export function propose({ operationsRoot, planningRoot, kind, target, payload, targetFiles, actor, operationId = null, proposedAt = null, preconditions = null, idempotency = null, prepareUnderLock = null }) {
   return withWorkspaceMutation({ planningRoot, operationsRoot, operationId: null }, () => {
     if (idempotency) {
       const existingOperationId = findIdempotentOperation(operationsRoot, { kind, ...idempotency });
       if (existingOperationId) return existingOperationId;
     }
+    if (prepareUnderLock) {
+      const prepared = prepareUnderLock();
+      if (!prepared || !prepared.target || !prepared.payload || !Array.isArray(prepared.targetFiles)) {
+        throw new StateError(`${kind} prepareUnderLock must return target, payload, and targetFiles`);
+      }
+      target = prepared.target;
+      payload = prepared.payload;
+      targetFiles = prepared.targetFiles;
+    }
+    if (!target || !payload || !Array.isArray(targetFiles)) throw new StateError(`${kind} proposal is missing target, payload, or targetFiles`);
     operationId ??= generateUuidV7();
     assertDistinctMutationTargets(planningRoot, targetFiles);
 

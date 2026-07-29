@@ -431,3 +431,15 @@ npm run verify:artifacts
 npm run verify:next-generation
 git diff --check
 ```
+
+
+## Post-review trust-boundary corrections
+
+Adversarial PR review found and closed the following Plan 1 gaps:
+
+- idempotency hashes are based on normalized caller intent, not mutable resolved Project Context defaults;
+- exact retries resolve under the workspace lock before rereading current defaults or allocating another Release identity;
+- pending non-terminal `release.create` Operations reserve their UUID/display-ID pairs during collision resolution;
+- unreadable Release operations or ChangeSets fail closed when identity/idempotency state cannot be established;
+- `release.create` validation binds its caller request snapshot to the resolved payload and server-owned hash;
+- `release status` exposes lane, policy and release dependency references required by the Plan 1 query contract.

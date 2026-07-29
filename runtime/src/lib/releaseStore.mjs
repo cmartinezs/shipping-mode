@@ -6,6 +6,8 @@ import { isReleaseDisplayId, isReleaseDisplayIdForUuid } from "./releaseIdentity
 import { validate } from "./schema.mjs";
 import { confineWritePath } from "./paths.mjs";
 import { revisionHash } from "./canonical.mjs";
+import { readChangeSet, readOperation } from "./operationStore.mjs";
+import { StateError } from "./errors.mjs";
 
 export function releaseRelativeDir(releaseId) {
   if (!isUuidV7(releaseId)) throw new Error(`invalid release id: ${releaseId}`);
@@ -83,6 +85,36 @@ function scanReleaseRecords(planningRoot, { includeInvalid = false, requireInteg
 
 export function listReleaseDocuments(planningRoot, options = {}) {
   return scanReleaseRecords(planningRoot, options).filter((record) => record.release).map((record) => record.release);
+}
+
+export function listReservedReleaseDocuments(operationsRoot) {
+  if (!fs.existsSync(operationsRoot)) return [];
+  const reserved = [];
+  for (const operationId of fs.readdirSync(operationsRoot).sort()) {
+    let operation;
+    try {
+      operation = readOperation(operationsRoot, operationId);
+    } catch (error) {
+      throw new StateError(`cannot inspect operation ${operationId} while reserving Release identities: ${error.message}`);
+    }
+    if (operation.kind !== "release.create" || ["INVALID", "STALE", "APPLIED"].includes(operation.status)) continue;
+    let changeSet;
+    try {
+      changeSet = readChangeSet(operationsRoot, operationId);
+    } catch (error) {
+      throw new StateError(`cannot verify release.create identity reservation for operation ${operationId}: ${error.message}`);
+    }
+    if (changeSet.kind !== "release.create" || changeSet.operationId !== operationId) {
+      throw new StateError(`release.create identity reservation is inconsistent for operation ${operationId}`);
+    }
+    const releaseId = changeSet.payload?.id;
+    const displayId = changeSet.payload?.displayId;
+    if (!isUuidV7(releaseId) || !isReleaseDisplayIdForUuid(releaseId, displayId)) {
+      throw new StateError(`release.create identity reservation is invalid for operation ${operationId}`);
+    }
+    reserved.push({ id: releaseId, displayId });
+  }
+  return reserved;
 }
 
 export function resolveReleaseReference(planningRoot, reference) {

@@ -1,15 +1,8 @@
 import { revisionHash } from "./canonical.mjs";
 import { isReleaseDisplayIdForUuid } from "./releaseIdentity.mjs";
 
-export function releaseCreateRequestHash({ actor, title, objective, laneId, policyMode, slug }) {
-  return revisionHash({
-    actor,
-    title,
-    objective,
-    laneId: laneId ?? null,
-    policyMode: policyMode ?? null,
-    slug: slug ?? null
-  });
+export function releaseCreateRequestHash({ actor, requestSnapshot }) {
+  return revisionHash({ actor, ...requestSnapshot });
 }
 
 function isCanonicalTrimmedString(value) {
@@ -32,10 +25,11 @@ export function releaseCreateInvariantFindings(changeSet, operation = null, exis
   if (!isReleaseDisplayIdForUuid(payload.id, payload.displayId)) {
     findings.push(`release.create displayId ${payload.displayId} is not derived from release UUIDv7 ${payload.id}`);
   }
+
   const displayIdCollision = existingReleases.find((release) => release.id !== payload.id && release.displayId === payload.displayId);
-  if (displayIdCollision) {
-    findings.push(`release.create displayId ${payload.displayId} is already owned by release ${displayIdCollision.id}`);
-  }
+if (displayIdCollision) {
+  findings.push(`release.create displayId ${payload.displayId} is already owned by release ${displayIdCollision.id}`);
+}
 
   for (const field of ["title", "objective", "laneId", "idempotencyKey"]) {
     if (!isCanonicalTrimmedString(payload[field])) {
@@ -43,16 +37,23 @@ export function releaseCreateInvariantFindings(changeSet, operation = null, exis
     }
   }
 
-  const expectedRequestHash = releaseCreateRequestHash({
-    actor: payload.createdBy,
-    title: payload.title,
-    objective: payload.objective,
-    laneId: payload.laneId,
-    policyMode: payload.policyMode,
-    slug: payload.slug
-  });
-  if (payload.idempotencyRequestHash !== expectedRequestHash) {
-    findings.push("release.create idempotencyRequestHash does not match the normalized request snapshot");
+  const snapshot = payload.requestSnapshot;
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
+    findings.push("release.create requestSnapshot must be a server-owned normalized object");
+  } else {
+    if (snapshot.title !== payload.title || snapshot.objective !== payload.objective || snapshot.slug !== payload.slug) {
+      findings.push("release.create requestSnapshot business fields must match the resolved payload");
+    }
+    if (snapshot.laneId !== null && snapshot.laneId !== payload.laneId) {
+      findings.push("release.create explicit requestSnapshot.laneId must match payload.laneId");
+    }
+    if (snapshot.policyMode !== null && snapshot.policyMode !== payload.policyMode) {
+      findings.push("release.create explicit requestSnapshot.policyMode must match payload.policyMode");
+    }
+    const expectedRequestHash = releaseCreateRequestHash({ actor: payload.createdBy, requestSnapshot: snapshot });
+    if (payload.idempotencyRequestHash !== expectedRequestHash) {
+      findings.push("release.create idempotencyRequestHash does not match the normalized caller request snapshot");
+    }
   }
 
   if (payload.createdAt !== payload.updatedAt) {

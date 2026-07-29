@@ -182,6 +182,7 @@
               "createdBy",
               "updatedAt",
               "updatedBy",
+              "requestSnapshot",
               "idempotencyKey",
               "idempotencyRequestHash"
             ],
@@ -253,6 +254,48 @@
               "idempotencyRequestHash": {
                 "type": "string",
                 "pattern": "^[0-9a-f]{64}$"
+              },
+              "requestSnapshot": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "title",
+                  "objective",
+                  "laneId",
+                  "policyMode",
+                  "slug"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "objective": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "laneId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+                  },
+                  "policyMode": {
+                    "enum": [
+                      "strict_sequence",
+                      "dependency_graph",
+                      null
+                    ]
+                  },
+                  "slug": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                  }
+                }
               }
             }
           }

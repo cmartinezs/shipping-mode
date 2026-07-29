@@ -2,8 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { generateUuidV7 } from "../lib/ids.mjs";
 import { propose } from "../lib/changeset.mjs";
-import { prepareProposal } from "./proposalPreparation.mjs";
-import { listReleaseDocuments, resolveReleaseReference, releaseReadmeRelativePath } from "../lib/releaseStore.mjs";
+import { normalizeReleaseCreateRequest, prepareProposal } from "./proposalPreparation.mjs";
+import { listReleaseDocuments, listReservedReleaseDocuments, resolveReleaseReference, releaseReadmeRelativePath } from "../lib/releaseStore.mjs";
 import { readChangeSet, readOperation } from "../lib/operationStore.mjs";
 import { compareReleaseReadme } from "../lib/releaseProjection.mjs";
 import { confineWritePath } from "../lib/paths.mjs";
@@ -31,36 +31,38 @@ function pendingRecovery(planningRoot) {
   return pending;
 }
 
-export function runReleaseNew({ planningRoot, args }) {
+export function proposeReleaseCreate({ planningRoot, rawPayload, actor, releaseId = null }) {
   const operationsRoot = path.join(planningRoot, "operations");
   const candidateOperationId = generateUuidV7();
   const proposedAt = new Date().toISOString();
-  const rawPayload = {
-    title: args.title,
-    objective: args.objective,
-    ...(args.laneId ? { laneId: args.laneId } : {}),
-    ...(args.policyMode ? { policyMode: args.policyMode } : {}),
-    ...(args.slug !== undefined ? { slug: args.slug } : {}),
-    ...(args.idempotencyKey ? { idempotencyKey: args.idempotencyKey } : {})
-  };
-  const { payload, targetFiles } = prepareProposal("release.create", rawPayload, {
-    operationId: candidateOperationId,
-    actor: args.actor,
-    proposedAt,
-    existingReleases: listReleaseDocuments(planningRoot),
-    currentConfig: readCurrentConfig(planningRoot)
-  });
+  const releaseRequest = normalizeReleaseCreateRequest(rawPayload, { actor, defaultIdempotencyKey: candidateOperationId });
   const persistedOperationId = propose({
     operationsRoot,
     planningRoot,
     kind: "release.create",
-    target: { releaseId: payload.id },
-    payload,
-    targetFiles,
-    actor: args.actor,
+    target: null,
+    payload: null,
+    targetFiles: null,
+    actor,
     operationId: candidateOperationId,
     proposedAt,
-    idempotency: { key: payload.idempotencyKey, requestHash: payload.idempotencyRequestHash }
+    idempotency: { key: releaseRequest.idempotencyKey, requestHash: releaseRequest.idempotencyRequestHash },
+    prepareUnderLock: () => {
+      const existingReleases = [
+        ...listReleaseDocuments(planningRoot),
+        ...listReservedReleaseDocuments(operationsRoot)
+      ];
+      const prepared = prepareProposal("release.create", rawPayload, {
+        operationId: candidateOperationId,
+        actor,
+        proposedAt,
+        existingReleases,
+        currentConfig: readCurrentConfig(planningRoot),
+        releaseRequest,
+        releaseId
+      });
+      return { target: { releaseId: prepared.payload.id }, payload: prepared.payload, targetFiles: prepared.targetFiles };
+    }
   });
   const persistedChangeSet = readChangeSet(operationsRoot, persistedOperationId);
   const operation = readOperation(operationsRoot, persistedOperationId);
@@ -71,6 +73,18 @@ export function runReleaseNew({ planningRoot, args }) {
     operationStatus: operation.status,
     idempotent: persistedOperationId !== candidateOperationId
   };
+}
+
+export function runReleaseNew({ planningRoot, args }) {
+  const rawPayload = {
+    title: args.title,
+    objective: args.objective,
+    ...(args.laneId ? { laneId: args.laneId } : {}),
+    ...(args.policyMode ? { policyMode: args.policyMode } : {}),
+    ...(args.slug !== undefined ? { slug: args.slug } : {}),
+    ...(args.idempotencyKey ? { idempotencyKey: args.idempotencyKey } : {})
+  };
+  return proposeReleaseCreate({ planningRoot, rawPayload, actor: args.actor });
 }
 
 function projectionStatus(planningRoot, release) {
@@ -102,13 +116,26 @@ export function runReleaseStatus({ planningRoot, reference }) {
   for (const error of schemaResult.errors) findings.push(`release.yml${error.path}: ${error.message}`);
   return {
     status: "FOUND",
-    release: { id: release.id, displayId: release.displayId, lifecycle: release.status, title: release.title, objective: release.objective },
+    release: {
+      id: release.id,
+      displayId: release.displayId,
+      lifecycle: release.status,
+      title: release.title,
+      objective: release.objective,
+      laneId: release.lane.id,
+      policyMode: release.policy.mode
+    },
     derivedHealth: {
       schemaValid: schemaResult.valid,
       projection: projection.status,
       readiness: { available: false, releasable: false, unavailableDependencies: ["release_items", "work_packages", "gates"] }
     },
-    refs: { scopeRefs: release.scopeRefs, itemRefs: release.itemRefs },
+    refs: {
+      scopeRefs: release.scopeRefs,
+      itemRefs: release.itemRefs,
+      previousReleaseRefs: release.policy.previousReleaseRefs,
+      dependencyRefs: release.policy.dependencyRefs
+    },
     findings
   };
 }

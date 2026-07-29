@@ -11,7 +11,7 @@ import { confineRuntimeWritePath } from "../lib/paths.mjs";
 import { readConfirmedSources, readConfirmedScopes } from "../lib/discoverScan.mjs";
 import { generateGuideOutput } from "../lib/guideGeneration.mjs";
 import { revisionHash } from "../lib/canonical.mjs";
-import { listReleaseDocuments } from "../lib/releaseStore.mjs";
+import { proposeReleaseCreate } from "./release.mjs";
 
 function readCurrentConfig(planningRoot) {
   const configPath = confineRuntimeWritePath(planningRoot, "config.yml");
@@ -74,15 +74,15 @@ export function runChangesetPropose({ planningRoot, kind, payloadText, actor }) 
       };
     }
   }
+  if (kind === "release.create") {
+    const created = proposeReleaseCreate({ planningRoot, rawPayload, actor });
+    return { operationId: created.operationId, releaseId: created.releaseId, displayId: created.displayId, idempotent: created.idempotent };
+  }
   const runtimeContext = {};
-  if (kind === "scope.command.set" || kind === "scope.generator.set" || kind === "guide.update" || kind === "release.create") {
+  if (kind === "scope.command.set" || kind === "scope.generator.set" || kind === "guide.update") {
     runtimeContext.operationId = generateUuidV7();
     runtimeContext.actor = actor;
     runtimeContext.proposedAt = new Date().toISOString();
-  }
-  if (kind === "release.create") {
-    runtimeContext.existingReleases = listReleaseDocuments(planningRoot);
-    runtimeContext.currentConfig = readCurrentConfig(planningRoot);
   }
   const { payload, targetFiles } = prepareProposal(kind, rawPayload, runtimeContext);
   const operationsRoot = path.join(planningRoot, "operations");
@@ -91,15 +91,14 @@ export function runChangesetPropose({ planningRoot, kind, payloadText, actor }) 
     operationsRoot,
     planningRoot,
     kind,
-    target: kind === "release.create" ? { releaseId: payload.id } : {},
+    target: {},
     payload,
     targetFiles,
     actor,
     operationId: candidateOperationId,
-    proposedAt: runtimeContext.proposedAt || null,
-    ...(kind === "release.create" ? { idempotency: { key: payload.idempotencyKey, requestHash: payload.idempotencyRequestHash } } : {})
+    proposedAt: runtimeContext.proposedAt || null
   });
-  return { operationId, ...(kind === "release.create" ? { idempotent: operationId !== candidateOperationId } : {}) };
+  return { operationId };
 }
 
 export function runChangesetValidate({ planningRoot, operationsRoot, operationId }) {
