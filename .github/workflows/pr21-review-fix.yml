@@ -31,6 +31,29 @@ jobs:
             "https://api.github.com/repos/cmartinezs/shipping-mode/contents/.github/pr21-review-fix.sh?ref=7d28c74fa03eca52228f36dddbc9de6c076e2556" \
             -o /tmp/pr21-review-fix.sh
           bash /tmp/pr21-review-fix.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('runtime/src/lib/releaseCreate.mjs')
+          s = p.read_text()
+          s = s.replace(
+              'export function releaseCreateInvariantFindings(changeSet, operation = null) {',
+              'export function releaseCreateInvariantFindings(changeSet, operation = null, existingReleases = []) {'
+          )
+          marker = '''  if (!isReleaseDisplayIdForUuid(payload.id, payload.displayId)) {
+            findings.push(`release.create displayId ${payload.displayId} is not derived from release UUIDv7 ${payload.id}`);
+          }
+          '''
+          addition = marker + '''  const displayIdCollision = existingReleases.find((release) => release.id !== payload.id && release.displayId === payload.displayId);
+          if (displayIdCollision) {
+            findings.push(`release.create displayId ${payload.displayId} is already owned by release ${displayIdCollision.id}`);
+          }
+          '''
+          if 'is already owned by release' not in s:
+              if marker not in s:
+                  raise SystemExit('display ID invariant marker not found')
+              s = s.replace(marker, addition)
+          p.write_text(s)
+          PY
       - run: npm ci --silent
       - run: npm run build:schemas
       - run: npm run build:runtime
