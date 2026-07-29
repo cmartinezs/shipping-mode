@@ -106,7 +106,9 @@ Plan 1 validation rules:
   payloads;
 - `itemRefs` starts empty and no mutation attaches children in Plan 1;
 - relation arrays are UUIDv7 only;
-- directory UUID and `release.id` must match.
+- directory UUID and `release.id` must match;
+- validate/apply must rebind `payload.operationId`, `target.releaseId`, actor and timestamps to the persisted Operation, and verify that `displayId` is derived from `release.id`;
+- the normalized idempotency request hash is recomputed during validation rather than trusted from editable ChangeSet content.
 
 ## 4. Identity And Display-ID Algorithm
 
@@ -264,7 +266,7 @@ releases/<release-id>/release.yml
 releases/<release-id>/README.md
 ```
 
-Base revisions for both files must be `ABSENT`.
+Base revisions for both files must be `ABSENT`. Idempotency keys remain permanently bound to their first normalized request and Operation, including terminal `INVALID` or `STALE` outcomes; unreadable or multiply-bound records fail closed.
 
 ## 10. Projection Contract
 

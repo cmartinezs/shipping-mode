@@ -3,7 +3,7 @@ import { UsageError } from "../lib/errors.mjs";
 import { BOOTSTRAP_CANONICAL_DIRECTORIES } from "../lib/bootstrapTopology.mjs";
 import { deriveUniqueReleaseDisplayId } from "../lib/releaseIdentity.mjs";
 import { releaseReadmeRelativePath, releaseYamlRelativePath } from "../lib/releaseStore.mjs";
-import { revisionHash } from "../lib/canonical.mjs";
+import { releaseCreateRequestHash } from "../lib/releaseCreate.mjs";
 
 const SUPPORTED_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "scope.generator.set", "guide.update", "release.create"]);
 const RELEASE_CREATE_ALLOWED_FIELDS = new Set(["title", "objective", "laneId", "policyMode", "slug", "idempotencyKey"]);
@@ -124,7 +124,7 @@ export function prepareProposal(kind, rawPayload, { operationId = null, actor = 
     const idempotencyKey = rawPayload.idempotencyKey === undefined
       ? operationId
       : requireTrimmedString(rawPayload.idempotencyKey, "idempotencyKey");
-    const idempotencyRequestHash = revisionHash({ actor, title, objective, laneId: laneId ?? null, policyMode: policyMode ?? null, slug });
+    const idempotencyRequestHash = releaseCreateRequestHash({ actor, title, objective, laneId, policyMode, slug });
     const id = generateUuidV7();
     const display = deriveUniqueReleaseDisplayId(id, existingReleases);
     const payload = {

@@ -14,6 +14,7 @@ import { checkpoint } from "./faultInjection.mjs";
 import { runDiscoverScan } from "./discoverScan.mjs";
 import { bindAutonomyEvaluation, evaluateChangeSetAutonomy, currentPolicyFingerprint, hasAutonomousApprovalCapability, REASON_CODES } from "./autonomy.mjs";
 import { DIRECTORY_CONTENT_HASH, isDirectoryRenderEntry } from "./bootstrapTopology.mjs";
+import { releaseCreateInvariantFindings } from "./releaseCreate.mjs";
 
 export function readFileState(planningRoot, relativePath) {
   const absolutePath = confineRuntimeWritePath(planningRoot, relativePath);
@@ -56,23 +57,35 @@ export function eventTypeFor(kind) {
 
 function findIdempotentOperation(operationsRoot, { kind, key, requestHash }) {
   if (!key || !fs.existsSync(operationsRoot)) return null;
+  let matchingOperationId = null;
   for (const candidateId of fs.readdirSync(operationsRoot).sort()) {
     let operation;
-    let changeSet;
     try {
       operation = readOperation(operationsRoot, candidateId);
-      if (operation.kind !== kind || ["INVALID", "STALE"].includes(operation.status)) continue;
+    } catch (error) {
+      throw new StateError(`cannot establish ${kind} idempotency because operation ${candidateId} is unreadable: ${error.message}`);
+    }
+    if (operation.kind !== kind) continue;
+
+    let changeSet;
+    try {
       changeSet = readChangeSet(operationsRoot, candidateId);
-    } catch {
-      continue;
+    } catch (error) {
+      throw new StateError(`cannot establish ${kind} idempotency because ChangeSet ${candidateId} is unreadable: ${error.message}`);
+    }
+    if (changeSet.kind !== kind || changeSet.operationId !== candidateId) {
+      throw new StateError(`cannot establish ${kind} idempotency because operation ${candidateId} is internally inconsistent`);
     }
     if (changeSet.payload?.idempotencyKey !== key) continue;
     if (changeSet.payload?.idempotencyRequestHash !== requestHash) {
       throw new StateError(`idempotency key ${key} was already used for a different ${kind} request`);
     }
-    return candidateId;
+    if (matchingOperationId && matchingOperationId !== candidateId) {
+      throw new StateError(`idempotency key ${key} is bound to multiple ${kind} operations`);
+    }
+    matchingOperationId = candidateId;
   }
-  return null;
+  return matchingOperationId;
 }
 
 export function propose({ operationsRoot, planningRoot, kind, target, payload, targetFiles, actor, operationId = null, proposedAt = null, preconditions = null, idempotency = null }) {
@@ -123,7 +136,7 @@ function schemaNameForRenderedPath(relativePath) {
   return null;
 }
 
-function checkKindInvariants(changeSet) {
+function checkKindInvariants(changeSet, operation = null) {
   const errors = [];
   if (changeSet.kind === "workspace.init") {
     for (const relativePath of Object.keys(changeSet.baseRevisions)) {
@@ -156,6 +169,7 @@ function checkKindInvariants(changeSet) {
     }
   }
   if (changeSet.kind === "release.create") {
+    errors.push(...releaseCreateInvariantFindings(changeSet, operation));
     const releasePath = `releases/${changeSet.payload.id}/release.yml`;
     const readmePath = `releases/${changeSet.payload.id}/README.md`;
     const actualPaths = new Set(Object.keys(changeSet.baseRevisions));
@@ -172,7 +186,7 @@ function checkKindInvariants(changeSet) {
   return errors;
 }
 
-function revalidateChangeSet({ operationsRoot, planningRoot, operationId, render }) {
+function revalidateChangeSet({ operationsRoot, planningRoot, operationId, render, operation = null }) {
   const changeSet = readChangeSet(operationsRoot, operationId);
 
   if (changeSet.operationId !== operationId) {
@@ -189,7 +203,7 @@ function revalidateChangeSet({ operationsRoot, planningRoot, operationId, render
     return { ok: false, status: "INVALID", errors: changeSetResult.errors.map((e) => `change-set${e.path}: ${e.message}`), recomputedHash };
   }
 
-  const invariantErrors = checkKindInvariants(changeSet);
+  const invariantErrors = checkKindInvariants(changeSet, operation);
   if (invariantErrors.length > 0) {
     return { ok: false, status: "INVALID", errors: invariantErrors, recomputedHash };
   }
@@ -257,7 +271,7 @@ export function validateOperation({ operationsRoot, planningRoot, operationId, r
       throw new StateError(`cannot validate operation in status ${operation.status}`);
     }
 
-    const result = revalidateChangeSet({ operationsRoot, planningRoot, operationId, render });
+    const result = revalidateChangeSet({ operationsRoot, planningRoot, operationId, render, operation });
     const validatedAt = new Date().toISOString();
 
     if (!result.ok) {
@@ -354,7 +368,7 @@ function prepareApply({ operationsRoot, planningRoot, operationId, render, actor
   }
   const changeSet = readChangeSet(operationsRoot, operationId);
 
-  const revalidation = revalidateChangeSet({ operationsRoot, planningRoot, operationId, render });
+  const revalidation = revalidateChangeSet({ operationsRoot, planningRoot, operationId, render, operation });
   if (!revalidation.ok) {
     transitionToStale(operationsRoot, operationId, operation, revalidation.errors[0]);
   }

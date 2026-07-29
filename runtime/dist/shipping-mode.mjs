@@ -18744,6 +18744,71 @@ function evaluateChangeSetAutonomy({ changeSet, planningRoot, policy = readConfi
   });
 }
 
+// runtime/src/lib/releaseIdentity.mjs
+import crypto5 from "node:crypto";
+var CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ", RELEASE_DISPLAY_ID_LENGTHS = Object.freeze([8, 12, 16, 26, 52]), RELEASE_DISPLAY_ID_PATTERN = /^REL-([0-9A-HJKMNP-TV-Z]{8}|[0-9A-HJKMNP-TV-Z]{12}|[0-9A-HJKMNP-TV-Z]{16}|[0-9A-HJKMNP-TV-Z]{26}|[0-9A-HJKMNP-TV-Z]{52})$/;
+function encodeCrockford(buffer) {
+  let value = 0, bits = 0, output = "";
+  for (let byte of buffer)
+    for (value = value << 8 | byte, bits += 8; bits >= 5; )
+      output += CROCKFORD[value >>> bits - 5 & 31], bits -= 5, value &= bits === 0 ? 0 : (1 << bits) - 1;
+  return bits > 0 && (output += CROCKFORD[value << 5 - bits & 31]), output;
+}
+function releaseDisplayTokenForUuid(uuid) {
+  if (!isUuidV7(uuid)) throw new Error(`invalid release UUIDv7: ${uuid}`);
+  let uuidBytes = Buffer.from(uuid.replaceAll("-", ""), "hex");
+  return encodeCrockford(crypto5.createHash("sha256").update(uuidBytes).digest());
+}
+function releaseDisplayIdForUuid(uuid, length = 8) {
+  if (!RELEASE_DISPLAY_ID_LENGTHS.includes(length)) throw new Error(`unsupported display ID length: ${length}`);
+  return `REL-${releaseDisplayTokenForUuid(uuid).slice(0, length)}`;
+}
+function deriveUniqueReleaseDisplayId(uuid, existingReleases = []) {
+  for (let length of RELEASE_DISPLAY_ID_LENGTHS) {
+    let candidate = releaseDisplayIdForUuid(uuid, length);
+    if (!existingReleases.find((release) => release.displayId === candidate && release.id !== uuid)) return { displayId: candidate, length, collisionResolved: length > RELEASE_DISPLAY_ID_LENGTHS[0] };
+  }
+  throw new Error(`display ID collision for release ${uuid}`);
+}
+function isReleaseDisplayId(value) {
+  return typeof value == "string" && RELEASE_DISPLAY_ID_PATTERN.test(value);
+}
+function isReleaseDisplayIdForUuid(uuid, displayId) {
+  return !isUuidV7(uuid) || !isReleaseDisplayId(displayId) ? !1 : RELEASE_DISPLAY_ID_LENGTHS.some((length) => releaseDisplayIdForUuid(uuid, length) === displayId);
+}
+
+// runtime/src/lib/releaseCreate.mjs
+function releaseCreateRequestHash({ actor, title, objective, laneId, policyMode, slug }) {
+  return revisionHash({
+    actor,
+    title,
+    objective,
+    laneId: laneId ?? null,
+    policyMode: policyMode ?? null,
+    slug: slug ?? null
+  });
+}
+function isCanonicalTrimmedString(value) {
+  return typeof value == "string" && value.length > 0 && value === value.trim();
+}
+function releaseCreateInvariantFindings(changeSet, operation = null) {
+  let findings = [], payload = changeSet.payload;
+  payload.operationId !== changeSet.operationId && findings.push(`release.create payload.operationId ${payload.operationId} does not match ChangeSet operationId ${changeSet.operationId}`);
+  let targetKeys = Object.keys(changeSet.target || {}).sort();
+  (targetKeys.length !== 1 || targetKeys[0] !== "releaseId" || changeSet.target.releaseId !== payload.id) && findings.push("release.create target must contain exactly releaseId equal to payload.id"), isReleaseDisplayIdForUuid(payload.id, payload.displayId) || findings.push(`release.create displayId ${payload.displayId} is not derived from release UUIDv7 ${payload.id}`);
+  for (let field of ["title", "objective", "laneId", "idempotencyKey"])
+    isCanonicalTrimmedString(payload[field]) || findings.push(`release.create payload.${field} must be a canonical non-blank trimmed string`);
+  let expectedRequestHash = releaseCreateRequestHash({
+    actor: payload.createdBy,
+    title: payload.title,
+    objective: payload.objective,
+    laneId: payload.laneId,
+    policyMode: payload.policyMode,
+    slug: payload.slug
+  });
+  return payload.idempotencyRequestHash !== expectedRequestHash && findings.push("release.create idempotencyRequestHash does not match the normalized request snapshot"), payload.createdAt !== payload.updatedAt && findings.push("release.create createdAt and updatedAt must be identical at creation"), payload.createdBy !== payload.updatedBy && findings.push("release.create createdBy and updatedBy must be identical at creation"), operation && (operation.id !== changeSet.operationId && findings.push(`release.create operation.id ${operation.id} does not match ChangeSet operationId ${changeSet.operationId}`), (payload.createdAt !== operation.proposedAt || payload.updatedAt !== operation.proposedAt) && findings.push("release.create timestamps must match the server-owned operation proposedAt value"), (payload.createdBy !== operation.proposedBy || payload.updatedBy !== operation.proposedBy) && findings.push("release.create actors must match the server-owned operation proposedBy value")), findings;
+}
+
 // runtime/src/lib/changeset.mjs
 function readFileState(planningRoot, relativePath) {
   let absolutePath = confineRuntimeWritePath(planningRoot, relativePath);
@@ -18776,21 +18841,32 @@ function eventTypeFor(kind) {
 }
 function findIdempotentOperation(operationsRoot, { kind, key, requestHash }) {
   if (!key || !fs11.existsSync(operationsRoot)) return null;
+  let matchingOperationId = null;
   for (let candidateId of fs11.readdirSync(operationsRoot).sort()) {
-    let operation, changeSet;
+    let operation;
     try {
-      if (operation = readOperation(operationsRoot, candidateId), operation.kind !== kind || ["INVALID", "STALE"].includes(operation.status)) continue;
-      changeSet = readChangeSet(operationsRoot, candidateId);
-    } catch {
-      continue;
+      operation = readOperation(operationsRoot, candidateId);
+    } catch (error2) {
+      throw new StateError(`cannot establish ${kind} idempotency because operation ${candidateId} is unreadable: ${error2.message}`);
     }
+    if (operation.kind !== kind) continue;
+    let changeSet;
+    try {
+      changeSet = readChangeSet(operationsRoot, candidateId);
+    } catch (error2) {
+      throw new StateError(`cannot establish ${kind} idempotency because ChangeSet ${candidateId} is unreadable: ${error2.message}`);
+    }
+    if (changeSet.kind !== kind || changeSet.operationId !== candidateId)
+      throw new StateError(`cannot establish ${kind} idempotency because operation ${candidateId} is internally inconsistent`);
     if (changeSet.payload?.idempotencyKey === key) {
       if (changeSet.payload?.idempotencyRequestHash !== requestHash)
         throw new StateError(`idempotency key ${key} was already used for a different ${kind} request`);
-      return candidateId;
+      if (matchingOperationId && matchingOperationId !== candidateId)
+        throw new StateError(`idempotency key ${key} is bound to multiple ${kind} operations`);
+      matchingOperationId = candidateId;
     }
   }
-  return null;
+  return matchingOperationId;
 }
 function propose({ operationsRoot, planningRoot, kind, target, payload, targetFiles, actor, operationId = null, proposedAt = null, preconditions = null, idempotency = null }) {
   return withWorkspaceMutation({ planningRoot, operationsRoot, operationId: null }, () => {
@@ -18823,7 +18899,7 @@ function propose({ operationsRoot, planningRoot, kind, target, payload, targetFi
 function schemaNameForRenderedPath(relativePath) {
   return relativePath === "config.yml" ? "config" : relativePath === "plugin.lock.yml" ? "plugin-lock" : /^sources\/[^/]+\/source\.yml$/.test(relativePath) ? "source" : /^scopes\/[^/]+\/scope\.yml$/.test(relativePath) ? "scope" : /^scopes\/[^/]+\/(task|test)-guide\.yml$/.test(relativePath) ? "guide" : /^releases\/[^/]+\/release\.yml$/.test(relativePath) ? "release" : null;
 }
-function checkKindInvariants(changeSet) {
+function checkKindInvariants(changeSet, operation = null) {
   let errors = [];
   if (changeSet.kind === "workspace.init")
     for (let relativePath of Object.keys(changeSet.baseRevisions)) {
@@ -18843,6 +18919,7 @@ function checkKindInvariants(changeSet) {
     changeSet.payload.action === "generate" ? (!guideBase || guideBase.contentHash !== ABSENT) && errors.push(`${guidePath2} must be ABSENT for initial guide.generate`) : (!guideBase || guideBase.contentHash === ABSENT) && errors.push(`${guidePath2} must already exist for guide.${changeSet.payload.action}`);
   }
   if (changeSet.kind === "release.create") {
+    errors.push(...releaseCreateInvariantFindings(changeSet, operation));
     let releasePath = `releases/${changeSet.payload.id}/release.yml`, readmePath = `releases/${changeSet.payload.id}/README.md`, actualPaths = new Set(Object.keys(changeSet.baseRevisions));
     (actualPaths.size !== 2 || !actualPaths.has(releasePath) || !actualPaths.has(readmePath)) && errors.push("release.create baseRevisions must contain exactly release.yml and README.md for the UUIDv7 release directory");
     for (let relativePath of [releasePath, readmePath]) {
@@ -18852,7 +18929,7 @@ function checkKindInvariants(changeSet) {
   }
   return errors;
 }
-function revalidateChangeSet({ operationsRoot, planningRoot, operationId, render }) {
+function revalidateChangeSet({ operationsRoot, planningRoot, operationId, render, operation = null }) {
   let changeSet = readChangeSet(operationsRoot, operationId);
   if (changeSet.operationId !== operationId)
     return { ok: !1, status: "INVALID", errors: [`change-set.json operationId ${changeSet.operationId} does not match operation ${operationId}`], recomputedHash: null };
@@ -18862,7 +18939,7 @@ function revalidateChangeSet({ operationsRoot, planningRoot, operationId, render
   let changeSetResult = validate("change-set", changeSet);
   if (!changeSetResult.valid)
     return { ok: !1, status: "INVALID", errors: changeSetResult.errors.map((e) => `change-set${e.path}: ${e.message}`), recomputedHash };
-  let invariantErrors = checkKindInvariants(changeSet);
+  let invariantErrors = checkKindInvariants(changeSet, operation);
   if (invariantErrors.length > 0)
     return { ok: !1, status: "INVALID", errors: invariantErrors, recomputedHash };
   let rendered;
@@ -18908,7 +18985,7 @@ function validateOperation({ operationsRoot, planningRoot, operationId, render }
     let operation = readOperation(operationsRoot, operationId);
     if (operation.status !== "PROPOSED")
       throw new StateError(`cannot validate operation in status ${operation.status}`);
-    let result = revalidateChangeSet({ operationsRoot, planningRoot, operationId, render }), validatedAt = (/* @__PURE__ */ new Date()).toISOString();
+    let result = revalidateChangeSet({ operationsRoot, planningRoot, operationId, render, operation }), validatedAt = (/* @__PURE__ */ new Date()).toISOString();
     if (!result.ok) {
       writeOperation(operationsRoot, operationId, {
         ...operation,
@@ -18972,7 +19049,7 @@ function prepareApply({ operationsRoot, planningRoot, operationId, render, actor
   let operation = readOperation(operationsRoot, operationId);
   if (operation.status !== "APPROVED")
     throw new StateError(`cannot apply operation in status ${operation.status}`);
-  let changeSet = readChangeSet(operationsRoot, operationId), revalidation = revalidateChangeSet({ operationsRoot, planningRoot, operationId, render });
+  let changeSet = readChangeSet(operationsRoot, operationId), revalidation = revalidateChangeSet({ operationsRoot, planningRoot, operationId, render, operation });
   revalidation.ok || transitionToStale(operationsRoot, operationId, operation, revalidation.errors[0]);
   let recomputedHash = revalidation.recomputedHash;
   (recomputedHash !== changeSet.hash || recomputedHash !== operation.validation.changeSetHash || recomputedHash !== operation.approval.changeSetHash) && transitionToStale(operationsRoot, operationId, operation, "changeSetHash no longer matches validate/approve; the change-set has drifted since approval");
@@ -19089,39 +19166,6 @@ function applyOperation({ operationsRoot, planningRoot, operationId, render, act
     let residuePath = confineRuntimeWritePath(planningRoot, runtimeOperationRelative);
     return fs11.rmSync(residuePath, { recursive: !0, force: !0 }), { status: "APPLIED", files };
   });
-}
-
-// runtime/src/lib/releaseIdentity.mjs
-import crypto5 from "node:crypto";
-var CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ", RELEASE_DISPLAY_ID_LENGTHS = Object.freeze([8, 12, 16, 26, 52]), RELEASE_DISPLAY_ID_PATTERN = /^REL-([0-9A-HJKMNP-TV-Z]{8}|[0-9A-HJKMNP-TV-Z]{12}|[0-9A-HJKMNP-TV-Z]{16}|[0-9A-HJKMNP-TV-Z]{26}|[0-9A-HJKMNP-TV-Z]{52})$/;
-function encodeCrockford(buffer) {
-  let value = 0, bits = 0, output = "";
-  for (let byte of buffer)
-    for (value = value << 8 | byte, bits += 8; bits >= 5; )
-      output += CROCKFORD[value >>> bits - 5 & 31], bits -= 5, value &= bits === 0 ? 0 : (1 << bits) - 1;
-  return bits > 0 && (output += CROCKFORD[value << 5 - bits & 31]), output;
-}
-function releaseDisplayTokenForUuid(uuid) {
-  if (!isUuidV7(uuid)) throw new Error(`invalid release UUIDv7: ${uuid}`);
-  let uuidBytes = Buffer.from(uuid.replaceAll("-", ""), "hex");
-  return encodeCrockford(crypto5.createHash("sha256").update(uuidBytes).digest());
-}
-function releaseDisplayIdForUuid(uuid, length = 8) {
-  if (!RELEASE_DISPLAY_ID_LENGTHS.includes(length)) throw new Error(`unsupported display ID length: ${length}`);
-  return `REL-${releaseDisplayTokenForUuid(uuid).slice(0, length)}`;
-}
-function deriveUniqueReleaseDisplayId(uuid, existingReleases = []) {
-  for (let length of RELEASE_DISPLAY_ID_LENGTHS) {
-    let candidate = releaseDisplayIdForUuid(uuid, length);
-    if (!existingReleases.find((release) => release.displayId === candidate && release.id !== uuid)) return { displayId: candidate, length, collisionResolved: length > RELEASE_DISPLAY_ID_LENGTHS[0] };
-  }
-  throw new Error(`display ID collision for release ${uuid}`);
-}
-function isReleaseDisplayId(value) {
-  return typeof value == "string" && RELEASE_DISPLAY_ID_PATTERN.test(value);
-}
-function isReleaseDisplayIdForUuid(uuid, displayId) {
-  return !isUuidV7(uuid) || !isReleaseDisplayId(displayId) ? !1 : RELEASE_DISPLAY_ID_LENGTHS.some((length) => releaseDisplayIdForUuid(uuid, length) === displayId);
 }
 
 // runtime/src/lib/releaseStore.mjs
@@ -19306,7 +19350,7 @@ function prepareProposal(kind, rawPayload, { operationId = null, actor = null, p
     if (assertOnlyAllowedReleaseCreateFields(rawPayload), !currentConfig?.policies?.release) throw new UsageError("release.create requires initialized Project Context release policy");
     let title = requireTrimmedString(rawPayload.title, "title"), objective = requireTrimmedString(rawPayload.objective, "objective"), laneId = normalizeOptionalString(rawPayload.laneId, "laneId") ?? requireTrimmedString(currentConfig.policies.release.defaultLane, "Project Context policies.release.defaultLane"), policyMode = normalizeOptionalString(rawPayload.policyMode, "policyMode") ?? requireTrimmedString(currentConfig.policies.release.mode, "Project Context policies.release.mode");
     if (!["strict_sequence", "dependency_graph"].includes(policyMode)) throw new UsageError(`unsupported release policy mode: ${policyMode}`);
-    let slug = normalizeSlug(rawPayload.slug), idempotencyKey = rawPayload.idempotencyKey === void 0 ? operationId : requireTrimmedString(rawPayload.idempotencyKey, "idempotencyKey"), idempotencyRequestHash = revisionHash({ actor, title, objective, laneId: laneId ?? null, policyMode: policyMode ?? null, slug }), id = generateUuidV7(), display = deriveUniqueReleaseDisplayId(id, existingReleases);
+    let slug = normalizeSlug(rawPayload.slug), idempotencyKey = rawPayload.idempotencyKey === void 0 ? operationId : requireTrimmedString(rawPayload.idempotencyKey, "idempotencyKey"), idempotencyRequestHash = releaseCreateRequestHash({ actor, title, objective, laneId, policyMode, slug }), id = generateUuidV7(), display = deriveUniqueReleaseDisplayId(id, existingReleases);
     return { payload: {
       operationId,
       id,
