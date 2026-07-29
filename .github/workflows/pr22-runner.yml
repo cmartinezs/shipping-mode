@@ -71,3 +71,5 @@ jobs:
             git commit -m "build(runtime): regenerate Plan 2 review artifacts"
             git push origin HEAD:agent/corte-2-plan-2-release-policy-operational-refs
           fi
+
+# Trigger after workflow registration.
