@@ -50,5 +50,8 @@ Self-approval requires the explicit runtime flag and must follow host policy.
 
 ## Error Handling
 
-Report the runtime error and the operation ID when one exists. Do not retry by
-creating a second Release when the caller supplied an idempotency key.
+Report the runtime error, operation ID and current operation status when they
+exist. An idempotency key is permanently bound to its first normalized request,
+including `INVALID` and `STALE` outcomes. An exact retry returns that original
+Operation; never create a replacement Release or alter the request while
+reusing the key.
