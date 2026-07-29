@@ -1,6 +1,6 @@
 ---
-description: Create, inspect and record Release policy/reference evidence through the deterministic runtime.
-argument-hint: "new --title <title> --objective <objective> | status <id-or-display-id> | policy configure <id> | refs set <id> | deployment record <id>"
+description: Create, inspect, record evidence and finalize Releases through the deterministic runtime.
+argument-hint: "new --title <title> --objective <objective> | status <id-or-display-id> | policy configure <id> | refs set <id> | deployment record <id> | finalize <id>"
 disable-model-invocation: true
 ---
 
@@ -17,12 +17,13 @@ runtime.
 - `scope set <id-or-display-id> --scope-ids <uuid,...> [--policy-mode strict|advisory] [--idempotency-key <key>] --actor <actor>`
 - `refs set <id-or-display-id> [--execution-context-refs <uuid,...>] [--environment-refs <uuid,...>] [--idempotency-key <key>] --actor <actor>`
 - `deployment record <id-or-display-id> --environment-ref <uuid> [--execution-context-ref <uuid>] --status planned|started|succeeded|failed|cancelled [--artifact-refs <ref,...>] [--evidence-refs <ref,...>] [--idempotency-key <key>] --actor <actor>`
+- `finalize <id-or-display-id> [--retrospective-status not_started|draft|approved|not_required] [--idempotency-key <key>] --actor <actor>`
 
 ## Preconditions
 
 - The workspace must already be initialized with `shipping-mode init`.
-- `new`, `policy configure`, `scope set`, `refs set` and `deployment record`
-  create ChangeSets only. They do not approve or apply themselves.
+- `new`, `policy configure`, `scope set`, `refs set`, `deployment record` and
+  `finalize` create ChangeSets only. They do not approve or apply themselves.
 - `status` is query-only and must not create Operations, Events or projection
   repairs.
 - Related Releases, Scopes, Execution Contexts and Environments must be passed
@@ -37,6 +38,7 @@ shipping-mode release policy configure <id-or-display-id> --actor <actor>
 shipping-mode release scope set <id-or-display-id> --scope-ids <uuid,...> --actor <actor>
 shipping-mode release refs set <id-or-display-id> --actor <actor>
 shipping-mode release deployment record <id-or-display-id> --environment-ref <uuid> --status <status> --actor <actor>
+shipping-mode release finalize <id-or-display-id> --actor <actor>
 ```
 
 ## Approval Boundary
@@ -56,12 +58,13 @@ pending non-terminal `release.create` Operations as reservations. Validate and
 apply also recheck persisted display-ID ownership, so concurrent proposals
 cannot publish duplicate display IDs.
 
-Plan 2 mutations retain a server-owned request binding and proposal hash in the
-Operation. Editing a persisted ChangeSet and recomputing its public hash cannot
-change normalized caller intent, actor, timestamps, resolved Release targets or
-deployment evidence. Release policy validation evaluates the complete catalog
-using a canonically revised candidate state, so incoming links, branching and
-indirect cycles cannot be hidden by reconfiguring one Release in isolation.
+Plan 2 and Plan 3 mutations retain a server-owned request binding and proposal
+hash in the Operation. Editing a persisted ChangeSet and recomputing its public
+hash cannot change normalized caller intent, actor, timestamps, resolved Release
+targets, deployment evidence, finalization state or derived guard evidence.
+Release policy validation evaluates the complete catalog using a canonically
+revised candidate state, so incoming links, branching and indirect cycles cannot
+be hidden by reconfiguring one Release in isolation.
 
 ## Stop Conditions
 
@@ -69,10 +72,15 @@ indirect cycles cannot be hidden by reconfiguring one Release in isolation.
 - Stop if validation reports stale base revisions, schema findings, invalid
   lanes, invalid/corrupt catalogs, stale Guide evidence or an existing owner for
   the proposed display ID.
+- Stop if finalization validation reports a non-`RELEASED` lifecycle,
+  insufficient readiness, open blockers, missing deployment evidence, corrupt
+  refs or changed guard evidence.
 - Do not write `.planning` directly.
 - Do not parse or edit `README.md` as source of truth.
 - Do not execute deployments; `deployment record` only records evidence and
   never transitions lifecycle.
+- Do not treat `itemRefs: []` as completion and do not persist derived
+  completion/readiness.
 - Do not create Release Items, Work Packages or Tasks from this skill.
 
 ## Error Handling
