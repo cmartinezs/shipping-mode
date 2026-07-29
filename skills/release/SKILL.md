@@ -39,11 +39,15 @@ shipping-mode changeset apply <operation-id> --actor <actor>
 ```
 
 Self-approval requires the explicit runtime flag and must follow host policy.
+Display-ID ownership is rechecked during validate and apply under the workspace
+mutation lock; a later concurrent proposal fails closed instead of publishing a
+duplicate display ID.
 
 ## Stop Conditions
 
 - Stop if `status` reports `RECOVERY_REQUIRED`, `AMBIGUOUS` or `NOT_FOUND`.
-- Stop if validation reports stale base revisions or schema findings.
+- Stop if validation reports stale base revisions, schema findings or an existing
+  owner for the proposed display ID.
 - Do not write `.planning` directly.
 - Do not parse or edit `README.md` as source of truth.
 - Do not create Release Items, Work Packages or Tasks from this skill.
