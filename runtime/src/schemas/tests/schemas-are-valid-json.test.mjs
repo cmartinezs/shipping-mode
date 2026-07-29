@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const schemasDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const expected = ["config", "plugin-lock", "scope", "source", "guide", "change-set", "operation", "event", "result"];
+const expected = ["config", "plugin-lock", "scope", "source", "guide", "execution-context", "environment", "change-set", "operation", "event", "result"];
 
 for (const name of expected) {
   const file = path.join(schemasDir, `${name}.schema.json`);

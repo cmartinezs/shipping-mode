@@ -11,6 +11,8 @@ import { projectContextConsistencyFindings } from "../lib/projectContextValidati
 import { contentHash, revisionHash } from "../lib/canonical.mjs";
 import { compareReleaseReadme } from "../lib/releaseProjection.mjs";
 import { releaseIntegrityFindings } from "../lib/releaseStore.mjs";
+import { readCatalogEntry } from "../lib/operationalCatalog.mjs";
+import { releaseCatalogPolicyFindings } from "../lib/releasePolicy.mjs";
 
 function checkRequiredFile(planningRoot, relativePath, schemaName, findings) {
   let filePath;
@@ -144,6 +146,7 @@ function checkReleaseConsistency(planningRoot, findings) {
   const releasesRoot = path.join(planningRoot, "releases");
   if (!fs.existsSync(releasesRoot)) return;
   const displayIdOwners = new Map();
+  const releaseDocuments = [];
   for (const releaseId of fs.readdirSync(releasesRoot).sort()) {
     const releaseEntryPath = path.join(releasesRoot, releaseId);
     const releaseStat = fs.lstatSync(releaseEntryPath);
@@ -174,10 +177,29 @@ function checkReleaseConsistency(planningRoot, findings) {
     const integrity = releaseIntegrityFindings(release, { directoryId: releaseId });
     for (const finding of integrity.findings) findings.push(`${releaseRelativePath}: ${finding}`);
     if (!integrity.schemaValid) continue;
+    if (integrity.findings.length === 0) releaseDocuments.push(release);
     if (release.itemRefs.length > 0) findings.push(`${releaseRelativePath}: itemRefs cannot be resolved before Release Items exist`);
     for (const scopeRef of release.scopeRefs) {
       const scopePath = path.join(planningRoot, "scopes", scopeRef.scopeId, "scope.yml");
       if (!fs.existsSync(scopePath)) findings.push(`${releaseRelativePath}: scopeRef ${scopeRef.scopeId} does not resolve`);
+    }
+    for (const executionContextRef of release.executionContextRefs || []) {
+      const result = readCatalogEntry(planningRoot, "executionContext", executionContextRef);
+      if (result.status !== "FOUND") findings.push(`${releaseRelativePath}: executionContextRef ${executionContextRef} invalid (${result.findings.map((finding) => `${finding.code}: ${finding.message}`).join("; ")})`);
+    }
+    for (const environmentRef of release.environmentRefs || []) {
+      const result = readCatalogEntry(planningRoot, "environment", environmentRef);
+      if (result.status !== "FOUND") findings.push(`${releaseRelativePath}: environmentRef ${environmentRef} invalid (${result.findings.map((finding) => `${finding.code}: ${finding.message}`).join("; ")})`);
+      else if (result.entry.laneRefs.length > 0 && !result.entry.laneRefs.includes(release.lane.id)) findings.push(`${releaseRelativePath}: environmentRef ${environmentRef} is not compatible with lane ${release.lane.id}`);
+    }
+    for (const event of release.deploymentEvents || []) {
+      if (event.releaseId !== release.id) findings.push(`${releaseRelativePath}: deployment event ${event.id} releaseId does not match Release`);
+      const environment = readCatalogEntry(planningRoot, "environment", event.environmentRef);
+      if (environment.status !== "FOUND") findings.push(`${releaseRelativePath}: deployment event ${event.id} environmentRef invalid (${environment.findings.map((finding) => `${finding.code}: ${finding.message}`).join("; ")})`);
+      if (event.executionContextRef) {
+        const executionContext = readCatalogEntry(planningRoot, "executionContext", event.executionContextRef);
+        if (executionContext.status !== "FOUND") findings.push(`${releaseRelativePath}: deployment event ${event.id} executionContextRef invalid (${executionContext.findings.map((finding) => `${finding.code}: ${finding.message}`).join("; ")})`);
+      }
     }
     const existingOwner = displayIdOwners.get(release.displayId);
     if (existingOwner && existingOwner !== releaseId) findings.push(`${releaseRelativePath}: displayId ${release.displayId} is ambiguous with releases/${existingOwner}/release.yml`);
@@ -186,6 +208,9 @@ function checkReleaseConsistency(planningRoot, findings) {
       const currentReadme = fs.readFileSync(readmePath, "utf8");
       if (!compareReleaseReadme(release, currentReadme).equal) findings.push(`${readmeRelativePath}: projection drift`);
     }
+  }
+  for (const finding of releaseCatalogPolicyFindings(releaseDocuments)) {
+    findings.push(`releases: ${finding.code}: ${finding.message}`);
   }
 }
 
@@ -266,6 +291,39 @@ export function checkSchema({ planningRoot }) {
         const source = parseYaml(fs.readFileSync(sourceFile, "utf8"));
         if (source.id !== sourceId) {
           findings.push(`sources/${sourceId}/source.yml: source.id ${source.id} does not match its directory`);
+        }
+      }
+    }
+  }
+
+  for (const [rootName, fileName, schemaName] of [
+    ["execution-contexts", "execution-context.yml", "execution-context"],
+    ["environments", "environment.yml", "environment"]
+  ]) {
+    const catalogRoot = path.join(planningRoot, rootName);
+    if (!fs.existsSync(catalogRoot)) continue;
+    for (const id of fs.readdirSync(catalogRoot)) {
+      if (!isUuidV7(id)) {
+        findings.push(`${rootName}/${id}: not a valid id`);
+        continue;
+      }
+      const entryPath = path.join(catalogRoot, id);
+      const stat = fs.lstatSync(entryPath);
+      if (stat.isSymbolicLink()) {
+        findings.push(`${rootName}/${id}: symlink entries are not permitted`);
+        continue;
+      }
+      if (!stat.isDirectory()) {
+        findings.push(`${rootName}/${id}: entry must be a directory`);
+        continue;
+      }
+      const before = findings.length;
+      const entry = checkRequiredFile(planningRoot, path.join(rootName, id, fileName), schemaName, findings);
+      if (entry && entry.id !== id) findings.push(`${rootName}/${id}/${fileName}: id must match directory`);
+      if (before === findings.length && schemaName === "environment") {
+        const laneIds = new Set(config?.policies?.release?.lanes?.map((lane) => lane.id) || []);
+        for (const laneRef of entry.laneRefs || []) {
+          if (!laneIds.has(laneRef)) findings.push(`${rootName}/${id}/${fileName}: laneRef ${laneRef} is not configured`);
         }
       }
     }

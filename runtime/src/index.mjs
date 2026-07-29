@@ -4,7 +4,7 @@ import { runInit, runConfigSet, runConfigScopeAdd } from "./commands/init.mjs";
 import { runChangesetPropose, runChangesetValidate, runChangesetApprove, runChangesetApply } from "./commands/changesetCommand.mjs";
 import { checkSchema } from "./commands/check.mjs";
 import { checkGuides } from "./commands/checkGuides.mjs";
-import { runReleaseNew, runReleaseStatus } from "./commands/release.mjs";
+import { runReleaseNew, runReleaseStatus, runReleasePolicyConfigure, runReleaseScopeSet, runReleaseRefsSet, runReleaseDeploymentRecord } from "./commands/release.mjs";
 import { runDiscoverScan, runDiscoverValidate } from "./commands/discover.mjs";
 import { runDiscoveryPropose } from "./commands/discoveryChangeSet.mjs";
 import { isUuidV7 } from "./lib/ids.mjs";
@@ -18,7 +18,7 @@ import { evaluateGuideHealth, evaluateGuideReadiness } from "./lib/guideHealth.m
 
 export { UsageError, StateError, StaleError, RecoveryRequiredError, LockHeldError, PathConfinementError, evaluateCondition, renderGuideMarkdown, compareGuideProjection, evaluateGuideHealth, evaluateGuideReadiness };
 
-const IN_SCOPE_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "scope.generator.set", "guide.update", "release.create"]);
+const IN_SCOPE_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "scope.generator.set", "guide.update", "release.create", "release.policy.configure", "release.scopeRefs.set", "release.operationalRefs.set", "release.deployment.record"]);
 const PROJECT_TYPES = new Set(["software", "non_software", "mixed", "unknown"]);
 
 function requireProjectType(value) {
@@ -176,6 +176,54 @@ export function dispatch(command, args, cwd, runtimeContext = null) {
       const reference = rest[0];
       if (!reference) throw new UsageError("release status requires <id-or-display-id>");
       return runReleaseStatus({ planningRoot, reference });
+    }
+    if (stage === "policy" && rest[0] === "configure") {
+      const reference = rest[1];
+      const options = argsToOptions(rest.slice(2));
+      if (!reference || !options.actor) throw new UsageError("release policy configure requires <id-or-display-id> and --actor");
+      return runReleasePolicyConfigure({
+        planningRoot,
+        args: {
+          releaseRef: reference,
+          laneId: options.lane_id,
+          policyMode: options.policy_mode,
+          previousReleaseRefs: options.previous_release_refs,
+          dependencyRefs: options.dependency_refs,
+          idempotencyKey: options.idempotency_key,
+          actor: options.actor
+        }
+      });
+    }
+    if (stage === "scope" && rest[0] === "set") {
+      const reference = rest[1];
+      const options = argsToOptions(rest.slice(2));
+      if (!reference || !options.actor) throw new UsageError("release scope set requires <id-or-display-id>, --scope-ids and --actor");
+      return runReleaseScopeSet({ planningRoot, args: { releaseRef: reference, scopeIds: options.scope_ids, policyMode: options.policy_mode, idempotencyKey: options.idempotency_key, actor: options.actor } });
+    }
+    if (stage === "refs" && rest[0] === "set") {
+      const reference = rest[1];
+      const options = argsToOptions(rest.slice(2));
+      if (!reference || !options.actor) throw new UsageError("release refs set requires <id-or-display-id> and --actor");
+      return runReleaseRefsSet({ planningRoot, args: { releaseRef: reference, executionContextRefs: options.execution_context_refs, environmentRefs: options.environment_refs, idempotencyKey: options.idempotency_key, actor: options.actor } });
+    }
+    if (stage === "deployment" && rest[0] === "record") {
+      const reference = rest[1];
+      const options = argsToOptions(rest.slice(2));
+      if (!reference || !options.environment_ref || !options.status || !options.actor) throw new UsageError("release deployment record requires <id-or-display-id>, --environment-ref, --status and --actor");
+      return runReleaseDeploymentRecord({
+        planningRoot,
+        args: {
+          releaseRef: reference,
+          environmentRef: options.environment_ref,
+          executionContextRef: options.execution_context_ref,
+          status: options.status,
+          artifactRefs: options.artifact_refs,
+          evidenceRefs: options.evidence_refs,
+          completedAt: options.completed_at,
+          idempotencyKey: options.idempotency_key,
+          actor: options.actor
+        }
+      });
     }
     return notImplemented(`release ${stage || ""}`.trim());
   }

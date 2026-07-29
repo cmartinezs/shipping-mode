@@ -4,10 +4,11 @@ import os from "node:os";
 import path from "node:path";
 import { runInit, runConfigSet, runConfigScopeAdd } from "../init.mjs";
 import { runChangesetPropose, runChangesetValidate, runChangesetApprove, runChangesetApply } from "../changesetCommand.mjs";
-import { runReleaseNew, runReleaseStatus } from "../release.mjs";
-import { readOperation, readChangeSet } from "../../lib/operationStore.mjs";
+import { runReleaseNew, runReleaseStatus, runReleasePolicyConfigure, runReleaseScopeSet, runReleaseRefsSet, runReleaseDeploymentRecord } from "../release.mjs";
+import { readOperation, readChangeSet, writeChangeSet } from "../../lib/operationStore.mjs";
+import { computePersistedChangeSetHash } from "../../lib/changeset.mjs";
 import { parseYaml, stringifyYaml } from "../../lib/yaml.mjs";
-import { isUuidV7 } from "../../lib/ids.mjs";
+import { generateUuidV7, isUuidV7 } from "../../lib/ids.mjs";
 import { UsageError } from "../../lib/errors.mjs";
 import { PLUGIN_VERSION, TEMPLATE_PACK_FINGERPRINT } from "../../generated/build-meta.mjs";
 
@@ -189,6 +190,76 @@ assert.equal(releaseOperation.expectedEvents[0].document.payload.changeSetHash, 
 assert.equal(runReleaseStatus({ planningRoot, reference: releaseCreate.releaseId }).status, "FOUND");
 assert.equal(runReleaseStatus({ planningRoot, reference: releaseCreate.displayId }).release.id, releaseCreate.releaseId);
 assert.equal(runReleaseStatus({ planningRoot, reference: "ignored-for-identity" }).status, "NOT_FOUND", "slug must not resolve");
+const scopeRefsSet = runReleaseScopeSet({
+  planningRoot,
+  args: { releaseRef: releaseCreate.releaseId, scopeIds: scopeResult.scopeId, policyMode: "strict", idempotencyKey: "scope-refs-plan2", actor: "carlos" }
+});
+runChangesetValidate({ planningRoot, operationsRoot, operationId: scopeRefsSet.operationId });
+runChangesetApprove({ operationsRoot, planningRoot, operationId: scopeRefsSet.operationId, actor: "carlos", allowSelfApproval: true });
+runChangesetApply({ planningRoot, operationsRoot, operationId: scopeRefsSet.operationId, actor: "carlos" });
+const releaseAfterScopeRefs = parseYaml(fs.readFileSync(releaseYmlPath, "utf8"));
+assert.equal(releaseAfterScopeRefs.scopeRefs.length, 1);
+assert.equal(releaseAfterScopeRefs.scopeRefs[0].scopeId, scopeResult.scopeId);
+assert.equal(releaseAfterScopeRefs.scopeRefs[0].readiness.ready, false, "missing guides must not become vacuous readiness");
+assert.ok(releaseAfterScopeRefs.scopeRefs[0].findings.some((finding) => finding.code === "GUIDE_MISSING"));
+const configForPlan2 = parseYaml(fs.readFileSync(configPathDuringRelease, "utf8"));
+configForPlan2.policies.release.lanes.push({ id: "hotfix", label: "Hotfix" });
+fs.writeFileSync(configPathDuringRelease, stringifyYaml(configForPlan2));
+const policyConfigure = runReleasePolicyConfigure({
+  planningRoot,
+  args: { releaseRef: releaseCreate.displayId, laneId: "hotfix", policyMode: "dependency_graph", dependencyRefs: "", idempotencyKey: "policy-plan2", actor: "carlos" }
+});
+runChangesetValidate({ planningRoot, operationsRoot, operationId: policyConfigure.operationId });
+runChangesetApprove({ operationsRoot, planningRoot, operationId: policyConfigure.operationId, actor: "carlos", allowSelfApproval: true });
+runChangesetApply({ planningRoot, operationsRoot, operationId: policyConfigure.operationId, actor: "carlos" });
+let releaseAfterPolicy = parseYaml(fs.readFileSync(releaseYmlPath, "utf8"));
+assert.equal(releaseAfterPolicy.lane.id, "hotfix");
+assert.equal(releaseAfterPolicy.policy.mode, "dependency_graph");
+const executionContextId = generateUuidV7();
+const environmentId = generateUuidV7();
+fs.mkdirSync(path.join(planningRoot, "execution-contexts", executionContextId), { recursive: true });
+fs.writeFileSync(path.join(planningRoot, "execution-contexts", executionContextId, "execution-context.yml"), stringifyYaml({ schemaVersion: 1, id: executionContextId, kind: "ci", label: "CI" }));
+fs.mkdirSync(path.join(planningRoot, "environments", environmentId), { recursive: true });
+fs.writeFileSync(path.join(planningRoot, "environments", environmentId, "environment.yml"), stringifyYaml({ schemaVersion: 1, id: environmentId, kind: "staging", label: "Staging", laneRefs: ["hotfix"] }));
+const refsSet = runReleaseRefsSet({
+  planningRoot,
+  args: { releaseRef: releaseCreate.releaseId, executionContextRefs: executionContextId, environmentRefs: environmentId, idempotencyKey: "ops-refs-plan2", actor: "carlos" }
+});
+runChangesetValidate({ planningRoot, operationsRoot, operationId: refsSet.operationId });
+runChangesetApprove({ operationsRoot, planningRoot, operationId: refsSet.operationId, actor: "carlos", allowSelfApproval: true });
+runChangesetApply({ planningRoot, operationsRoot, operationId: refsSet.operationId, actor: "carlos" });
+const deploymentRecord = runReleaseDeploymentRecord({
+  planningRoot,
+  args: { releaseRef: releaseCreate.releaseId, environmentRef: environmentId, executionContextRef: executionContextId, status: "succeeded", evidenceRefs: "evidence://deploy/1", idempotencyKey: "deploy-plan2", actor: "carlos" }
+});
+runChangesetValidate({ planningRoot, operationsRoot, operationId: deploymentRecord.operationId });
+runChangesetApprove({ operationsRoot, planningRoot, operationId: deploymentRecord.operationId, actor: "carlos", allowSelfApproval: true });
+runChangesetApply({ planningRoot, operationsRoot, operationId: deploymentRecord.operationId, actor: "carlos" });
+const releaseAfterDeployment = parseYaml(fs.readFileSync(releaseYmlPath, "utf8"));
+assert.equal(releaseAfterDeployment.status, "DRAFT", "deployment evidence must not auto-transition lifecycle");
+assert.deepEqual(releaseAfterDeployment.executionContextRefs, [executionContextId]);
+assert.deepEqual(releaseAfterDeployment.environmentRefs, [environmentId]);
+assert.equal(releaseAfterDeployment.deploymentEvents.length, 1);
+assert.equal(readOperation(operationsRoot, deploymentRecord.operationId).expectedEvents[0].document.payload.deploymentEventId, releaseAfterDeployment.deploymentEvents[0].id);
+const tamperedDeployment = runReleaseDeploymentRecord({
+  planningRoot,
+  args: { releaseRef: releaseCreate.releaseId, environmentRef: environmentId, executionContextRef: executionContextId, status: "started", idempotencyKey: "deploy-plan2-tampered", actor: "carlos" }
+});
+const tamperedChangeSet = readChangeSet(operationsRoot, tamperedDeployment.operationId);
+tamperedChangeSet.payload.updatedBy = "mallory";
+tamperedChangeSet.payload.deploymentEvent.actor = "mallory";
+tamperedChangeSet.payload.requestSnapshot.status = "failed";
+tamperedChangeSet.payload.deploymentEvent.status = "failed";
+tamperedChangeSet.payload.idempotencyRequestHash = "0".repeat(64);
+tamperedChangeSet.hash = computePersistedChangeSetHash(tamperedChangeSet);
+writeChangeSet(operationsRoot, tamperedDeployment.operationId, tamperedChangeSet);
+const tamperedOutcome = runChangesetValidate({ planningRoot, operationsRoot, operationId: tamperedDeployment.operationId });
+assert.equal(tamperedOutcome.status, "INVALID", "recomputed ChangeSet hashes must not permit caller edits to server-bound Plan 2 state");
+assert.ok(tamperedOutcome.errors.some((error) => error.includes("server-owned proposal hash") || error.includes("server-owned Operation")));
+const plan2Status = runReleaseStatus({ planningRoot, reference: releaseCreate.releaseId });
+assert.equal(plan2Status.deployment.count, 1);
+assert.deepEqual(plan2Status.refs.executionContextRefs, [executionContextId]);
+assert.deepEqual(plan2Status.refs.environmentRefs, [environmentId]);
 const idempotent = runReleaseNew({
   planningRoot,
   args: {

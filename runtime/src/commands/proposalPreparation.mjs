@@ -4,8 +4,9 @@ import { BOOTSTRAP_CANONICAL_DIRECTORIES } from "../lib/bootstrapTopology.mjs";
 import { deriveUniqueReleaseDisplayId } from "../lib/releaseIdentity.mjs";
 import { releaseReadmeRelativePath, releaseYamlRelativePath } from "../lib/releaseStore.mjs";
 import { releaseCreateRequestHash } from "../lib/releaseCreate.mjs";
+import { assertValidLaneConfig } from "../lib/releasePolicy.mjs";
 
-const SUPPORTED_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "scope.generator.set", "guide.update", "release.create"]);
+const SUPPORTED_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "scope.generator.set", "guide.update", "release.create", "release.policy.configure", "release.scopeRefs.set", "release.operationalRefs.set", "release.deployment.record"]);
 const RELEASE_CREATE_ALLOWED_FIELDS = new Set(["title", "objective", "laneId", "policyMode", "slug", "idempotencyKey"]);
 const RELEASE_CREATE_SERVER_FIELDS = new Set(["id", "displayId", "displayIdStatus", "status", "createdAt", "createdBy", "updatedAt", "updatedBy", "audit", "completion", "readiness", "canonicalPath", "approval", "scopeRefs", "itemRefs", "blockers", "risks", "deploymentEvents", "finalization", "requestSnapshot", "idempotencyRequestHash"]);
 
@@ -150,6 +151,7 @@ export function prepareProposal(kind, rawPayload, {
     const policyMode = requestSnapshot.policyMode
       ?? requireTrimmedString(currentConfig.policies.release.mode, "Project Context policies.release.mode");
     if (!["strict_sequence", "dependency_graph"].includes(policyMode)) throw new UsageError(`unsupported release policy mode: ${policyMode}`);
+    assertValidLaneConfig(currentConfig, laneId);
     const id = releaseId ?? generateUuidV7();
     const display = deriveUniqueReleaseDisplayId(id, existingReleases);
     const payload = {

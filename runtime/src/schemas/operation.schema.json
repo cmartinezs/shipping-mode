@@ -26,7 +26,11 @@
         "discovery.propose",
         "guide.update",
         "scope.generator.set",
-        "release.create"
+        "release.create",
+        "release.policy.configure",
+        "release.scopeRefs.set",
+        "release.operationalRefs.set",
+        "release.deployment.record"
       ]
     },
     "status": {
@@ -46,6 +50,19 @@
     },
     "proposedAt": {
       "type": "string"
+    },
+    "requestBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "requestHash"],
+      "properties": {
+        "key": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "requestHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "proposalHash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
     },
     "reservedEvents": {
       "type": "array",

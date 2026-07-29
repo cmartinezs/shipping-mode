@@ -48,8 +48,8 @@ execution.
 
 | # | Plan | Boundary | Status | Document |
 |---|---|---|---|---|
-| 1 | Release core | Identity, closed schema, UUIDv7 storage, lifecycle create/DRAFT, Release ChangeSet kind, YAML+README projection, release new/status, check schema integration, immutable create event | **Implementation complete; pending PR merge** | `2026-07-28-corte-2-plan-1-release-core.md` |
-| 2 | Release policy and operational references | Sequence/dependency policy, lane validation, scope guide revision index, execution-context refs, environment refs and deployment-event records | **Pending Plan 1** | _TBD_ |
+| 1 | Release core | Identity, closed schema, UUIDv7 storage, lifecycle create/DRAFT, Release ChangeSet kind, YAML+README projection, release new/status, check schema integration, immutable create event | **Merged (PR #21 to develop); complete** | `2026-07-28-corte-2-plan-1-release-core.md` |
+| 2 | Release policy and operational references | Sequence/dependency policy, lane validation, scope guide revision index, execution-context refs, environment refs and deployment-event records | **Implementation complete; pending PR merge** | `2026-07-29-corte-2-plan-2-release-policy-operational-refs.md` |
 | 3 | Derived health and Corte 2 closure | Completion/readiness evaluation, finalization mutation, `check release`, projection/report primitives and final E2E/DoD audit | **Pending Plan 2** | _TBD_ |
 
 ## Stop Rule For Current PR
@@ -62,8 +62,8 @@ release notes, retrospective AI, `release_train` or parallel execution.
 Corte 1: COMPLETE
 
 Corte 2:
-  Plan 1 — Implementation complete; pending PR merge
-  Plan 2 — Pending Plan 1
+  Plan 1 — Merged (PR #21 to develop); complete
+  Plan 2 — Implementation complete; pending PR merge
   Plan 3 — Pending Plan 2
 
 Corte 2: OPEN

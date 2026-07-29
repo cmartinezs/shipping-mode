@@ -62,6 +62,18 @@ export function projectContextConsistencyFindings(config, { knownSourceIds = nul
     }
   }
 
+  const releasePolicy = config.policies?.release;
+  if (releasePolicy) {
+    const laneOwners = new Set();
+    for (const lane of releasePolicy.lanes || []) {
+      if (laneOwners.has(lane.id)) findings.push(`config.yml: duplicate release lane id ${lane.id}`);
+      laneOwners.add(lane.id);
+    }
+    if (!laneOwners.has(releasePolicy.defaultLane)) {
+      findings.push(`config.yml: policies.release.defaultLane ${releasePolicy.defaultLane} is not configured in policies.release.lanes`);
+    }
+  }
+
   const ids = new Set();
   for (const source of config.work_sources || []) {
     if (ids.has(source.id)) findings.push(`config.yml: duplicate work source id ${source.id}`);

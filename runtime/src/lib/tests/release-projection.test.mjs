@@ -13,6 +13,8 @@ const release = {
   lane: { id: "main" },
   policy: { mode: "strict_sequence", previousReleaseRefs: [], dependencyRefs: [] },
   scopeRefs: [],
+  executionContextRefs: [],
+  environmentRefs: [],
   itemRefs: [],
   blockers: [],
   risks: [],
