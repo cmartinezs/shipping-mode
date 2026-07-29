@@ -3,13 +3,15 @@ name: PR21 Review Corrections
 on:
   pull_request:
     branches: [develop]
+  push:
+    branches: [agent/corte-2-plan-1-release-core]
 
 permissions:
   contents: write
 
 jobs:
   verify:
-    if: github.event.pull_request.head.ref == 'agent/corte-2-plan-1-release-core'
+    if: github.ref == 'refs/heads/agent/corte-2-plan-1-release-core' || github.event.pull_request.head.ref == 'agent/corte-2-plan-1-release-core'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
