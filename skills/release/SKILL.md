@@ -56,6 +56,13 @@ pending non-terminal `release.create` Operations as reservations. Validate and
 apply also recheck persisted display-ID ownership, so concurrent proposals
 cannot publish duplicate display IDs.
 
+Plan 2 mutations retain a server-owned request binding and proposal hash in the
+Operation. Editing a persisted ChangeSet and recomputing its public hash cannot
+change normalized caller intent, actor, timestamps, resolved Release targets or
+deployment evidence. Release policy validation evaluates the complete catalog
+using a canonically revised candidate state, so incoming links, branching and
+indirect cycles cannot be hidden by reconfiguring one Release in isolation.
+
 ## Stop Conditions
 
 - Stop if `status` reports `RECOVERY_REQUIRED`, `AMBIGUOUS` or `NOT_FOUND`.
