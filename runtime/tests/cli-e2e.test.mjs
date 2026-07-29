@@ -5,7 +5,7 @@ import path from "node:path";
 import { execFileSync, execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
-import { parseYaml } from "../src/lib/yaml.mjs";
+import { parseYaml, stringifyYaml } from "../src/lib/yaml.mjs";
 import { isUuidV7 } from "../src/lib/ids.mjs";
 import { PLUGIN_VERSION, TEMPLATE_PACK_FINGERPRINT } from "../src/generated/build-meta.mjs";
 
@@ -201,6 +201,57 @@ function fullyInit(cwd) {
   const unknown = run(["release", "status", "018f0000-0000-7000-8000-000000000999"], cwd);
   assert.equal(unknown.code, 1);
   assert.equal(unknown.json.status, "NOT_FOUND");
+}
+
+// release Plan 2: policy configure, operational refs and deployment record stay ChangeSet-bound and query-only status reports them
+{
+  const cwd = freshWorkspace();
+  fullyInit(cwd);
+  const release = run(["release", "new", "--title", "Release Ops", "--objective", "Record operational refs", "--idempotency-key", "cli-plan2-release", "--actor", "carlos"], cwd);
+  run(["changeset", "validate", release.json.operationId], cwd);
+  run(["changeset", "approve", release.json.operationId, "--actor", "carlos", "--allow-self-approval"], cwd);
+  run(["changeset", "apply", release.json.operationId, "--actor", "carlos"], cwd);
+
+  const configPath = path.join(cwd, ".planning", "config.yml");
+  const config = parseYaml(fs.readFileSync(configPath, "utf8"));
+  config.policies.release.lanes.push({ id: "hotfix", label: "Hotfix" });
+  fs.writeFileSync(configPath, stringifyYaml(config));
+
+  const policy = run(["release", "policy", "configure", release.json.displayId, "--lane-id", "hotfix", "--policy-mode", "dependency_graph", "--dependency-refs", "", "--idempotency-key", "cli-plan2-policy", "--actor", "carlos"], cwd);
+  assert.equal(policy.code, 0);
+  run(["changeset", "validate", policy.json.operationId], cwd);
+  run(["changeset", "approve", policy.json.operationId, "--actor", "carlos", "--allow-self-approval"], cwd);
+  run(["changeset", "apply", policy.json.operationId, "--actor", "carlos"], cwd);
+
+  const executionContextId = "018f0000-0000-7000-8000-00000000c101";
+  const environmentId = "018f0000-0000-7000-8000-00000000e101";
+  fs.mkdirSync(path.join(cwd, ".planning", "execution-contexts", executionContextId), { recursive: true });
+  fs.writeFileSync(path.join(cwd, ".planning", "execution-contexts", executionContextId, "execution-context.yml"), stringifyYaml({ schemaVersion: 1, id: executionContextId, kind: "ci", label: "CI" }));
+  fs.mkdirSync(path.join(cwd, ".planning", "environments", environmentId), { recursive: true });
+  fs.writeFileSync(path.join(cwd, ".planning", "environments", environmentId, "environment.yml"), stringifyYaml({ schemaVersion: 1, id: environmentId, kind: "staging", label: "Staging", laneRefs: ["hotfix"] }));
+
+  const refs = run(["release", "refs", "set", release.json.releaseId, "--execution-context-refs", executionContextId, "--environment-refs", environmentId, "--idempotency-key", "cli-plan2-refs", "--actor", "carlos"], cwd);
+  assert.equal(refs.code, 0);
+  run(["changeset", "validate", refs.json.operationId], cwd);
+  run(["changeset", "approve", refs.json.operationId, "--actor", "carlos", "--allow-self-approval"], cwd);
+  run(["changeset", "apply", refs.json.operationId, "--actor", "carlos"], cwd);
+
+  const deployment = run(["release", "deployment", "record", release.json.releaseId, "--environment-ref", environmentId, "--execution-context-ref", executionContextId, "--status", "succeeded", "--evidence-refs", "evidence://cli/deploy", "--idempotency-key", "cli-plan2-deployment", "--actor", "carlos"], cwd);
+  assert.equal(deployment.code, 0);
+  run(["changeset", "validate", deployment.json.operationId], cwd);
+  run(["changeset", "approve", deployment.json.operationId, "--actor", "carlos", "--allow-self-approval"], cwd);
+  run(["changeset", "apply", deployment.json.operationId, "--actor", "carlos"], cwd);
+
+  const status = run(["release", "status", release.json.releaseId], cwd);
+  assert.equal(status.code, 0);
+  assert.equal(status.json.release.lifecycle, "DRAFT", "deployment record must not auto-transition lifecycle");
+  assert.equal(status.json.release.policyMode, "dependency_graph");
+  assert.deepEqual(status.json.refs.executionContextRefs, [executionContextId]);
+  assert.deepEqual(status.json.refs.environmentRefs, [environmentId]);
+  assert.equal(status.json.deployment.count, 1);
+  const invalidLane = run(["release", "policy", "configure", release.json.releaseId, "--lane-id", "missing", "--idempotency-key", "cli-plan2-invalid-lane", "--actor", "carlos"], cwd);
+  assert.equal(invalidLane.code, 2);
+  assert.match(invalidLane.json.error, /LANE_INVALID/);
 }
 
 // changeset propose --payload-file <file>

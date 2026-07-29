@@ -11,7 +11,7 @@ const validConfig = {
   project: { name: "demo", type: "software" },
   plugin: { schemaVersion: 1, launcher: "shipping-mode" },
   policies: {
-    release: { mode: "strict_sequence", defaultLane: "main" },
+    release: { mode: "strict_sequence", defaultLane: "main", lanes: [{ id: "main", label: "Main" }] },
     workSources: { defaultSyncMode: "import_only", defaultSourcePolicy: "import_snapshot", externalWrites: "approval_required" },
     paths: { workspaceBoundary: "current_directory" }
   },
@@ -67,6 +67,8 @@ const validRelease = {
   lane: { id: "main" },
   policy: { mode: "strict_sequence", previousReleaseRefs: [], dependencyRefs: [] },
   scopeRefs: [],
+  executionContextRefs: [],
+  environmentRefs: [],
   itemRefs: [],
   blockers: [],
   risks: [],
