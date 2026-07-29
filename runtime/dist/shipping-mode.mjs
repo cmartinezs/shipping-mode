@@ -5488,11 +5488,11 @@ import fs24 from "node:fs";
 import path24 from "node:path";
 
 // runtime/src/commands/init.mjs
-import path11 from "node:path";
+import path15 from "node:path";
 
 // runtime/src/lib/changeset.mjs
-import fs12 from "node:fs";
-import path10 from "node:path";
+import fs17 from "node:fs";
+import path14 from "node:path";
 
 // runtime/src/lib/ids.mjs
 import crypto from "node:crypto";
@@ -15706,7 +15706,7 @@ function validate83(data, { instancePath = "", parentData, parentDataProperty, r
   }
   return validate83.errors = vErrors, errors === 0;
 }
-var validate_operation = validate97, schema174 = { $id: "https://shipping-mode.dev/schemas/operation.schema.json", type: "object", additionalProperties: !1, required: ["id", "kind", "status", "proposedBy", "proposedAt", "reservedEvents", "history"], properties: { id: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, kind: { enum: ["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "discovery.propose", "guide.update", "scope.generator.set", "release.create", "release.policy.configure", "release.scopeRefs.set", "release.operationalRefs.set", "release.deployment.record"] }, status: { enum: ["PROPOSED", "VALIDATED", "APPROVED", "APPLYING", "APPLIED", "INVALID", "STALE", "RECOVERY_REQUIRED"] }, proposedBy: { type: "string" }, proposedAt: { type: "string" }, reservedEvents: { type: "array", minItems: 1, items: { type: "object", additionalProperties: !1, required: ["eventId", "type"], properties: { eventId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, type: { type: "string", minLength: 1 } } } }, validation: { type: "object", additionalProperties: !1, properties: { validatedAt: { type: ["string", "null"] }, changeSetHash: { type: ["string", "null"], pattern: "^[0-9a-f]{64}$" }, errors: { type: "array", items: { type: "string" } } } }, approval: { type: "object", additionalProperties: !1, properties: { actor: { type: ["string", "null"] }, approvedAt: { type: ["string", "null"] }, changeSetHash: { type: ["string", "null"], pattern: "^[0-9a-f]{64}$" }, selfApproval: { type: ["boolean", "null"] }, mode: { type: ["string", "null"], enum: ["human", "autonomous", null] } } }, autonomyEvaluation: { type: "object", additionalProperties: !1, required: ["operationId", "changeSetHash", "policyFingerprint", "autoApprovable", "blockedBy"], properties: { operationId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, changeSetHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, policyFingerprint: { type: "string", pattern: "^[0-9a-f]{64}$" }, autoApprovable: { type: "boolean" }, blockedBy: { type: "array", items: { type: "object", additionalProperties: !1, required: ["itemRef", "reason"], properties: { itemRef: { type: "string", minLength: 1 }, reason: { enum: ["family_not_allowlisted", "authority_above_ceiling", "authority_escalation", "low_confidence", "alternatives_present", "destructive_action", "new_scope_always_pauses", "default_pause", "autonomy_config_change", "policy_changed_since_validation"] } } } } } }, filePlan: { type: "array", items: { type: "object", additionalProperties: !1, required: ["target", "action", "expectedBefore", "beforeContentHash", "beforeRevisionHash", "stagedContentHash", "stagedRevisionHash"], properties: { target: { type: "string" }, action: { enum: ["write", "delete", "mkdir"] }, stagedRelativePath: { type: "string" }, expectedBefore: { enum: ["ABSENT", "PRESENT"] }, beforeContentHash: { type: "string", pattern: "^([0-9a-f]{64}|ABSENT)$" }, beforeRevisionHash: { type: "string", pattern: "^([0-9a-f]{64}|ABSENT)$" }, stagedContentHash: { type: "string", pattern: "^([0-9a-f]{64}|ABSENT)$" }, stagedRevisionHash: { type: "string", pattern: "^([0-9a-f]{64}|ABSENT)$" } }, allOf: [{ if: { properties: { action: { const: "write" } } }, then: { required: ["stagedRelativePath"], properties: { stagedRelativePath: { type: "string" } } } }, { if: { properties: { action: { const: "delete" } } }, then: { properties: { stagedContentHash: { const: "ABSENT" }, stagedRevisionHash: { const: "ABSENT" } } } }, { if: { properties: { action: { const: "mkdir" } } }, then: { properties: { stagedContentHash: { const: "20dc703a130e4ad628a2659be71da655ef204d7c774431a82908cf46c2498c75" }, stagedRevisionHash: { const: "20dc703a130e4ad628a2659be71da655ef204d7c774431a82908cf46c2498c75" } }, not: { required: ["stagedRelativePath"] } } }] } }, expectedEvents: { type: "array", items: { type: "object", additionalProperties: !1, required: ["eventId", "relativePath", "contentHash", "document"], properties: { eventId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, relativePath: { type: "string" }, contentHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, document: { type: "object" } } } }, appliedAt: { type: ["string", "null"] }, conflict: { type: ["object", "null"] }, history: { type: "array", items: { type: "object", additionalProperties: !1, required: ["at", "to", "actor"], properties: { at: { type: "string" }, from: { type: ["string", "null"] }, to: { type: "string" }, actor: { type: "string" }, reason: { type: ["string", "null"] } } } } }, allOf: [{ if: { properties: { status: { enum: ["VALIDATED", "APPROVED", "APPLYING", "APPLIED"] } } }, then: { required: ["validation"], properties: { validation: { type: "object", required: ["validatedAt", "changeSetHash"], properties: { validatedAt: { type: "string" }, changeSetHash: { type: "string", pattern: "^[0-9a-f]{64}$" } } } } } }, { if: { required: ["kind", "status"], properties: { kind: { enum: ["discovery.propose", "config.autonomy.set"] }, status: { enum: ["VALIDATED", "APPROVED", "APPLYING", "APPLIED"] } } }, then: { required: ["autonomyEvaluation"], properties: { autonomyEvaluation: { $ref: "#/properties/autonomyEvaluation" } } } }, { if: { properties: { status: { enum: ["APPROVED", "APPLYING", "APPLIED"] } } }, then: { required: ["approval"], properties: { approval: { type: "object", required: ["actor", "approvedAt", "changeSetHash", "selfApproval", "mode"], properties: { actor: { type: "string" }, approvedAt: { type: "string" }, changeSetHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, selfApproval: { type: "boolean" }, mode: { enum: ["human", "autonomous"] } } } } } }, { if: { properties: { status: { enum: ["APPLYING", "APPLIED"] } } }, then: { required: ["filePlan", "expectedEvents"], properties: { filePlan: { type: "array", minItems: 1 }, expectedEvents: { type: "array", minItems: 1 } } } }, { if: { properties: { status: { const: "APPLIED" } } }, then: { required: ["appliedAt"], properties: { appliedAt: { type: "string" } } } }, { if: { properties: { status: { const: "RECOVERY_REQUIRED" } } }, then: { required: ["conflict"], properties: { conflict: { type: "object" } } } }] }, schema175 = { type: "object", additionalProperties: !1, required: ["operationId", "changeSetHash", "policyFingerprint", "autoApprovable", "blockedBy"], properties: { operationId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, changeSetHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, policyFingerprint: { type: "string", pattern: "^[0-9a-f]{64}$" }, autoApprovable: { type: "boolean" }, blockedBy: { type: "array", items: { type: "object", additionalProperties: !1, required: ["itemRef", "reason"], properties: { itemRef: { type: "string", minLength: 1 }, reason: { enum: ["family_not_allowlisted", "authority_above_ceiling", "authority_escalation", "low_confidence", "alternatives_present", "destructive_action", "new_scope_always_pauses", "default_pause", "autonomy_config_change", "policy_changed_since_validation"] } } } } } };
+var validate_operation = validate97, schema174 = { $id: "https://shipping-mode.dev/schemas/operation.schema.json", type: "object", additionalProperties: !1, required: ["id", "kind", "status", "proposedBy", "proposedAt", "reservedEvents", "history"], properties: { id: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, kind: { enum: ["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "discovery.propose", "guide.update", "scope.generator.set", "release.create", "release.policy.configure", "release.scopeRefs.set", "release.operationalRefs.set", "release.deployment.record"] }, status: { enum: ["PROPOSED", "VALIDATED", "APPROVED", "APPLYING", "APPLIED", "INVALID", "STALE", "RECOVERY_REQUIRED"] }, proposedBy: { type: "string" }, proposedAt: { type: "string" }, requestBinding: { type: "object", additionalProperties: !1, required: ["key", "requestHash"], properties: { key: { type: "string", minLength: 1, maxLength: 256 }, requestHash: { type: "string", pattern: "^[0-9a-f]{64}$" } } }, proposalHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, reservedEvents: { type: "array", minItems: 1, items: { type: "object", additionalProperties: !1, required: ["eventId", "type"], properties: { eventId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, type: { type: "string", minLength: 1 } } } }, validation: { type: "object", additionalProperties: !1, properties: { validatedAt: { type: ["string", "null"] }, changeSetHash: { type: ["string", "null"], pattern: "^[0-9a-f]{64}$" }, errors: { type: "array", items: { type: "string" } } } }, approval: { type: "object", additionalProperties: !1, properties: { actor: { type: ["string", "null"] }, approvedAt: { type: ["string", "null"] }, changeSetHash: { type: ["string", "null"], pattern: "^[0-9a-f]{64}$" }, selfApproval: { type: ["boolean", "null"] }, mode: { type: ["string", "null"], enum: ["human", "autonomous", null] } } }, autonomyEvaluation: { type: "object", additionalProperties: !1, required: ["operationId", "changeSetHash", "policyFingerprint", "autoApprovable", "blockedBy"], properties: { operationId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, changeSetHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, policyFingerprint: { type: "string", pattern: "^[0-9a-f]{64}$" }, autoApprovable: { type: "boolean" }, blockedBy: { type: "array", items: { type: "object", additionalProperties: !1, required: ["itemRef", "reason"], properties: { itemRef: { type: "string", minLength: 1 }, reason: { enum: ["family_not_allowlisted", "authority_above_ceiling", "authority_escalation", "low_confidence", "alternatives_present", "destructive_action", "new_scope_always_pauses", "default_pause", "autonomy_config_change", "policy_changed_since_validation"] } } } } } }, filePlan: { type: "array", items: { type: "object", additionalProperties: !1, required: ["target", "action", "expectedBefore", "beforeContentHash", "beforeRevisionHash", "stagedContentHash", "stagedRevisionHash"], properties: { target: { type: "string" }, action: { enum: ["write", "delete", "mkdir"] }, stagedRelativePath: { type: "string" }, expectedBefore: { enum: ["ABSENT", "PRESENT"] }, beforeContentHash: { type: "string", pattern: "^([0-9a-f]{64}|ABSENT)$" }, beforeRevisionHash: { type: "string", pattern: "^([0-9a-f]{64}|ABSENT)$" }, stagedContentHash: { type: "string", pattern: "^([0-9a-f]{64}|ABSENT)$" }, stagedRevisionHash: { type: "string", pattern: "^([0-9a-f]{64}|ABSENT)$" } }, allOf: [{ if: { properties: { action: { const: "write" } } }, then: { required: ["stagedRelativePath"], properties: { stagedRelativePath: { type: "string" } } } }, { if: { properties: { action: { const: "delete" } } }, then: { properties: { stagedContentHash: { const: "ABSENT" }, stagedRevisionHash: { const: "ABSENT" } } } }, { if: { properties: { action: { const: "mkdir" } } }, then: { properties: { stagedContentHash: { const: "20dc703a130e4ad628a2659be71da655ef204d7c774431a82908cf46c2498c75" }, stagedRevisionHash: { const: "20dc703a130e4ad628a2659be71da655ef204d7c774431a82908cf46c2498c75" } }, not: { required: ["stagedRelativePath"] } } }] } }, expectedEvents: { type: "array", items: { type: "object", additionalProperties: !1, required: ["eventId", "relativePath", "contentHash", "document"], properties: { eventId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, relativePath: { type: "string" }, contentHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, document: { type: "object" } } } }, appliedAt: { type: ["string", "null"] }, conflict: { type: ["object", "null"] }, history: { type: "array", items: { type: "object", additionalProperties: !1, required: ["at", "to", "actor"], properties: { at: { type: "string" }, from: { type: ["string", "null"] }, to: { type: "string" }, actor: { type: "string" }, reason: { type: ["string", "null"] } } } } }, allOf: [{ if: { properties: { status: { enum: ["VALIDATED", "APPROVED", "APPLYING", "APPLIED"] } } }, then: { required: ["validation"], properties: { validation: { type: "object", required: ["validatedAt", "changeSetHash"], properties: { validatedAt: { type: "string" }, changeSetHash: { type: "string", pattern: "^[0-9a-f]{64}$" } } } } } }, { if: { required: ["kind", "status"], properties: { kind: { enum: ["discovery.propose", "config.autonomy.set"] }, status: { enum: ["VALIDATED", "APPROVED", "APPLYING", "APPLIED"] } } }, then: { required: ["autonomyEvaluation"], properties: { autonomyEvaluation: { $ref: "#/properties/autonomyEvaluation" } } } }, { if: { properties: { status: { enum: ["APPROVED", "APPLYING", "APPLIED"] } } }, then: { required: ["approval"], properties: { approval: { type: "object", required: ["actor", "approvedAt", "changeSetHash", "selfApproval", "mode"], properties: { actor: { type: "string" }, approvedAt: { type: "string" }, changeSetHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, selfApproval: { type: "boolean" }, mode: { enum: ["human", "autonomous"] } } } } } }, { if: { properties: { status: { enum: ["APPLYING", "APPLIED"] } } }, then: { required: ["filePlan", "expectedEvents"], properties: { filePlan: { type: "array", minItems: 1 }, expectedEvents: { type: "array", minItems: 1 } } } }, { if: { properties: { status: { const: "APPLIED" } } }, then: { required: ["appliedAt"], properties: { appliedAt: { type: "string" } } } }, { if: { properties: { status: { const: "RECOVERY_REQUIRED" } } }, then: { required: ["conflict"], properties: { conflict: { type: "object" } } } }] }, schema175 = { type: "object", additionalProperties: !1, required: ["operationId", "changeSetHash", "policyFingerprint", "autoApprovable", "blockedBy"], properties: { operationId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, changeSetHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, policyFingerprint: { type: "string", pattern: "^[0-9a-f]{64}$" }, autoApprovable: { type: "boolean" }, blockedBy: { type: "array", items: { type: "object", additionalProperties: !1, required: ["itemRef", "reason"], properties: { itemRef: { type: "string", minLength: 1 }, reason: { enum: ["family_not_allowlisted", "authority_above_ceiling", "authority_escalation", "low_confidence", "alternatives_present", "destructive_action", "new_scope_always_pauses", "default_pause", "autonomy_config_change", "policy_changed_since_validation"] } } } } } };
 function validate97(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
   let vErrors = null, errors = 0, _errs2 = errors, valid1 = !0, _errs3 = errors;
   if (data && typeof data == "object" && !Array.isArray(data) && data.status !== void 0) {
@@ -16186,649 +16186,710 @@ function validate97(data, { instancePath = "", parentData, parentDataProperty, r
       let err80 = { instancePath: instancePath + "/proposedAt", schemaPath: "#/properties/proposedAt/type", keyword: "type", params: { type: "string" }, message: "must be string" };
       vErrors === null ? vErrors = [err80] : vErrors.push(err80), errors++;
     }
-    if (data.reservedEvents !== void 0) {
-      let data34 = data.reservedEvents;
-      if (Array.isArray(data34)) {
-        if (data34.length < 1) {
-          let err81 = { instancePath: instancePath + "/reservedEvents", schemaPath: "#/properties/reservedEvents/minItems", keyword: "minItems", params: { limit: 1 }, message: "must NOT have fewer than 1 items" };
+    if (data.requestBinding !== void 0) {
+      let data34 = data.requestBinding;
+      if (data34 && typeof data34 == "object" && !Array.isArray(data34)) {
+        if (data34.key === void 0) {
+          let err81 = { instancePath: instancePath + "/requestBinding", schemaPath: "#/properties/requestBinding/required", keyword: "required", params: { missingProperty: "key" }, message: "must have required property 'key'" };
           vErrors === null ? vErrors = [err81] : vErrors.push(err81), errors++;
         }
-        let len1 = data34.length;
-        for (let i1 = 0; i1 < len1; i1++) {
-          let data35 = data34[i1];
-          if (data35 && typeof data35 == "object" && !Array.isArray(data35)) {
-            if (data35.eventId === void 0) {
-              let err82 = { instancePath: instancePath + "/reservedEvents/" + i1, schemaPath: "#/properties/reservedEvents/items/required", keyword: "required", params: { missingProperty: "eventId" }, message: "must have required property 'eventId'" };
-              vErrors === null ? vErrors = [err82] : vErrors.push(err82), errors++;
+        if (data34.requestHash === void 0) {
+          let err82 = { instancePath: instancePath + "/requestBinding", schemaPath: "#/properties/requestBinding/required", keyword: "required", params: { missingProperty: "requestHash" }, message: "must have required property 'requestHash'" };
+          vErrors === null ? vErrors = [err82] : vErrors.push(err82), errors++;
+        }
+        for (let key3 in data34)
+          if (!(key3 === "key" || key3 === "requestHash")) {
+            let err83 = { instancePath: instancePath + "/requestBinding", schemaPath: "#/properties/requestBinding/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key3 }, message: "must NOT have additional properties" };
+            vErrors === null ? vErrors = [err83] : vErrors.push(err83), errors++;
+          }
+        if (data34.key !== void 0) {
+          let data35 = data34.key;
+          if (typeof data35 == "string") {
+            if (func2(data35) > 256) {
+              let err84 = { instancePath: instancePath + "/requestBinding/key", schemaPath: "#/properties/requestBinding/properties/key/maxLength", keyword: "maxLength", params: { limit: 256 }, message: "must NOT have more than 256 characters" };
+              vErrors === null ? vErrors = [err84] : vErrors.push(err84), errors++;
             }
-            if (data35.type === void 0) {
-              let err83 = { instancePath: instancePath + "/reservedEvents/" + i1, schemaPath: "#/properties/reservedEvents/items/required", keyword: "required", params: { missingProperty: "type" }, message: "must have required property 'type'" };
-              vErrors === null ? vErrors = [err83] : vErrors.push(err83), errors++;
-            }
-            for (let key3 in data35)
-              if (!(key3 === "eventId" || key3 === "type")) {
-                let err84 = { instancePath: instancePath + "/reservedEvents/" + i1, schemaPath: "#/properties/reservedEvents/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key3 }, message: "must NOT have additional properties" };
-                vErrors === null ? vErrors = [err84] : vErrors.push(err84), errors++;
-              }
-            if (data35.eventId !== void 0) {
-              let data36 = data35.eventId;
-              if (typeof data36 == "string") {
-                if (!pattern1.test(data36)) {
-                  let err85 = { instancePath: instancePath + "/reservedEvents/" + i1 + "/eventId", schemaPath: "#/properties/reservedEvents/items/properties/eventId/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, message: 'must match pattern "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"' };
-                  vErrors === null ? vErrors = [err85] : vErrors.push(err85), errors++;
-                }
-              } else {
-                let err86 = { instancePath: instancePath + "/reservedEvents/" + i1 + "/eventId", schemaPath: "#/properties/reservedEvents/items/properties/eventId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                vErrors === null ? vErrors = [err86] : vErrors.push(err86), errors++;
-              }
-            }
-            if (data35.type !== void 0) {
-              let data37 = data35.type;
-              if (typeof data37 == "string") {
-                if (func2(data37) < 1) {
-                  let err87 = { instancePath: instancePath + "/reservedEvents/" + i1 + "/type", schemaPath: "#/properties/reservedEvents/items/properties/type/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-                  vErrors === null ? vErrors = [err87] : vErrors.push(err87), errors++;
-                }
-              } else {
-                let err88 = { instancePath: instancePath + "/reservedEvents/" + i1 + "/type", schemaPath: "#/properties/reservedEvents/items/properties/type/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                vErrors === null ? vErrors = [err88] : vErrors.push(err88), errors++;
-              }
+            if (func2(data35) < 1) {
+              let err85 = { instancePath: instancePath + "/requestBinding/key", schemaPath: "#/properties/requestBinding/properties/key/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+              vErrors === null ? vErrors = [err85] : vErrors.push(err85), errors++;
             }
           } else {
-            let err89 = { instancePath: instancePath + "/reservedEvents/" + i1, schemaPath: "#/properties/reservedEvents/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-            vErrors === null ? vErrors = [err89] : vErrors.push(err89), errors++;
+            let err86 = { instancePath: instancePath + "/requestBinding/key", schemaPath: "#/properties/requestBinding/properties/key/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            vErrors === null ? vErrors = [err86] : vErrors.push(err86), errors++;
+          }
+        }
+        if (data34.requestHash !== void 0) {
+          let data36 = data34.requestHash;
+          if (typeof data36 == "string") {
+            if (!pattern6.test(data36)) {
+              let err87 = { instancePath: instancePath + "/requestBinding/requestHash", schemaPath: "#/properties/requestBinding/properties/requestHash/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
+              vErrors === null ? vErrors = [err87] : vErrors.push(err87), errors++;
+            }
+          } else {
+            let err88 = { instancePath: instancePath + "/requestBinding/requestHash", schemaPath: "#/properties/requestBinding/properties/requestHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            vErrors === null ? vErrors = [err88] : vErrors.push(err88), errors++;
           }
         }
       } else {
-        let err90 = { instancePath: instancePath + "/reservedEvents", schemaPath: "#/properties/reservedEvents/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        vErrors === null ? vErrors = [err90] : vErrors.push(err90), errors++;
+        let err89 = { instancePath: instancePath + "/requestBinding", schemaPath: "#/properties/requestBinding/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        vErrors === null ? vErrors = [err89] : vErrors.push(err89), errors++;
       }
     }
-    if (data.validation !== void 0) {
-      let data38 = data.validation;
-      if (data38 && typeof data38 == "object" && !Array.isArray(data38)) {
-        for (let key4 in data38)
-          if (!(key4 === "validatedAt" || key4 === "changeSetHash" || key4 === "errors")) {
-            let err91 = { instancePath: instancePath + "/validation", schemaPath: "#/properties/validation/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key4 }, message: "must NOT have additional properties" };
-            vErrors === null ? vErrors = [err91] : vErrors.push(err91), errors++;
-          }
-        if (data38.validatedAt !== void 0) {
-          let data39 = data38.validatedAt;
-          if (typeof data39 != "string" && data39 !== null) {
-            let err92 = { instancePath: instancePath + "/validation/validatedAt", schemaPath: "#/properties/validation/properties/validatedAt/type", keyword: "type", params: { type: schema174.properties.validation.properties.validatedAt.type }, message: "must be string,null" };
-            vErrors === null ? vErrors = [err92] : vErrors.push(err92), errors++;
-          }
+    if (data.proposalHash !== void 0) {
+      let data37 = data.proposalHash;
+      if (typeof data37 == "string") {
+        if (!pattern6.test(data37)) {
+          let err90 = { instancePath: instancePath + "/proposalHash", schemaPath: "#/properties/proposalHash/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
+          vErrors === null ? vErrors = [err90] : vErrors.push(err90), errors++;
         }
-        if (data38.changeSetHash !== void 0) {
-          let data40 = data38.changeSetHash;
-          if (typeof data40 != "string" && data40 !== null) {
-            let err93 = { instancePath: instancePath + "/validation/changeSetHash", schemaPath: "#/properties/validation/properties/changeSetHash/type", keyword: "type", params: { type: schema174.properties.validation.properties.changeSetHash.type }, message: "must be string,null" };
-            vErrors === null ? vErrors = [err93] : vErrors.push(err93), errors++;
-          }
-          if (typeof data40 == "string" && !pattern6.test(data40)) {
-            let err94 = { instancePath: instancePath + "/validation/changeSetHash", schemaPath: "#/properties/validation/properties/changeSetHash/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
-            vErrors === null ? vErrors = [err94] : vErrors.push(err94), errors++;
-          }
+      } else {
+        let err91 = { instancePath: instancePath + "/proposalHash", schemaPath: "#/properties/proposalHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        vErrors === null ? vErrors = [err91] : vErrors.push(err91), errors++;
+      }
+    }
+    if (data.reservedEvents !== void 0) {
+      let data38 = data.reservedEvents;
+      if (Array.isArray(data38)) {
+        if (data38.length < 1) {
+          let err92 = { instancePath: instancePath + "/reservedEvents", schemaPath: "#/properties/reservedEvents/minItems", keyword: "minItems", params: { limit: 1 }, message: "must NOT have fewer than 1 items" };
+          vErrors === null ? vErrors = [err92] : vErrors.push(err92), errors++;
         }
-        if (data38.errors !== void 0) {
-          let data41 = data38.errors;
-          if (Array.isArray(data41)) {
-            let len2 = data41.length;
-            for (let i2 = 0; i2 < len2; i2++)
-              if (typeof data41[i2] != "string") {
-                let err95 = { instancePath: instancePath + "/validation/errors/" + i2, schemaPath: "#/properties/validation/properties/errors/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        let len1 = data38.length;
+        for (let i1 = 0; i1 < len1; i1++) {
+          let data39 = data38[i1];
+          if (data39 && typeof data39 == "object" && !Array.isArray(data39)) {
+            if (data39.eventId === void 0) {
+              let err93 = { instancePath: instancePath + "/reservedEvents/" + i1, schemaPath: "#/properties/reservedEvents/items/required", keyword: "required", params: { missingProperty: "eventId" }, message: "must have required property 'eventId'" };
+              vErrors === null ? vErrors = [err93] : vErrors.push(err93), errors++;
+            }
+            if (data39.type === void 0) {
+              let err94 = { instancePath: instancePath + "/reservedEvents/" + i1, schemaPath: "#/properties/reservedEvents/items/required", keyword: "required", params: { missingProperty: "type" }, message: "must have required property 'type'" };
+              vErrors === null ? vErrors = [err94] : vErrors.push(err94), errors++;
+            }
+            for (let key4 in data39)
+              if (!(key4 === "eventId" || key4 === "type")) {
+                let err95 = { instancePath: instancePath + "/reservedEvents/" + i1, schemaPath: "#/properties/reservedEvents/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key4 }, message: "must NOT have additional properties" };
                 vErrors === null ? vErrors = [err95] : vErrors.push(err95), errors++;
               }
+            if (data39.eventId !== void 0) {
+              let data40 = data39.eventId;
+              if (typeof data40 == "string") {
+                if (!pattern1.test(data40)) {
+                  let err96 = { instancePath: instancePath + "/reservedEvents/" + i1 + "/eventId", schemaPath: "#/properties/reservedEvents/items/properties/eventId/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, message: 'must match pattern "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"' };
+                  vErrors === null ? vErrors = [err96] : vErrors.push(err96), errors++;
+                }
+              } else {
+                let err97 = { instancePath: instancePath + "/reservedEvents/" + i1 + "/eventId", schemaPath: "#/properties/reservedEvents/items/properties/eventId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                vErrors === null ? vErrors = [err97] : vErrors.push(err97), errors++;
+              }
+            }
+            if (data39.type !== void 0) {
+              let data41 = data39.type;
+              if (typeof data41 == "string") {
+                if (func2(data41) < 1) {
+                  let err98 = { instancePath: instancePath + "/reservedEvents/" + i1 + "/type", schemaPath: "#/properties/reservedEvents/items/properties/type/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+                  vErrors === null ? vErrors = [err98] : vErrors.push(err98), errors++;
+                }
+              } else {
+                let err99 = { instancePath: instancePath + "/reservedEvents/" + i1 + "/type", schemaPath: "#/properties/reservedEvents/items/properties/type/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                vErrors === null ? vErrors = [err99] : vErrors.push(err99), errors++;
+              }
+            }
           } else {
-            let err96 = { instancePath: instancePath + "/validation/errors", schemaPath: "#/properties/validation/properties/errors/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-            vErrors === null ? vErrors = [err96] : vErrors.push(err96), errors++;
-          }
-        }
-      } else {
-        let err97 = { instancePath: instancePath + "/validation", schemaPath: "#/properties/validation/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-        vErrors === null ? vErrors = [err97] : vErrors.push(err97), errors++;
-      }
-    }
-    if (data.approval !== void 0) {
-      let data43 = data.approval;
-      if (data43 && typeof data43 == "object" && !Array.isArray(data43)) {
-        for (let key5 in data43)
-          if (!(key5 === "actor" || key5 === "approvedAt" || key5 === "changeSetHash" || key5 === "selfApproval" || key5 === "mode")) {
-            let err98 = { instancePath: instancePath + "/approval", schemaPath: "#/properties/approval/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key5 }, message: "must NOT have additional properties" };
-            vErrors === null ? vErrors = [err98] : vErrors.push(err98), errors++;
-          }
-        if (data43.actor !== void 0) {
-          let data44 = data43.actor;
-          if (typeof data44 != "string" && data44 !== null) {
-            let err99 = { instancePath: instancePath + "/approval/actor", schemaPath: "#/properties/approval/properties/actor/type", keyword: "type", params: { type: schema174.properties.approval.properties.actor.type }, message: "must be string,null" };
-            vErrors === null ? vErrors = [err99] : vErrors.push(err99), errors++;
-          }
-        }
-        if (data43.approvedAt !== void 0) {
-          let data45 = data43.approvedAt;
-          if (typeof data45 != "string" && data45 !== null) {
-            let err100 = { instancePath: instancePath + "/approval/approvedAt", schemaPath: "#/properties/approval/properties/approvedAt/type", keyword: "type", params: { type: schema174.properties.approval.properties.approvedAt.type }, message: "must be string,null" };
+            let err100 = { instancePath: instancePath + "/reservedEvents/" + i1, schemaPath: "#/properties/reservedEvents/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
             vErrors === null ? vErrors = [err100] : vErrors.push(err100), errors++;
           }
         }
-        if (data43.changeSetHash !== void 0) {
-          let data46 = data43.changeSetHash;
-          if (typeof data46 != "string" && data46 !== null) {
-            let err101 = { instancePath: instancePath + "/approval/changeSetHash", schemaPath: "#/properties/approval/properties/changeSetHash/type", keyword: "type", params: { type: schema174.properties.approval.properties.changeSetHash.type }, message: "must be string,null" };
-            vErrors === null ? vErrors = [err101] : vErrors.push(err101), errors++;
-          }
-          if (typeof data46 == "string" && !pattern6.test(data46)) {
-            let err102 = { instancePath: instancePath + "/approval/changeSetHash", schemaPath: "#/properties/approval/properties/changeSetHash/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
+      } else {
+        let err101 = { instancePath: instancePath + "/reservedEvents", schemaPath: "#/properties/reservedEvents/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        vErrors === null ? vErrors = [err101] : vErrors.push(err101), errors++;
+      }
+    }
+    if (data.validation !== void 0) {
+      let data42 = data.validation;
+      if (data42 && typeof data42 == "object" && !Array.isArray(data42)) {
+        for (let key5 in data42)
+          if (!(key5 === "validatedAt" || key5 === "changeSetHash" || key5 === "errors")) {
+            let err102 = { instancePath: instancePath + "/validation", schemaPath: "#/properties/validation/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key5 }, message: "must NOT have additional properties" };
             vErrors === null ? vErrors = [err102] : vErrors.push(err102), errors++;
           }
-        }
-        if (data43.selfApproval !== void 0) {
-          let data47 = data43.selfApproval;
-          if (typeof data47 != "boolean" && data47 !== null) {
-            let err103 = { instancePath: instancePath + "/approval/selfApproval", schemaPath: "#/properties/approval/properties/selfApproval/type", keyword: "type", params: { type: schema174.properties.approval.properties.selfApproval.type }, message: "must be boolean,null" };
+        if (data42.validatedAt !== void 0) {
+          let data43 = data42.validatedAt;
+          if (typeof data43 != "string" && data43 !== null) {
+            let err103 = { instancePath: instancePath + "/validation/validatedAt", schemaPath: "#/properties/validation/properties/validatedAt/type", keyword: "type", params: { type: schema174.properties.validation.properties.validatedAt.type }, message: "must be string,null" };
             vErrors === null ? vErrors = [err103] : vErrors.push(err103), errors++;
           }
         }
-        if (data43.mode !== void 0) {
-          let data48 = data43.mode;
-          if (typeof data48 != "string" && data48 !== null) {
-            let err104 = { instancePath: instancePath + "/approval/mode", schemaPath: "#/properties/approval/properties/mode/type", keyword: "type", params: { type: schema174.properties.approval.properties.mode.type }, message: "must be string,null" };
+        if (data42.changeSetHash !== void 0) {
+          let data44 = data42.changeSetHash;
+          if (typeof data44 != "string" && data44 !== null) {
+            let err104 = { instancePath: instancePath + "/validation/changeSetHash", schemaPath: "#/properties/validation/properties/changeSetHash/type", keyword: "type", params: { type: schema174.properties.validation.properties.changeSetHash.type }, message: "must be string,null" };
             vErrors === null ? vErrors = [err104] : vErrors.push(err104), errors++;
           }
-          if (!(data48 === "human" || data48 === "autonomous" || data48 === null)) {
-            let err105 = { instancePath: instancePath + "/approval/mode", schemaPath: "#/properties/approval/properties/mode/enum", keyword: "enum", params: { allowedValues: schema174.properties.approval.properties.mode.enum }, message: "must be equal to one of the allowed values" };
+          if (typeof data44 == "string" && !pattern6.test(data44)) {
+            let err105 = { instancePath: instancePath + "/validation/changeSetHash", schemaPath: "#/properties/validation/properties/changeSetHash/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
             vErrors === null ? vErrors = [err105] : vErrors.push(err105), errors++;
           }
         }
+        if (data42.errors !== void 0) {
+          let data45 = data42.errors;
+          if (Array.isArray(data45)) {
+            let len2 = data45.length;
+            for (let i2 = 0; i2 < len2; i2++)
+              if (typeof data45[i2] != "string") {
+                let err106 = { instancePath: instancePath + "/validation/errors/" + i2, schemaPath: "#/properties/validation/properties/errors/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                vErrors === null ? vErrors = [err106] : vErrors.push(err106), errors++;
+              }
+          } else {
+            let err107 = { instancePath: instancePath + "/validation/errors", schemaPath: "#/properties/validation/properties/errors/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+            vErrors === null ? vErrors = [err107] : vErrors.push(err107), errors++;
+          }
+        }
       } else {
-        let err106 = { instancePath: instancePath + "/approval", schemaPath: "#/properties/approval/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-        vErrors === null ? vErrors = [err106] : vErrors.push(err106), errors++;
+        let err108 = { instancePath: instancePath + "/validation", schemaPath: "#/properties/validation/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        vErrors === null ? vErrors = [err108] : vErrors.push(err108), errors++;
       }
     }
-    if (data.autonomyEvaluation !== void 0) {
-      let data49 = data.autonomyEvaluation;
-      if (data49 && typeof data49 == "object" && !Array.isArray(data49)) {
-        if (data49.operationId === void 0) {
-          let err107 = { instancePath: instancePath + "/autonomyEvaluation", schemaPath: "#/properties/autonomyEvaluation/required", keyword: "required", params: { missingProperty: "operationId" }, message: "must have required property 'operationId'" };
-          vErrors === null ? vErrors = [err107] : vErrors.push(err107), errors++;
+    if (data.approval !== void 0) {
+      let data47 = data.approval;
+      if (data47 && typeof data47 == "object" && !Array.isArray(data47)) {
+        for (let key6 in data47)
+          if (!(key6 === "actor" || key6 === "approvedAt" || key6 === "changeSetHash" || key6 === "selfApproval" || key6 === "mode")) {
+            let err109 = { instancePath: instancePath + "/approval", schemaPath: "#/properties/approval/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key6 }, message: "must NOT have additional properties" };
+            vErrors === null ? vErrors = [err109] : vErrors.push(err109), errors++;
+          }
+        if (data47.actor !== void 0) {
+          let data48 = data47.actor;
+          if (typeof data48 != "string" && data48 !== null) {
+            let err110 = { instancePath: instancePath + "/approval/actor", schemaPath: "#/properties/approval/properties/actor/type", keyword: "type", params: { type: schema174.properties.approval.properties.actor.type }, message: "must be string,null" };
+            vErrors === null ? vErrors = [err110] : vErrors.push(err110), errors++;
+          }
         }
-        if (data49.changeSetHash === void 0) {
-          let err108 = { instancePath: instancePath + "/autonomyEvaluation", schemaPath: "#/properties/autonomyEvaluation/required", keyword: "required", params: { missingProperty: "changeSetHash" }, message: "must have required property 'changeSetHash'" };
-          vErrors === null ? vErrors = [err108] : vErrors.push(err108), errors++;
+        if (data47.approvedAt !== void 0) {
+          let data49 = data47.approvedAt;
+          if (typeof data49 != "string" && data49 !== null) {
+            let err111 = { instancePath: instancePath + "/approval/approvedAt", schemaPath: "#/properties/approval/properties/approvedAt/type", keyword: "type", params: { type: schema174.properties.approval.properties.approvedAt.type }, message: "must be string,null" };
+            vErrors === null ? vErrors = [err111] : vErrors.push(err111), errors++;
+          }
         }
-        if (data49.policyFingerprint === void 0) {
-          let err109 = { instancePath: instancePath + "/autonomyEvaluation", schemaPath: "#/properties/autonomyEvaluation/required", keyword: "required", params: { missingProperty: "policyFingerprint" }, message: "must have required property 'policyFingerprint'" };
-          vErrors === null ? vErrors = [err109] : vErrors.push(err109), errors++;
-        }
-        if (data49.autoApprovable === void 0) {
-          let err110 = { instancePath: instancePath + "/autonomyEvaluation", schemaPath: "#/properties/autonomyEvaluation/required", keyword: "required", params: { missingProperty: "autoApprovable" }, message: "must have required property 'autoApprovable'" };
-          vErrors === null ? vErrors = [err110] : vErrors.push(err110), errors++;
-        }
-        if (data49.blockedBy === void 0) {
-          let err111 = { instancePath: instancePath + "/autonomyEvaluation", schemaPath: "#/properties/autonomyEvaluation/required", keyword: "required", params: { missingProperty: "blockedBy" }, message: "must have required property 'blockedBy'" };
-          vErrors === null ? vErrors = [err111] : vErrors.push(err111), errors++;
-        }
-        for (let key6 in data49)
-          if (!(key6 === "operationId" || key6 === "changeSetHash" || key6 === "policyFingerprint" || key6 === "autoApprovable" || key6 === "blockedBy")) {
-            let err112 = { instancePath: instancePath + "/autonomyEvaluation", schemaPath: "#/properties/autonomyEvaluation/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key6 }, message: "must NOT have additional properties" };
+        if (data47.changeSetHash !== void 0) {
+          let data50 = data47.changeSetHash;
+          if (typeof data50 != "string" && data50 !== null) {
+            let err112 = { instancePath: instancePath + "/approval/changeSetHash", schemaPath: "#/properties/approval/properties/changeSetHash/type", keyword: "type", params: { type: schema174.properties.approval.properties.changeSetHash.type }, message: "must be string,null" };
             vErrors === null ? vErrors = [err112] : vErrors.push(err112), errors++;
           }
-        if (data49.operationId !== void 0) {
-          let data50 = data49.operationId;
-          if (typeof data50 == "string") {
-            if (!pattern1.test(data50)) {
-              let err113 = { instancePath: instancePath + "/autonomyEvaluation/operationId", schemaPath: "#/properties/autonomyEvaluation/properties/operationId/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, message: 'must match pattern "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"' };
-              vErrors === null ? vErrors = [err113] : vErrors.push(err113), errors++;
-            }
-          } else {
-            let err114 = { instancePath: instancePath + "/autonomyEvaluation/operationId", schemaPath: "#/properties/autonomyEvaluation/properties/operationId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+          if (typeof data50 == "string" && !pattern6.test(data50)) {
+            let err113 = { instancePath: instancePath + "/approval/changeSetHash", schemaPath: "#/properties/approval/properties/changeSetHash/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
+            vErrors === null ? vErrors = [err113] : vErrors.push(err113), errors++;
+          }
+        }
+        if (data47.selfApproval !== void 0) {
+          let data51 = data47.selfApproval;
+          if (typeof data51 != "boolean" && data51 !== null) {
+            let err114 = { instancePath: instancePath + "/approval/selfApproval", schemaPath: "#/properties/approval/properties/selfApproval/type", keyword: "type", params: { type: schema174.properties.approval.properties.selfApproval.type }, message: "must be boolean,null" };
             vErrors === null ? vErrors = [err114] : vErrors.push(err114), errors++;
           }
         }
-        if (data49.changeSetHash !== void 0) {
-          let data51 = data49.changeSetHash;
-          if (typeof data51 == "string") {
-            if (!pattern6.test(data51)) {
-              let err115 = { instancePath: instancePath + "/autonomyEvaluation/changeSetHash", schemaPath: "#/properties/autonomyEvaluation/properties/changeSetHash/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
-              vErrors === null ? vErrors = [err115] : vErrors.push(err115), errors++;
-            }
-          } else {
-            let err116 = { instancePath: instancePath + "/autonomyEvaluation/changeSetHash", schemaPath: "#/properties/autonomyEvaluation/properties/changeSetHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        if (data47.mode !== void 0) {
+          let data52 = data47.mode;
+          if (typeof data52 != "string" && data52 !== null) {
+            let err115 = { instancePath: instancePath + "/approval/mode", schemaPath: "#/properties/approval/properties/mode/type", keyword: "type", params: { type: schema174.properties.approval.properties.mode.type }, message: "must be string,null" };
+            vErrors === null ? vErrors = [err115] : vErrors.push(err115), errors++;
+          }
+          if (!(data52 === "human" || data52 === "autonomous" || data52 === null)) {
+            let err116 = { instancePath: instancePath + "/approval/mode", schemaPath: "#/properties/approval/properties/mode/enum", keyword: "enum", params: { allowedValues: schema174.properties.approval.properties.mode.enum }, message: "must be equal to one of the allowed values" };
             vErrors === null ? vErrors = [err116] : vErrors.push(err116), errors++;
           }
         }
-        if (data49.policyFingerprint !== void 0) {
-          let data52 = data49.policyFingerprint;
-          if (typeof data52 == "string") {
-            if (!pattern6.test(data52)) {
-              let err117 = { instancePath: instancePath + "/autonomyEvaluation/policyFingerprint", schemaPath: "#/properties/autonomyEvaluation/properties/policyFingerprint/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
-              vErrors === null ? vErrors = [err117] : vErrors.push(err117), errors++;
-            }
-          } else {
-            let err118 = { instancePath: instancePath + "/autonomyEvaluation/policyFingerprint", schemaPath: "#/properties/autonomyEvaluation/properties/policyFingerprint/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-            vErrors === null ? vErrors = [err118] : vErrors.push(err118), errors++;
-          }
+      } else {
+        let err117 = { instancePath: instancePath + "/approval", schemaPath: "#/properties/approval/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        vErrors === null ? vErrors = [err117] : vErrors.push(err117), errors++;
+      }
+    }
+    if (data.autonomyEvaluation !== void 0) {
+      let data53 = data.autonomyEvaluation;
+      if (data53 && typeof data53 == "object" && !Array.isArray(data53)) {
+        if (data53.operationId === void 0) {
+          let err118 = { instancePath: instancePath + "/autonomyEvaluation", schemaPath: "#/properties/autonomyEvaluation/required", keyword: "required", params: { missingProperty: "operationId" }, message: "must have required property 'operationId'" };
+          vErrors === null ? vErrors = [err118] : vErrors.push(err118), errors++;
         }
-        if (data49.autoApprovable !== void 0 && typeof data49.autoApprovable != "boolean") {
-          let err119 = { instancePath: instancePath + "/autonomyEvaluation/autoApprovable", schemaPath: "#/properties/autonomyEvaluation/properties/autoApprovable/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+        if (data53.changeSetHash === void 0) {
+          let err119 = { instancePath: instancePath + "/autonomyEvaluation", schemaPath: "#/properties/autonomyEvaluation/required", keyword: "required", params: { missingProperty: "changeSetHash" }, message: "must have required property 'changeSetHash'" };
           vErrors === null ? vErrors = [err119] : vErrors.push(err119), errors++;
         }
-        if (data49.blockedBy !== void 0) {
-          let data54 = data49.blockedBy;
-          if (Array.isArray(data54)) {
-            let len3 = data54.length;
-            for (let i3 = 0; i3 < len3; i3++) {
-              let data55 = data54[i3];
-              if (data55 && typeof data55 == "object" && !Array.isArray(data55)) {
-                if (data55.itemRef === void 0) {
-                  let err120 = { instancePath: instancePath + "/autonomyEvaluation/blockedBy/" + i3, schemaPath: "#/properties/autonomyEvaluation/properties/blockedBy/items/required", keyword: "required", params: { missingProperty: "itemRef" }, message: "must have required property 'itemRef'" };
-                  vErrors === null ? vErrors = [err120] : vErrors.push(err120), errors++;
-                }
-                if (data55.reason === void 0) {
-                  let err121 = { instancePath: instancePath + "/autonomyEvaluation/blockedBy/" + i3, schemaPath: "#/properties/autonomyEvaluation/properties/blockedBy/items/required", keyword: "required", params: { missingProperty: "reason" }, message: "must have required property 'reason'" };
-                  vErrors === null ? vErrors = [err121] : vErrors.push(err121), errors++;
-                }
-                for (let key7 in data55)
-                  if (!(key7 === "itemRef" || key7 === "reason")) {
-                    let err122 = { instancePath: instancePath + "/autonomyEvaluation/blockedBy/" + i3, schemaPath: "#/properties/autonomyEvaluation/properties/blockedBy/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key7 }, message: "must NOT have additional properties" };
-                    vErrors === null ? vErrors = [err122] : vErrors.push(err122), errors++;
-                  }
-                if (data55.itemRef !== void 0) {
-                  let data56 = data55.itemRef;
-                  if (typeof data56 == "string") {
-                    if (func2(data56) < 1) {
-                      let err123 = { instancePath: instancePath + "/autonomyEvaluation/blockedBy/" + i3 + "/itemRef", schemaPath: "#/properties/autonomyEvaluation/properties/blockedBy/items/properties/itemRef/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-                      vErrors === null ? vErrors = [err123] : vErrors.push(err123), errors++;
-                    }
-                  } else {
-                    let err124 = { instancePath: instancePath + "/autonomyEvaluation/blockedBy/" + i3 + "/itemRef", schemaPath: "#/properties/autonomyEvaluation/properties/blockedBy/items/properties/itemRef/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                    vErrors === null ? vErrors = [err124] : vErrors.push(err124), errors++;
-                  }
-                }
-                if (data55.reason !== void 0) {
-                  let data57 = data55.reason;
-                  if (!(data57 === "family_not_allowlisted" || data57 === "authority_above_ceiling" || data57 === "authority_escalation" || data57 === "low_confidence" || data57 === "alternatives_present" || data57 === "destructive_action" || data57 === "new_scope_always_pauses" || data57 === "default_pause" || data57 === "autonomy_config_change" || data57 === "policy_changed_since_validation")) {
-                    let err125 = { instancePath: instancePath + "/autonomyEvaluation/blockedBy/" + i3 + "/reason", schemaPath: "#/properties/autonomyEvaluation/properties/blockedBy/items/properties/reason/enum", keyword: "enum", params: { allowedValues: schema174.properties.autonomyEvaluation.properties.blockedBy.items.properties.reason.enum }, message: "must be equal to one of the allowed values" };
-                    vErrors === null ? vErrors = [err125] : vErrors.push(err125), errors++;
-                  }
-                }
-              } else {
-                let err126 = { instancePath: instancePath + "/autonomyEvaluation/blockedBy/" + i3, schemaPath: "#/properties/autonomyEvaluation/properties/blockedBy/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-                vErrors === null ? vErrors = [err126] : vErrors.push(err126), errors++;
-              }
+        if (data53.policyFingerprint === void 0) {
+          let err120 = { instancePath: instancePath + "/autonomyEvaluation", schemaPath: "#/properties/autonomyEvaluation/required", keyword: "required", params: { missingProperty: "policyFingerprint" }, message: "must have required property 'policyFingerprint'" };
+          vErrors === null ? vErrors = [err120] : vErrors.push(err120), errors++;
+        }
+        if (data53.autoApprovable === void 0) {
+          let err121 = { instancePath: instancePath + "/autonomyEvaluation", schemaPath: "#/properties/autonomyEvaluation/required", keyword: "required", params: { missingProperty: "autoApprovable" }, message: "must have required property 'autoApprovable'" };
+          vErrors === null ? vErrors = [err121] : vErrors.push(err121), errors++;
+        }
+        if (data53.blockedBy === void 0) {
+          let err122 = { instancePath: instancePath + "/autonomyEvaluation", schemaPath: "#/properties/autonomyEvaluation/required", keyword: "required", params: { missingProperty: "blockedBy" }, message: "must have required property 'blockedBy'" };
+          vErrors === null ? vErrors = [err122] : vErrors.push(err122), errors++;
+        }
+        for (let key7 in data53)
+          if (!(key7 === "operationId" || key7 === "changeSetHash" || key7 === "policyFingerprint" || key7 === "autoApprovable" || key7 === "blockedBy")) {
+            let err123 = { instancePath: instancePath + "/autonomyEvaluation", schemaPath: "#/properties/autonomyEvaluation/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key7 }, message: "must NOT have additional properties" };
+            vErrors === null ? vErrors = [err123] : vErrors.push(err123), errors++;
+          }
+        if (data53.operationId !== void 0) {
+          let data54 = data53.operationId;
+          if (typeof data54 == "string") {
+            if (!pattern1.test(data54)) {
+              let err124 = { instancePath: instancePath + "/autonomyEvaluation/operationId", schemaPath: "#/properties/autonomyEvaluation/properties/operationId/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, message: 'must match pattern "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"' };
+              vErrors === null ? vErrors = [err124] : vErrors.push(err124), errors++;
             }
           } else {
-            let err127 = { instancePath: instancePath + "/autonomyEvaluation/blockedBy", schemaPath: "#/properties/autonomyEvaluation/properties/blockedBy/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+            let err125 = { instancePath: instancePath + "/autonomyEvaluation/operationId", schemaPath: "#/properties/autonomyEvaluation/properties/operationId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            vErrors === null ? vErrors = [err125] : vErrors.push(err125), errors++;
+          }
+        }
+        if (data53.changeSetHash !== void 0) {
+          let data55 = data53.changeSetHash;
+          if (typeof data55 == "string") {
+            if (!pattern6.test(data55)) {
+              let err126 = { instancePath: instancePath + "/autonomyEvaluation/changeSetHash", schemaPath: "#/properties/autonomyEvaluation/properties/changeSetHash/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
+              vErrors === null ? vErrors = [err126] : vErrors.push(err126), errors++;
+            }
+          } else {
+            let err127 = { instancePath: instancePath + "/autonomyEvaluation/changeSetHash", schemaPath: "#/properties/autonomyEvaluation/properties/changeSetHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
             vErrors === null ? vErrors = [err127] : vErrors.push(err127), errors++;
           }
         }
+        if (data53.policyFingerprint !== void 0) {
+          let data56 = data53.policyFingerprint;
+          if (typeof data56 == "string") {
+            if (!pattern6.test(data56)) {
+              let err128 = { instancePath: instancePath + "/autonomyEvaluation/policyFingerprint", schemaPath: "#/properties/autonomyEvaluation/properties/policyFingerprint/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
+              vErrors === null ? vErrors = [err128] : vErrors.push(err128), errors++;
+            }
+          } else {
+            let err129 = { instancePath: instancePath + "/autonomyEvaluation/policyFingerprint", schemaPath: "#/properties/autonomyEvaluation/properties/policyFingerprint/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            vErrors === null ? vErrors = [err129] : vErrors.push(err129), errors++;
+          }
+        }
+        if (data53.autoApprovable !== void 0 && typeof data53.autoApprovable != "boolean") {
+          let err130 = { instancePath: instancePath + "/autonomyEvaluation/autoApprovable", schemaPath: "#/properties/autonomyEvaluation/properties/autoApprovable/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+          vErrors === null ? vErrors = [err130] : vErrors.push(err130), errors++;
+        }
+        if (data53.blockedBy !== void 0) {
+          let data58 = data53.blockedBy;
+          if (Array.isArray(data58)) {
+            let len3 = data58.length;
+            for (let i3 = 0; i3 < len3; i3++) {
+              let data59 = data58[i3];
+              if (data59 && typeof data59 == "object" && !Array.isArray(data59)) {
+                if (data59.itemRef === void 0) {
+                  let err131 = { instancePath: instancePath + "/autonomyEvaluation/blockedBy/" + i3, schemaPath: "#/properties/autonomyEvaluation/properties/blockedBy/items/required", keyword: "required", params: { missingProperty: "itemRef" }, message: "must have required property 'itemRef'" };
+                  vErrors === null ? vErrors = [err131] : vErrors.push(err131), errors++;
+                }
+                if (data59.reason === void 0) {
+                  let err132 = { instancePath: instancePath + "/autonomyEvaluation/blockedBy/" + i3, schemaPath: "#/properties/autonomyEvaluation/properties/blockedBy/items/required", keyword: "required", params: { missingProperty: "reason" }, message: "must have required property 'reason'" };
+                  vErrors === null ? vErrors = [err132] : vErrors.push(err132), errors++;
+                }
+                for (let key8 in data59)
+                  if (!(key8 === "itemRef" || key8 === "reason")) {
+                    let err133 = { instancePath: instancePath + "/autonomyEvaluation/blockedBy/" + i3, schemaPath: "#/properties/autonomyEvaluation/properties/blockedBy/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key8 }, message: "must NOT have additional properties" };
+                    vErrors === null ? vErrors = [err133] : vErrors.push(err133), errors++;
+                  }
+                if (data59.itemRef !== void 0) {
+                  let data60 = data59.itemRef;
+                  if (typeof data60 == "string") {
+                    if (func2(data60) < 1) {
+                      let err134 = { instancePath: instancePath + "/autonomyEvaluation/blockedBy/" + i3 + "/itemRef", schemaPath: "#/properties/autonomyEvaluation/properties/blockedBy/items/properties/itemRef/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+                      vErrors === null ? vErrors = [err134] : vErrors.push(err134), errors++;
+                    }
+                  } else {
+                    let err135 = { instancePath: instancePath + "/autonomyEvaluation/blockedBy/" + i3 + "/itemRef", schemaPath: "#/properties/autonomyEvaluation/properties/blockedBy/items/properties/itemRef/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                    vErrors === null ? vErrors = [err135] : vErrors.push(err135), errors++;
+                  }
+                }
+                if (data59.reason !== void 0) {
+                  let data61 = data59.reason;
+                  if (!(data61 === "family_not_allowlisted" || data61 === "authority_above_ceiling" || data61 === "authority_escalation" || data61 === "low_confidence" || data61 === "alternatives_present" || data61 === "destructive_action" || data61 === "new_scope_always_pauses" || data61 === "default_pause" || data61 === "autonomy_config_change" || data61 === "policy_changed_since_validation")) {
+                    let err136 = { instancePath: instancePath + "/autonomyEvaluation/blockedBy/" + i3 + "/reason", schemaPath: "#/properties/autonomyEvaluation/properties/blockedBy/items/properties/reason/enum", keyword: "enum", params: { allowedValues: schema174.properties.autonomyEvaluation.properties.blockedBy.items.properties.reason.enum }, message: "must be equal to one of the allowed values" };
+                    vErrors === null ? vErrors = [err136] : vErrors.push(err136), errors++;
+                  }
+                }
+              } else {
+                let err137 = { instancePath: instancePath + "/autonomyEvaluation/blockedBy/" + i3, schemaPath: "#/properties/autonomyEvaluation/properties/blockedBy/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+                vErrors === null ? vErrors = [err137] : vErrors.push(err137), errors++;
+              }
+            }
+          } else {
+            let err138 = { instancePath: instancePath + "/autonomyEvaluation/blockedBy", schemaPath: "#/properties/autonomyEvaluation/properties/blockedBy/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+            vErrors === null ? vErrors = [err138] : vErrors.push(err138), errors++;
+          }
+        }
       } else {
-        let err128 = { instancePath: instancePath + "/autonomyEvaluation", schemaPath: "#/properties/autonomyEvaluation/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-        vErrors === null ? vErrors = [err128] : vErrors.push(err128), errors++;
+        let err139 = { instancePath: instancePath + "/autonomyEvaluation", schemaPath: "#/properties/autonomyEvaluation/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        vErrors === null ? vErrors = [err139] : vErrors.push(err139), errors++;
       }
     }
     if (data.filePlan !== void 0) {
-      let data58 = data.filePlan;
-      if (Array.isArray(data58)) {
-        let len4 = data58.length;
+      let data62 = data.filePlan;
+      if (Array.isArray(data62)) {
+        let len4 = data62.length;
         for (let i4 = 0; i4 < len4; i4++) {
-          let data59 = data58[i4], _errs143 = errors, valid41 = !0, _errs144 = errors;
-          if (data59 && typeof data59 == "object" && !Array.isArray(data59) && data59.action !== void 0 && data59.action !== "write") {
-            let err129 = {};
-            vErrors === null ? vErrors = [err129] : vErrors.push(err129), errors++;
+          let data63 = data62[i4], _errs152 = errors, valid42 = !0, _errs153 = errors;
+          if (data63 && typeof data63 == "object" && !Array.isArray(data63) && data63.action !== void 0 && data63.action !== "write") {
+            let err140 = {};
+            vErrors === null ? vErrors = [err140] : vErrors.push(err140), errors++;
           }
-          var _valid6 = _errs144 === errors;
-          if (errors = _errs143, vErrors !== null && (_errs143 ? vErrors.length = _errs143 : vErrors = null), _valid6) {
-            let _errs146 = errors;
-            if (data59 && typeof data59 == "object" && !Array.isArray(data59)) {
-              if (data59.stagedRelativePath === void 0) {
-                let err130 = { instancePath: instancePath + "/filePlan/" + i4, schemaPath: "#/properties/filePlan/items/allOf/0/then/required", keyword: "required", params: { missingProperty: "stagedRelativePath" }, message: "must have required property 'stagedRelativePath'" };
-                vErrors === null ? vErrors = [err130] : vErrors.push(err130), errors++;
-              }
-              if (data59.stagedRelativePath !== void 0 && typeof data59.stagedRelativePath != "string") {
-                let err131 = { instancePath: instancePath + "/filePlan/" + i4 + "/stagedRelativePath", schemaPath: "#/properties/filePlan/items/allOf/0/then/properties/stagedRelativePath/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                vErrors === null ? vErrors = [err131] : vErrors.push(err131), errors++;
-              }
-            }
-            var _valid6 = _errs146 === errors;
-            valid41 = _valid6;
-          }
-          if (!valid41) {
-            let err132 = { instancePath: instancePath + "/filePlan/" + i4, schemaPath: "#/properties/filePlan/items/allOf/0/if", keyword: "if", params: { failingKeyword: "then" }, message: 'must match "then" schema' };
-            vErrors === null ? vErrors = [err132] : vErrors.push(err132), errors++;
-          }
-          let _errs150 = errors, valid44 = !0, _errs151 = errors;
-          if (data59 && typeof data59 == "object" && !Array.isArray(data59) && data59.action !== void 0 && data59.action !== "delete") {
-            let err133 = {};
-            vErrors === null ? vErrors = [err133] : vErrors.push(err133), errors++;
-          }
-          var _valid7 = _errs151 === errors;
-          if (errors = _errs150, vErrors !== null && (_errs150 ? vErrors.length = _errs150 : vErrors = null), _valid7) {
-            let _errs153 = errors;
-            if (data59 && typeof data59 == "object" && !Array.isArray(data59)) {
-              if (data59.stagedContentHash !== void 0 && data59.stagedContentHash !== "ABSENT") {
-                let err134 = { instancePath: instancePath + "/filePlan/" + i4 + "/stagedContentHash", schemaPath: "#/properties/filePlan/items/allOf/1/then/properties/stagedContentHash/const", keyword: "const", params: { allowedValue: "ABSENT" }, message: "must be equal to constant" };
-                vErrors === null ? vErrors = [err134] : vErrors.push(err134), errors++;
-              }
-              if (data59.stagedRevisionHash !== void 0 && data59.stagedRevisionHash !== "ABSENT") {
-                let err135 = { instancePath: instancePath + "/filePlan/" + i4 + "/stagedRevisionHash", schemaPath: "#/properties/filePlan/items/allOf/1/then/properties/stagedRevisionHash/const", keyword: "const", params: { allowedValue: "ABSENT" }, message: "must be equal to constant" };
-                vErrors === null ? vErrors = [err135] : vErrors.push(err135), errors++;
-              }
-            }
-            var _valid7 = _errs153 === errors;
-            valid44 = _valid7;
-          }
-          if (!valid44) {
-            let err136 = { instancePath: instancePath + "/filePlan/" + i4, schemaPath: "#/properties/filePlan/items/allOf/1/if", keyword: "if", params: { failingKeyword: "then" }, message: 'must match "then" schema' };
-            vErrors === null ? vErrors = [err136] : vErrors.push(err136), errors++;
-          }
-          let _errs157 = errors, valid47 = !0, _errs158 = errors;
-          if (data59 && typeof data59 == "object" && !Array.isArray(data59) && data59.action !== void 0 && data59.action !== "mkdir") {
-            let err137 = {};
-            vErrors === null ? vErrors = [err137] : vErrors.push(err137), errors++;
-          }
-          var _valid8 = _errs158 === errors;
-          if (errors = _errs157, vErrors !== null && (_errs157 ? vErrors.length = _errs157 : vErrors = null), _valid8) {
-            let _errs160 = errors, _errs161 = errors, _errs162 = errors;
-            if (data59 && typeof data59 == "object" && !Array.isArray(data59)) {
-              let missing1;
-              if (data59.stagedRelativePath === void 0 && (missing1 = "stagedRelativePath")) {
-                let err138 = {};
-                vErrors === null ? vErrors = [err138] : vErrors.push(err138), errors++;
-              }
-            }
-            var valid49 = _errs162 === errors;
-            if (valid49) {
-              let err139 = { instancePath: instancePath + "/filePlan/" + i4, schemaPath: "#/properties/filePlan/items/allOf/2/then/not", keyword: "not", params: {}, message: "must NOT be valid" };
-              vErrors === null ? vErrors = [err139] : vErrors.push(err139), errors++;
-            } else
-              errors = _errs161, vErrors !== null && (_errs161 ? vErrors.length = _errs161 : vErrors = null);
-            if (data59 && typeof data59 == "object" && !Array.isArray(data59)) {
-              if (data59.stagedContentHash !== void 0 && data59.stagedContentHash !== "20dc703a130e4ad628a2659be71da655ef204d7c774431a82908cf46c2498c75") {
-                let err140 = { instancePath: instancePath + "/filePlan/" + i4 + "/stagedContentHash", schemaPath: "#/properties/filePlan/items/allOf/2/then/properties/stagedContentHash/const", keyword: "const", params: { allowedValue: "20dc703a130e4ad628a2659be71da655ef204d7c774431a82908cf46c2498c75" }, message: "must be equal to constant" };
-                vErrors === null ? vErrors = [err140] : vErrors.push(err140), errors++;
-              }
-              if (data59.stagedRevisionHash !== void 0 && data59.stagedRevisionHash !== "20dc703a130e4ad628a2659be71da655ef204d7c774431a82908cf46c2498c75") {
-                let err141 = { instancePath: instancePath + "/filePlan/" + i4 + "/stagedRevisionHash", schemaPath: "#/properties/filePlan/items/allOf/2/then/properties/stagedRevisionHash/const", keyword: "const", params: { allowedValue: "20dc703a130e4ad628a2659be71da655ef204d7c774431a82908cf46c2498c75" }, message: "must be equal to constant" };
+          var _valid6 = _errs153 === errors;
+          if (errors = _errs152, vErrors !== null && (_errs152 ? vErrors.length = _errs152 : vErrors = null), _valid6) {
+            let _errs155 = errors;
+            if (data63 && typeof data63 == "object" && !Array.isArray(data63)) {
+              if (data63.stagedRelativePath === void 0) {
+                let err141 = { instancePath: instancePath + "/filePlan/" + i4, schemaPath: "#/properties/filePlan/items/allOf/0/then/required", keyword: "required", params: { missingProperty: "stagedRelativePath" }, message: "must have required property 'stagedRelativePath'" };
                 vErrors === null ? vErrors = [err141] : vErrors.push(err141), errors++;
               }
-            }
-            var _valid8 = _errs160 === errors;
-            valid47 = _valid8;
-          }
-          if (!valid47) {
-            let err142 = { instancePath: instancePath + "/filePlan/" + i4, schemaPath: "#/properties/filePlan/items/allOf/2/if", keyword: "if", params: { failingKeyword: "then" }, message: 'must match "then" schema' };
-            vErrors === null ? vErrors = [err142] : vErrors.push(err142), errors++;
-          }
-          if (data59 && typeof data59 == "object" && !Array.isArray(data59)) {
-            if (data59.target === void 0) {
-              let err143 = { instancePath: instancePath + "/filePlan/" + i4, schemaPath: "#/properties/filePlan/items/required", keyword: "required", params: { missingProperty: "target" }, message: "must have required property 'target'" };
-              vErrors === null ? vErrors = [err143] : vErrors.push(err143), errors++;
-            }
-            if (data59.action === void 0) {
-              let err144 = { instancePath: instancePath + "/filePlan/" + i4, schemaPath: "#/properties/filePlan/items/required", keyword: "required", params: { missingProperty: "action" }, message: "must have required property 'action'" };
-              vErrors === null ? vErrors = [err144] : vErrors.push(err144), errors++;
-            }
-            if (data59.expectedBefore === void 0) {
-              let err145 = { instancePath: instancePath + "/filePlan/" + i4, schemaPath: "#/properties/filePlan/items/required", keyword: "required", params: { missingProperty: "expectedBefore" }, message: "must have required property 'expectedBefore'" };
-              vErrors === null ? vErrors = [err145] : vErrors.push(err145), errors++;
-            }
-            if (data59.beforeContentHash === void 0) {
-              let err146 = { instancePath: instancePath + "/filePlan/" + i4, schemaPath: "#/properties/filePlan/items/required", keyword: "required", params: { missingProperty: "beforeContentHash" }, message: "must have required property 'beforeContentHash'" };
-              vErrors === null ? vErrors = [err146] : vErrors.push(err146), errors++;
-            }
-            if (data59.beforeRevisionHash === void 0) {
-              let err147 = { instancePath: instancePath + "/filePlan/" + i4, schemaPath: "#/properties/filePlan/items/required", keyword: "required", params: { missingProperty: "beforeRevisionHash" }, message: "must have required property 'beforeRevisionHash'" };
-              vErrors === null ? vErrors = [err147] : vErrors.push(err147), errors++;
-            }
-            if (data59.stagedContentHash === void 0) {
-              let err148 = { instancePath: instancePath + "/filePlan/" + i4, schemaPath: "#/properties/filePlan/items/required", keyword: "required", params: { missingProperty: "stagedContentHash" }, message: "must have required property 'stagedContentHash'" };
-              vErrors === null ? vErrors = [err148] : vErrors.push(err148), errors++;
-            }
-            if (data59.stagedRevisionHash === void 0) {
-              let err149 = { instancePath: instancePath + "/filePlan/" + i4, schemaPath: "#/properties/filePlan/items/required", keyword: "required", params: { missingProperty: "stagedRevisionHash" }, message: "must have required property 'stagedRevisionHash'" };
-              vErrors === null ? vErrors = [err149] : vErrors.push(err149), errors++;
-            }
-            for (let key8 in data59)
-              if (!(key8 === "target" || key8 === "action" || key8 === "stagedRelativePath" || key8 === "expectedBefore" || key8 === "beforeContentHash" || key8 === "beforeRevisionHash" || key8 === "stagedContentHash" || key8 === "stagedRevisionHash")) {
-                let err150 = { instancePath: instancePath + "/filePlan/" + i4, schemaPath: "#/properties/filePlan/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key8 }, message: "must NOT have additional properties" };
-                vErrors === null ? vErrors = [err150] : vErrors.push(err150), errors++;
+              if (data63.stagedRelativePath !== void 0 && typeof data63.stagedRelativePath != "string") {
+                let err142 = { instancePath: instancePath + "/filePlan/" + i4 + "/stagedRelativePath", schemaPath: "#/properties/filePlan/items/allOf/0/then/properties/stagedRelativePath/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                vErrors === null ? vErrors = [err142] : vErrors.push(err142), errors++;
               }
-            if (data59.target !== void 0 && typeof data59.target != "string") {
-              let err151 = { instancePath: instancePath + "/filePlan/" + i4 + "/target", schemaPath: "#/properties/filePlan/items/properties/target/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-              vErrors === null ? vErrors = [err151] : vErrors.push(err151), errors++;
             }
-            if (data59.action !== void 0) {
-              let data69 = data59.action;
-              if (!(data69 === "write" || data69 === "delete" || data69 === "mkdir")) {
-                let err152 = { instancePath: instancePath + "/filePlan/" + i4 + "/action", schemaPath: "#/properties/filePlan/items/properties/action/enum", keyword: "enum", params: { allowedValues: schema174.properties.filePlan.items.properties.action.enum }, message: "must be equal to one of the allowed values" };
+            var _valid6 = _errs155 === errors;
+            valid42 = _valid6;
+          }
+          if (!valid42) {
+            let err143 = { instancePath: instancePath + "/filePlan/" + i4, schemaPath: "#/properties/filePlan/items/allOf/0/if", keyword: "if", params: { failingKeyword: "then" }, message: 'must match "then" schema' };
+            vErrors === null ? vErrors = [err143] : vErrors.push(err143), errors++;
+          }
+          let _errs159 = errors, valid45 = !0, _errs160 = errors;
+          if (data63 && typeof data63 == "object" && !Array.isArray(data63) && data63.action !== void 0 && data63.action !== "delete") {
+            let err144 = {};
+            vErrors === null ? vErrors = [err144] : vErrors.push(err144), errors++;
+          }
+          var _valid7 = _errs160 === errors;
+          if (errors = _errs159, vErrors !== null && (_errs159 ? vErrors.length = _errs159 : vErrors = null), _valid7) {
+            let _errs162 = errors;
+            if (data63 && typeof data63 == "object" && !Array.isArray(data63)) {
+              if (data63.stagedContentHash !== void 0 && data63.stagedContentHash !== "ABSENT") {
+                let err145 = { instancePath: instancePath + "/filePlan/" + i4 + "/stagedContentHash", schemaPath: "#/properties/filePlan/items/allOf/1/then/properties/stagedContentHash/const", keyword: "const", params: { allowedValue: "ABSENT" }, message: "must be equal to constant" };
+                vErrors === null ? vErrors = [err145] : vErrors.push(err145), errors++;
+              }
+              if (data63.stagedRevisionHash !== void 0 && data63.stagedRevisionHash !== "ABSENT") {
+                let err146 = { instancePath: instancePath + "/filePlan/" + i4 + "/stagedRevisionHash", schemaPath: "#/properties/filePlan/items/allOf/1/then/properties/stagedRevisionHash/const", keyword: "const", params: { allowedValue: "ABSENT" }, message: "must be equal to constant" };
+                vErrors === null ? vErrors = [err146] : vErrors.push(err146), errors++;
+              }
+            }
+            var _valid7 = _errs162 === errors;
+            valid45 = _valid7;
+          }
+          if (!valid45) {
+            let err147 = { instancePath: instancePath + "/filePlan/" + i4, schemaPath: "#/properties/filePlan/items/allOf/1/if", keyword: "if", params: { failingKeyword: "then" }, message: 'must match "then" schema' };
+            vErrors === null ? vErrors = [err147] : vErrors.push(err147), errors++;
+          }
+          let _errs166 = errors, valid48 = !0, _errs167 = errors;
+          if (data63 && typeof data63 == "object" && !Array.isArray(data63) && data63.action !== void 0 && data63.action !== "mkdir") {
+            let err148 = {};
+            vErrors === null ? vErrors = [err148] : vErrors.push(err148), errors++;
+          }
+          var _valid8 = _errs167 === errors;
+          if (errors = _errs166, vErrors !== null && (_errs166 ? vErrors.length = _errs166 : vErrors = null), _valid8) {
+            let _errs169 = errors, _errs170 = errors, _errs171 = errors;
+            if (data63 && typeof data63 == "object" && !Array.isArray(data63)) {
+              let missing1;
+              if (data63.stagedRelativePath === void 0 && (missing1 = "stagedRelativePath")) {
+                let err149 = {};
+                vErrors === null ? vErrors = [err149] : vErrors.push(err149), errors++;
+              }
+            }
+            var valid50 = _errs171 === errors;
+            if (valid50) {
+              let err150 = { instancePath: instancePath + "/filePlan/" + i4, schemaPath: "#/properties/filePlan/items/allOf/2/then/not", keyword: "not", params: {}, message: "must NOT be valid" };
+              vErrors === null ? vErrors = [err150] : vErrors.push(err150), errors++;
+            } else
+              errors = _errs170, vErrors !== null && (_errs170 ? vErrors.length = _errs170 : vErrors = null);
+            if (data63 && typeof data63 == "object" && !Array.isArray(data63)) {
+              if (data63.stagedContentHash !== void 0 && data63.stagedContentHash !== "20dc703a130e4ad628a2659be71da655ef204d7c774431a82908cf46c2498c75") {
+                let err151 = { instancePath: instancePath + "/filePlan/" + i4 + "/stagedContentHash", schemaPath: "#/properties/filePlan/items/allOf/2/then/properties/stagedContentHash/const", keyword: "const", params: { allowedValue: "20dc703a130e4ad628a2659be71da655ef204d7c774431a82908cf46c2498c75" }, message: "must be equal to constant" };
+                vErrors === null ? vErrors = [err151] : vErrors.push(err151), errors++;
+              }
+              if (data63.stagedRevisionHash !== void 0 && data63.stagedRevisionHash !== "20dc703a130e4ad628a2659be71da655ef204d7c774431a82908cf46c2498c75") {
+                let err152 = { instancePath: instancePath + "/filePlan/" + i4 + "/stagedRevisionHash", schemaPath: "#/properties/filePlan/items/allOf/2/then/properties/stagedRevisionHash/const", keyword: "const", params: { allowedValue: "20dc703a130e4ad628a2659be71da655ef204d7c774431a82908cf46c2498c75" }, message: "must be equal to constant" };
                 vErrors === null ? vErrors = [err152] : vErrors.push(err152), errors++;
               }
             }
-            if (data59.stagedRelativePath !== void 0 && typeof data59.stagedRelativePath != "string") {
-              let err153 = { instancePath: instancePath + "/filePlan/" + i4 + "/stagedRelativePath", schemaPath: "#/properties/filePlan/items/properties/stagedRelativePath/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-              vErrors === null ? vErrors = [err153] : vErrors.push(err153), errors++;
-            }
-            if (data59.expectedBefore !== void 0) {
-              let data71 = data59.expectedBefore;
-              if (!(data71 === "ABSENT" || data71 === "PRESENT")) {
-                let err154 = { instancePath: instancePath + "/filePlan/" + i4 + "/expectedBefore", schemaPath: "#/properties/filePlan/items/properties/expectedBefore/enum", keyword: "enum", params: { allowedValues: schema174.properties.filePlan.items.properties.expectedBefore.enum }, message: "must be equal to one of the allowed values" };
-                vErrors === null ? vErrors = [err154] : vErrors.push(err154), errors++;
-              }
-            }
-            if (data59.beforeContentHash !== void 0) {
-              let data72 = data59.beforeContentHash;
-              if (typeof data72 == "string") {
-                if (!pattern124.test(data72)) {
-                  let err155 = { instancePath: instancePath + "/filePlan/" + i4 + "/beforeContentHash", schemaPath: "#/properties/filePlan/items/properties/beforeContentHash/pattern", keyword: "pattern", params: { pattern: "^([0-9a-f]{64}|ABSENT)$" }, message: 'must match pattern "^([0-9a-f]{64}|ABSENT)$"' };
-                  vErrors === null ? vErrors = [err155] : vErrors.push(err155), errors++;
-                }
-              } else {
-                let err156 = { instancePath: instancePath + "/filePlan/" + i4 + "/beforeContentHash", schemaPath: "#/properties/filePlan/items/properties/beforeContentHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                vErrors === null ? vErrors = [err156] : vErrors.push(err156), errors++;
-              }
-            }
-            if (data59.beforeRevisionHash !== void 0) {
-              let data73 = data59.beforeRevisionHash;
-              if (typeof data73 == "string") {
-                if (!pattern124.test(data73)) {
-                  let err157 = { instancePath: instancePath + "/filePlan/" + i4 + "/beforeRevisionHash", schemaPath: "#/properties/filePlan/items/properties/beforeRevisionHash/pattern", keyword: "pattern", params: { pattern: "^([0-9a-f]{64}|ABSENT)$" }, message: 'must match pattern "^([0-9a-f]{64}|ABSENT)$"' };
-                  vErrors === null ? vErrors = [err157] : vErrors.push(err157), errors++;
-                }
-              } else {
-                let err158 = { instancePath: instancePath + "/filePlan/" + i4 + "/beforeRevisionHash", schemaPath: "#/properties/filePlan/items/properties/beforeRevisionHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                vErrors === null ? vErrors = [err158] : vErrors.push(err158), errors++;
-              }
-            }
-            if (data59.stagedContentHash !== void 0) {
-              let data74 = data59.stagedContentHash;
-              if (typeof data74 == "string") {
-                if (!pattern124.test(data74)) {
-                  let err159 = { instancePath: instancePath + "/filePlan/" + i4 + "/stagedContentHash", schemaPath: "#/properties/filePlan/items/properties/stagedContentHash/pattern", keyword: "pattern", params: { pattern: "^([0-9a-f]{64}|ABSENT)$" }, message: 'must match pattern "^([0-9a-f]{64}|ABSENT)$"' };
-                  vErrors === null ? vErrors = [err159] : vErrors.push(err159), errors++;
-                }
-              } else {
-                let err160 = { instancePath: instancePath + "/filePlan/" + i4 + "/stagedContentHash", schemaPath: "#/properties/filePlan/items/properties/stagedContentHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                vErrors === null ? vErrors = [err160] : vErrors.push(err160), errors++;
-              }
-            }
-            if (data59.stagedRevisionHash !== void 0) {
-              let data75 = data59.stagedRevisionHash;
-              if (typeof data75 == "string") {
-                if (!pattern124.test(data75)) {
-                  let err161 = { instancePath: instancePath + "/filePlan/" + i4 + "/stagedRevisionHash", schemaPath: "#/properties/filePlan/items/properties/stagedRevisionHash/pattern", keyword: "pattern", params: { pattern: "^([0-9a-f]{64}|ABSENT)$" }, message: 'must match pattern "^([0-9a-f]{64}|ABSENT)$"' };
-                  vErrors === null ? vErrors = [err161] : vErrors.push(err161), errors++;
-                }
-              } else {
-                let err162 = { instancePath: instancePath + "/filePlan/" + i4 + "/stagedRevisionHash", schemaPath: "#/properties/filePlan/items/properties/stagedRevisionHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                vErrors === null ? vErrors = [err162] : vErrors.push(err162), errors++;
-              }
-            }
-          } else {
-            let err163 = { instancePath: instancePath + "/filePlan/" + i4, schemaPath: "#/properties/filePlan/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-            vErrors === null ? vErrors = [err163] : vErrors.push(err163), errors++;
+            var _valid8 = _errs169 === errors;
+            valid48 = _valid8;
           }
-        }
-      } else {
-        let err164 = { instancePath: instancePath + "/filePlan", schemaPath: "#/properties/filePlan/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        vErrors === null ? vErrors = [err164] : vErrors.push(err164), errors++;
-      }
-    }
-    if (data.expectedEvents !== void 0) {
-      let data76 = data.expectedEvents;
-      if (Array.isArray(data76)) {
-        let len5 = data76.length;
-        for (let i5 = 0; i5 < len5; i5++) {
-          let data77 = data76[i5];
-          if (data77 && typeof data77 == "object" && !Array.isArray(data77)) {
-            if (data77.eventId === void 0) {
-              let err165 = { instancePath: instancePath + "/expectedEvents/" + i5, schemaPath: "#/properties/expectedEvents/items/required", keyword: "required", params: { missingProperty: "eventId" }, message: "must have required property 'eventId'" };
-              vErrors === null ? vErrors = [err165] : vErrors.push(err165), errors++;
+          if (!valid48) {
+            let err153 = { instancePath: instancePath + "/filePlan/" + i4, schemaPath: "#/properties/filePlan/items/allOf/2/if", keyword: "if", params: { failingKeyword: "then" }, message: 'must match "then" schema' };
+            vErrors === null ? vErrors = [err153] : vErrors.push(err153), errors++;
+          }
+          if (data63 && typeof data63 == "object" && !Array.isArray(data63)) {
+            if (data63.target === void 0) {
+              let err154 = { instancePath: instancePath + "/filePlan/" + i4, schemaPath: "#/properties/filePlan/items/required", keyword: "required", params: { missingProperty: "target" }, message: "must have required property 'target'" };
+              vErrors === null ? vErrors = [err154] : vErrors.push(err154), errors++;
             }
-            if (data77.relativePath === void 0) {
-              let err166 = { instancePath: instancePath + "/expectedEvents/" + i5, schemaPath: "#/properties/expectedEvents/items/required", keyword: "required", params: { missingProperty: "relativePath" }, message: "must have required property 'relativePath'" };
-              vErrors === null ? vErrors = [err166] : vErrors.push(err166), errors++;
+            if (data63.action === void 0) {
+              let err155 = { instancePath: instancePath + "/filePlan/" + i4, schemaPath: "#/properties/filePlan/items/required", keyword: "required", params: { missingProperty: "action" }, message: "must have required property 'action'" };
+              vErrors === null ? vErrors = [err155] : vErrors.push(err155), errors++;
             }
-            if (data77.contentHash === void 0) {
-              let err167 = { instancePath: instancePath + "/expectedEvents/" + i5, schemaPath: "#/properties/expectedEvents/items/required", keyword: "required", params: { missingProperty: "contentHash" }, message: "must have required property 'contentHash'" };
-              vErrors === null ? vErrors = [err167] : vErrors.push(err167), errors++;
+            if (data63.expectedBefore === void 0) {
+              let err156 = { instancePath: instancePath + "/filePlan/" + i4, schemaPath: "#/properties/filePlan/items/required", keyword: "required", params: { missingProperty: "expectedBefore" }, message: "must have required property 'expectedBefore'" };
+              vErrors === null ? vErrors = [err156] : vErrors.push(err156), errors++;
             }
-            if (data77.document === void 0) {
-              let err168 = { instancePath: instancePath + "/expectedEvents/" + i5, schemaPath: "#/properties/expectedEvents/items/required", keyword: "required", params: { missingProperty: "document" }, message: "must have required property 'document'" };
-              vErrors === null ? vErrors = [err168] : vErrors.push(err168), errors++;
+            if (data63.beforeContentHash === void 0) {
+              let err157 = { instancePath: instancePath + "/filePlan/" + i4, schemaPath: "#/properties/filePlan/items/required", keyword: "required", params: { missingProperty: "beforeContentHash" }, message: "must have required property 'beforeContentHash'" };
+              vErrors === null ? vErrors = [err157] : vErrors.push(err157), errors++;
             }
-            for (let key9 in data77)
-              if (!(key9 === "eventId" || key9 === "relativePath" || key9 === "contentHash" || key9 === "document")) {
-                let err169 = { instancePath: instancePath + "/expectedEvents/" + i5, schemaPath: "#/properties/expectedEvents/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key9 }, message: "must NOT have additional properties" };
+            if (data63.beforeRevisionHash === void 0) {
+              let err158 = { instancePath: instancePath + "/filePlan/" + i4, schemaPath: "#/properties/filePlan/items/required", keyword: "required", params: { missingProperty: "beforeRevisionHash" }, message: "must have required property 'beforeRevisionHash'" };
+              vErrors === null ? vErrors = [err158] : vErrors.push(err158), errors++;
+            }
+            if (data63.stagedContentHash === void 0) {
+              let err159 = { instancePath: instancePath + "/filePlan/" + i4, schemaPath: "#/properties/filePlan/items/required", keyword: "required", params: { missingProperty: "stagedContentHash" }, message: "must have required property 'stagedContentHash'" };
+              vErrors === null ? vErrors = [err159] : vErrors.push(err159), errors++;
+            }
+            if (data63.stagedRevisionHash === void 0) {
+              let err160 = { instancePath: instancePath + "/filePlan/" + i4, schemaPath: "#/properties/filePlan/items/required", keyword: "required", params: { missingProperty: "stagedRevisionHash" }, message: "must have required property 'stagedRevisionHash'" };
+              vErrors === null ? vErrors = [err160] : vErrors.push(err160), errors++;
+            }
+            for (let key9 in data63)
+              if (!(key9 === "target" || key9 === "action" || key9 === "stagedRelativePath" || key9 === "expectedBefore" || key9 === "beforeContentHash" || key9 === "beforeRevisionHash" || key9 === "stagedContentHash" || key9 === "stagedRevisionHash")) {
+                let err161 = { instancePath: instancePath + "/filePlan/" + i4, schemaPath: "#/properties/filePlan/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key9 }, message: "must NOT have additional properties" };
+                vErrors === null ? vErrors = [err161] : vErrors.push(err161), errors++;
+              }
+            if (data63.target !== void 0 && typeof data63.target != "string") {
+              let err162 = { instancePath: instancePath + "/filePlan/" + i4 + "/target", schemaPath: "#/properties/filePlan/items/properties/target/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+              vErrors === null ? vErrors = [err162] : vErrors.push(err162), errors++;
+            }
+            if (data63.action !== void 0) {
+              let data73 = data63.action;
+              if (!(data73 === "write" || data73 === "delete" || data73 === "mkdir")) {
+                let err163 = { instancePath: instancePath + "/filePlan/" + i4 + "/action", schemaPath: "#/properties/filePlan/items/properties/action/enum", keyword: "enum", params: { allowedValues: schema174.properties.filePlan.items.properties.action.enum }, message: "must be equal to one of the allowed values" };
+                vErrors === null ? vErrors = [err163] : vErrors.push(err163), errors++;
+              }
+            }
+            if (data63.stagedRelativePath !== void 0 && typeof data63.stagedRelativePath != "string") {
+              let err164 = { instancePath: instancePath + "/filePlan/" + i4 + "/stagedRelativePath", schemaPath: "#/properties/filePlan/items/properties/stagedRelativePath/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+              vErrors === null ? vErrors = [err164] : vErrors.push(err164), errors++;
+            }
+            if (data63.expectedBefore !== void 0) {
+              let data75 = data63.expectedBefore;
+              if (!(data75 === "ABSENT" || data75 === "PRESENT")) {
+                let err165 = { instancePath: instancePath + "/filePlan/" + i4 + "/expectedBefore", schemaPath: "#/properties/filePlan/items/properties/expectedBefore/enum", keyword: "enum", params: { allowedValues: schema174.properties.filePlan.items.properties.expectedBefore.enum }, message: "must be equal to one of the allowed values" };
+                vErrors === null ? vErrors = [err165] : vErrors.push(err165), errors++;
+              }
+            }
+            if (data63.beforeContentHash !== void 0) {
+              let data76 = data63.beforeContentHash;
+              if (typeof data76 == "string") {
+                if (!pattern124.test(data76)) {
+                  let err166 = { instancePath: instancePath + "/filePlan/" + i4 + "/beforeContentHash", schemaPath: "#/properties/filePlan/items/properties/beforeContentHash/pattern", keyword: "pattern", params: { pattern: "^([0-9a-f]{64}|ABSENT)$" }, message: 'must match pattern "^([0-9a-f]{64}|ABSENT)$"' };
+                  vErrors === null ? vErrors = [err166] : vErrors.push(err166), errors++;
+                }
+              } else {
+                let err167 = { instancePath: instancePath + "/filePlan/" + i4 + "/beforeContentHash", schemaPath: "#/properties/filePlan/items/properties/beforeContentHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                vErrors === null ? vErrors = [err167] : vErrors.push(err167), errors++;
+              }
+            }
+            if (data63.beforeRevisionHash !== void 0) {
+              let data77 = data63.beforeRevisionHash;
+              if (typeof data77 == "string") {
+                if (!pattern124.test(data77)) {
+                  let err168 = { instancePath: instancePath + "/filePlan/" + i4 + "/beforeRevisionHash", schemaPath: "#/properties/filePlan/items/properties/beforeRevisionHash/pattern", keyword: "pattern", params: { pattern: "^([0-9a-f]{64}|ABSENT)$" }, message: 'must match pattern "^([0-9a-f]{64}|ABSENT)$"' };
+                  vErrors === null ? vErrors = [err168] : vErrors.push(err168), errors++;
+                }
+              } else {
+                let err169 = { instancePath: instancePath + "/filePlan/" + i4 + "/beforeRevisionHash", schemaPath: "#/properties/filePlan/items/properties/beforeRevisionHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
                 vErrors === null ? vErrors = [err169] : vErrors.push(err169), errors++;
               }
-            if (data77.eventId !== void 0) {
-              let data78 = data77.eventId;
+            }
+            if (data63.stagedContentHash !== void 0) {
+              let data78 = data63.stagedContentHash;
               if (typeof data78 == "string") {
-                if (!pattern1.test(data78)) {
-                  let err170 = { instancePath: instancePath + "/expectedEvents/" + i5 + "/eventId", schemaPath: "#/properties/expectedEvents/items/properties/eventId/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, message: 'must match pattern "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"' };
+                if (!pattern124.test(data78)) {
+                  let err170 = { instancePath: instancePath + "/filePlan/" + i4 + "/stagedContentHash", schemaPath: "#/properties/filePlan/items/properties/stagedContentHash/pattern", keyword: "pattern", params: { pattern: "^([0-9a-f]{64}|ABSENT)$" }, message: 'must match pattern "^([0-9a-f]{64}|ABSENT)$"' };
                   vErrors === null ? vErrors = [err170] : vErrors.push(err170), errors++;
                 }
               } else {
-                let err171 = { instancePath: instancePath + "/expectedEvents/" + i5 + "/eventId", schemaPath: "#/properties/expectedEvents/items/properties/eventId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                let err171 = { instancePath: instancePath + "/filePlan/" + i4 + "/stagedContentHash", schemaPath: "#/properties/filePlan/items/properties/stagedContentHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
                 vErrors === null ? vErrors = [err171] : vErrors.push(err171), errors++;
               }
             }
-            if (data77.relativePath !== void 0 && typeof data77.relativePath != "string") {
-              let err172 = { instancePath: instancePath + "/expectedEvents/" + i5 + "/relativePath", schemaPath: "#/properties/expectedEvents/items/properties/relativePath/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-              vErrors === null ? vErrors = [err172] : vErrors.push(err172), errors++;
-            }
-            if (data77.contentHash !== void 0) {
-              let data80 = data77.contentHash;
-              if (typeof data80 == "string") {
-                if (!pattern6.test(data80)) {
-                  let err173 = { instancePath: instancePath + "/expectedEvents/" + i5 + "/contentHash", schemaPath: "#/properties/expectedEvents/items/properties/contentHash/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
-                  vErrors === null ? vErrors = [err173] : vErrors.push(err173), errors++;
+            if (data63.stagedRevisionHash !== void 0) {
+              let data79 = data63.stagedRevisionHash;
+              if (typeof data79 == "string") {
+                if (!pattern124.test(data79)) {
+                  let err172 = { instancePath: instancePath + "/filePlan/" + i4 + "/stagedRevisionHash", schemaPath: "#/properties/filePlan/items/properties/stagedRevisionHash/pattern", keyword: "pattern", params: { pattern: "^([0-9a-f]{64}|ABSENT)$" }, message: 'must match pattern "^([0-9a-f]{64}|ABSENT)$"' };
+                  vErrors === null ? vErrors = [err172] : vErrors.push(err172), errors++;
                 }
               } else {
-                let err174 = { instancePath: instancePath + "/expectedEvents/" + i5 + "/contentHash", schemaPath: "#/properties/expectedEvents/items/properties/contentHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                vErrors === null ? vErrors = [err174] : vErrors.push(err174), errors++;
-              }
-            }
-            if (data77.document !== void 0) {
-              let data81 = data77.document;
-              if (!(data81 && typeof data81 == "object" && !Array.isArray(data81))) {
-                let err175 = { instancePath: instancePath + "/expectedEvents/" + i5 + "/document", schemaPath: "#/properties/expectedEvents/items/properties/document/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-                vErrors === null ? vErrors = [err175] : vErrors.push(err175), errors++;
+                let err173 = { instancePath: instancePath + "/filePlan/" + i4 + "/stagedRevisionHash", schemaPath: "#/properties/filePlan/items/properties/stagedRevisionHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                vErrors === null ? vErrors = [err173] : vErrors.push(err173), errors++;
               }
             }
           } else {
-            let err176 = { instancePath: instancePath + "/expectedEvents/" + i5, schemaPath: "#/properties/expectedEvents/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-            vErrors === null ? vErrors = [err176] : vErrors.push(err176), errors++;
+            let err174 = { instancePath: instancePath + "/filePlan/" + i4, schemaPath: "#/properties/filePlan/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            vErrors === null ? vErrors = [err174] : vErrors.push(err174), errors++;
           }
         }
       } else {
-        let err177 = { instancePath: instancePath + "/expectedEvents", schemaPath: "#/properties/expectedEvents/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-        vErrors === null ? vErrors = [err177] : vErrors.push(err177), errors++;
+        let err175 = { instancePath: instancePath + "/filePlan", schemaPath: "#/properties/filePlan/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        vErrors === null ? vErrors = [err175] : vErrors.push(err175), errors++;
       }
     }
-    if (data.appliedAt !== void 0) {
-      let data82 = data.appliedAt;
-      if (typeof data82 != "string" && data82 !== null) {
-        let err178 = { instancePath: instancePath + "/appliedAt", schemaPath: "#/properties/appliedAt/type", keyword: "type", params: { type: schema174.properties.appliedAt.type }, message: "must be string,null" };
-        vErrors === null ? vErrors = [err178] : vErrors.push(err178), errors++;
-      }
-    }
-    if (data.conflict !== void 0) {
-      let data83 = data.conflict;
-      if (!(data83 && typeof data83 == "object" && !Array.isArray(data83)) && data83 !== null) {
-        let err179 = { instancePath: instancePath + "/conflict", schemaPath: "#/properties/conflict/type", keyword: "type", params: { type: schema174.properties.conflict.type }, message: "must be object,null" };
-        vErrors === null ? vErrors = [err179] : vErrors.push(err179), errors++;
-      }
-    }
-    if (data.history !== void 0) {
-      let data84 = data.history;
-      if (Array.isArray(data84)) {
-        let len6 = data84.length;
-        for (let i6 = 0; i6 < len6; i6++) {
-          let data85 = data84[i6];
-          if (data85 && typeof data85 == "object" && !Array.isArray(data85)) {
-            if (data85.at === void 0) {
-              let err180 = { instancePath: instancePath + "/history/" + i6, schemaPath: "#/properties/history/items/required", keyword: "required", params: { missingProperty: "at" }, message: "must have required property 'at'" };
-              vErrors === null ? vErrors = [err180] : vErrors.push(err180), errors++;
+    if (data.expectedEvents !== void 0) {
+      let data80 = data.expectedEvents;
+      if (Array.isArray(data80)) {
+        let len5 = data80.length;
+        for (let i5 = 0; i5 < len5; i5++) {
+          let data81 = data80[i5];
+          if (data81 && typeof data81 == "object" && !Array.isArray(data81)) {
+            if (data81.eventId === void 0) {
+              let err176 = { instancePath: instancePath + "/expectedEvents/" + i5, schemaPath: "#/properties/expectedEvents/items/required", keyword: "required", params: { missingProperty: "eventId" }, message: "must have required property 'eventId'" };
+              vErrors === null ? vErrors = [err176] : vErrors.push(err176), errors++;
             }
-            if (data85.to === void 0) {
-              let err181 = { instancePath: instancePath + "/history/" + i6, schemaPath: "#/properties/history/items/required", keyword: "required", params: { missingProperty: "to" }, message: "must have required property 'to'" };
-              vErrors === null ? vErrors = [err181] : vErrors.push(err181), errors++;
+            if (data81.relativePath === void 0) {
+              let err177 = { instancePath: instancePath + "/expectedEvents/" + i5, schemaPath: "#/properties/expectedEvents/items/required", keyword: "required", params: { missingProperty: "relativePath" }, message: "must have required property 'relativePath'" };
+              vErrors === null ? vErrors = [err177] : vErrors.push(err177), errors++;
             }
-            if (data85.actor === void 0) {
-              let err182 = { instancePath: instancePath + "/history/" + i6, schemaPath: "#/properties/history/items/required", keyword: "required", params: { missingProperty: "actor" }, message: "must have required property 'actor'" };
-              vErrors === null ? vErrors = [err182] : vErrors.push(err182), errors++;
+            if (data81.contentHash === void 0) {
+              let err178 = { instancePath: instancePath + "/expectedEvents/" + i5, schemaPath: "#/properties/expectedEvents/items/required", keyword: "required", params: { missingProperty: "contentHash" }, message: "must have required property 'contentHash'" };
+              vErrors === null ? vErrors = [err178] : vErrors.push(err178), errors++;
             }
-            for (let key10 in data85)
-              if (!(key10 === "at" || key10 === "from" || key10 === "to" || key10 === "actor" || key10 === "reason")) {
-                let err183 = { instancePath: instancePath + "/history/" + i6, schemaPath: "#/properties/history/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key10 }, message: "must NOT have additional properties" };
-                vErrors === null ? vErrors = [err183] : vErrors.push(err183), errors++;
+            if (data81.document === void 0) {
+              let err179 = { instancePath: instancePath + "/expectedEvents/" + i5, schemaPath: "#/properties/expectedEvents/items/required", keyword: "required", params: { missingProperty: "document" }, message: "must have required property 'document'" };
+              vErrors === null ? vErrors = [err179] : vErrors.push(err179), errors++;
+            }
+            for (let key10 in data81)
+              if (!(key10 === "eventId" || key10 === "relativePath" || key10 === "contentHash" || key10 === "document")) {
+                let err180 = { instancePath: instancePath + "/expectedEvents/" + i5, schemaPath: "#/properties/expectedEvents/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key10 }, message: "must NOT have additional properties" };
+                vErrors === null ? vErrors = [err180] : vErrors.push(err180), errors++;
               }
-            if (data85.at !== void 0 && typeof data85.at != "string") {
-              let err184 = { instancePath: instancePath + "/history/" + i6 + "/at", schemaPath: "#/properties/history/items/properties/at/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-              vErrors === null ? vErrors = [err184] : vErrors.push(err184), errors++;
+            if (data81.eventId !== void 0) {
+              let data82 = data81.eventId;
+              if (typeof data82 == "string") {
+                if (!pattern1.test(data82)) {
+                  let err181 = { instancePath: instancePath + "/expectedEvents/" + i5 + "/eventId", schemaPath: "#/properties/expectedEvents/items/properties/eventId/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, message: 'must match pattern "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"' };
+                  vErrors === null ? vErrors = [err181] : vErrors.push(err181), errors++;
+                }
+              } else {
+                let err182 = { instancePath: instancePath + "/expectedEvents/" + i5 + "/eventId", schemaPath: "#/properties/expectedEvents/items/properties/eventId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                vErrors === null ? vErrors = [err182] : vErrors.push(err182), errors++;
+              }
             }
-            if (data85.from !== void 0) {
-              let data87 = data85.from;
-              if (typeof data87 != "string" && data87 !== null) {
-                let err185 = { instancePath: instancePath + "/history/" + i6 + "/from", schemaPath: "#/properties/history/items/properties/from/type", keyword: "type", params: { type: schema174.properties.history.items.properties.from.type }, message: "must be string,null" };
+            if (data81.relativePath !== void 0 && typeof data81.relativePath != "string") {
+              let err183 = { instancePath: instancePath + "/expectedEvents/" + i5 + "/relativePath", schemaPath: "#/properties/expectedEvents/items/properties/relativePath/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+              vErrors === null ? vErrors = [err183] : vErrors.push(err183), errors++;
+            }
+            if (data81.contentHash !== void 0) {
+              let data84 = data81.contentHash;
+              if (typeof data84 == "string") {
+                if (!pattern6.test(data84)) {
+                  let err184 = { instancePath: instancePath + "/expectedEvents/" + i5 + "/contentHash", schemaPath: "#/properties/expectedEvents/items/properties/contentHash/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
+                  vErrors === null ? vErrors = [err184] : vErrors.push(err184), errors++;
+                }
+              } else {
+                let err185 = { instancePath: instancePath + "/expectedEvents/" + i5 + "/contentHash", schemaPath: "#/properties/expectedEvents/items/properties/contentHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
                 vErrors === null ? vErrors = [err185] : vErrors.push(err185), errors++;
               }
             }
-            if (data85.to !== void 0 && typeof data85.to != "string") {
-              let err186 = { instancePath: instancePath + "/history/" + i6 + "/to", schemaPath: "#/properties/history/items/properties/to/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-              vErrors === null ? vErrors = [err186] : vErrors.push(err186), errors++;
-            }
-            if (data85.actor !== void 0 && typeof data85.actor != "string") {
-              let err187 = { instancePath: instancePath + "/history/" + i6 + "/actor", schemaPath: "#/properties/history/items/properties/actor/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-              vErrors === null ? vErrors = [err187] : vErrors.push(err187), errors++;
-            }
-            if (data85.reason !== void 0) {
-              let data90 = data85.reason;
-              if (typeof data90 != "string" && data90 !== null) {
-                let err188 = { instancePath: instancePath + "/history/" + i6 + "/reason", schemaPath: "#/properties/history/items/properties/reason/type", keyword: "type", params: { type: schema174.properties.history.items.properties.reason.type }, message: "must be string,null" };
-                vErrors === null ? vErrors = [err188] : vErrors.push(err188), errors++;
+            if (data81.document !== void 0) {
+              let data85 = data81.document;
+              if (!(data85 && typeof data85 == "object" && !Array.isArray(data85))) {
+                let err186 = { instancePath: instancePath + "/expectedEvents/" + i5 + "/document", schemaPath: "#/properties/expectedEvents/items/properties/document/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+                vErrors === null ? vErrors = [err186] : vErrors.push(err186), errors++;
               }
             }
           } else {
-            let err189 = { instancePath: instancePath + "/history/" + i6, schemaPath: "#/properties/history/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-            vErrors === null ? vErrors = [err189] : vErrors.push(err189), errors++;
+            let err187 = { instancePath: instancePath + "/expectedEvents/" + i5, schemaPath: "#/properties/expectedEvents/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            vErrors === null ? vErrors = [err187] : vErrors.push(err187), errors++;
           }
         }
       } else {
-        let err190 = { instancePath: instancePath + "/history", schemaPath: "#/properties/history/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        let err188 = { instancePath: instancePath + "/expectedEvents", schemaPath: "#/properties/expectedEvents/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        vErrors === null ? vErrors = [err188] : vErrors.push(err188), errors++;
+      }
+    }
+    if (data.appliedAt !== void 0) {
+      let data86 = data.appliedAt;
+      if (typeof data86 != "string" && data86 !== null) {
+        let err189 = { instancePath: instancePath + "/appliedAt", schemaPath: "#/properties/appliedAt/type", keyword: "type", params: { type: schema174.properties.appliedAt.type }, message: "must be string,null" };
+        vErrors === null ? vErrors = [err189] : vErrors.push(err189), errors++;
+      }
+    }
+    if (data.conflict !== void 0) {
+      let data87 = data.conflict;
+      if (!(data87 && typeof data87 == "object" && !Array.isArray(data87)) && data87 !== null) {
+        let err190 = { instancePath: instancePath + "/conflict", schemaPath: "#/properties/conflict/type", keyword: "type", params: { type: schema174.properties.conflict.type }, message: "must be object,null" };
         vErrors === null ? vErrors = [err190] : vErrors.push(err190), errors++;
       }
     }
+    if (data.history !== void 0) {
+      let data88 = data.history;
+      if (Array.isArray(data88)) {
+        let len6 = data88.length;
+        for (let i6 = 0; i6 < len6; i6++) {
+          let data89 = data88[i6];
+          if (data89 && typeof data89 == "object" && !Array.isArray(data89)) {
+            if (data89.at === void 0) {
+              let err191 = { instancePath: instancePath + "/history/" + i6, schemaPath: "#/properties/history/items/required", keyword: "required", params: { missingProperty: "at" }, message: "must have required property 'at'" };
+              vErrors === null ? vErrors = [err191] : vErrors.push(err191), errors++;
+            }
+            if (data89.to === void 0) {
+              let err192 = { instancePath: instancePath + "/history/" + i6, schemaPath: "#/properties/history/items/required", keyword: "required", params: { missingProperty: "to" }, message: "must have required property 'to'" };
+              vErrors === null ? vErrors = [err192] : vErrors.push(err192), errors++;
+            }
+            if (data89.actor === void 0) {
+              let err193 = { instancePath: instancePath + "/history/" + i6, schemaPath: "#/properties/history/items/required", keyword: "required", params: { missingProperty: "actor" }, message: "must have required property 'actor'" };
+              vErrors === null ? vErrors = [err193] : vErrors.push(err193), errors++;
+            }
+            for (let key11 in data89)
+              if (!(key11 === "at" || key11 === "from" || key11 === "to" || key11 === "actor" || key11 === "reason")) {
+                let err194 = { instancePath: instancePath + "/history/" + i6, schemaPath: "#/properties/history/items/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key11 }, message: "must NOT have additional properties" };
+                vErrors === null ? vErrors = [err194] : vErrors.push(err194), errors++;
+              }
+            if (data89.at !== void 0 && typeof data89.at != "string") {
+              let err195 = { instancePath: instancePath + "/history/" + i6 + "/at", schemaPath: "#/properties/history/items/properties/at/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+              vErrors === null ? vErrors = [err195] : vErrors.push(err195), errors++;
+            }
+            if (data89.from !== void 0) {
+              let data91 = data89.from;
+              if (typeof data91 != "string" && data91 !== null) {
+                let err196 = { instancePath: instancePath + "/history/" + i6 + "/from", schemaPath: "#/properties/history/items/properties/from/type", keyword: "type", params: { type: schema174.properties.history.items.properties.from.type }, message: "must be string,null" };
+                vErrors === null ? vErrors = [err196] : vErrors.push(err196), errors++;
+              }
+            }
+            if (data89.to !== void 0 && typeof data89.to != "string") {
+              let err197 = { instancePath: instancePath + "/history/" + i6 + "/to", schemaPath: "#/properties/history/items/properties/to/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+              vErrors === null ? vErrors = [err197] : vErrors.push(err197), errors++;
+            }
+            if (data89.actor !== void 0 && typeof data89.actor != "string") {
+              let err198 = { instancePath: instancePath + "/history/" + i6 + "/actor", schemaPath: "#/properties/history/items/properties/actor/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+              vErrors === null ? vErrors = [err198] : vErrors.push(err198), errors++;
+            }
+            if (data89.reason !== void 0) {
+              let data94 = data89.reason;
+              if (typeof data94 != "string" && data94 !== null) {
+                let err199 = { instancePath: instancePath + "/history/" + i6 + "/reason", schemaPath: "#/properties/history/items/properties/reason/type", keyword: "type", params: { type: schema174.properties.history.items.properties.reason.type }, message: "must be string,null" };
+                vErrors === null ? vErrors = [err199] : vErrors.push(err199), errors++;
+              }
+            }
+          } else {
+            let err200 = { instancePath: instancePath + "/history/" + i6, schemaPath: "#/properties/history/items/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+            vErrors === null ? vErrors = [err200] : vErrors.push(err200), errors++;
+          }
+        }
+      } else {
+        let err201 = { instancePath: instancePath + "/history", schemaPath: "#/properties/history/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+        vErrors === null ? vErrors = [err201] : vErrors.push(err201), errors++;
+      }
+    }
   } else {
-    let err191 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    vErrors === null ? vErrors = [err191] : vErrors.push(err191), errors++;
+    let err202 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    vErrors === null ? vErrors = [err202] : vErrors.push(err202), errors++;
   }
   return validate97.errors = vErrors, errors === 0;
 }
 var validate_plugin_lock = validate98;
-var pattern194 = new RegExp("^\\.planning/vendor/template-packs/sha256-[0-9a-f]{64}$", "u");
+var pattern196 = new RegExp("^\\.planning/vendor/template-packs/sha256-[0-9a-f]{64}$", "u");
 function validate98(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
   let vErrors = null, errors = 0;
   if (data && typeof data == "object" && !Array.isArray(data)) {
@@ -16980,7 +17041,7 @@ function validate98(data, { instancePath = "", parentData, parentDataProperty, r
             if (data6.vendorSnapshot !== void 0) {
               let data10 = data6.vendorSnapshot;
               if (typeof data10 == "string") {
-                if (!pattern194.test(data10)) {
+                if (!pattern196.test(data10)) {
                   let err28 = { instancePath: instancePath + "/plugin/templatePack/vendorSnapshot", schemaPath: "#/properties/plugin/properties/templatePack/properties/vendorSnapshot/pattern", keyword: "pattern", params: { pattern: "^\\.planning/vendor/template-packs/sha256-[0-9a-f]{64}$" }, message: 'must match pattern "^\\.planning/vendor/template-packs/sha256-[0-9a-f]{64}$"' };
                   vErrors === null ? vErrors = [err28] : vErrors.push(err28), errors++;
                 }
@@ -20937,405 +20998,8 @@ function resolveReleaseReference(planningRoot, reference) {
   return match.invalid || integrity.findings.length > 0 ? { status: "INVALID", reference, release: match.release, findings: [.../* @__PURE__ */ new Set([...match.findings, ...integrity.findings])] } : { status: "FOUND", reference, release: match.release, findings: [] };
 }
 
-// runtime/src/lib/changeset.mjs
-function readFileState(planningRoot, relativePath) {
-  let absolutePath = confineRuntimeWritePath(planningRoot, relativePath);
-  if (!fs12.existsSync(absolutePath))
-    return { revisionHash: ABSENT, contentHash: ABSENT };
-  if (fs12.lstatSync(absolutePath).isDirectory())
-    return { revisionHash: DIRECTORY_CONTENT_HASH, contentHash: DIRECTORY_CONTENT_HASH };
-  let bytes = fs12.readFileSync(absolutePath), isStructured = relativePath.endsWith(".yml") || relativePath.endsWith(".yaml") || relativePath.endsWith(".json"), structuredValue = isStructured ? relativePath.endsWith(".json") ? JSON.parse(bytes.toString("utf8")) : parseYaml(bytes.toString("utf8")) : null;
-  return {
-    revisionHash: isStructured ? revisionHash(structuredValue) : contentHash(bytes),
-    contentHash: contentHash(bytes)
-  };
-}
-function computePersistedChangeSetHash(changeSet) {
-  let { hash, ...withoutHash } = changeSet;
-  return revisionHash(withoutHash);
-}
-function eventTypeFor(kind) {
-  return {
-    "workspace.init": "workspace.initialized",
-    "config.update": "config.updated",
-    "config.autonomy.set": "config.autonomy.set",
-    "scope.add": "scope.added",
-    "scope.command.set": "scope.command.set",
-    "scope.generator.set": "scope.generator.set",
-    "discovery.propose": "discovery.proposed",
-    "guide.update": "guide.updated",
-    "release.create": "release.created",
-    "release.policy.configure": "release.policy.configured",
-    "release.scopeRefs.set": "release.scopeRefs.set",
-    "release.operationalRefs.set": "release.operationalRefs.set",
-    "release.deployment.record": "release.deployment.recorded"
-  }[kind];
-}
-function findIdempotentOperation(operationsRoot, { kind, key, requestHash }) {
-  if (!key || !fs12.existsSync(operationsRoot)) return null;
-  let matchingOperationId = null;
-  for (let candidateId of fs12.readdirSync(operationsRoot).sort()) {
-    let operation;
-    try {
-      operation = readOperation(operationsRoot, candidateId);
-    } catch (error2) {
-      throw new StateError(`cannot establish ${kind} idempotency because operation ${candidateId} is unreadable: ${error2.message}`);
-    }
-    if (operation.kind !== kind) continue;
-    let changeSet;
-    try {
-      changeSet = readChangeSet(operationsRoot, candidateId);
-    } catch (error2) {
-      throw new StateError(`cannot establish ${kind} idempotency because ChangeSet ${candidateId} is unreadable: ${error2.message}`);
-    }
-    if (changeSet.kind !== kind || changeSet.operationId !== candidateId || computePersistedChangeSetHash(changeSet) !== changeSet.hash)
-      throw new StateError(`cannot establish ${kind} idempotency because operation ${candidateId} is internally inconsistent`);
-    if (changeSet.payload?.idempotencyKey === key) {
-      if (changeSet.payload?.idempotencyRequestHash !== requestHash)
-        throw new StateError(`idempotency key ${key} was already used for a different ${kind} request`);
-      if (matchingOperationId && matchingOperationId !== candidateId)
-        throw new StateError(`idempotency key ${key} is bound to multiple ${kind} operations`);
-      matchingOperationId = candidateId;
-    }
-  }
-  return matchingOperationId;
-}
-function propose({ operationsRoot, planningRoot, kind, target, payload, targetFiles, actor, operationId = null, proposedAt = null, preconditions = null, idempotency = null, prepareUnderLock = null }) {
-  return withWorkspaceMutation({ planningRoot, operationsRoot, operationId: null }, () => {
-    if (idempotency) {
-      let existingOperationId = findIdempotentOperation(operationsRoot, { kind, ...idempotency });
-      if (existingOperationId) return existingOperationId;
-    }
-    if (prepareUnderLock) {
-      let prepared = prepareUnderLock();
-      if (!prepared || !prepared.target || !prepared.payload || !Array.isArray(prepared.targetFiles))
-        throw new StateError(`${kind} prepareUnderLock must return target, payload, and targetFiles`);
-      target = prepared.target, payload = prepared.payload, targetFiles = prepared.targetFiles;
-    }
-    if (!target || !payload || !Array.isArray(targetFiles)) throw new StateError(`${kind} proposal is missing target, payload, or targetFiles`);
-    operationId ??= generateUuidV7(), assertDistinctMutationTargets(planningRoot, targetFiles);
-    let baseRevisions = {};
-    for (let relativePath of targetFiles)
-      baseRevisions[relativePath] = readFileState(planningRoot, relativePath);
-    let changeSetWithoutHash = { schemaVersion: 1, operationId, kind, target, baseRevisions, payload };
-    preconditions && (changeSetWithoutHash.preconditions = preconditions);
-    let hash = computePersistedChangeSetHash(changeSetWithoutHash);
-    writeChangeSet(operationsRoot, operationId, { ...changeSetWithoutHash, hash });
-    let reservedEvents = [{ eventId: generateUuidV7(), type: eventTypeFor(kind) }];
-    return proposedAt ??= (/* @__PURE__ */ new Date()).toISOString(), writeOperation(operationsRoot, operationId, {
-      id: operationId,
-      kind,
-      status: "PROPOSED",
-      proposedBy: actor,
-      proposedAt,
-      reservedEvents,
-      validation: { validatedAt: null, changeSetHash: null, errors: [] },
-      approval: { actor: null, approvedAt: null, changeSetHash: null, selfApproval: null, mode: null },
-      history: [{ at: proposedAt, from: null, to: "PROPOSED", actor, reason: null }]
-    }), operationId;
-  });
-}
-function schemaNameForRenderedPath(relativePath) {
-  return relativePath === "config.yml" ? "config" : relativePath === "plugin.lock.yml" ? "plugin-lock" : /^sources\/[^/]+\/source\.yml$/.test(relativePath) ? "source" : /^scopes\/[^/]+\/scope\.yml$/.test(relativePath) ? "scope" : /^scopes\/[^/]+\/(task|test)-guide\.yml$/.test(relativePath) ? "guide" : /^releases\/[^/]+\/release\.yml$/.test(relativePath) ? "release" : null;
-}
-function checkKindInvariants(changeSet, operation = null, planningRoot = null) {
-  let errors = [];
-  if (changeSet.kind === "workspace.init")
-    for (let relativePath of Object.keys(changeSet.baseRevisions)) {
-      let entry = changeSet.baseRevisions[relativePath];
-      (!entry || entry.revisionHash !== ABSENT || entry.contentHash !== ABSENT) && errors.push(`${relativePath} must be ABSENT for workspace.init; the workspace already appears initialized -- use config set to update it instead`);
-    }
-  if (changeSet.kind === "scope.add") {
-    let scopePath = `scopes/${changeSet.payload.id}/scope.yml`, entry = changeSet.baseRevisions[scopePath];
-    (!entry || entry.revisionHash !== ABSENT || entry.contentHash !== ABSENT) && errors.push(`${scopePath} must be ABSENT for a new scope.add, but baseRevisions recorded something else`);
-  }
-  if (changeSet.kind === "guide.update") {
-    let guidePath2 = `scopes/${changeSet.payload.scopeId}/${changeSet.payload.guideKind}-guide.yml`, expectedPaths = /* @__PURE__ */ new Set(["config.yml", `scopes/${changeSet.payload.scopeId}/scope.yml`, guidePath2]);
-    ["generate", "regenerate"].includes(changeSet.payload.action) && expectedPaths.add(`scopes/${changeSet.payload.scopeId}/${changeSet.payload.guideKind}-guide.md`);
-    let actualPaths = new Set(Object.keys(changeSet.baseRevisions));
-    (expectedPaths.size !== actualPaths.size || [...expectedPaths].some((target) => !actualPaths.has(target))) && errors.push("guide.update baseRevisions must contain exactly config.yml, scope.yml, and the canonical guide YAML");
-    let guideBase = changeSet.baseRevisions[guidePath2];
-    changeSet.payload.action === "generate" ? (!guideBase || guideBase.contentHash !== ABSENT) && errors.push(`${guidePath2} must be ABSENT for initial guide.generate`) : (!guideBase || guideBase.contentHash === ABSENT) && errors.push(`${guidePath2} must already exist for guide.${changeSet.payload.action}`);
-  }
-  if (changeSet.kind === "release.create") {
-    let existingReleases = [];
-    try {
-      existingReleases = listReleaseDocuments(planningRoot);
-    } catch (error2) {
-      errors.push(`release.create cannot verify display ID uniqueness: ${error2.message}`);
-    }
-    errors.push(...releaseCreateInvariantFindings(changeSet, operation, existingReleases));
-    let releasePath = `releases/${changeSet.payload.id}/release.yml`, readmePath = `releases/${changeSet.payload.id}/README.md`, actualPaths = new Set(Object.keys(changeSet.baseRevisions));
-    (actualPaths.size !== 2 || !actualPaths.has(releasePath) || !actualPaths.has(readmePath)) && errors.push("release.create baseRevisions must contain exactly release.yml and README.md for the UUIDv7 release directory");
-    for (let relativePath of [releasePath, readmePath]) {
-      let entry = changeSet.baseRevisions[relativePath];
-      (!entry || entry.revisionHash !== ABSENT || entry.contentHash !== ABSENT) && errors.push(`${relativePath} must be ABSENT for release.create`);
-    }
-  }
-  if (["release.policy.configure", "release.scopeRefs.set", "release.operationalRefs.set", "release.deployment.record"].includes(changeSet.kind)) {
-    let releaseId = changeSet.payload.releaseId, releasePath = `releases/${releaseId}/release.yml`, readmePath = `releases/${releaseId}/README.md`, actualPaths = new Set(Object.keys(changeSet.baseRevisions));
-    (actualPaths.size !== 2 || !actualPaths.has(releasePath) || !actualPaths.has(readmePath)) && errors.push(`${changeSet.kind} baseRevisions must contain exactly release.yml and README.md for the target Release`);
-    for (let relativePath of [releasePath, readmePath]) {
-      let entry = changeSet.baseRevisions[relativePath];
-      (!entry || entry.revisionHash === ABSENT || entry.contentHash === ABSENT) && errors.push(`${relativePath} must already exist for ${changeSet.kind}`);
-    }
-    changeSet.target?.releaseId !== releaseId && errors.push(`${changeSet.kind} target.releaseId must match payload.releaseId`), (changeSet.payload.operationId !== changeSet.operationId || operation && changeSet.payload.operationId !== operation.id) && errors.push(`${changeSet.kind} payload.operationId must match operation id`);
-  }
-  return errors;
-}
-function revalidateChangeSet({ operationsRoot, planningRoot, operationId, render, operation = null }) {
-  let changeSet = readChangeSet(operationsRoot, operationId);
-  if (changeSet.operationId !== operationId)
-    return { ok: !1, status: "INVALID", errors: [`change-set.json operationId ${changeSet.operationId} does not match operation ${operationId}`], recomputedHash: null };
-  let recomputedHash = computePersistedChangeSetHash(changeSet);
-  if (recomputedHash !== changeSet.hash)
-    return { ok: !1, status: "INVALID", errors: ["change-set.json hash does not match its own recomputed content; the file has been tampered with or corrupted"], recomputedHash };
-  let changeSetResult = validate("change-set", changeSet);
-  if (!changeSetResult.valid)
-    return { ok: !1, status: "INVALID", errors: changeSetResult.errors.map((e) => `change-set${e.path}: ${e.message}`), recomputedHash };
-  let invariantErrors = checkKindInvariants(changeSet, operation, planningRoot);
-  if (invariantErrors.length > 0)
-    return { ok: !1, status: "INVALID", errors: invariantErrors, recomputedHash };
-  let rendered;
-  try {
-    rendered = render(changeSet.payload), assertDistinctMutationTargets(planningRoot, [...rendered.keys()]);
-  } catch (error2) {
-    return { ok: !1, status: error2.code === "STALE" ? "STALE" : "INVALID", errors: [error2.message], recomputedHash };
-  }
-  let renderedPaths = new Set(rendered.keys()), baseRevisionPaths = new Set(Object.keys(changeSet.baseRevisions)), missingFromBaseRevisions = [...renderedPaths].filter((p) => !baseRevisionPaths.has(p)), extraInBaseRevisions = [...baseRevisionPaths].filter((p) => !renderedPaths.has(p));
-  if (missingFromBaseRevisions.length > 0 || extraInBaseRevisions.length > 0)
-    return {
-      ok: !1,
-      status: "INVALID",
-      errors: [`baseRevisions must exactly match the rendered file set; missing=${JSON.stringify(missingFromBaseRevisions)} extra=${JSON.stringify(extraInBaseRevisions)}`],
-      recomputedHash
-    };
-  for (let [relativePath, expected] of Object.entries(changeSet.baseRevisions)) {
-    let actual = readFileState(planningRoot, relativePath);
-    if (actual.revisionHash !== expected.revisionHash || actual.contentHash !== expected.contentHash)
-      return { ok: !1, status: "STALE", errors: [`${relativePath} changed since propose`], recomputedHash };
-  }
-  let renderErrors = [];
-  for (let [relativePath, content] of rendered) {
-    if (content === null || isDirectoryRenderEntry(content)) continue;
-    let schemaName = schemaNameForRenderedPath(relativePath);
-    if (!schemaName) continue;
-    let value = parseYaml(content), result = validate(schemaName, value);
-    if (!result.valid)
-      for (let error2 of result.errors) renderErrors.push(`${relativePath}${error2.path}: ${error2.message}`);
-  }
-  return renderErrors.length > 0 ? { ok: !1, status: "INVALID", errors: renderErrors, recomputedHash } : { ok: !0, recomputedHash, changeSet, rendered };
-}
-function transitionToStale(operationsRoot, operationId, operation, reason) {
-  let staleAt = (/* @__PURE__ */ new Date()).toISOString();
-  throw writeOperation(operationsRoot, operationId, {
-    ...operation,
-    status: "STALE",
-    history: [...operation.history, { at: staleAt, from: operation.status, to: "STALE", actor: "system:validator", reason }]
-  }), new StaleError(reason);
-}
-function validateOperation({ operationsRoot, planningRoot, operationId, render }) {
-  return withWorkspaceMutation({ planningRoot, operationsRoot, operationId }, () => {
-    let operation = readOperation(operationsRoot, operationId);
-    if (operation.status !== "PROPOSED")
-      throw new StateError(`cannot validate operation in status ${operation.status}`);
-    let result = revalidateChangeSet({ operationsRoot, planningRoot, operationId, render, operation }), validatedAt = (/* @__PURE__ */ new Date()).toISOString();
-    if (!result.ok) {
-      writeOperation(operationsRoot, operationId, {
-        ...operation,
-        status: result.status,
-        validation: { validatedAt, changeSetHash: result.recomputedHash, errors: result.errors },
-        history: [...operation.history, { at: validatedAt, from: operation.status, to: result.status, actor: "system:validator", reason: result.errors[0] }]
-      });
-      return;
-    }
-    let nextOperation = {
-      ...operation,
-      status: "VALIDATED",
-      validation: { validatedAt, changeSetHash: result.recomputedHash, errors: [] },
-      history: [...operation.history, { at: validatedAt, from: operation.status, to: "VALIDATED", actor: "system:validator", reason: null }]
-    }, evaluation = evaluateChangeSetAutonomy({ changeSet: result.changeSet, planningRoot });
-    evaluation ? nextOperation.autonomyEvaluation = bindAutonomyEvaluation({
-      evaluation,
-      operationId,
-      changeSetHash: result.recomputedHash
-    }) : delete nextOperation.autonomyEvaluation, writeOperation(operationsRoot, operationId, nextOperation);
-  });
-}
-function approveOperation({ operationsRoot, planningRoot, operationId, actor, allowSelfApproval = !1, mode = "human", authorizationContext = null }) {
-  return withWorkspaceMutation({ planningRoot, operationsRoot, operationId }, () => {
-    let operation = readOperation(operationsRoot, operationId);
-    if (operation.status !== "VALIDATED")
-      throw new StateError(`cannot approve operation in status ${operation.status}`);
-    if (!["human", "autonomous"].includes(mode))
-      throw new StateError(`unsupported approval mode: ${mode}`);
-    let changeSet = readChangeSet(operationsRoot, operationId);
-    if (changeSet.kind === "guide.update" && changeSet.payload.action === "approve" && mode !== "human")
-      throw new StateError("Guide approval must use the human approval mode");
-    let recomputedHash = computePersistedChangeSetHash(changeSet);
-    if ((recomputedHash !== changeSet.hash || recomputedHash !== operation.validation.changeSetHash) && transitionToStale(operationsRoot, operationId, operation, "change-set.json changed since validate; propose and validate again before approving"), mode === "autonomous") {
-      if (!hasAutonomousApprovalCapability(authorizationContext))
-        throw new StateError("autonomous approval requires a server-owned authorization capability");
-      if (!operation.autonomyEvaluation)
-        throw new StateError("autonomous approval requires this operation's autonomyEvaluation");
-      if (operation.autonomyEvaluation.operationId !== operationId || operation.autonomyEvaluation.changeSetHash !== recomputedHash)
-        throw new StateError("autonomyEvaluation is not bound to this operation and validated ChangeSet");
-      currentPolicyFingerprint(planningRoot) !== operation.autonomyEvaluation.policyFingerprint && transitionToStale(operationsRoot, operationId, operation, REASON_CODES.POLICY_CHANGED_SINCE_VALIDATION);
-      let evaluation = evaluateChangeSetAutonomy({ changeSet, planningRoot }), freshEvaluation = bindAutonomyEvaluation({ evaluation, operationId, changeSetHash: recomputedHash });
-      if (!freshEvaluation || revisionHash(freshEvaluation) !== revisionHash(operation.autonomyEvaluation))
-        throw new StateError("autonomyEvaluation does not match this operation");
-      if (!operation.autonomyEvaluation.autoApprovable)
-        throw new StateError("autonomous approval requires autoApprovable true");
-    }
-    let selfApproval = actor === operation.proposedBy;
-    if (selfApproval && !allowSelfApproval)
-      throw new StateError("self-approval requires allowSelfApproval to be explicitly set");
-    let approvedAt = (/* @__PURE__ */ new Date()).toISOString();
-    writeOperation(operationsRoot, operationId, {
-      ...operation,
-      status: "APPROVED",
-      approval: { actor, approvedAt, changeSetHash: recomputedHash, selfApproval, mode },
-      history: [...operation.history, { at: approvedAt, from: "VALIDATED", to: "APPROVED", actor, reason: selfApproval ? "self-approved" : null }]
-    });
-  });
-}
-function prepareApply({ operationsRoot, planningRoot, operationId, render, actor }) {
-  let operation = readOperation(operationsRoot, operationId);
-  if (operation.status !== "APPROVED")
-    throw new StateError(`cannot apply operation in status ${operation.status}`);
-  let changeSet = readChangeSet(operationsRoot, operationId), revalidation = revalidateChangeSet({ operationsRoot, planningRoot, operationId, render, operation });
-  revalidation.ok || transitionToStale(operationsRoot, operationId, operation, revalidation.errors[0]);
-  let recomputedHash = revalidation.recomputedHash;
-  (recomputedHash !== changeSet.hash || recomputedHash !== operation.validation.changeSetHash || recomputedHash !== operation.approval.changeSetHash) && transitionToStale(operationsRoot, operationId, operation, "changeSetHash no longer matches validate/approve; the change-set has drifted since approval");
-  let discoveryWorkspace = changeSet.preconditions?.discoveryWorkspace;
-  discoveryWorkspace && runDiscoverScan({
-    planningRoot,
-    workspaceRoot: path10.dirname(planningRoot),
-    maxSourceBytes: discoveryWorkspace.scanParameters.maxSourceBytes
-  }).baseRevision.workspaceHash !== discoveryWorkspace.workspaceHash && transitionToStale(operationsRoot, operationId, operation, "discovery workspace changed since validation; rescan and create a new operation");
-  let rendered = revalidation.rendered, runtimeOperationRelative = path10.join(".runtime", "operations", operationId), stagingRelative = path10.join(runtimeOperationRelative, "staged"), beforeRelative = path10.join(runtimeOperationRelative, "before");
-  ensureDirectoryTree(planningRoot, stagingRelative), ensureDirectoryTree(planningRoot, beforeRelative), assertDistinctMutationTargets(planningRoot, [...rendered.keys()]);
-  let filePlan = [];
-  for (let [relativePath, newContent] of rendered) {
-    let before = changeSet.baseRevisions[relativePath];
-    confineRuntimeWritePath(planningRoot, relativePath), before.contentHash !== ABSENT && !isDirectoryRenderEntry(newContent) && copyFileAtomic(planningRoot, relativePath, path10.join(beforeRelative, relativePath)), isDirectoryRenderEntry(newContent) ? filePlan.push({
-      target: relativePath,
-      action: "mkdir",
-      expectedBefore: before.contentHash === ABSENT ? "ABSENT" : "PRESENT",
-      beforeContentHash: before.contentHash,
-      beforeRevisionHash: before.revisionHash,
-      stagedContentHash: DIRECTORY_CONTENT_HASH,
-      stagedRevisionHash: DIRECTORY_CONTENT_HASH
-    }) : newContent === null ? filePlan.push({
-      target: relativePath,
-      action: "delete",
-      expectedBefore: before.contentHash === ABSENT ? "ABSENT" : "PRESENT",
-      beforeContentHash: before.contentHash,
-      beforeRevisionHash: before.revisionHash,
-      stagedContentHash: ABSENT,
-      stagedRevisionHash: ABSENT
-    }) : filePlan.push({
-      target: relativePath,
-      action: "write",
-      stagedRelativePath: relativePath,
-      expectedBefore: before.contentHash === ABSENT ? "ABSENT" : "PRESENT",
-      beforeContentHash: before.contentHash,
-      beforeRevisionHash: before.revisionHash,
-      stagedContentHash: contentHash(newContent),
-      stagedRevisionHash: relativePath.endsWith(".yml") ? revisionHash(parseYaml(newContent)) : contentHash(newContent)
-    });
-  }
-  checkpoint("AFTER_BEFORE");
-  for (let [relativePath, newContent] of rendered)
-    newContent === null || isDirectoryRenderEntry(newContent) || writeFileAtomic(planningRoot, path10.join(stagingRelative, relativePath), newContent);
-  checkpoint("AFTER_STAGED");
-  let expectedEvents = operation.expectedEvents?.length ? operation.expectedEvents.map((expectedEvent) => {
-    let relationallyConsistent = expectedEvent.eventId === expectedEvent.document?.eventId && expectedEvent.document?.operationId === operation.id && expectedEvent.relativePath.endsWith(`/${expectedEvent.eventId}.json`), eventSchemaCheck = validate("event", expectedEvent.document);
-    if (!relationallyConsistent || !eventSchemaCheck.valid)
-      throw new StateError("persisted expectedEvents manifest is invalid or internally inconsistent");
-    return expectedEvent;
-  }) : operation.reservedEvents.map((reserved) => {
-    if (changeSet.kind.startsWith("release.")) {
-      let releasePath = `releases/${changeSet.kind === "release.create" ? changeSet.payload.id : changeSet.payload.releaseId}/release.yml`, release = parseYaml(rendered.get(releasePath)), previousStatus = null;
-      if (changeSet.kind !== "release.create" && changeSet.baseRevisions[releasePath]?.contentHash !== ABSENT) {
-        let previousPath = confineRuntimeWritePath(planningRoot, releasePath);
-        fs12.existsSync(previousPath) && (previousStatus = parseYaml(fs12.readFileSync(previousPath, "utf8")).status ?? null);
-      }
-      return buildExpectedEvent({
-        eventId: reserved.eventId,
-        type: reserved.type,
-        aggregate: { type: "release", id: release.id },
-        actor,
-        operationId,
-        idempotencyKey: changeSet.payload.idempotencyKey,
-        payload: {
-          releaseId: release.id,
-          displayId: release.displayId,
-          previousStatus,
-          nextStatus: release.status,
-          changeSetHash: recomputedHash,
-          revisionBefore: changeSet.baseRevisions[releasePath].revisionHash,
-          revisionAfter: release.audit.revision,
-          kind: changeSet.kind,
-          policy: release.policy,
-          lane: release.lane,
-          refs: {
-            scopeRefs: release.scopeRefs,
-            executionContextRefs: release.executionContextRefs,
-            environmentRefs: release.environmentRefs,
-            previousReleaseRefs: release.policy.previousReleaseRefs,
-            dependencyRefs: release.policy.dependencyRefs
-          },
-          deploymentEventId: changeSet.payload.deploymentEvent?.id || null
-        }
-      });
-    }
-    return buildExpectedEvent({
-      eventId: reserved.eventId,
-      type: reserved.type,
-      aggregate: { type: operation.kind.split(".")[0], id: operationId },
-      actor,
-      operationId,
-      idempotencyKey: operationId,
-      payload: changeSet.payload
-    });
-  });
-  operation = readOperation(operationsRoot, operationId), writeOperation(operationsRoot, operationId, { ...operation, filePlan, expectedEvents }), checkpoint("AFTER_MANIFEST"), operation = readOperation(operationsRoot, operationId);
-  let applyingAt = (/* @__PURE__ */ new Date()).toISOString();
-  return writeOperation(operationsRoot, operationId, {
-    ...operation,
-    status: "APPLYING",
-    history: [...operation.history, { at: applyingAt, from: "APPROVED", to: "APPLYING", actor, reason: null }]
-  }), checkpoint("AFTER_APPLYING"), { filePlan, expectedEvents, stagingRelative, runtimeOperationRelative };
-}
-function applyOperation({ operationsRoot, planningRoot, operationId, render, actor }) {
-  return withWorkspaceMutation({ planningRoot, operationsRoot, operationId }, () => {
-    let operation = readOperation(operationsRoot, operationId);
-    if (operation.status !== "APPROVED")
-      throw new StateError(`cannot apply operation in status ${operation.status}`);
-    let { filePlan, expectedEvents, stagingRelative, runtimeOperationRelative } = prepareApply({ operationsRoot, planningRoot, operationId, render, actor }), files = [];
-    for (let [index, entry] of filePlan.entries())
-      entry.action === "delete" ? (deleteWithinRoot(planningRoot, entry.target), operation.kind === "discovery.propose" && removeEmptyParentDirectoryWithinRoot(planningRoot, entry.target)) : entry.action === "mkdir" ? ensureDirectoryTree(planningRoot, entry.target) : renameWithinRoot(planningRoot, path10.join(stagingRelative, entry.stagedRelativePath), entry.target), files.push({ target: entry.target, action: entry.action, contentHash: entry.stagedContentHash }), index === 0 && checkpoint("AFTER_FIRST_RENAME");
-    checkpoint("AFTER_ALL_RENAMES");
-    let result = { operationId, files }, resultSchemaCheck = validate("result", result);
-    if (!resultSchemaCheck.valid)
-      throw new Error(`constructed result is schema-invalid: ${resultSchemaCheck.errors.map((e) => `${e.path} ${e.message}`).join("; ")}`);
-    writeResult(operationsRoot, operationId, result), checkpoint("AFTER_RESULT");
-    let eventsRoot = path10.join(planningRoot, "events");
-    for (let [index, expectedEvent] of expectedEvents.entries())
-      writeEventIdempotent(eventsRoot, expectedEvent), index === 0 && checkpoint("AFTER_FIRST_EVENT");
-    checkpoint("AFTER_ALL_EVENTS"), checkpoint("BEFORE_APPLIED");
-    let appliedAt = (/* @__PURE__ */ new Date()).toISOString(), current = readOperation(operationsRoot, operationId);
-    writeOperation(operationsRoot, operationId, {
-      ...current,
-      status: "APPLIED",
-      appliedAt,
-      history: [...current.history, { at: appliedAt, from: "APPLYING", to: "APPLIED", actor, reason: null }]
-    });
-    let residuePath = confineRuntimeWritePath(planningRoot, runtimeOperationRelative);
-    return fs12.rmSync(residuePath, { recursive: !0, force: !0 }), { status: "APPLIED", files };
-  });
-}
+// runtime/src/lib/releaseMutations.mjs
+import fs16 from "node:fs";
 
 // runtime/src/lib/releasePolicy.mjs
 var RELEASE_POLICY_FINDING_CODES = Object.freeze({
@@ -21370,71 +21034,108 @@ function duplicateRefs(refs) {
     seen.has(ref) && duplicates.push(ref), seen.add(ref);
   return duplicates;
 }
-function releaseRecordMap(releases, targetRelease, nextPolicy, nextLaneId) {
+function releaseRecordMap(releases, targetRelease = null, nextPolicy = null, nextLaneId = null) {
   let records = /* @__PURE__ */ new Map();
   for (let release of releases) records.set(release.id, release);
-  return records.set(targetRelease.id, {
-    ...targetRelease,
-    lane: { id: nextLaneId },
-    policy: nextPolicy
-  }), records;
+  if (targetRelease) {
+    let candidateWithoutRevision = {
+      ...targetRelease,
+      lane: { id: nextLaneId },
+      policy: nextPolicy,
+      audit: { ...targetRelease.audit }
+    };
+    delete candidateWithoutRevision.audit.revision, records.set(targetRelease.id, {
+      ...candidateWithoutRevision,
+      audit: {
+        ...candidateWithoutRevision.audit,
+        revision: `sha256:${revisionHash(candidateWithoutRevision)}`
+      }
+    });
+  }
+  return records;
 }
-function validateReferencedRelease(records, ref, targetId, findings) {
+function validateReferencedRelease(records, sourceRelease, ref, findings, relationship) {
   if (!isUuidV7(ref))
-    return findings.push({ code: RELEASE_POLICY_FINDING_CODES.INVALID_REFERENCE, message: `release reference must be UUIDv7: ${ref}` }), null;
-  if (ref === targetId)
-    return findings.push({ code: RELEASE_POLICY_FINDING_CODES.SELF_REFERENCE, message: "release cannot reference itself" }), null;
+    return findings.push({ code: RELEASE_POLICY_FINDING_CODES.INVALID_REFERENCE, message: `${relationship} must be UUIDv7: ${ref}` }), null;
+  if (ref === sourceRelease.id)
+    return findings.push({ code: RELEASE_POLICY_FINDING_CODES.SELF_REFERENCE, message: `release ${sourceRelease.id} cannot reference itself` }), null;
   let release = records.get(ref);
   if (!release)
-    return findings.push({ code: RELEASE_POLICY_FINDING_CODES.INVALID_REFERENCE, message: `release reference does not resolve: ${ref}` }), null;
+    return findings.push({ code: RELEASE_POLICY_FINDING_CODES.INVALID_REFERENCE, message: `${relationship} does not resolve from ${sourceRelease.id}: ${ref}` }), null;
   let integrity = releaseIntegrityFindings(release);
-  return !integrity.schemaValid || integrity.findings.length > 0 ? (findings.push({ code: RELEASE_POLICY_FINDING_CODES.INVALID_REFERENCE, message: `release reference is structurally invalid: ${ref}`, findings: integrity.findings }), null) : release.status === "CANCELLED" ? (findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `cancelled release cannot satisfy a release dependency: ${ref}` }), null) : release;
+  return !integrity.schemaValid || integrity.findings.length > 0 ? (findings.push({ code: RELEASE_POLICY_FINDING_CODES.INVALID_REFERENCE, message: `${relationship} is structurally invalid from ${sourceRelease.id}: ${ref}`, findings: integrity.findings }), null) : release.status === "CANCELLED" ? (findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `cancelled release cannot satisfy ${relationship} from ${sourceRelease.id}: ${ref}` }), null) : release;
 }
-function strictSequenceFindings(records, targetRelease, nextPolicy, nextLaneId) {
-  let findings = [], previousRefs = nextPolicy.previousReleaseRefs || [];
-  (nextPolicy.dependencyRefs || []).length > 0 && findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: "strict_sequence releases cannot use dependencyRefs" }), previousRefs.length > 1 && findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: "strict_sequence allows at most one previousReleaseRef" });
-  for (let duplicate of duplicateRefs(previousRefs))
-    findings.push({ code: RELEASE_POLICY_FINDING_CODES.DUPLICATE_REFERENCE, message: `duplicate previousReleaseRef: ${duplicate}` });
-  let sameLane = [...records.values()].filter((release) => release.id !== targetRelease.id).filter((release) => release.lane?.id === nextLaneId && release.status !== "CANCELLED" && release.policy?.mode === "strict_sequence").sort((left, right) => left.id.localeCompare(right.id));
-  if (previousRefs.length === 0)
-    return sameLane.length > 0 && findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: "strict_sequence requires one predecessor when the lane already has a non-cancelled release" }), findings;
-  let predecessor = validateReferencedRelease(records, previousRefs[0], targetRelease.id, findings);
-  if (!predecessor) return findings;
-  predecessor.policy.mode !== "strict_sequence" && findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: "strict_sequence predecessor must also use strict_sequence" }), predecessor.lane.id !== nextLaneId && findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: "strict_sequence predecessor must be in the same lane" });
-  let existingSuccessor = sameLane.find((release) => (release.policy.previousReleaseRefs || []).includes(predecessor.id));
-  return existingSuccessor && findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `strict_sequence predecessor already has successor ${existingSuccessor.id}` }), findings;
-}
-function dependencyGraphFindings(records, targetRelease, nextPolicy) {
-  let findings = [], dependencyRefs = nextPolicy.dependencyRefs || [];
-  (nextPolicy.previousReleaseRefs || []).length > 0 && findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: "dependency_graph releases cannot use previousReleaseRefs" });
-  for (let duplicate of duplicateRefs(dependencyRefs))
-    findings.push({ code: RELEASE_POLICY_FINDING_CODES.DUPLICATE_REFERENCE, message: `duplicate dependencyRef: ${duplicate}` });
-  for (let ref of dependencyRefs) validateReferencedRelease(records, ref, targetRelease.id, findings);
-  let graph = /* @__PURE__ */ new Map();
-  for (let release of [...records.values()].sort((left, right) => left.id.localeCompare(right.id)))
-    graph.set(release.id, release.policy?.mode === "dependency_graph" ? [...release.policy.dependencyRefs || []].sort() : []);
-  let visiting = /* @__PURE__ */ new Set(), visited = /* @__PURE__ */ new Set(), stack = [];
+function cycleFindings(graph, label) {
+  let findings = [], visiting = /* @__PURE__ */ new Set(), visited = /* @__PURE__ */ new Set(), stack = [];
   function visit(id) {
     if (visiting.has(id)) {
       let cycle = [...stack.slice(stack.indexOf(id)), id];
-      findings.push({ code: RELEASE_POLICY_FINDING_CODES.CYCLE_DETECTED, message: `dependency graph cycle detected: ${cycle.join(" -> ")}` });
+      findings.push({ code: RELEASE_POLICY_FINDING_CODES.CYCLE_DETECTED, message: `${label} cycle detected: ${cycle.join(" -> ")}` });
       return;
     }
     if (!visited.has(id)) {
       visiting.add(id), stack.push(id);
-      for (let next of graph.get(id) || [])
-        records.has(next) && visit(next);
+      for (let next of [...graph.get(id) || []].sort())
+        graph.has(next) && visit(next);
       stack.pop(), visiting.delete(id), visited.add(id);
     }
   }
-  return visit(targetRelease.id), findings;
+  for (let id of [...graph.keys()].sort()) visit(id);
+  return findings;
+}
+function strictSequenceCatalogFindings(records) {
+  let findings = [], laneMembers = /* @__PURE__ */ new Map(), graph = /* @__PURE__ */ new Map(), successorOwners = /* @__PURE__ */ new Map(), releases = [...records.values()].filter((release) => release.status !== "CANCELLED" && release.policy?.mode === "strict_sequence").sort((left, right) => left.id.localeCompare(right.id));
+  for (let release of releases) {
+    let previousRefs = release.policy.previousReleaseRefs || [];
+    (release.policy.dependencyRefs || []).length > 0 && findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `strict_sequence release ${release.id} cannot use dependencyRefs` }), previousRefs.length > 1 && findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `strict_sequence release ${release.id} allows at most one previousReleaseRef` });
+    for (let duplicate of duplicateRefs(previousRefs))
+      findings.push({ code: RELEASE_POLICY_FINDING_CODES.DUPLICATE_REFERENCE, message: `duplicate previousReleaseRef on ${release.id}: ${duplicate}` });
+    let laneId = release.lane?.id;
+    if (laneMembers.has(laneId) || laneMembers.set(laneId, []), laneMembers.get(laneId).push(release), graph.set(release.id, []), previousRefs.length === 1) {
+      let predecessor = validateReferencedRelease(records, release, previousRefs[0], findings, "previousReleaseRef");
+      if (!predecessor) continue;
+      predecessor.policy?.mode !== "strict_sequence" && findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `strict_sequence predecessor ${predecessor.id} for ${release.id} must also use strict_sequence` }), predecessor.lane?.id !== laneId && findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `strict_sequence predecessor ${predecessor.id} for ${release.id} must be in lane ${laneId}` }), graph.get(release.id).push(predecessor.id);
+      let owners = successorOwners.get(predecessor.id) || [];
+      owners.push(release.id), successorOwners.set(predecessor.id, owners);
+    }
+  }
+  for (let [laneId, members] of [...laneMembers.entries()].sort(([left], [right]) => String(left).localeCompare(String(right)))) {
+    let roots = members.filter((release) => (release.policy.previousReleaseRefs || []).length === 0);
+    roots.length !== 1 && findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `strict_sequence lane ${laneId} must contain exactly one non-cancelled root; found ${roots.length}` });
+  }
+  for (let [predecessorId, successors] of successorOwners)
+    successors.length > 1 && findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `strict_sequence predecessor ${predecessorId} has multiple non-cancelled successors: ${successors.sort().join(", ")}` });
+  return findings.push(...cycleFindings(graph, "strict_sequence")), findings;
+}
+function dependencyGraphCatalogFindings(records) {
+  let findings = [], graph = /* @__PURE__ */ new Map(), releases = [...records.values()].filter((release) => release.status !== "CANCELLED" && release.policy?.mode === "dependency_graph").sort((left, right) => left.id.localeCompare(right.id));
+  for (let release of releases) {
+    let previousRefs = release.policy.previousReleaseRefs || [], dependencyRefs = release.policy.dependencyRefs || [];
+    previousRefs.length > 0 && findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `dependency_graph release ${release.id} cannot use previousReleaseRefs` });
+    for (let duplicate of duplicateRefs(dependencyRefs))
+      findings.push({ code: RELEASE_POLICY_FINDING_CODES.DUPLICATE_REFERENCE, message: `duplicate dependencyRef on ${release.id}: ${duplicate}` });
+    graph.set(release.id, []);
+    for (let ref of dependencyRefs) {
+      let dependency = validateReferencedRelease(records, release, ref, findings, "dependencyRef");
+      dependency && graph.get(release.id).push(dependency.id);
+    }
+  }
+  return findings.push(...cycleFindings(graph, "dependency_graph")), findings;
+}
+function releaseCatalogPolicyFindings(releases) {
+  let records = releaseRecordMap(releases), findings = [];
+  for (let release of [...records.values()].sort((left, right) => left.id.localeCompare(right.id)))
+    ["strict_sequence", "dependency_graph"].includes(release.policy?.mode) || findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `unsupported release policy mode on ${release.id}: ${release.policy?.mode}` });
+  findings.push(...strictSequenceCatalogFindings(records)), findings.push(...dependencyGraphCatalogFindings(records));
+  let unique = /* @__PURE__ */ new Map();
+  for (let finding2 of findings) unique.set(`${finding2.code}:${finding2.message}`, finding2);
+  return [...unique.values()].sort((left, right) => `${left.code}:${left.message}`.localeCompare(`${right.code}:${right.message}`));
 }
 function releasePolicyFindings({ releases, targetRelease, nextPolicy, nextLaneId }) {
-  let findings = [];
   if (!["strict_sequence", "dependency_graph"].includes(nextPolicy?.mode))
-    return findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `unsupported release policy mode: ${nextPolicy?.mode}` }), findings;
+    return [{ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `unsupported release policy mode: ${nextPolicy?.mode}` }];
   let records = releaseRecordMap(releases, targetRelease, nextPolicy, nextLaneId);
-  return nextPolicy.mode === "strict_sequence" ? findings.push(...strictSequenceFindings(records, targetRelease, nextPolicy, nextLaneId)) : findings.push(...dependencyGraphFindings(records, targetRelease, nextPolicy)), findings.sort((left, right) => `${left.code}:${left.message}`.localeCompare(`${right.code}:${right.message}`));
+  return releaseCatalogPolicyFindings([...records.values()]);
 }
 function assertReleasePolicyValid(args) {
   let findings = releasePolicyFindings(args);
@@ -21444,337 +21145,9 @@ function assertReleasePolicyValid(args) {
   }
 }
 
-// runtime/src/commands/proposalPreparation.mjs
-var SUPPORTED_KINDS = /* @__PURE__ */ new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "scope.generator.set", "guide.update", "release.create", "release.policy.configure", "release.scopeRefs.set", "release.operationalRefs.set", "release.deployment.record"]), RELEASE_CREATE_ALLOWED_FIELDS = /* @__PURE__ */ new Set(["title", "objective", "laneId", "policyMode", "slug", "idempotencyKey"]), RELEASE_CREATE_SERVER_FIELDS = /* @__PURE__ */ new Set(["id", "displayId", "displayIdStatus", "status", "createdAt", "createdBy", "updatedAt", "updatedBy", "audit", "completion", "readiness", "canonicalPath", "approval", "scopeRefs", "itemRefs", "blockers", "risks", "deploymentEvents", "finalization", "requestSnapshot", "idempotencyRequestHash"]);
-function requireObjectPayload(rawPayload) {
-  if (rawPayload === null || typeof rawPayload != "object" || Array.isArray(rawPayload))
-    throw new UsageError("changeset payload must be a mapping/object");
-  return rawPayload;
-}
-function requireExplicitBoolean(rawPayload, field) {
-  if (typeof rawPayload[field] != "boolean")
-    throw new UsageError(`scope.command.set ${field} must be an explicit boolean`);
-  return rawPayload[field];
-}
-function assertOnlyAllowedReleaseCreateFields(rawPayload) {
-  for (let field of Object.keys(rawPayload)) {
-    if (RELEASE_CREATE_SERVER_FIELDS.has(field)) throw new UsageError(`release.create field is server-owned: ${field}`);
-    if (!RELEASE_CREATE_ALLOWED_FIELDS.has(field)) throw new UsageError(`release.create contains unsupported field: ${field}`);
-  }
-}
-function requireTrimmedString(value, field) {
-  if (typeof value != "string" || value.trim().length === 0) throw new UsageError(`release.create requires non-blank ${field}`);
-  return value.trim();
-}
-function normalizeOptionalString(value, field) {
-  if (value != null) {
-    if (typeof value != "string" || value.trim().length === 0) throw new UsageError(`release.create ${field} must be a non-blank string`);
-    return value.trim();
-  }
-}
-function normalizeSlug(value) {
-  if (value == null || value === "") return null;
-  if (typeof value != "string") throw new UsageError("release.create slug must be a string or null");
-  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-+|-+$)/g, "") || null;
-}
-function normalizeReleaseCreateRequest(rawPayload, { actor, defaultIdempotencyKey }) {
-  if (requireObjectPayload(rawPayload), assertOnlyAllowedReleaseCreateFields(rawPayload), typeof actor != "string" || actor.trim().length === 0) throw new UsageError("release.create requires non-blank actor");
-  let title = requireTrimmedString(rawPayload.title, "title"), objective = requireTrimmedString(rawPayload.objective, "objective"), requestedLaneId = normalizeOptionalString(rawPayload.laneId, "laneId") ?? null, requestedPolicyMode = normalizeOptionalString(rawPayload.policyMode, "policyMode") ?? null;
-  if (requestedPolicyMode !== null && !["strict_sequence", "dependency_graph"].includes(requestedPolicyMode))
-    throw new UsageError(`unsupported release policy mode: ${requestedPolicyMode}`);
-  let slug = normalizeSlug(rawPayload.slug), idempotencyKey = rawPayload.idempotencyKey === void 0 ? requireTrimmedString(defaultIdempotencyKey, "idempotencyKey") : requireTrimmedString(rawPayload.idempotencyKey, "idempotencyKey"), requestSnapshot = { title, objective, laneId: requestedLaneId, policyMode: requestedPolicyMode, slug };
-  return {
-    requestSnapshot,
-    idempotencyKey,
-    idempotencyRequestHash: releaseCreateRequestHash({ actor, requestSnapshot })
-  };
-}
-function prepareProposal(kind, rawPayload, {
-  operationId = null,
-  actor = null,
-  proposedAt = null,
-  existingReleases = [],
-  currentConfig = null,
-  releaseRequest = null,
-  releaseId = null
-} = {}) {
-  if (!SUPPORTED_KINDS.has(kind)) throw new UsageError(`unsupported changeset kind: ${kind}`);
-  if (requireObjectPayload(rawPayload), kind === "workspace.init")
-    return { payload: rawPayload, targetFiles: ["config.yml", "plugin.lock.yml", ".gitignore", ...BOOTSTRAP_CANONICAL_DIRECTORIES] };
-  if (kind === "config.update")
-    return { payload: rawPayload, targetFiles: ["config.yml"] };
-  if (kind === "config.autonomy.set")
-    return { payload: rawPayload, targetFiles: ["config.yml"] };
-  if (kind === "scope.command.set") {
-    if (!operationId || !actor || !proposedAt)
-      throw new UsageError("scope.command.set requires runtime operationId, actor, and proposedAt");
-    let payload2 = {
-      operationId,
-      scopeId: rawPayload.scopeId,
-      role: rawPayload.role,
-      command: rawPayload.command,
-      requiresEnvironment: requireExplicitBoolean(rawPayload, "requiresEnvironment"),
-      requiresSecrets: requireExplicitBoolean(rawPayload, "requiresSecrets"),
-      declaredBy: actor,
-      declaredAt: proposedAt
-    };
-    return { payload: payload2, targetFiles: [`scopes/${payload2.scopeId}/scope.yml`] };
-  }
-  if (kind === "scope.generator.set") {
-    if (!operationId || !actor || !proposedAt) throw new UsageError("scope.generator.set requires runtime operationId, actor, and proposedAt");
-    let payload2 = {
-      operationId,
-      scopeId: rawPayload.scopeId,
-      guideKind: rawPayload.guideKind,
-      generator: rawPayload.generator ?? null,
-      declaredBy: actor,
-      declaredAt: proposedAt
-    };
-    return { payload: payload2, targetFiles: [`scopes/${payload2.scopeId}/scope.yml`] };
-  }
-  if (kind === "guide.update") {
-    if (!rawPayload.scopeId || !rawPayload.guideKind || !rawPayload.action)
-      throw new UsageError("guide.update requires scopeId, guideKind, and action");
-    if (!operationId || !actor || !proposedAt) throw new UsageError("guide.update requires runtime operationId, actor, and proposedAt");
-    let payload2 = {
-      ...rawPayload,
-      operationId,
-      proposedAt,
-      guideId: generateUuidV7()
-    };
-    return {
-      payload: payload2,
-      targetFiles: ["config.yml", `scopes/${payload2.scopeId}/scope.yml`, `scopes/${payload2.scopeId}/${payload2.guideKind}-guide.yml`, ...["generate", "regenerate"].includes(payload2.action) ? [`scopes/${payload2.scopeId}/${payload2.guideKind}-guide.md`] : []]
-    };
-  }
-  if (kind === "release.create") {
-    if (!operationId || !actor || !proposedAt) throw new UsageError("release.create requires runtime operationId, actor, and proposedAt");
-    if (!currentConfig?.policies?.release) throw new UsageError("release.create requires initialized Project Context release policy");
-    let normalized = releaseRequest ?? normalizeReleaseCreateRequest(rawPayload, { actor, defaultIdempotencyKey: operationId }), { requestSnapshot, idempotencyKey, idempotencyRequestHash } = normalized, laneId = requestSnapshot.laneId ?? requireTrimmedString(currentConfig.policies.release.defaultLane, "Project Context policies.release.defaultLane"), policyMode = requestSnapshot.policyMode ?? requireTrimmedString(currentConfig.policies.release.mode, "Project Context policies.release.mode");
-    if (!["strict_sequence", "dependency_graph"].includes(policyMode)) throw new UsageError(`unsupported release policy mode: ${policyMode}`);
-    assertValidLaneConfig(currentConfig, laneId);
-    let id = releaseId ?? generateUuidV7(), display = deriveUniqueReleaseDisplayId(id, existingReleases);
-    return { payload: {
-      operationId,
-      id,
-      displayId: display.displayId,
-      displayIdStatus: "ACTIVE",
-      title: requestSnapshot.title,
-      objective: requestSnapshot.objective,
-      laneId,
-      policyMode,
-      slug: requestSnapshot.slug,
-      status: "DRAFT",
-      createdAt: proposedAt,
-      createdBy: actor,
-      updatedAt: proposedAt,
-      updatedBy: actor,
-      requestSnapshot,
-      idempotencyKey,
-      idempotencyRequestHash
-    }, targetFiles: [releaseYamlRelativePath(id), releaseReadmeRelativePath(id)] };
-  }
-  let payload = {
-    ...rawPayload.id ? rawPayload : { ...rawPayload, id: generateUuidV7() },
-    guideGapId: generateUuidV7()
-  };
-  return { payload, targetFiles: ["config.yml", `scopes/${payload.id}/scope.yml`] };
-}
-
-// runtime/src/generated/build-meta.mjs
-var PLUGIN_VERSION = "1.0.0", TEMPLATE_PACK_FINGERPRINT = "sha256:b97c7bb4bac7e4ea70dfde510a536c90e6be0d38f1c9cdd242d2661ce9a570cc";
-
-// runtime/src/commands/init.mjs
-function runInit({ planningRoot, args }) {
-  let operationsRoot = path11.join(planningRoot, "operations"), { payload, targetFiles } = prepareProposal("workspace.init", {
-    name: args.name,
-    projectType: args.projectType || "unknown",
-    baseBranch: args.baseBranch || null,
-    vcs: args.vcs || "none",
-    pluginVersion: PLUGIN_VERSION,
-    templatePackFingerprint: TEMPLATE_PACK_FINGERPRINT
-  });
-  return { operationId: propose({ operationsRoot, planningRoot, kind: "workspace.init", target: {}, payload, targetFiles, actor: args.actor }) };
-}
-function runConfigSet({ planningRoot, args }) {
-  let operationsRoot = path11.join(planningRoot, "operations"), { payload, targetFiles } = prepareProposal("config.update", { name: args.name });
-  return { operationId: propose({ operationsRoot, planningRoot, kind: "config.update", target: {}, payload, targetFiles, actor: args.actor }) };
-}
-function runConfigScopeAdd({ planningRoot, args }) {
-  let operationsRoot = path11.join(planningRoot, "operations"), { payload, targetFiles } = prepareProposal("scope.add", {
-    key: args.key,
-    label: args.label,
-    kind: args.kind,
-    path: args.path,
-    owner: args.owner || null
-  });
-  return { operationId: propose({ operationsRoot, planningRoot, kind: "scope.add", target: { scopeId: payload.id }, payload, targetFiles, actor: args.actor }), scopeId: payload.id };
-}
-
-// runtime/src/commands/changesetCommand.mjs
-import fs20 from "node:fs";
-import path19 from "node:path";
-
-// runtime/src/commands/renderers.mjs
-import fs18 from "node:fs";
-import path17 from "node:path";
-
-// runtime/src/lib/projectContextValidation.mjs
-import path12 from "node:path";
-function projectContextConsistencyFindings(config, { knownSourceIds = null } = {}) {
-  let findings = [];
-  if (!config || typeof config != "object") return findings;
-  config.project?.name !== config.name && findings.push("config.yml: project.name must match compatibility field name");
-  let scopeRefIds = new Set((config.scopeRefs || []).map((entry) => entry.id));
-  for (let enabledId of config.scopeCatalog?.enabled || [])
-    scopeRefIds.has(enabledId) || findings.push(`config.yml: scopeCatalog.enabled references unknown scope id ${enabledId}`);
-  let documentation = config.documentation, knownSources = knownSourceIds === null ? null : new Set(knownSourceIds);
-  for (let sourceId of documentation?.source_refs || [])
-    knownSources && !knownSources.has(sourceId) && findings.push(`config.yml: documentation.source_refs references unknown source id ${sourceId}`);
-  let gapIds = /* @__PURE__ */ new Set();
-  for (let gap of documentation?.gaps || []) {
-    gapIds.has(gap.id) && findings.push(`config.yml: duplicate documentation gap id ${gap.id}`), gapIds.add(gap.id), gap.scope_ref && !scopeRefIds.has(gap.scope_ref) && findings.push(`config.yml: documentation gap ${gap.id} references unknown scope id ${gap.scope_ref}`);
-    for (let sourceId of gap.source_refs || [])
-      knownSources && !knownSources.has(sourceId) && findings.push(`config.yml: documentation gap ${gap.id} references unknown source id ${sourceId}`);
-  }
-  let git = config.git;
-  if (git) {
-    (git.enabled ? "git" : "none") !== config.vcs && findings.push("config.yml: git.enabled must agree with compatibility field vcs"), !git.enabled && git.provider !== "none" && findings.push("config.yml: disabled Git policy must use provider none");
-    let workBase = git.branches?.work_base ?? null;
-    (config.baseBranch ?? null) !== workBase && findings.push("config.yml: git.branches.work_base must match compatibility field baseBranch");
-    let integration = git.branches?.integration, production = git.branches?.production, promotion = git.pull_requests?.promotion;
-    git.pull_requests?.work_target && integration && git.pull_requests.work_target !== integration && findings.push("config.yml: git.pull_requests.work_target must match git.branches.integration"), promotion?.source && integration && promotion.source !== integration && findings.push("config.yml: Git promotion source must match integration branch"), promotion?.target && production && promotion.target !== production && findings.push("config.yml: Git promotion target must match production branch");
-  }
-  let releasePolicy = config.policies?.release;
-  if (releasePolicy) {
-    let laneOwners = /* @__PURE__ */ new Set();
-    for (let lane of releasePolicy.lanes || [])
-      laneOwners.has(lane.id) && findings.push(`config.yml: duplicate release lane id ${lane.id}`), laneOwners.add(lane.id);
-    laneOwners.has(releasePolicy.defaultLane) || findings.push(`config.yml: policies.release.defaultLane ${releasePolicy.defaultLane} is not configured in policies.release.lanes`);
-  }
-  let ids = /* @__PURE__ */ new Set();
-  for (let source of config.work_sources || []) {
-    ids.has(source.id) && findings.push(`config.yml: duplicate work source id ${source.id}`), ids.add(source.id), source.provider === "local_repository" && source.transport && source.transport !== "filesystem" && findings.push(`config.yml: local_repository work source ${source.id} must use filesystem transport`), source.provider !== "local_repository" && source.transport === "filesystem" && findings.push(`config.yml: non-local work source ${source.id} cannot use filesystem transport`);
-    for (let root of source.roots || []) {
-      let segments = root.split(/[\\/]+/);
-      (path12.posix.isAbsolute(root) || path12.win32.isAbsolute(root) || segments.includes("..")) && findings.push(`config.yml: work source ${source.id} root must remain inside the workspace`);
-    }
-    source.transport === "mcp" && !source.mcp_connection_ref && findings.push(`config.yml: MCP work source ${source.id} requires an opaque mcp_connection_ref`), source.mcp_connection_ref && source.transport !== "mcp" && findings.push(`config.yml: work source ${source.id} mcp_connection_ref requires mcp transport`), source.mcp_connection_ref && !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(source.mcp_connection_ref) && findings.push(`config.yml: work source ${source.id} has an invalid opaque connection reference`);
-  }
-  return findings;
-}
-function assertProjectContextConsistency(config, options = {}) {
-  let findings = projectContextConsistencyFindings(config, options);
-  if (findings.length > 0) throw new Error(findings.join("; "));
-}
-
-// runtime/src/lib/guideProjection.mjs
-function json(value) {
-  return JSON.stringify(canonicalize(value));
-}
-function list(items = []) {
-  return [...items].sort((left, right) => String(left.id || left.type || left).localeCompare(String(right.id || right.type || right))).map((item) => typeof item == "string" ? `- ${item}` : `- ${item.id || item.type}: ${json(item)}`);
-}
-function renderGuideMarkdown(guide) {
-  let lines = [`# ${guide.kind === "task" ? "Task Guide" : "Test Guide"}`, "", `- Scope ID: \`${guide.scopeId}\``, `- Guide ID: \`${guide.id}\``, `- DSL version: \`${guide.dslVersion}\``, "", "## Documentation Sources", "", ...guide.sourceRefs.map((sourceRef) => `- \`${sourceRef}\` (${guide.provenance.sourceFingerprints[sourceRef]})`), ""];
-  return guide.kind === "task" ? lines.push("## Work Package Types", "", ...list(guide.workPackageTypes), "", "## Task Types", "", ...list(guide.taskTypes), "", "## Required Sections", "", ...list(guide.requiredSections), "", "## Required Gates", "", ...list(guide.requiredGateRefs), "", "## Templates", "", ...list(guide.templateRefs), "", "## Decomposition", "", ...list(guide.decompositionRules), "", "## Automation", "", `- ${json(guide.automation)}`) : lines.push("## Gates By Work Package Type", "", ...list(guide.gatesByWorkPackageType), "", "## Gates By Task Type", "", ...list(guide.gatesByTaskType), "", "## Commands", "", ...list(guide.commandRefs), "", "## Evidence", "", ...list(guide.evidenceRequirements), "", "## Test Data", "", ...list(guide.testData), "", "## Execution Contexts", "", ...list(guide.executionContexts), "", "## Environments", "", ...list(guide.environments)), lines.push("", "## Open Gaps", "", ...guide.openGaps.length ? list(guide.openGaps) : ["- None"], ""), `${lines.join(`
-`)}
-`;
-}
-function compareGuideProjection(guide, actualMarkdown) {
-  let expected = renderGuideMarkdown(guide);
-  return { equal: expected === actualMarkdown, expected, actual: actualMarkdown };
-}
-
-// runtime/src/lib/releaseProjection.mjs
-function renderReleaseReadme(release) {
-  let policyPreviousLines = release.policy.previousReleaseRefs.length === 0 ? ["- none"] : release.policy.previousReleaseRefs.map((ref) => `- ${ref}`), policyDependencyLines = release.policy.dependencyRefs.length === 0 ? ["- none"] : release.policy.dependencyRefs.map((ref) => `- ${ref}`), scopeLines = release.scopeRefs.length === 0 ? ["- none"] : release.scopeRefs.map((ref) => `- ${ref.scopeId}: ready=${ref.readiness.ready ? "yes" : "no"} task=${ref.guides.find((guide) => guide.kind === "task")?.revision || "none"} test=${ref.guides.find((guide) => guide.kind === "test")?.revision || "none"}`), executionContextLines = (release.executionContextRefs || []).length === 0 ? ["- none"] : release.executionContextRefs.map((ref) => `- ${ref}`), environmentLines = (release.environmentRefs || []).length === 0 ? ["- none"] : release.environmentRefs.map((ref) => `- ${ref}`), itemLines = release.itemRefs.length === 0 ? ["- none"] : release.itemRefs.map((ref) => `- ${ref}`), blockerLines = release.blockers.length === 0 ? ["- none"] : release.blockers.map((blocker) => `- ${blocker.severity}: ${blocker.summary}`), riskLines = release.risks.length === 0 ? ["- none"] : release.risks.map((risk) => `- ${risk.level}: ${risk.summary}`), deploymentLines = release.deploymentEvents.length === 0 ? ["- none"] : release.deploymentEvents.map((event) => `- ${event.id}: ${event.status} ${event.environmentRef}${event.executionContextRef ? ` via ${event.executionContextRef}` : ""}`);
-  return `${[
-    `# ${release.displayId} ${release.title}`,
-    "",
-    "## Identity",
-    "",
-    `- ID: ${release.id}`,
-    `- Display ID: ${release.displayId}`,
-    `- Display ID status: ${release.displayIdStatus}`,
-    `- Slug: ${release.slug || "none"}`,
-    "",
-    "## Objective",
-    "",
-    release.objective,
-    "",
-    "## Lifecycle",
-    "",
-    `- Status: ${release.status}`,
-    `- Lane: ${release.lane.id}`,
-    `- Policy: ${release.policy.mode}`,
-    "",
-    "## Policy Refs",
-    "",
-    "Previous Release Refs:",
-    "",
-    ...policyPreviousLines,
-    "",
-    "Dependency Refs:",
-    "",
-    ...policyDependencyLines,
-    "",
-    "## Scope Refs",
-    "",
-    ...scopeLines,
-    "",
-    "## Execution Context Refs",
-    "",
-    ...executionContextLines,
-    "",
-    "## Environment Refs",
-    "",
-    ...environmentLines,
-    "",
-    "## Item Refs",
-    "",
-    ...itemLines,
-    "",
-    "## Blockers",
-    "",
-    ...blockerLines,
-    "",
-    "## Risks",
-    "",
-    ...riskLines,
-    "",
-    "## Deployment Events",
-    "",
-    ...deploymentLines,
-    "",
-    "## Finalization",
-    "",
-    `- Completed: ${release.finalization.completed ? "yes" : "no"}`,
-    `- Retrospective: ${release.finalization.retrospectiveStatus}`,
-    "",
-    "## Audit",
-    "",
-    `- Created: ${release.audit.createdAt} by ${release.audit.createdBy}`,
-    `- Updated: ${release.audit.updatedAt} by ${release.audit.updatedBy}`,
-    `- Revision: ${release.audit.revision}`,
-    ""
-  ].join(`
-`)}`;
-}
-function compareReleaseReadme(release, currentReadme) {
-  let expected = renderReleaseReadme(release);
-  return {
-    equal: expected === currentReadme,
-    expected
-  };
-}
-
-// runtime/src/lib/releaseMutations.mjs
-import fs17 from "node:fs";
-
 // runtime/src/lib/operationalCatalog.mjs
-import fs13 from "node:fs";
-import path13 from "node:path";
+import fs12 from "node:fs";
+import path10 from "node:path";
 var CATALOG_FINDING_CODES = Object.freeze({
   INVALID_REFERENCE: "INVALID_REFERENCE",
   CAPABILITY_UNAVAILABLE: "CAPABILITY_UNAVAILABLE",
@@ -21796,7 +21169,7 @@ function catalogRelativePath(kind, id) {
   let catalog = CATALOGS[kind];
   if (!catalog) throw new Error(`unknown operational catalog kind: ${kind}`);
   if (!isUuidV7(id)) throw new Error(`${kind} reference must be UUIDv7: ${id}`);
-  return path13.join(catalog.root, id, catalog.file);
+  return path10.join(catalog.root, id, catalog.file);
 }
 function readCatalogEntry(planningRoot, kind, id) {
   let catalog = CATALOGS[kind];
@@ -21804,26 +21177,26 @@ function readCatalogEntry(planningRoot, kind, id) {
   if (!isUuidV7(id))
     return { status: "INVALID_REFERENCE", entry: null, revision: null, findings: [{ code: CATALOG_FINDING_CODES.INVALID_REFERENCE, message: `${kind} reference must be UUIDv7: ${id}` }] };
   let root = confineWritePath(planningRoot, catalog.root);
-  if (!fs13.existsSync(root))
+  if (!fs12.existsSync(root))
     return { status: "CAPABILITY_UNAVAILABLE", entry: null, revision: null, findings: [{ code: CATALOG_FINDING_CODES.CAPABILITY_UNAVAILABLE, message: `${catalog.root} catalog is not available` }] };
-  let rootStat = fs13.lstatSync(root);
+  let rootStat = fs12.lstatSync(root);
   if (!rootStat.isDirectory() || rootStat.isSymbolicLink())
     return { status: "CATALOG_CORRUPT", entry: null, revision: null, findings: [{ code: CATALOG_FINDING_CODES.CATALOG_CORRUPT, message: `${catalog.root} catalog must be a real directory` }] };
-  let entryDir = path13.join(root, id);
-  if (!fs13.existsSync(entryDir))
+  let entryDir = path10.join(root, id);
+  if (!fs12.existsSync(entryDir))
     return { status: "INVALID_REFERENCE", entry: null, revision: null, findings: [{ code: CATALOG_FINDING_CODES.INVALID_REFERENCE, message: `${kind} reference does not resolve: ${id}` }] };
-  let entryStat = fs13.lstatSync(entryDir);
+  let entryStat = fs12.lstatSync(entryDir);
   if (!entryStat.isDirectory() || entryStat.isSymbolicLink())
     return { status: "CATALOG_CORRUPT", entry: null, revision: null, findings: [{ code: CATALOG_FINDING_CODES.CATALOG_CORRUPT, message: `${catalog.root}/${id} must be a real directory` }] };
   let relativePath = catalogRelativePath(kind, id), filePath = confineWritePath(planningRoot, relativePath);
-  if (!fs13.existsSync(filePath))
+  if (!fs12.existsSync(filePath))
     return { status: "INVALID_REFERENCE", entry: null, revision: null, findings: [{ code: CATALOG_FINDING_CODES.INVALID_REFERENCE, message: `${relativePath} is missing` }] };
-  let stat = fs13.lstatSync(filePath);
+  let stat = fs12.lstatSync(filePath);
   if (!stat.isFile() || stat.isSymbolicLink())
     return { status: "CATALOG_CORRUPT", entry: null, revision: null, findings: [{ code: CATALOG_FINDING_CODES.CATALOG_CORRUPT, message: `${relativePath} must be a real file` }] };
   let entry;
   try {
-    entry = parseYaml(fs13.readFileSync(filePath, "utf8"));
+    entry = parseYaml(fs12.readFileSync(filePath, "utf8"));
   } catch (error2) {
     return { status: "CATALOG_CORRUPT", entry: null, revision: null, findings: [{ code: CATALOG_FINDING_CODES.CATALOG_CORRUPT, message: `${relativePath} failed to parse: ${error2.message}` }] };
   }
@@ -21862,21 +21235,21 @@ function assertCatalogRefsValid({ planningRoot, kind, ids, laneId = null, expect
 }
 
 // runtime/src/lib/releaseScopeEvidence.mjs
-import fs16 from "node:fs";
-import path16 from "node:path";
+import fs15 from "node:fs";
+import path13 from "node:path";
 
 // runtime/src/lib/guideHealth.mjs
-import fs15 from "node:fs";
-import path15 from "node:path";
+import fs14 from "node:fs";
+import path12 from "node:path";
 
 // runtime/src/lib/customGuideGenerator.mjs
-import fs14 from "node:fs";
-import path14 from "node:path";
+import fs13 from "node:fs";
+import path11 from "node:path";
 import { spawnSync } from "node:child_process";
 function confinedExisting(root, relativePath, label) {
-  if (typeof relativePath != "string" || relativePath.length === 0 || path14.isAbsolute(relativePath)) throw new Error(`${label} must be a relative workspace path`);
+  if (typeof relativePath != "string" || relativePath.length === 0 || path11.isAbsolute(relativePath)) throw new Error(`${label} must be a relative workspace path`);
   let absolute = confineUnder(root, relativePath);
-  if (!fs14.existsSync(absolute) || !fs14.statSync(absolute).isFile()) throw new Error(`${label} must resolve to a file`);
+  if (!fs13.existsSync(absolute) || !fs13.statSync(absolute).isFile()) throw new Error(`${label} must resolve to a file`);
   return absolute;
 }
 function rejectForbiddenOutput(output) {
@@ -21885,7 +21258,7 @@ function rejectForbiddenOutput(output) {
 }
 function runConfiguredGuideGenerator({ workspaceRoot, generator, input, timeoutMs = 1e3, maxOutputBytes = 256 * 1024 }) {
   let executable = confinedExisting(workspaceRoot, generator.executable, "generator executable"), cwd = generator.cwd ? confineUnder(workspaceRoot, generator.cwd) : workspaceRoot;
-  if (!fs14.existsSync(cwd) || !fs14.statSync(cwd).isDirectory()) throw new Error("generator cwd must be a directory");
+  if (!fs13.existsSync(cwd) || !fs13.statSync(cwd).isDirectory()) throw new Error("generator cwd must be a directory");
   if (!Array.isArray(generator.args) || generator.args.some((arg) => typeof arg != "string")) throw new Error("generator args must be an array of strings");
   let inputJson = JSON.stringify(input), child = spawnSync(executable, generator.args, {
     cwd,
@@ -21912,7 +21285,7 @@ function runConfiguredGuideGenerator({ workspaceRoot, generator, input, timeoutM
     output,
     inputHash: revisionHash(input),
     outputHash: revisionHash(output),
-    generatorFingerprint: contentHash(fs14.readFileSync(executable))
+    generatorFingerprint: contentHash(fs13.readFileSync(executable))
   };
 }
 
@@ -21997,6 +21370,24 @@ function generateGuideOutput({ workspaceRoot, scope, guideKind, sources, config 
   };
 }
 
+// runtime/src/lib/guideProjection.mjs
+function json(value) {
+  return JSON.stringify(canonicalize(value));
+}
+function list(items = []) {
+  return [...items].sort((left, right) => String(left.id || left.type || left).localeCompare(String(right.id || right.type || right))).map((item) => typeof item == "string" ? `- ${item}` : `- ${item.id || item.type}: ${json(item)}`);
+}
+function renderGuideMarkdown(guide) {
+  let lines = [`# ${guide.kind === "task" ? "Task Guide" : "Test Guide"}`, "", `- Scope ID: \`${guide.scopeId}\``, `- Guide ID: \`${guide.id}\``, `- DSL version: \`${guide.dslVersion}\``, "", "## Documentation Sources", "", ...guide.sourceRefs.map((sourceRef) => `- \`${sourceRef}\` (${guide.provenance.sourceFingerprints[sourceRef]})`), ""];
+  return guide.kind === "task" ? lines.push("## Work Package Types", "", ...list(guide.workPackageTypes), "", "## Task Types", "", ...list(guide.taskTypes), "", "## Required Sections", "", ...list(guide.requiredSections), "", "## Required Gates", "", ...list(guide.requiredGateRefs), "", "## Templates", "", ...list(guide.templateRefs), "", "## Decomposition", "", ...list(guide.decompositionRules), "", "## Automation", "", `- ${json(guide.automation)}`) : lines.push("## Gates By Work Package Type", "", ...list(guide.gatesByWorkPackageType), "", "## Gates By Task Type", "", ...list(guide.gatesByTaskType), "", "## Commands", "", ...list(guide.commandRefs), "", "## Evidence", "", ...list(guide.evidenceRequirements), "", "## Test Data", "", ...list(guide.testData), "", "## Execution Contexts", "", ...list(guide.executionContexts), "", "## Environments", "", ...list(guide.environments)), lines.push("", "## Open Gaps", "", ...guide.openGaps.length ? list(guide.openGaps) : ["- None"], ""), `${lines.join(`
+`)}
+`;
+}
+function compareGuideProjection(guide, actualMarkdown) {
+  let expected = renderGuideMarkdown(guide);
+  return { equal: expected === actualMarkdown, expected, actual: actualMarkdown };
+}
+
 // runtime/src/lib/guideHealth.mjs
 var GUIDE_FINDING_CODES = Object.freeze({
   MISSING: "GUIDE_MISSING",
@@ -22033,7 +21424,7 @@ function finding(code, scopeId, guideKind, message, evidence = {}, recommendedAc
   return { code, severity: code === GUIDE_FINDING_CODES.OPEN_GAP ? "warning" : "error", scopeId, guideKind, message, evidence, recommendedAction };
 }
 function guidePath(planningRoot, scopeId, kind, file) {
-  return confineWritePath(planningRoot, path15.join("scopes", scopeId, file || `${kind}-guide.yml`));
+  return confineWritePath(planningRoot, path12.join("scopes", scopeId, file || `${kind}-guide.yml`));
 }
 function sameCanonicalValue(left, right) {
   return revisionHash(left) === revisionHash(right);
@@ -22065,7 +21456,7 @@ function currentGenerator({ workspaceRoot, scope, kind }) {
   if (!configured) return null;
   try {
     let executable = confineUnder(workspaceRoot, configured.executable);
-    return fs15.statSync(executable).isFile() ? { configured, fingerprint: contentHash(fs15.readFileSync(executable)) } : { configured, missing: !0 };
+    return fs14.statSync(executable).isFile() ? { configured, fingerprint: contentHash(fs14.readFileSync(executable)) } : { configured, missing: !0 };
   } catch {
     return { configured, missing: !0 };
   }
@@ -22126,16 +21517,16 @@ function sortedReasons(reasons) {
   return reasons.sort((left, right) => `${left.code}:${JSON.stringify(left.evidence)}`.localeCompare(`${right.code}:${JSON.stringify(right.evidence)}`));
 }
 function evaluateGuideHealth({ planningRoot, workspaceRoot, scope, guideKind, sources, config, sourceDrift = null, sourceDiagnostics = [] }) {
-  let scopeId = scope.id, relative = path15.join("scopes", scopeId, `${guideKind}-guide.yml`), reasons = [], metadata = scope.guides?.[guideKind] || null, guide, guideBytes, file;
+  let scopeId = scope.id, relative = path12.join("scopes", scopeId, `${guideKind}-guide.yml`), reasons = [], metadata = scope.guides?.[guideKind] || null, guide, guideBytes, file;
   try {
     file = guidePath(planningRoot, scopeId, guideKind);
   } catch (error2) {
     return reasons.push(finding(GUIDE_FINDING_CODES.SCHEMA, scopeId, guideKind, `${relative}: untrusted path (${error2.message})`, { path: relative }, "regenerate")), { state: "invalid", usable: !1, persistedStatus: metadata?.status || null, reasons: sortedReasons(reasons) };
   }
-  if (!fs15.existsSync(file))
+  if (!fs14.existsSync(file))
     return reasons.push(finding(GUIDE_FINDING_CODES.MISSING, scopeId, guideKind, "required Guide YAML is missing", { path: relative }, "generate")), { state: "missing", usable: !1, persistedStatus: metadata?.status || null, reasons };
   try {
-    guideBytes = fs15.readFileSync(file), guide = parseYaml(guideBytes.toString("utf8"));
+    guideBytes = fs14.readFileSync(file), guide = parseYaml(guideBytes.toString("utf8"));
   } catch (error2) {
     return reasons.push(finding(GUIDE_FINDING_CODES.SCHEMA, scopeId, guideKind, `${relative}: ${error2.message}`, { path: relative }, "regenerate")), { state: "invalid", usable: !1, persistedStatus: metadata?.status || null, reasons: sortedReasons(reasons) };
   }
@@ -22155,7 +21546,7 @@ function evaluateGuideHealth({ planningRoot, workspaceRoot, scope, guideKind, so
   for (let gap of guide.openGaps || []) reasons.push(finding(GUIDE_FINDING_CODES.OPEN_GAP, scopeId, guideKind, `Guide has open gap: ${gap.description}`, { gapId: gap.id }, "review"));
   try {
     let projectionPath = guidePath(planningRoot, scopeId, guideKind, `${guideKind}-guide.md`);
-    fs15.existsSync(projectionPath) ? compareGuideProjection(guide, fs15.readFileSync(projectionPath, "utf8")).equal || reasons.push(finding(GUIDE_FINDING_CODES.PROJECTION_DRIFT, scopeId, guideKind, "Markdown projection differs from canonical Guide YAML", {}, "regenerate")) : reasons.push(finding(GUIDE_FINDING_CODES.PROJECTION_MISSING, scopeId, guideKind, "Markdown projection is missing", { path: `${guideKind}-guide.md` }, "regenerate"));
+    fs14.existsSync(projectionPath) ? compareGuideProjection(guide, fs14.readFileSync(projectionPath, "utf8")).equal || reasons.push(finding(GUIDE_FINDING_CODES.PROJECTION_DRIFT, scopeId, guideKind, "Markdown projection differs from canonical Guide YAML", {}, "regenerate")) : reasons.push(finding(GUIDE_FINDING_CODES.PROJECTION_MISSING, scopeId, guideKind, "Markdown projection is missing", { path: `${guideKind}-guide.md` }, "regenerate"));
   } catch (error2) {
     reasons.push(finding(GUIDE_FINDING_CODES.PROJECTION_DRIFT, scopeId, guideKind, `Markdown projection path is untrusted: ${error2.message}`, {}, "regenerate"));
   }
@@ -22179,26 +21570,26 @@ function evaluateGuideReadiness({ healthByKind, scopeId, requiredGuideKinds = ["
 // runtime/src/lib/releaseScopeEvidence.mjs
 function readConfig(planningRoot) {
   let configFile = confineWritePath(planningRoot, "config.yml");
-  if (!fs16.existsSync(configFile)) throw new Error("Project Context config.yml is missing");
-  return parseYaml(fs16.readFileSync(configFile, "utf8"));
+  if (!fs15.existsSync(configFile)) throw new Error("Project Context config.yml is missing");
+  return parseYaml(fs15.readFileSync(configFile, "utf8"));
 }
 function readScope(planningRoot, scopeId) {
   if (!isUuidV7(scopeId)) throw new Error(`INVALID_REFERENCE: scope reference must be UUIDv7: ${scopeId}`);
-  let relativePath = path16.join("scopes", scopeId, "scope.yml"), filePath = confineWritePath(planningRoot, relativePath);
-  if (!fs16.existsSync(filePath)) throw new Error(`INVALID_REFERENCE: scope reference does not resolve: ${scopeId}`);
-  let stat = fs16.lstatSync(filePath);
+  let relativePath = path13.join("scopes", scopeId, "scope.yml"), filePath = confineWritePath(planningRoot, relativePath);
+  if (!fs15.existsSync(filePath)) throw new Error(`INVALID_REFERENCE: scope reference does not resolve: ${scopeId}`);
+  let stat = fs15.lstatSync(filePath);
   if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`${relativePath}: canonical scope must be a real file`);
-  let scope = parseYaml(fs16.readFileSync(filePath, "utf8")), result = validate("scope", scope);
+  let scope = parseYaml(fs15.readFileSync(filePath, "utf8")), result = validate("scope", scope);
   if (!result.valid) throw new Error(`INVALID_REFERENCE: scope ${scopeId} is schema-invalid: ${result.errors.map((error2) => `${error2.path} ${error2.message}`).join("; ")}`);
   if (scope.id !== scopeId) throw new Error(`INVALID_REFERENCE: scope.id does not match directory ${scopeId}`);
   return { scope, revision: revisionHash(scope) };
 }
 function guideEvidence(planningRoot, scopeId, kind, health) {
-  let relativePath = path16.join("scopes", scopeId, `${kind}-guide.yml`), guide = null, hash = null;
+  let relativePath = path13.join("scopes", scopeId, `${kind}-guide.yml`), guide = null, hash = null;
   try {
     let filePath = confineWritePath(planningRoot, relativePath);
-    if (fs16.existsSync(filePath) && fs16.lstatSync(filePath).isFile()) {
-      let bytes = fs16.readFileSync(filePath);
+    if (fs15.existsSync(filePath) && fs15.lstatSync(filePath).isFile()) {
+      let bytes = fs15.readFileSync(filePath);
       hash = contentHash(bytes), guide = parseYaml(bytes.toString("utf8"));
     }
   } catch {
@@ -22236,10 +21627,10 @@ function buildScopeRefsEvidence({ planningRoot, workspaceRoot, scopeIds, evaluat
       test: evaluateGuideHealth({ planningRoot, workspaceRoot, scope, guideKind: "test", sources, config })
     };
     for (let kind of ["task", "test"]) {
-      let guidePath2 = path16.join("scopes", scopeId, `${kind}-guide.yml`);
+      let guidePath2 = path13.join("scopes", scopeId, `${kind}-guide.yml`);
       try {
         let guideFile = confineWritePath(planningRoot, guidePath2);
-        fs16.existsSync(guideFile) && (observedRevisions[guidePath2] = revisionHash(parseYaml(fs16.readFileSync(guideFile, "utf8"))));
+        fs15.existsSync(guideFile) && (observedRevisions[guidePath2] = revisionHash(parseYaml(fs15.readFileSync(guideFile, "utf8"))));
       } catch {
         observedRevisions[guidePath2] = "UNREADABLE";
       }
@@ -22317,10 +21708,10 @@ function assertAllowedFields(kind, rawPayload) {
 }
 function readCurrentConfig2(planningRoot) {
   let configPath = confineWritePath(planningRoot, "config.yml");
-  if (!fs17.existsSync(configPath)) throw new Error("Project Context config.yml is missing");
-  let stat = fs17.lstatSync(configPath);
+  if (!fs16.existsSync(configPath)) throw new Error("Project Context config.yml is missing");
+  let stat = fs16.lstatSync(configPath);
   if (!stat.isFile() || stat.isSymbolicLink()) throw new Error("Project Context config.yml must be a real file");
-  let config = parseYaml(fs17.readFileSync(configPath, "utf8")), result = validate("config", config);
+  let config = parseYaml(fs16.readFileSync(configPath, "utf8")), result = validate("config", config);
   if (!result.valid) throw new Error(`Project Context config.yml is schema-invalid: ${result.errors.map((error2) => `${error2.path} ${error2.message}`).join("; ")}`);
   return config;
 }
@@ -22331,6 +21722,57 @@ function resolveTargetRelease(planningRoot, reference) {
 }
 function releaseMutationRequestHash({ actor, kind, requestSnapshot }) {
   return revisionHash({ actor, kind, requestSnapshot });
+}
+function canonicalEqual(left, right) {
+  return revisionHash(left) === revisionHash(right);
+}
+function releaseMutationInvariantFindings(changeSet, operation = null, planningRoot = null) {
+  let findings = [], payload = changeSet.payload || {}, targetKeys = Object.keys(changeSet.target || {}).sort();
+  (targetKeys.length !== 1 || targetKeys[0] !== "releaseId" || changeSet.target.releaseId !== payload.releaseId) && findings.push(`${changeSet.kind} target must contain exactly releaseId equal to payload.releaseId`), payload.operationId !== changeSet.operationId && findings.push(`${changeSet.kind} payload.operationId must match ChangeSet operationId`), operation && (payload.updatedAt !== operation.proposedAt && findings.push(`${changeSet.kind} updatedAt must match the server-owned Operation proposedAt`), payload.updatedBy !== operation.proposedBy && findings.push(`${changeSet.kind} updatedBy must match the server-owned Operation proposedBy`));
+  let snapshot = payload.requestSnapshot;
+  if (!snapshot || typeof snapshot != "object" || Array.isArray(snapshot))
+    return findings.push(`${changeSet.kind} requestSnapshot must be a normalized object`), findings;
+  let actor = operation?.proposedBy ?? payload.updatedBy;
+  try {
+    let rawRequest = { releaseRef: snapshot.releaseRef, idempotencyKey: payload.idempotencyKey };
+    changeSet.kind === "release.policy.configure" ? (snapshot.laneId !== null && (rawRequest.laneId = snapshot.laneId), snapshot.policyMode !== null && (rawRequest.policyMode = snapshot.policyMode), snapshot.previousReleaseRefs !== null && (rawRequest.previousReleaseRefs = snapshot.previousReleaseRefs), snapshot.dependencyRefs !== null && (rawRequest.dependencyRefs = snapshot.dependencyRefs)) : changeSet.kind === "release.scopeRefs.set" ? (rawRequest.scopeIds = snapshot.scopeIds, rawRequest.policyMode = snapshot.policyMode) : changeSet.kind === "release.operationalRefs.set" ? (rawRequest.executionContextRefs = snapshot.executionContextRefs, rawRequest.environmentRefs = snapshot.environmentRefs) : changeSet.kind === "release.deployment.record" && (rawRequest.environmentRef = snapshot.environmentRef, rawRequest.executionContextRef = snapshot.executionContextRef, rawRequest.status = snapshot.status, rawRequest.artifactRefs = snapshot.artifactRefs, rawRequest.evidenceRefs = snapshot.evidenceRefs, rawRequest.completedAt = snapshot.completedAt);
+    let normalized = normalizeReleaseMutationRequest(changeSet.kind, rawRequest, {
+      actor,
+      defaultIdempotencyKey: payload.idempotencyKey
+    });
+    canonicalEqual(normalized.requestSnapshot, snapshot) || findings.push(`${changeSet.kind} requestSnapshot is not canonical normalized caller intent`), normalized.idempotencyRequestHash !== payload.idempotencyRequestHash && findings.push(`${changeSet.kind} idempotencyRequestHash does not match normalized caller intent and actor`);
+  } catch (error2) {
+    findings.push(`${changeSet.kind} requestSnapshot is invalid: ${error2.message}`);
+  }
+  let currentRelease = null;
+  if (planningRoot)
+    try {
+      let resolved = resolveTargetRelease(planningRoot, snapshot.releaseRef);
+      resolved.id !== payload.releaseId && findings.push(`${changeSet.kind} requestSnapshot.releaseRef resolves to ${resolved.id}, not payload.releaseId ${payload.releaseId}`), currentRelease = readReleaseFile(planningRoot, payload.releaseId).release;
+    } catch (error2) {
+      findings.push(`${changeSet.kind} cannot rebind requestSnapshot.releaseRef: ${error2.message}`);
+    }
+  if (changeSet.kind === "release.policy.configure") {
+    if (currentRelease) {
+      let expectedLaneId = snapshot.laneId ?? currentRelease.lane.id, expectedPolicy = {
+        mode: snapshot.policyMode ?? currentRelease.policy.mode,
+        previousReleaseRefs: snapshot.previousReleaseRefs ?? currentRelease.policy.previousReleaseRefs,
+        dependencyRefs: snapshot.dependencyRefs ?? currentRelease.policy.dependencyRefs
+      };
+      payload.laneId !== expectedLaneId && findings.push("release.policy.configure laneId is not derived from caller intent and the target Release base state"), canonicalEqual(payload.policy, expectedPolicy) || findings.push("release.policy.configure policy is not derived from caller intent and the target Release base state");
+    }
+  } else if (changeSet.kind === "release.scopeRefs.set") {
+    let payloadScopeIds = Array.isArray(payload.scopeRefs) ? payload.scopeRefs.map((entry) => entry.scopeId).sort() : [];
+    canonicalEqual(payloadScopeIds, [...snapshot.scopeIds || []].sort()) || findings.push("release.scopeRefs.set scopeRefs do not correspond to requestSnapshot.scopeIds");
+  } else if (changeSet.kind === "release.operationalRefs.set")
+    canonicalEqual(payload.executionContextRefs, snapshot.executionContextRefs) || findings.push("release.operationalRefs.set executionContextRefs do not match caller intent"), canonicalEqual(payload.environmentRefs, snapshot.environmentRefs) || findings.push("release.operationalRefs.set environmentRefs do not match caller intent");
+  else if (changeSet.kind === "release.deployment.record") {
+    let event = payload.deploymentEvent || {};
+    isUuidV7(event.id) || findings.push("release.deployment.record deploymentEvent.id must be a server-owned UUIDv7"), event.releaseId !== payload.releaseId && findings.push("release.deployment.record deploymentEvent.releaseId must match payload.releaseId"), event.operationId !== changeSet.operationId && findings.push("release.deployment.record deploymentEvent.operationId must match ChangeSet operationId"), operation && event.actor !== operation.proposedBy && findings.push("release.deployment.record deploymentEvent.actor must match the server-owned Operation proposedBy"), operation && event.startedAt !== operation.proposedAt && findings.push("release.deployment.record deploymentEvent.startedAt must match the server-owned Operation proposedAt");
+    for (let field of ["environmentRef", "executionContextRef", "status", "artifactRefs", "evidenceRefs", "completedAt"])
+      canonicalEqual(event[field], snapshot[field]) || findings.push(`release.deployment.record deploymentEvent.${field} does not match caller intent`);
+  }
+  return findings;
 }
 function normalizeReleaseMutationRequest(kind, rawPayload, { actor, defaultIdempotencyKey }) {
   requireObject(rawPayload), rejectServerOwned(rawPayload), assertAllowedFields(kind, rawPayload), actor = requireActor(actor);
@@ -22506,6 +21948,722 @@ function renderReleaseMutation(kind, payload, { planningRoot, workspaceRoot, cur
   let finalRelease = updateReleaseRevision(nextRelease), result = validate("release", finalRelease);
   if (!result.valid) throw new Error(`release mutation produced invalid release: ${result.errors.map((error2) => `${error2.path} ${error2.message}`).join("; ")}`);
   return finalRelease;
+}
+
+// runtime/src/lib/changeset.mjs
+function readFileState(planningRoot, relativePath) {
+  let absolutePath = confineRuntimeWritePath(planningRoot, relativePath);
+  if (!fs17.existsSync(absolutePath))
+    return { revisionHash: ABSENT, contentHash: ABSENT };
+  if (fs17.lstatSync(absolutePath).isDirectory())
+    return { revisionHash: DIRECTORY_CONTENT_HASH, contentHash: DIRECTORY_CONTENT_HASH };
+  let bytes = fs17.readFileSync(absolutePath), isStructured = relativePath.endsWith(".yml") || relativePath.endsWith(".yaml") || relativePath.endsWith(".json"), structuredValue = isStructured ? relativePath.endsWith(".json") ? JSON.parse(bytes.toString("utf8")) : parseYaml(bytes.toString("utf8")) : null;
+  return {
+    revisionHash: isStructured ? revisionHash(structuredValue) : contentHash(bytes),
+    contentHash: contentHash(bytes)
+  };
+}
+function computePersistedChangeSetHash(changeSet) {
+  let { hash, ...withoutHash } = changeSet;
+  return revisionHash(withoutHash);
+}
+function eventTypeFor(kind) {
+  return {
+    "workspace.init": "workspace.initialized",
+    "config.update": "config.updated",
+    "config.autonomy.set": "config.autonomy.set",
+    "scope.add": "scope.added",
+    "scope.command.set": "scope.command.set",
+    "scope.generator.set": "scope.generator.set",
+    "discovery.propose": "discovery.proposed",
+    "guide.update": "guide.updated",
+    "release.create": "release.created",
+    "release.policy.configure": "release.policy.configured",
+    "release.scopeRefs.set": "release.scopeRefs.set",
+    "release.operationalRefs.set": "release.operationalRefs.set",
+    "release.deployment.record": "release.deployment.recorded"
+  }[kind];
+}
+function findIdempotentOperation(operationsRoot, { kind, key, requestHash }) {
+  if (!key || !fs17.existsSync(operationsRoot)) return null;
+  let matchingOperationId = null;
+  for (let candidateId of fs17.readdirSync(operationsRoot).sort()) {
+    let operation;
+    try {
+      operation = readOperation(operationsRoot, candidateId);
+    } catch (error2) {
+      throw new StateError(`cannot establish ${kind} idempotency because operation ${candidateId} is unreadable: ${error2.message}`);
+    }
+    if (operation.kind !== kind) continue;
+    let changeSet;
+    try {
+      changeSet = readChangeSet(operationsRoot, candidateId);
+    } catch (error2) {
+      throw new StateError(`cannot establish ${kind} idempotency because ChangeSet ${candidateId} is unreadable: ${error2.message}`);
+    }
+    if (changeSet.kind !== kind || changeSet.operationId !== candidateId || computePersistedChangeSetHash(changeSet) !== changeSet.hash)
+      throw new StateError(`cannot establish ${kind} idempotency because operation ${candidateId} is internally inconsistent`);
+    let persistedKey = operation.requestBinding?.key ?? changeSet.payload?.idempotencyKey, persistedRequestHash = operation.requestBinding?.requestHash ?? changeSet.payload?.idempotencyRequestHash;
+    if (operation.requestBinding && (changeSet.payload?.idempotencyKey !== persistedKey || changeSet.payload?.idempotencyRequestHash !== persistedRequestHash))
+      throw new StateError(`cannot establish ${kind} idempotency because operation ${candidateId} request binding disagrees with its ChangeSet`);
+    if (persistedKey === key) {
+      if (persistedRequestHash !== requestHash)
+        throw new StateError(`idempotency key ${key} was already used for a different ${kind} request`);
+      if (matchingOperationId && matchingOperationId !== candidateId)
+        throw new StateError(`idempotency key ${key} is bound to multiple ${kind} operations`);
+      matchingOperationId = candidateId;
+    }
+  }
+  return matchingOperationId;
+}
+function propose({ operationsRoot, planningRoot, kind, target, payload, targetFiles, actor, operationId = null, proposedAt = null, preconditions = null, idempotency = null, prepareUnderLock = null }) {
+  return withWorkspaceMutation({ planningRoot, operationsRoot, operationId: null }, () => {
+    if (idempotency) {
+      let existingOperationId = findIdempotentOperation(operationsRoot, { kind, ...idempotency });
+      if (existingOperationId) return existingOperationId;
+    }
+    if (prepareUnderLock) {
+      let prepared = prepareUnderLock();
+      if (!prepared || !prepared.target || !prepared.payload || !Array.isArray(prepared.targetFiles))
+        throw new StateError(`${kind} prepareUnderLock must return target, payload, and targetFiles`);
+      target = prepared.target, payload = prepared.payload, targetFiles = prepared.targetFiles;
+    }
+    if (!target || !payload || !Array.isArray(targetFiles)) throw new StateError(`${kind} proposal is missing target, payload, or targetFiles`);
+    operationId ??= generateUuidV7(), assertDistinctMutationTargets(planningRoot, targetFiles);
+    let baseRevisions = {};
+    for (let relativePath of targetFiles)
+      baseRevisions[relativePath] = readFileState(planningRoot, relativePath);
+    let changeSetWithoutHash = { schemaVersion: 1, operationId, kind, target, baseRevisions, payload };
+    preconditions && (changeSetWithoutHash.preconditions = preconditions);
+    let hash = computePersistedChangeSetHash(changeSetWithoutHash);
+    writeChangeSet(operationsRoot, operationId, { ...changeSetWithoutHash, hash });
+    let reservedEvents = [{ eventId: generateUuidV7(), type: eventTypeFor(kind) }];
+    proposedAt ??= (/* @__PURE__ */ new Date()).toISOString();
+    let operation = {
+      id: operationId,
+      kind,
+      status: "PROPOSED",
+      proposedBy: actor,
+      proposedAt,
+      reservedEvents,
+      validation: { validatedAt: null, changeSetHash: null, errors: [] },
+      approval: { actor: null, approvedAt: null, changeSetHash: null, selfApproval: null, mode: null },
+      history: [{ at: proposedAt, from: null, to: "PROPOSED", actor, reason: null }],
+      ...idempotency ? {
+        requestBinding: { key: idempotency.key, requestHash: idempotency.requestHash },
+        proposalHash: hash
+      } : {}
+    };
+    return writeOperation(operationsRoot, operationId, operation), operationId;
+  });
+}
+function schemaNameForRenderedPath(relativePath) {
+  return relativePath === "config.yml" ? "config" : relativePath === "plugin.lock.yml" ? "plugin-lock" : /^sources\/[^/]+\/source\.yml$/.test(relativePath) ? "source" : /^scopes\/[^/]+\/scope\.yml$/.test(relativePath) ? "scope" : /^scopes\/[^/]+\/(task|test)-guide\.yml$/.test(relativePath) ? "guide" : /^releases\/[^/]+\/release\.yml$/.test(relativePath) ? "release" : null;
+}
+function checkKindInvariants(changeSet, operation = null, planningRoot = null) {
+  let errors = [];
+  if (changeSet.kind === "workspace.init")
+    for (let relativePath of Object.keys(changeSet.baseRevisions)) {
+      let entry = changeSet.baseRevisions[relativePath];
+      (!entry || entry.revisionHash !== ABSENT || entry.contentHash !== ABSENT) && errors.push(`${relativePath} must be ABSENT for workspace.init; the workspace already appears initialized -- use config set to update it instead`);
+    }
+  if (changeSet.kind === "scope.add") {
+    let scopePath = `scopes/${changeSet.payload.id}/scope.yml`, entry = changeSet.baseRevisions[scopePath];
+    (!entry || entry.revisionHash !== ABSENT || entry.contentHash !== ABSENT) && errors.push(`${scopePath} must be ABSENT for a new scope.add, but baseRevisions recorded something else`);
+  }
+  if (changeSet.kind === "guide.update") {
+    let guidePath2 = `scopes/${changeSet.payload.scopeId}/${changeSet.payload.guideKind}-guide.yml`, expectedPaths = /* @__PURE__ */ new Set(["config.yml", `scopes/${changeSet.payload.scopeId}/scope.yml`, guidePath2]);
+    ["generate", "regenerate"].includes(changeSet.payload.action) && expectedPaths.add(`scopes/${changeSet.payload.scopeId}/${changeSet.payload.guideKind}-guide.md`);
+    let actualPaths = new Set(Object.keys(changeSet.baseRevisions));
+    (expectedPaths.size !== actualPaths.size || [...expectedPaths].some((target) => !actualPaths.has(target))) && errors.push("guide.update baseRevisions must contain exactly config.yml, scope.yml, and the canonical guide YAML");
+    let guideBase = changeSet.baseRevisions[guidePath2];
+    changeSet.payload.action === "generate" ? (!guideBase || guideBase.contentHash !== ABSENT) && errors.push(`${guidePath2} must be ABSENT for initial guide.generate`) : (!guideBase || guideBase.contentHash === ABSENT) && errors.push(`${guidePath2} must already exist for guide.${changeSet.payload.action}`);
+  }
+  if (changeSet.kind === "release.create") {
+    let existingReleases = [];
+    try {
+      existingReleases = listReleaseDocuments(planningRoot);
+    } catch (error2) {
+      errors.push(`release.create cannot verify display ID uniqueness: ${error2.message}`);
+    }
+    errors.push(...releaseCreateInvariantFindings(changeSet, operation, existingReleases));
+    let releasePath = `releases/${changeSet.payload.id}/release.yml`, readmePath = `releases/${changeSet.payload.id}/README.md`, actualPaths = new Set(Object.keys(changeSet.baseRevisions));
+    (actualPaths.size !== 2 || !actualPaths.has(releasePath) || !actualPaths.has(readmePath)) && errors.push("release.create baseRevisions must contain exactly release.yml and README.md for the UUIDv7 release directory");
+    for (let relativePath of [releasePath, readmePath]) {
+      let entry = changeSet.baseRevisions[relativePath];
+      (!entry || entry.revisionHash !== ABSENT || entry.contentHash !== ABSENT) && errors.push(`${relativePath} must be ABSENT for release.create`);
+    }
+  }
+  if (["release.policy.configure", "release.scopeRefs.set", "release.operationalRefs.set", "release.deployment.record"].includes(changeSet.kind)) {
+    let releaseId = changeSet.payload.releaseId, releasePath = `releases/${releaseId}/release.yml`, readmePath = `releases/${releaseId}/README.md`, actualPaths = new Set(Object.keys(changeSet.baseRevisions));
+    (actualPaths.size !== 2 || !actualPaths.has(releasePath) || !actualPaths.has(readmePath)) && errors.push(`${changeSet.kind} baseRevisions must contain exactly release.yml and README.md for the target Release`);
+    for (let relativePath of [releasePath, readmePath]) {
+      let entry = changeSet.baseRevisions[relativePath];
+      (!entry || entry.revisionHash === ABSENT || entry.contentHash === ABSENT) && errors.push(`${relativePath} must already exist for ${changeSet.kind}`);
+    }
+    changeSet.target?.releaseId !== releaseId && errors.push(`${changeSet.kind} target.releaseId must match payload.releaseId`), (changeSet.payload.operationId !== changeSet.operationId || operation && changeSet.payload.operationId !== operation.id) && errors.push(`${changeSet.kind} payload.operationId must match operation id`), errors.push(...releaseMutationInvariantFindings(changeSet, operation, planningRoot));
+  }
+  return changeSet.kind.startsWith("release.") && operation?.requestBinding && (changeSet.payload?.idempotencyKey !== operation.requestBinding.key && errors.push(`${changeSet.kind} idempotencyKey must match the server-owned Operation request binding`), changeSet.payload?.idempotencyRequestHash !== operation.requestBinding.requestHash && errors.push(`${changeSet.kind} idempotencyRequestHash must match the server-owned Operation request binding`)), changeSet.kind.startsWith("release.") && operation?.proposalHash && operation.proposalHash !== changeSet.hash && errors.push(`${changeSet.kind} ChangeSet no longer matches the server-owned proposal hash`), errors;
+}
+function revalidateChangeSet({ operationsRoot, planningRoot, operationId, render, operation = null }) {
+  let changeSet = readChangeSet(operationsRoot, operationId);
+  if (changeSet.operationId !== operationId)
+    return { ok: !1, status: "INVALID", errors: [`change-set.json operationId ${changeSet.operationId} does not match operation ${operationId}`], recomputedHash: null };
+  let recomputedHash = computePersistedChangeSetHash(changeSet);
+  if (recomputedHash !== changeSet.hash)
+    return { ok: !1, status: "INVALID", errors: ["change-set.json hash does not match its own recomputed content; the file has been tampered with or corrupted"], recomputedHash };
+  let changeSetResult = validate("change-set", changeSet);
+  if (!changeSetResult.valid)
+    return { ok: !1, status: "INVALID", errors: changeSetResult.errors.map((e) => `change-set${e.path}: ${e.message}`), recomputedHash };
+  let invariantErrors = checkKindInvariants(changeSet, operation, planningRoot);
+  if (invariantErrors.length > 0)
+    return { ok: !1, status: "INVALID", errors: invariantErrors, recomputedHash };
+  let rendered;
+  try {
+    rendered = render(changeSet.payload), assertDistinctMutationTargets(planningRoot, [...rendered.keys()]);
+  } catch (error2) {
+    return { ok: !1, status: error2.code === "STALE" ? "STALE" : "INVALID", errors: [error2.message], recomputedHash };
+  }
+  let renderedPaths = new Set(rendered.keys()), baseRevisionPaths = new Set(Object.keys(changeSet.baseRevisions)), missingFromBaseRevisions = [...renderedPaths].filter((p) => !baseRevisionPaths.has(p)), extraInBaseRevisions = [...baseRevisionPaths].filter((p) => !renderedPaths.has(p));
+  if (missingFromBaseRevisions.length > 0 || extraInBaseRevisions.length > 0)
+    return {
+      ok: !1,
+      status: "INVALID",
+      errors: [`baseRevisions must exactly match the rendered file set; missing=${JSON.stringify(missingFromBaseRevisions)} extra=${JSON.stringify(extraInBaseRevisions)}`],
+      recomputedHash
+    };
+  for (let [relativePath, expected] of Object.entries(changeSet.baseRevisions)) {
+    let actual = readFileState(planningRoot, relativePath);
+    if (actual.revisionHash !== expected.revisionHash || actual.contentHash !== expected.contentHash)
+      return { ok: !1, status: "STALE", errors: [`${relativePath} changed since propose`], recomputedHash };
+  }
+  let renderErrors = [];
+  for (let [relativePath, content] of rendered) {
+    if (content === null || isDirectoryRenderEntry(content)) continue;
+    let schemaName = schemaNameForRenderedPath(relativePath);
+    if (!schemaName) continue;
+    let value = parseYaml(content), result = validate(schemaName, value);
+    if (!result.valid)
+      for (let error2 of result.errors) renderErrors.push(`${relativePath}${error2.path}: ${error2.message}`);
+  }
+  return renderErrors.length > 0 ? { ok: !1, status: "INVALID", errors: renderErrors, recomputedHash } : { ok: !0, recomputedHash, changeSet, rendered };
+}
+function transitionToStale(operationsRoot, operationId, operation, reason) {
+  let staleAt = (/* @__PURE__ */ new Date()).toISOString();
+  throw writeOperation(operationsRoot, operationId, {
+    ...operation,
+    status: "STALE",
+    history: [...operation.history, { at: staleAt, from: operation.status, to: "STALE", actor: "system:validator", reason }]
+  }), new StaleError(reason);
+}
+function validateOperation({ operationsRoot, planningRoot, operationId, render }) {
+  return withWorkspaceMutation({ planningRoot, operationsRoot, operationId }, () => {
+    let operation = readOperation(operationsRoot, operationId);
+    if (operation.status !== "PROPOSED")
+      throw new StateError(`cannot validate operation in status ${operation.status}`);
+    let result = revalidateChangeSet({ operationsRoot, planningRoot, operationId, render, operation }), validatedAt = (/* @__PURE__ */ new Date()).toISOString();
+    if (!result.ok) {
+      writeOperation(operationsRoot, operationId, {
+        ...operation,
+        status: result.status,
+        validation: { validatedAt, changeSetHash: result.recomputedHash, errors: result.errors },
+        history: [...operation.history, { at: validatedAt, from: operation.status, to: result.status, actor: "system:validator", reason: result.errors[0] }]
+      });
+      return;
+    }
+    let nextOperation = {
+      ...operation,
+      status: "VALIDATED",
+      validation: { validatedAt, changeSetHash: result.recomputedHash, errors: [] },
+      history: [...operation.history, { at: validatedAt, from: operation.status, to: "VALIDATED", actor: "system:validator", reason: null }]
+    }, evaluation = evaluateChangeSetAutonomy({ changeSet: result.changeSet, planningRoot });
+    evaluation ? nextOperation.autonomyEvaluation = bindAutonomyEvaluation({
+      evaluation,
+      operationId,
+      changeSetHash: result.recomputedHash
+    }) : delete nextOperation.autonomyEvaluation, writeOperation(operationsRoot, operationId, nextOperation);
+  });
+}
+function approveOperation({ operationsRoot, planningRoot, operationId, actor, allowSelfApproval = !1, mode = "human", authorizationContext = null }) {
+  return withWorkspaceMutation({ planningRoot, operationsRoot, operationId }, () => {
+    let operation = readOperation(operationsRoot, operationId);
+    if (operation.status !== "VALIDATED")
+      throw new StateError(`cannot approve operation in status ${operation.status}`);
+    if (!["human", "autonomous"].includes(mode))
+      throw new StateError(`unsupported approval mode: ${mode}`);
+    let changeSet = readChangeSet(operationsRoot, operationId);
+    if (changeSet.kind === "guide.update" && changeSet.payload.action === "approve" && mode !== "human")
+      throw new StateError("Guide approval must use the human approval mode");
+    let recomputedHash = computePersistedChangeSetHash(changeSet);
+    if ((recomputedHash !== changeSet.hash || recomputedHash !== operation.validation.changeSetHash) && transitionToStale(operationsRoot, operationId, operation, "change-set.json changed since validate; propose and validate again before approving"), mode === "autonomous") {
+      if (!hasAutonomousApprovalCapability(authorizationContext))
+        throw new StateError("autonomous approval requires a server-owned authorization capability");
+      if (!operation.autonomyEvaluation)
+        throw new StateError("autonomous approval requires this operation's autonomyEvaluation");
+      if (operation.autonomyEvaluation.operationId !== operationId || operation.autonomyEvaluation.changeSetHash !== recomputedHash)
+        throw new StateError("autonomyEvaluation is not bound to this operation and validated ChangeSet");
+      currentPolicyFingerprint(planningRoot) !== operation.autonomyEvaluation.policyFingerprint && transitionToStale(operationsRoot, operationId, operation, REASON_CODES.POLICY_CHANGED_SINCE_VALIDATION);
+      let evaluation = evaluateChangeSetAutonomy({ changeSet, planningRoot }), freshEvaluation = bindAutonomyEvaluation({ evaluation, operationId, changeSetHash: recomputedHash });
+      if (!freshEvaluation || revisionHash(freshEvaluation) !== revisionHash(operation.autonomyEvaluation))
+        throw new StateError("autonomyEvaluation does not match this operation");
+      if (!operation.autonomyEvaluation.autoApprovable)
+        throw new StateError("autonomous approval requires autoApprovable true");
+    }
+    let selfApproval = actor === operation.proposedBy;
+    if (selfApproval && !allowSelfApproval)
+      throw new StateError("self-approval requires allowSelfApproval to be explicitly set");
+    let approvedAt = (/* @__PURE__ */ new Date()).toISOString();
+    writeOperation(operationsRoot, operationId, {
+      ...operation,
+      status: "APPROVED",
+      approval: { actor, approvedAt, changeSetHash: recomputedHash, selfApproval, mode },
+      history: [...operation.history, { at: approvedAt, from: "VALIDATED", to: "APPROVED", actor, reason: selfApproval ? "self-approved" : null }]
+    });
+  });
+}
+function prepareApply({ operationsRoot, planningRoot, operationId, render, actor }) {
+  let operation = readOperation(operationsRoot, operationId);
+  if (operation.status !== "APPROVED")
+    throw new StateError(`cannot apply operation in status ${operation.status}`);
+  let changeSet = readChangeSet(operationsRoot, operationId), revalidation = revalidateChangeSet({ operationsRoot, planningRoot, operationId, render, operation });
+  revalidation.ok || transitionToStale(operationsRoot, operationId, operation, revalidation.errors[0]);
+  let recomputedHash = revalidation.recomputedHash;
+  (recomputedHash !== changeSet.hash || recomputedHash !== operation.validation.changeSetHash || recomputedHash !== operation.approval.changeSetHash) && transitionToStale(operationsRoot, operationId, operation, "changeSetHash no longer matches validate/approve; the change-set has drifted since approval");
+  let discoveryWorkspace = changeSet.preconditions?.discoveryWorkspace;
+  discoveryWorkspace && runDiscoverScan({
+    planningRoot,
+    workspaceRoot: path14.dirname(planningRoot),
+    maxSourceBytes: discoveryWorkspace.scanParameters.maxSourceBytes
+  }).baseRevision.workspaceHash !== discoveryWorkspace.workspaceHash && transitionToStale(operationsRoot, operationId, operation, "discovery workspace changed since validation; rescan and create a new operation");
+  let rendered = revalidation.rendered, runtimeOperationRelative = path14.join(".runtime", "operations", operationId), stagingRelative = path14.join(runtimeOperationRelative, "staged"), beforeRelative = path14.join(runtimeOperationRelative, "before");
+  ensureDirectoryTree(planningRoot, stagingRelative), ensureDirectoryTree(planningRoot, beforeRelative), assertDistinctMutationTargets(planningRoot, [...rendered.keys()]);
+  let filePlan = [];
+  for (let [relativePath, newContent] of rendered) {
+    let before = changeSet.baseRevisions[relativePath];
+    confineRuntimeWritePath(planningRoot, relativePath), before.contentHash !== ABSENT && !isDirectoryRenderEntry(newContent) && copyFileAtomic(planningRoot, relativePath, path14.join(beforeRelative, relativePath)), isDirectoryRenderEntry(newContent) ? filePlan.push({
+      target: relativePath,
+      action: "mkdir",
+      expectedBefore: before.contentHash === ABSENT ? "ABSENT" : "PRESENT",
+      beforeContentHash: before.contentHash,
+      beforeRevisionHash: before.revisionHash,
+      stagedContentHash: DIRECTORY_CONTENT_HASH,
+      stagedRevisionHash: DIRECTORY_CONTENT_HASH
+    }) : newContent === null ? filePlan.push({
+      target: relativePath,
+      action: "delete",
+      expectedBefore: before.contentHash === ABSENT ? "ABSENT" : "PRESENT",
+      beforeContentHash: before.contentHash,
+      beforeRevisionHash: before.revisionHash,
+      stagedContentHash: ABSENT,
+      stagedRevisionHash: ABSENT
+    }) : filePlan.push({
+      target: relativePath,
+      action: "write",
+      stagedRelativePath: relativePath,
+      expectedBefore: before.contentHash === ABSENT ? "ABSENT" : "PRESENT",
+      beforeContentHash: before.contentHash,
+      beforeRevisionHash: before.revisionHash,
+      stagedContentHash: contentHash(newContent),
+      stagedRevisionHash: relativePath.endsWith(".yml") ? revisionHash(parseYaml(newContent)) : contentHash(newContent)
+    });
+  }
+  checkpoint("AFTER_BEFORE");
+  for (let [relativePath, newContent] of rendered)
+    newContent === null || isDirectoryRenderEntry(newContent) || writeFileAtomic(planningRoot, path14.join(stagingRelative, relativePath), newContent);
+  checkpoint("AFTER_STAGED");
+  let expectedEvents = operation.expectedEvents?.length ? operation.expectedEvents.map((expectedEvent) => {
+    let relationallyConsistent = expectedEvent.eventId === expectedEvent.document?.eventId && expectedEvent.document?.operationId === operation.id && expectedEvent.relativePath.endsWith(`/${expectedEvent.eventId}.json`), eventSchemaCheck = validate("event", expectedEvent.document);
+    if (!relationallyConsistent || !eventSchemaCheck.valid)
+      throw new StateError("persisted expectedEvents manifest is invalid or internally inconsistent");
+    return expectedEvent;
+  }) : operation.reservedEvents.map((reserved) => {
+    if (changeSet.kind.startsWith("release.")) {
+      let releasePath = `releases/${changeSet.kind === "release.create" ? changeSet.payload.id : changeSet.payload.releaseId}/release.yml`, release = parseYaml(rendered.get(releasePath)), previousStatus = null;
+      if (changeSet.kind !== "release.create" && changeSet.baseRevisions[releasePath]?.contentHash !== ABSENT) {
+        let previousPath = confineRuntimeWritePath(planningRoot, releasePath);
+        fs17.existsSync(previousPath) && (previousStatus = parseYaml(fs17.readFileSync(previousPath, "utf8")).status ?? null);
+      }
+      return buildExpectedEvent({
+        eventId: reserved.eventId,
+        type: reserved.type,
+        aggregate: { type: "release", id: release.id },
+        actor,
+        operationId,
+        idempotencyKey: changeSet.payload.idempotencyKey,
+        payload: {
+          releaseId: release.id,
+          displayId: release.displayId,
+          previousStatus,
+          nextStatus: release.status,
+          changeSetHash: recomputedHash,
+          revisionBefore: changeSet.baseRevisions[releasePath].revisionHash,
+          revisionAfter: release.audit.revision,
+          kind: changeSet.kind,
+          policy: release.policy,
+          lane: release.lane,
+          refs: {
+            scopeRefs: release.scopeRefs,
+            executionContextRefs: release.executionContextRefs,
+            environmentRefs: release.environmentRefs,
+            previousReleaseRefs: release.policy.previousReleaseRefs,
+            dependencyRefs: release.policy.dependencyRefs
+          },
+          deploymentEventId: changeSet.payload.deploymentEvent?.id || null
+        }
+      });
+    }
+    return buildExpectedEvent({
+      eventId: reserved.eventId,
+      type: reserved.type,
+      aggregate: { type: operation.kind.split(".")[0], id: operationId },
+      actor,
+      operationId,
+      idempotencyKey: operationId,
+      payload: changeSet.payload
+    });
+  });
+  operation = readOperation(operationsRoot, operationId), writeOperation(operationsRoot, operationId, { ...operation, filePlan, expectedEvents }), checkpoint("AFTER_MANIFEST"), operation = readOperation(operationsRoot, operationId);
+  let applyingAt = (/* @__PURE__ */ new Date()).toISOString();
+  return writeOperation(operationsRoot, operationId, {
+    ...operation,
+    status: "APPLYING",
+    history: [...operation.history, { at: applyingAt, from: "APPROVED", to: "APPLYING", actor, reason: null }]
+  }), checkpoint("AFTER_APPLYING"), { filePlan, expectedEvents, stagingRelative, runtimeOperationRelative };
+}
+function applyOperation({ operationsRoot, planningRoot, operationId, render, actor }) {
+  return withWorkspaceMutation({ planningRoot, operationsRoot, operationId }, () => {
+    let operation = readOperation(operationsRoot, operationId);
+    if (operation.status !== "APPROVED")
+      throw new StateError(`cannot apply operation in status ${operation.status}`);
+    let { filePlan, expectedEvents, stagingRelative, runtimeOperationRelative } = prepareApply({ operationsRoot, planningRoot, operationId, render, actor }), files = [];
+    for (let [index, entry] of filePlan.entries())
+      entry.action === "delete" ? (deleteWithinRoot(planningRoot, entry.target), operation.kind === "discovery.propose" && removeEmptyParentDirectoryWithinRoot(planningRoot, entry.target)) : entry.action === "mkdir" ? ensureDirectoryTree(planningRoot, entry.target) : renameWithinRoot(planningRoot, path14.join(stagingRelative, entry.stagedRelativePath), entry.target), files.push({ target: entry.target, action: entry.action, contentHash: entry.stagedContentHash }), index === 0 && checkpoint("AFTER_FIRST_RENAME");
+    checkpoint("AFTER_ALL_RENAMES");
+    let result = { operationId, files }, resultSchemaCheck = validate("result", result);
+    if (!resultSchemaCheck.valid)
+      throw new Error(`constructed result is schema-invalid: ${resultSchemaCheck.errors.map((e) => `${e.path} ${e.message}`).join("; ")}`);
+    writeResult(operationsRoot, operationId, result), checkpoint("AFTER_RESULT");
+    let eventsRoot = path14.join(planningRoot, "events");
+    for (let [index, expectedEvent] of expectedEvents.entries())
+      writeEventIdempotent(eventsRoot, expectedEvent), index === 0 && checkpoint("AFTER_FIRST_EVENT");
+    checkpoint("AFTER_ALL_EVENTS"), checkpoint("BEFORE_APPLIED");
+    let appliedAt = (/* @__PURE__ */ new Date()).toISOString(), current = readOperation(operationsRoot, operationId);
+    writeOperation(operationsRoot, operationId, {
+      ...current,
+      status: "APPLIED",
+      appliedAt,
+      history: [...current.history, { at: appliedAt, from: "APPLYING", to: "APPLIED", actor, reason: null }]
+    });
+    let residuePath = confineRuntimeWritePath(planningRoot, runtimeOperationRelative);
+    return fs17.rmSync(residuePath, { recursive: !0, force: !0 }), { status: "APPLIED", files };
+  });
+}
+
+// runtime/src/commands/proposalPreparation.mjs
+var SUPPORTED_KINDS = /* @__PURE__ */ new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "scope.generator.set", "guide.update", "release.create", "release.policy.configure", "release.scopeRefs.set", "release.operationalRefs.set", "release.deployment.record"]), RELEASE_CREATE_ALLOWED_FIELDS = /* @__PURE__ */ new Set(["title", "objective", "laneId", "policyMode", "slug", "idempotencyKey"]), RELEASE_CREATE_SERVER_FIELDS = /* @__PURE__ */ new Set(["id", "displayId", "displayIdStatus", "status", "createdAt", "createdBy", "updatedAt", "updatedBy", "audit", "completion", "readiness", "canonicalPath", "approval", "scopeRefs", "itemRefs", "blockers", "risks", "deploymentEvents", "finalization", "requestSnapshot", "idempotencyRequestHash"]);
+function requireObjectPayload(rawPayload) {
+  if (rawPayload === null || typeof rawPayload != "object" || Array.isArray(rawPayload))
+    throw new UsageError("changeset payload must be a mapping/object");
+  return rawPayload;
+}
+function requireExplicitBoolean(rawPayload, field) {
+  if (typeof rawPayload[field] != "boolean")
+    throw new UsageError(`scope.command.set ${field} must be an explicit boolean`);
+  return rawPayload[field];
+}
+function assertOnlyAllowedReleaseCreateFields(rawPayload) {
+  for (let field of Object.keys(rawPayload)) {
+    if (RELEASE_CREATE_SERVER_FIELDS.has(field)) throw new UsageError(`release.create field is server-owned: ${field}`);
+    if (!RELEASE_CREATE_ALLOWED_FIELDS.has(field)) throw new UsageError(`release.create contains unsupported field: ${field}`);
+  }
+}
+function requireTrimmedString(value, field) {
+  if (typeof value != "string" || value.trim().length === 0) throw new UsageError(`release.create requires non-blank ${field}`);
+  return value.trim();
+}
+function normalizeOptionalString(value, field) {
+  if (value != null) {
+    if (typeof value != "string" || value.trim().length === 0) throw new UsageError(`release.create ${field} must be a non-blank string`);
+    return value.trim();
+  }
+}
+function normalizeSlug(value) {
+  if (value == null || value === "") return null;
+  if (typeof value != "string") throw new UsageError("release.create slug must be a string or null");
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-+|-+$)/g, "") || null;
+}
+function normalizeReleaseCreateRequest(rawPayload, { actor, defaultIdempotencyKey }) {
+  if (requireObjectPayload(rawPayload), assertOnlyAllowedReleaseCreateFields(rawPayload), typeof actor != "string" || actor.trim().length === 0) throw new UsageError("release.create requires non-blank actor");
+  let title = requireTrimmedString(rawPayload.title, "title"), objective = requireTrimmedString(rawPayload.objective, "objective"), requestedLaneId = normalizeOptionalString(rawPayload.laneId, "laneId") ?? null, requestedPolicyMode = normalizeOptionalString(rawPayload.policyMode, "policyMode") ?? null;
+  if (requestedPolicyMode !== null && !["strict_sequence", "dependency_graph"].includes(requestedPolicyMode))
+    throw new UsageError(`unsupported release policy mode: ${requestedPolicyMode}`);
+  let slug = normalizeSlug(rawPayload.slug), idempotencyKey = rawPayload.idempotencyKey === void 0 ? requireTrimmedString(defaultIdempotencyKey, "idempotencyKey") : requireTrimmedString(rawPayload.idempotencyKey, "idempotencyKey"), requestSnapshot = { title, objective, laneId: requestedLaneId, policyMode: requestedPolicyMode, slug };
+  return {
+    requestSnapshot,
+    idempotencyKey,
+    idempotencyRequestHash: releaseCreateRequestHash({ actor, requestSnapshot })
+  };
+}
+function prepareProposal(kind, rawPayload, {
+  operationId = null,
+  actor = null,
+  proposedAt = null,
+  existingReleases = [],
+  currentConfig = null,
+  releaseRequest = null,
+  releaseId = null
+} = {}) {
+  if (!SUPPORTED_KINDS.has(kind)) throw new UsageError(`unsupported changeset kind: ${kind}`);
+  if (requireObjectPayload(rawPayload), kind === "workspace.init")
+    return { payload: rawPayload, targetFiles: ["config.yml", "plugin.lock.yml", ".gitignore", ...BOOTSTRAP_CANONICAL_DIRECTORIES] };
+  if (kind === "config.update")
+    return { payload: rawPayload, targetFiles: ["config.yml"] };
+  if (kind === "config.autonomy.set")
+    return { payload: rawPayload, targetFiles: ["config.yml"] };
+  if (kind === "scope.command.set") {
+    if (!operationId || !actor || !proposedAt)
+      throw new UsageError("scope.command.set requires runtime operationId, actor, and proposedAt");
+    let payload2 = {
+      operationId,
+      scopeId: rawPayload.scopeId,
+      role: rawPayload.role,
+      command: rawPayload.command,
+      requiresEnvironment: requireExplicitBoolean(rawPayload, "requiresEnvironment"),
+      requiresSecrets: requireExplicitBoolean(rawPayload, "requiresSecrets"),
+      declaredBy: actor,
+      declaredAt: proposedAt
+    };
+    return { payload: payload2, targetFiles: [`scopes/${payload2.scopeId}/scope.yml`] };
+  }
+  if (kind === "scope.generator.set") {
+    if (!operationId || !actor || !proposedAt) throw new UsageError("scope.generator.set requires runtime operationId, actor, and proposedAt");
+    let payload2 = {
+      operationId,
+      scopeId: rawPayload.scopeId,
+      guideKind: rawPayload.guideKind,
+      generator: rawPayload.generator ?? null,
+      declaredBy: actor,
+      declaredAt: proposedAt
+    };
+    return { payload: payload2, targetFiles: [`scopes/${payload2.scopeId}/scope.yml`] };
+  }
+  if (kind === "guide.update") {
+    if (!rawPayload.scopeId || !rawPayload.guideKind || !rawPayload.action)
+      throw new UsageError("guide.update requires scopeId, guideKind, and action");
+    if (!operationId || !actor || !proposedAt) throw new UsageError("guide.update requires runtime operationId, actor, and proposedAt");
+    let payload2 = {
+      ...rawPayload,
+      operationId,
+      proposedAt,
+      guideId: generateUuidV7()
+    };
+    return {
+      payload: payload2,
+      targetFiles: ["config.yml", `scopes/${payload2.scopeId}/scope.yml`, `scopes/${payload2.scopeId}/${payload2.guideKind}-guide.yml`, ...["generate", "regenerate"].includes(payload2.action) ? [`scopes/${payload2.scopeId}/${payload2.guideKind}-guide.md`] : []]
+    };
+  }
+  if (kind === "release.create") {
+    if (!operationId || !actor || !proposedAt) throw new UsageError("release.create requires runtime operationId, actor, and proposedAt");
+    if (!currentConfig?.policies?.release) throw new UsageError("release.create requires initialized Project Context release policy");
+    let normalized = releaseRequest ?? normalizeReleaseCreateRequest(rawPayload, { actor, defaultIdempotencyKey: operationId }), { requestSnapshot, idempotencyKey, idempotencyRequestHash } = normalized, laneId = requestSnapshot.laneId ?? requireTrimmedString(currentConfig.policies.release.defaultLane, "Project Context policies.release.defaultLane"), policyMode = requestSnapshot.policyMode ?? requireTrimmedString(currentConfig.policies.release.mode, "Project Context policies.release.mode");
+    if (!["strict_sequence", "dependency_graph"].includes(policyMode)) throw new UsageError(`unsupported release policy mode: ${policyMode}`);
+    assertValidLaneConfig(currentConfig, laneId);
+    let id = releaseId ?? generateUuidV7(), display = deriveUniqueReleaseDisplayId(id, existingReleases);
+    return { payload: {
+      operationId,
+      id,
+      displayId: display.displayId,
+      displayIdStatus: "ACTIVE",
+      title: requestSnapshot.title,
+      objective: requestSnapshot.objective,
+      laneId,
+      policyMode,
+      slug: requestSnapshot.slug,
+      status: "DRAFT",
+      createdAt: proposedAt,
+      createdBy: actor,
+      updatedAt: proposedAt,
+      updatedBy: actor,
+      requestSnapshot,
+      idempotencyKey,
+      idempotencyRequestHash
+    }, targetFiles: [releaseYamlRelativePath(id), releaseReadmeRelativePath(id)] };
+  }
+  let payload = {
+    ...rawPayload.id ? rawPayload : { ...rawPayload, id: generateUuidV7() },
+    guideGapId: generateUuidV7()
+  };
+  return { payload, targetFiles: ["config.yml", `scopes/${payload.id}/scope.yml`] };
+}
+
+// runtime/src/generated/build-meta.mjs
+var PLUGIN_VERSION = "1.0.0", TEMPLATE_PACK_FINGERPRINT = "sha256:b97c7bb4bac7e4ea70dfde510a536c90e6be0d38f1c9cdd242d2661ce9a570cc";
+
+// runtime/src/commands/init.mjs
+function runInit({ planningRoot, args }) {
+  let operationsRoot = path15.join(planningRoot, "operations"), { payload, targetFiles } = prepareProposal("workspace.init", {
+    name: args.name,
+    projectType: args.projectType || "unknown",
+    baseBranch: args.baseBranch || null,
+    vcs: args.vcs || "none",
+    pluginVersion: PLUGIN_VERSION,
+    templatePackFingerprint: TEMPLATE_PACK_FINGERPRINT
+  });
+  return { operationId: propose({ operationsRoot, planningRoot, kind: "workspace.init", target: {}, payload, targetFiles, actor: args.actor }) };
+}
+function runConfigSet({ planningRoot, args }) {
+  let operationsRoot = path15.join(planningRoot, "operations"), { payload, targetFiles } = prepareProposal("config.update", { name: args.name });
+  return { operationId: propose({ operationsRoot, planningRoot, kind: "config.update", target: {}, payload, targetFiles, actor: args.actor }) };
+}
+function runConfigScopeAdd({ planningRoot, args }) {
+  let operationsRoot = path15.join(planningRoot, "operations"), { payload, targetFiles } = prepareProposal("scope.add", {
+    key: args.key,
+    label: args.label,
+    kind: args.kind,
+    path: args.path,
+    owner: args.owner || null
+  });
+  return { operationId: propose({ operationsRoot, planningRoot, kind: "scope.add", target: { scopeId: payload.id }, payload, targetFiles, actor: args.actor }), scopeId: payload.id };
+}
+
+// runtime/src/commands/changesetCommand.mjs
+import fs20 from "node:fs";
+import path19 from "node:path";
+
+// runtime/src/commands/renderers.mjs
+import fs18 from "node:fs";
+import path17 from "node:path";
+
+// runtime/src/lib/projectContextValidation.mjs
+import path16 from "node:path";
+function projectContextConsistencyFindings(config, { knownSourceIds = null } = {}) {
+  let findings = [];
+  if (!config || typeof config != "object") return findings;
+  config.project?.name !== config.name && findings.push("config.yml: project.name must match compatibility field name");
+  let scopeRefIds = new Set((config.scopeRefs || []).map((entry) => entry.id));
+  for (let enabledId of config.scopeCatalog?.enabled || [])
+    scopeRefIds.has(enabledId) || findings.push(`config.yml: scopeCatalog.enabled references unknown scope id ${enabledId}`);
+  let documentation = config.documentation, knownSources = knownSourceIds === null ? null : new Set(knownSourceIds);
+  for (let sourceId of documentation?.source_refs || [])
+    knownSources && !knownSources.has(sourceId) && findings.push(`config.yml: documentation.source_refs references unknown source id ${sourceId}`);
+  let gapIds = /* @__PURE__ */ new Set();
+  for (let gap of documentation?.gaps || []) {
+    gapIds.has(gap.id) && findings.push(`config.yml: duplicate documentation gap id ${gap.id}`), gapIds.add(gap.id), gap.scope_ref && !scopeRefIds.has(gap.scope_ref) && findings.push(`config.yml: documentation gap ${gap.id} references unknown scope id ${gap.scope_ref}`);
+    for (let sourceId of gap.source_refs || [])
+      knownSources && !knownSources.has(sourceId) && findings.push(`config.yml: documentation gap ${gap.id} references unknown source id ${sourceId}`);
+  }
+  let git = config.git;
+  if (git) {
+    (git.enabled ? "git" : "none") !== config.vcs && findings.push("config.yml: git.enabled must agree with compatibility field vcs"), !git.enabled && git.provider !== "none" && findings.push("config.yml: disabled Git policy must use provider none");
+    let workBase = git.branches?.work_base ?? null;
+    (config.baseBranch ?? null) !== workBase && findings.push("config.yml: git.branches.work_base must match compatibility field baseBranch");
+    let integration = git.branches?.integration, production = git.branches?.production, promotion = git.pull_requests?.promotion;
+    git.pull_requests?.work_target && integration && git.pull_requests.work_target !== integration && findings.push("config.yml: git.pull_requests.work_target must match git.branches.integration"), promotion?.source && integration && promotion.source !== integration && findings.push("config.yml: Git promotion source must match integration branch"), promotion?.target && production && promotion.target !== production && findings.push("config.yml: Git promotion target must match production branch");
+  }
+  let releasePolicy = config.policies?.release;
+  if (releasePolicy) {
+    let laneOwners = /* @__PURE__ */ new Set();
+    for (let lane of releasePolicy.lanes || [])
+      laneOwners.has(lane.id) && findings.push(`config.yml: duplicate release lane id ${lane.id}`), laneOwners.add(lane.id);
+    laneOwners.has(releasePolicy.defaultLane) || findings.push(`config.yml: policies.release.defaultLane ${releasePolicy.defaultLane} is not configured in policies.release.lanes`);
+  }
+  let ids = /* @__PURE__ */ new Set();
+  for (let source of config.work_sources || []) {
+    ids.has(source.id) && findings.push(`config.yml: duplicate work source id ${source.id}`), ids.add(source.id), source.provider === "local_repository" && source.transport && source.transport !== "filesystem" && findings.push(`config.yml: local_repository work source ${source.id} must use filesystem transport`), source.provider !== "local_repository" && source.transport === "filesystem" && findings.push(`config.yml: non-local work source ${source.id} cannot use filesystem transport`);
+    for (let root of source.roots || []) {
+      let segments = root.split(/[\\/]+/);
+      (path16.posix.isAbsolute(root) || path16.win32.isAbsolute(root) || segments.includes("..")) && findings.push(`config.yml: work source ${source.id} root must remain inside the workspace`);
+    }
+    source.transport === "mcp" && !source.mcp_connection_ref && findings.push(`config.yml: MCP work source ${source.id} requires an opaque mcp_connection_ref`), source.mcp_connection_ref && source.transport !== "mcp" && findings.push(`config.yml: work source ${source.id} mcp_connection_ref requires mcp transport`), source.mcp_connection_ref && !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(source.mcp_connection_ref) && findings.push(`config.yml: work source ${source.id} has an invalid opaque connection reference`);
+  }
+  return findings;
+}
+function assertProjectContextConsistency(config, options = {}) {
+  let findings = projectContextConsistencyFindings(config, options);
+  if (findings.length > 0) throw new Error(findings.join("; "));
+}
+
+// runtime/src/lib/releaseProjection.mjs
+function renderReleaseReadme(release) {
+  let policyPreviousLines = release.policy.previousReleaseRefs.length === 0 ? ["- none"] : release.policy.previousReleaseRefs.map((ref) => `- ${ref}`), policyDependencyLines = release.policy.dependencyRefs.length === 0 ? ["- none"] : release.policy.dependencyRefs.map((ref) => `- ${ref}`), scopeLines = release.scopeRefs.length === 0 ? ["- none"] : release.scopeRefs.map((ref) => `- ${ref.scopeId}: ready=${ref.readiness.ready ? "yes" : "no"} task=${ref.guides.find((guide) => guide.kind === "task")?.revision || "none"} test=${ref.guides.find((guide) => guide.kind === "test")?.revision || "none"}`), executionContextLines = (release.executionContextRefs || []).length === 0 ? ["- none"] : release.executionContextRefs.map((ref) => `- ${ref}`), environmentLines = (release.environmentRefs || []).length === 0 ? ["- none"] : release.environmentRefs.map((ref) => `- ${ref}`), itemLines = release.itemRefs.length === 0 ? ["- none"] : release.itemRefs.map((ref) => `- ${ref}`), blockerLines = release.blockers.length === 0 ? ["- none"] : release.blockers.map((blocker) => `- ${blocker.severity}: ${blocker.summary}`), riskLines = release.risks.length === 0 ? ["- none"] : release.risks.map((risk) => `- ${risk.level}: ${risk.summary}`), deploymentLines = release.deploymentEvents.length === 0 ? ["- none"] : release.deploymentEvents.map((event) => `- ${event.id}: ${event.status} ${event.environmentRef}${event.executionContextRef ? ` via ${event.executionContextRef}` : ""}`);
+  return `${[
+    `# ${release.displayId} ${release.title}`,
+    "",
+    "## Identity",
+    "",
+    `- ID: ${release.id}`,
+    `- Display ID: ${release.displayId}`,
+    `- Display ID status: ${release.displayIdStatus}`,
+    `- Slug: ${release.slug || "none"}`,
+    "",
+    "## Objective",
+    "",
+    release.objective,
+    "",
+    "## Lifecycle",
+    "",
+    `- Status: ${release.status}`,
+    `- Lane: ${release.lane.id}`,
+    `- Policy: ${release.policy.mode}`,
+    "",
+    "## Policy Refs",
+    "",
+    "Previous Release Refs:",
+    "",
+    ...policyPreviousLines,
+    "",
+    "Dependency Refs:",
+    "",
+    ...policyDependencyLines,
+    "",
+    "## Scope Refs",
+    "",
+    ...scopeLines,
+    "",
+    "## Execution Context Refs",
+    "",
+    ...executionContextLines,
+    "",
+    "## Environment Refs",
+    "",
+    ...environmentLines,
+    "",
+    "## Item Refs",
+    "",
+    ...itemLines,
+    "",
+    "## Blockers",
+    "",
+    ...blockerLines,
+    "",
+    "## Risks",
+    "",
+    ...riskLines,
+    "",
+    "## Deployment Events",
+    "",
+    ...deploymentLines,
+    "",
+    "## Finalization",
+    "",
+    `- Completed: ${release.finalization.completed ? "yes" : "no"}`,
+    `- Retrospective: ${release.finalization.retrospectiveStatus}`,
+    "",
+    "## Audit",
+    "",
+    `- Created: ${release.audit.createdAt} by ${release.audit.createdBy}`,
+    `- Updated: ${release.audit.updatedAt} by ${release.audit.updatedBy}`,
+    `- Revision: ${release.audit.revision}`,
+    ""
+  ].join(`
+`)}`;
+}
+function compareReleaseReadme(release, currentReadme) {
+  let expected = renderReleaseReadme(release);
+  return {
+    equal: expected === currentReadme,
+    expected
+  };
 }
 
 // runtime/src/commands/renderers.mjs
@@ -23401,7 +23559,7 @@ function checkRequiredNonSymlinkFile(planningRoot, relativePath, findings) {
 function checkReleaseConsistency(planningRoot, findings) {
   let releasesRoot = path20.join(planningRoot, "releases");
   if (!fs21.existsSync(releasesRoot)) return;
-  let displayIdOwners = /* @__PURE__ */ new Map();
+  let displayIdOwners = /* @__PURE__ */ new Map(), releaseDocuments = [];
   for (let releaseId of fs21.readdirSync(releasesRoot).sort()) {
     let releaseEntryPath = path20.join(releasesRoot, releaseId), releaseStat = fs21.lstatSync(releaseEntryPath);
     if (releaseStat.isSymbolicLink()) {
@@ -23428,7 +23586,7 @@ function checkReleaseConsistency(planningRoot, findings) {
     let integrity = releaseIntegrityFindings(release, { directoryId: releaseId });
     for (let finding2 of integrity.findings) findings.push(`${releaseRelativePath}: ${finding2}`);
     if (!integrity.schemaValid) continue;
-    release.itemRefs.length > 0 && findings.push(`${releaseRelativePath}: itemRefs cannot be resolved before Release Items exist`);
+    integrity.findings.length === 0 && releaseDocuments.push(release), release.itemRefs.length > 0 && findings.push(`${releaseRelativePath}: itemRefs cannot be resolved before Release Items exist`);
     for (let scopeRef of release.scopeRefs) {
       let scopePath = path20.join(planningRoot, "scopes", scopeRef.scopeId, "scope.yml");
       fs21.existsSync(scopePath) || findings.push(`${releaseRelativePath}: scopeRef ${scopeRef.scopeId} does not resolve`);
@@ -23455,6 +23613,8 @@ function checkReleaseConsistency(planningRoot, findings) {
       compareReleaseReadme(release, currentReadme).equal || findings.push(`${readmeRelativePath}: projection drift`);
     }
   }
+  for (let finding2 of releaseCatalogPolicyFindings(releaseDocuments))
+    findings.push(`releases: ${finding2.code}: ${finding2.message}`);
 }
 function checkSchema({ planningRoot }) {
   if (!fs21.existsSync(planningRoot))
