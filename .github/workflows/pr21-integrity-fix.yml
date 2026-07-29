@@ -1,0 +1,46 @@
+name: PR21 Integrity Correction
+
+on:
+  push:
+    branches:
+      - agent/corte-2-plan-1-release-core
+
+permissions:
+  contents: write
+
+jobs:
+  correct-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/corte-2-plan-1-release-core
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Apply integrity correction
+        run: python3 .github/pr21-integrity-fix.py
+      - run: npm ci --silent
+      - run: npm run build:schemas
+      - run: npm run build:runtime
+      - run: npm run build:test-bundle
+      - run: npm run test:unit
+      - run: npm run test:cli-e2e
+      - run: npm run test:real-crash-e2e
+      - run: npm run test:security-e2e
+      - run: npm run test:bundle
+      - run: npm run verify:artifacts
+      - run: npm run verify:next-generation
+      - run: git diff --check
+      - name: Commit verified correction
+        run: |
+          rm -f .github/pr21-integrity-fix.py .github/workflows/pr21-integrity-fix.yml
+          git config user.name "shipping-mode-review-bot"
+          git config user.email "shipping-mode-review-bot@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(release): enforce create integrity bindings"
+          git push origin HEAD:agent/corte-2-plan-1-release-core
