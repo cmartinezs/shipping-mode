@@ -16,6 +16,7 @@ import { bindAutonomyEvaluation, evaluateChangeSetAutonomy, currentPolicyFingerp
 import { DIRECTORY_CONTENT_HASH, isDirectoryRenderEntry } from "./bootstrapTopology.mjs";
 import { releaseCreateInvariantFindings } from "./releaseCreate.mjs";
 import { listReleaseDocuments } from "./releaseStore.mjs";
+import { releaseMutationInvariantFindings } from "./releaseMutations.mjs";
 
 export function readFileState(planningRoot, relativePath) {
   const absolutePath = confineRuntimeWritePath(planningRoot, relativePath);
@@ -81,8 +82,13 @@ function findIdempotentOperation(operationsRoot, { kind, key, requestHash }) {
     if (changeSet.kind !== kind || changeSet.operationId !== candidateId || computePersistedChangeSetHash(changeSet) !== changeSet.hash) {
       throw new StateError(`cannot establish ${kind} idempotency because operation ${candidateId} is internally inconsistent`);
     }
-    if (changeSet.payload?.idempotencyKey !== key) continue;
-    if (changeSet.payload?.idempotencyRequestHash !== requestHash) {
+    const persistedKey = operation.requestBinding?.key ?? changeSet.payload?.idempotencyKey;
+    const persistedRequestHash = operation.requestBinding?.requestHash ?? changeSet.payload?.idempotencyRequestHash;
+    if (operation.requestBinding && (changeSet.payload?.idempotencyKey !== persistedKey || changeSet.payload?.idempotencyRequestHash !== persistedRequestHash)) {
+      throw new StateError(`cannot establish ${kind} idempotency because operation ${candidateId} request binding disagrees with its ChangeSet`);
+    }
+    if (persistedKey !== key) continue;
+    if (persistedRequestHash !== requestHash) {
       throw new StateError(`idempotency key ${key} was already used for a different ${kind} request`);
     }
     if (matchingOperationId && matchingOperationId !== candidateId) {
@@ -133,7 +139,11 @@ export function propose({ operationsRoot, planningRoot, kind, target, payload, t
       reservedEvents,
       validation: { validatedAt: null, changeSetHash: null, errors: [] },
       approval: { actor: null, approvedAt: null, changeSetHash: null, selfApproval: null, mode: null },
-      history: [{ at: proposedAt, from: null, to: "PROPOSED", actor, reason: null }]
+      history: [{ at: proposedAt, from: null, to: "PROPOSED", actor, reason: null }],
+      ...(idempotency ? {
+        requestBinding: { key: idempotency.key, requestHash: idempotency.requestHash },
+        proposalHash: hash
+      } : {})
     };
     writeOperation(operationsRoot, operationId, operation);
 
@@ -220,6 +230,14 @@ function checkKindInvariants(changeSet, operation = null, planningRoot = null) {
     }
     if (changeSet.target?.releaseId !== releaseId) errors.push(`${changeSet.kind} target.releaseId must match payload.releaseId`);
     if (changeSet.payload.operationId !== changeSet.operationId || (operation && changeSet.payload.operationId !== operation.id)) errors.push(`${changeSet.kind} payload.operationId must match operation id`);
+    errors.push(...releaseMutationInvariantFindings(changeSet, operation, planningRoot));
+  }
+  if (changeSet.kind.startsWith("release.") && operation?.requestBinding) {
+    if (changeSet.payload?.idempotencyKey !== operation.requestBinding.key) errors.push(`${changeSet.kind} idempotencyKey must match the server-owned Operation request binding`);
+    if (changeSet.payload?.idempotencyRequestHash !== operation.requestBinding.requestHash) errors.push(`${changeSet.kind} idempotencyRequestHash must match the server-owned Operation request binding`);
+  }
+  if (changeSet.kind.startsWith("release.") && operation?.proposalHash && operation.proposalHash !== changeSet.hash) {
+    errors.push(`${changeSet.kind} ChangeSet no longer matches the server-owned proposal hash`);
   }
   return errors;
 }

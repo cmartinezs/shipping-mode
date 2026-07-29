@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { releasePolicyFindings, laneConfigFindings } from "../releasePolicy.mjs";
+import { releasePolicyFindings, releaseCatalogPolicyFindings, laneConfigFindings } from "../releasePolicy.mjs";
 import { revisionHash } from "../canonical.mjs";
 import { releaseDisplayIdForUuid } from "../releaseIdentity.mjs";
 
@@ -42,19 +42,36 @@ assert.equal(releasePolicyFindings({
   nextPolicy: { mode: "strict_sequence", previousReleaseRefs: [], dependencyRefs: [] }
 }).length, 0, "first strict_sequence release may have no predecessor");
 
-assert.ok(releasePolicyFindings({
-  releases: [release(a)],
-  targetRelease: release(b),
-  nextLaneId: "main",
-  nextPolicy: { mode: "strict_sequence", previousReleaseRefs: [], dependencyRefs: [] }
-}).some((finding) => finding.code === "POLICY_VIOLATION"), "second strict_sequence release must name one predecessor");
+const root = release(a);
+const successor = release(b, { previous: [a] });
+assert.equal(releaseCatalogPolicyFindings([root, successor]).length, 0, "one root and one successor form a valid strict sequence");
 
 assert.equal(releasePolicyFindings({
-  releases: [release(a)],
-  targetRelease: release(b),
+  releases: [root, successor],
+  targetRelease: root,
   nextLaneId: "main",
-  nextPolicy: { mode: "strict_sequence", previousReleaseRefs: [a], dependencyRefs: [] }
-}).length, 0, "strict_sequence accepts one same-lane non-cancelled predecessor");
+  nextPolicy: root.policy
+}).length, 0, "revalidating an existing strict-sequence root must remain valid when it already has a successor");
+
+assert.ok(releasePolicyFindings({
+  releases: [root, successor],
+  targetRelease: root,
+  nextLaneId: "hotfix",
+  nextPolicy: root.policy
+}).some((finding) => finding.code === "POLICY_VIOLATION"), "moving a predecessor must not orphan its existing successor");
+
+assert.ok(releasePolicyFindings({
+  releases: [root, successor],
+  targetRelease: root,
+  nextLaneId: "main",
+  nextPolicy: { mode: "dependency_graph", previousReleaseRefs: [], dependencyRefs: [] }
+}).some((finding) => finding.code === "POLICY_VIOLATION"), "changing a predecessor policy mode must not invalidate an incoming strict-sequence link");
+
+assert.ok(releaseCatalogPolicyFindings([
+  root,
+  successor,
+  release(c, { previous: [a] })
+]).some((finding) => finding.message.includes("multiple non-cancelled successors")), "strict_sequence rejects branching across the complete catalog");
 
 assert.ok(releasePolicyFindings({
   releases: [release(a, { status: "CANCELLED" })],
@@ -70,4 +87,4 @@ assert.ok(releasePolicyFindings({
   nextPolicy: { mode: "dependency_graph", previousReleaseRefs: [], dependencyRefs: [a] }
 }).some((finding) => finding.code === "CYCLE_DETECTED"), "dependency_graph rejects indirect cycles deterministically");
 
-console.log("release-policy: lanes, strict_sequence and dependency_graph invariants pass");
+console.log("release-policy: global lanes, strict_sequence and dependency_graph invariants pass");

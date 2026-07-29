@@ -12,6 +12,7 @@ import { contentHash, revisionHash } from "../lib/canonical.mjs";
 import { compareReleaseReadme } from "../lib/releaseProjection.mjs";
 import { releaseIntegrityFindings } from "../lib/releaseStore.mjs";
 import { readCatalogEntry } from "../lib/operationalCatalog.mjs";
+import { releaseCatalogPolicyFindings } from "../lib/releasePolicy.mjs";
 
 function checkRequiredFile(planningRoot, relativePath, schemaName, findings) {
   let filePath;
@@ -145,6 +146,7 @@ function checkReleaseConsistency(planningRoot, findings) {
   const releasesRoot = path.join(planningRoot, "releases");
   if (!fs.existsSync(releasesRoot)) return;
   const displayIdOwners = new Map();
+  const releaseDocuments = [];
   for (const releaseId of fs.readdirSync(releasesRoot).sort()) {
     const releaseEntryPath = path.join(releasesRoot, releaseId);
     const releaseStat = fs.lstatSync(releaseEntryPath);
@@ -175,6 +177,7 @@ function checkReleaseConsistency(planningRoot, findings) {
     const integrity = releaseIntegrityFindings(release, { directoryId: releaseId });
     for (const finding of integrity.findings) findings.push(`${releaseRelativePath}: ${finding}`);
     if (!integrity.schemaValid) continue;
+    if (integrity.findings.length === 0) releaseDocuments.push(release);
     if (release.itemRefs.length > 0) findings.push(`${releaseRelativePath}: itemRefs cannot be resolved before Release Items exist`);
     for (const scopeRef of release.scopeRefs) {
       const scopePath = path.join(planningRoot, "scopes", scopeRef.scopeId, "scope.yml");
@@ -205,6 +208,9 @@ function checkReleaseConsistency(planningRoot, findings) {
       const currentReadme = fs.readFileSync(readmePath, "utf8");
       if (!compareReleaseReadme(release, currentReadme).equal) findings.push(`${readmeRelativePath}: projection drift`);
     }
+  }
+  for (const finding of releaseCatalogPolicyFindings(releaseDocuments)) {
+    findings.push(`releases: ${finding.code}: ${finding.message}`);
   }
 }
 

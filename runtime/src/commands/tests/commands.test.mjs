@@ -5,7 +5,8 @@ import path from "node:path";
 import { runInit, runConfigSet, runConfigScopeAdd } from "../init.mjs";
 import { runChangesetPropose, runChangesetValidate, runChangesetApprove, runChangesetApply } from "../changesetCommand.mjs";
 import { runReleaseNew, runReleaseStatus, runReleasePolicyConfigure, runReleaseScopeSet, runReleaseRefsSet, runReleaseDeploymentRecord } from "../release.mjs";
-import { readOperation, readChangeSet } from "../../lib/operationStore.mjs";
+import { readOperation, readChangeSet, writeChangeSet } from "../../lib/operationStore.mjs";
+import { computePersistedChangeSetHash } from "../../lib/changeset.mjs";
 import { parseYaml, stringifyYaml } from "../../lib/yaml.mjs";
 import { generateUuidV7, isUuidV7 } from "../../lib/ids.mjs";
 import { UsageError } from "../../lib/errors.mjs";
@@ -240,6 +241,21 @@ assert.deepEqual(releaseAfterDeployment.executionContextRefs, [executionContextI
 assert.deepEqual(releaseAfterDeployment.environmentRefs, [environmentId]);
 assert.equal(releaseAfterDeployment.deploymentEvents.length, 1);
 assert.equal(readOperation(operationsRoot, deploymentRecord.operationId).expectedEvents[0].document.payload.deploymentEventId, releaseAfterDeployment.deploymentEvents[0].id);
+const tamperedDeployment = runReleaseDeploymentRecord({
+  planningRoot,
+  args: { releaseRef: releaseCreate.releaseId, environmentRef: environmentId, executionContextRef: executionContextId, status: "started", idempotencyKey: "deploy-plan2-tampered", actor: "carlos" }
+});
+const tamperedChangeSet = readChangeSet(operationsRoot, tamperedDeployment.operationId);
+tamperedChangeSet.payload.updatedBy = "mallory";
+tamperedChangeSet.payload.deploymentEvent.actor = "mallory";
+tamperedChangeSet.payload.requestSnapshot.status = "failed";
+tamperedChangeSet.payload.deploymentEvent.status = "failed";
+tamperedChangeSet.payload.idempotencyRequestHash = "0".repeat(64);
+tamperedChangeSet.hash = computePersistedChangeSetHash(tamperedChangeSet);
+writeChangeSet(operationsRoot, tamperedDeployment.operationId, tamperedChangeSet);
+const tamperedOutcome = runChangesetValidate({ planningRoot, operationsRoot, operationId: tamperedDeployment.operationId });
+assert.equal(tamperedOutcome.status, "INVALID", "recomputed ChangeSet hashes must not permit caller edits to server-bound Plan 2 state");
+assert.ok(tamperedOutcome.errors.some((error) => error.includes("server-owned proposal hash") || error.includes("server-owned Operation")));
 const plan2Status = runReleaseStatus({ planningRoot, reference: releaseCreate.releaseId });
 assert.equal(plan2Status.deployment.count, 1);
 assert.deepEqual(plan2Status.refs.executionContextRefs, [executionContextId]);

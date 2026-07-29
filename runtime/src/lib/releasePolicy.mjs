@@ -53,134 +53,173 @@ function duplicateRefs(refs) {
   return duplicates;
 }
 
-function releaseRecordMap(releases, targetRelease, nextPolicy, nextLaneId) {
+function releaseRecordMap(releases, targetRelease = null, nextPolicy = null, nextLaneId = null) {
   const records = new Map();
   for (const release of releases) records.set(release.id, release);
-  records.set(targetRelease.id, {
-    ...targetRelease,
-    lane: { id: nextLaneId },
-    policy: nextPolicy
-  });
+  if (targetRelease) {
+    records.set(targetRelease.id, {
+      ...targetRelease,
+      lane: { id: nextLaneId },
+      policy: nextPolicy
+    });
+  }
   return records;
 }
 
-function validateReferencedRelease(records, ref, targetId, findings) {
+function validateReferencedRelease(records, sourceRelease, ref, findings, relationship) {
   if (!isUuidV7(ref)) {
-    findings.push({ code: RELEASE_POLICY_FINDING_CODES.INVALID_REFERENCE, message: `release reference must be UUIDv7: ${ref}` });
+    findings.push({ code: RELEASE_POLICY_FINDING_CODES.INVALID_REFERENCE, message: `${relationship} must be UUIDv7: ${ref}` });
     return null;
   }
-  if (ref === targetId) {
-    findings.push({ code: RELEASE_POLICY_FINDING_CODES.SELF_REFERENCE, message: "release cannot reference itself" });
+  if (ref === sourceRelease.id) {
+    findings.push({ code: RELEASE_POLICY_FINDING_CODES.SELF_REFERENCE, message: `release ${sourceRelease.id} cannot reference itself` });
     return null;
   }
   const release = records.get(ref);
   if (!release) {
-    findings.push({ code: RELEASE_POLICY_FINDING_CODES.INVALID_REFERENCE, message: `release reference does not resolve: ${ref}` });
+    findings.push({ code: RELEASE_POLICY_FINDING_CODES.INVALID_REFERENCE, message: `${relationship} does not resolve from ${sourceRelease.id}: ${ref}` });
     return null;
   }
   const integrity = releaseIntegrityFindings(release);
   if (!integrity.schemaValid || integrity.findings.length > 0) {
-    findings.push({ code: RELEASE_POLICY_FINDING_CODES.INVALID_REFERENCE, message: `release reference is structurally invalid: ${ref}`, findings: integrity.findings });
+    findings.push({ code: RELEASE_POLICY_FINDING_CODES.INVALID_REFERENCE, message: `${relationship} is structurally invalid from ${sourceRelease.id}: ${ref}`, findings: integrity.findings });
     return null;
   }
   if (release.status === "CANCELLED") {
-    findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `cancelled release cannot satisfy a release dependency: ${ref}` });
+    findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `cancelled release cannot satisfy ${relationship} from ${sourceRelease.id}: ${ref}` });
     return null;
   }
   return release;
 }
 
-function strictSequenceFindings(records, targetRelease, nextPolicy, nextLaneId) {
+function cycleFindings(graph, label) {
   const findings = [];
-  const previousRefs = nextPolicy.previousReleaseRefs || [];
-  if ((nextPolicy.dependencyRefs || []).length > 0) {
-    findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: "strict_sequence releases cannot use dependencyRefs" });
-  }
-  if (previousRefs.length > 1) {
-    findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: "strict_sequence allows at most one previousReleaseRef" });
-  }
-  for (const duplicate of duplicateRefs(previousRefs)) {
-    findings.push({ code: RELEASE_POLICY_FINDING_CODES.DUPLICATE_REFERENCE, message: `duplicate previousReleaseRef: ${duplicate}` });
-  }
-
-  const sameLane = [...records.values()]
-    .filter((release) => release.id !== targetRelease.id)
-    .filter((release) => release.lane?.id === nextLaneId && release.status !== "CANCELLED" && release.policy?.mode === "strict_sequence")
-    .sort((left, right) => left.id.localeCompare(right.id));
-
-  if (previousRefs.length === 0) {
-    if (sameLane.length > 0) {
-      findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: "strict_sequence requires one predecessor when the lane already has a non-cancelled release" });
-    }
-    return findings;
-  }
-
-  const predecessor = validateReferencedRelease(records, previousRefs[0], targetRelease.id, findings);
-  if (!predecessor) return findings;
-  if (predecessor.policy.mode !== "strict_sequence") {
-    findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: "strict_sequence predecessor must also use strict_sequence" });
-  }
-  if (predecessor.lane.id !== nextLaneId) {
-    findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: "strict_sequence predecessor must be in the same lane" });
-  }
-  const existingSuccessor = sameLane.find((release) => (release.policy.previousReleaseRefs || []).includes(predecessor.id));
-  if (existingSuccessor) {
-    findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `strict_sequence predecessor already has successor ${existingSuccessor.id}` });
-  }
-  return findings;
-}
-
-function dependencyGraphFindings(records, targetRelease, nextPolicy) {
-  const findings = [];
-  const dependencyRefs = nextPolicy.dependencyRefs || [];
-  if ((nextPolicy.previousReleaseRefs || []).length > 0) {
-    findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: "dependency_graph releases cannot use previousReleaseRefs" });
-  }
-  for (const duplicate of duplicateRefs(dependencyRefs)) {
-    findings.push({ code: RELEASE_POLICY_FINDING_CODES.DUPLICATE_REFERENCE, message: `duplicate dependencyRef: ${duplicate}` });
-  }
-  for (const ref of dependencyRefs) validateReferencedRelease(records, ref, targetRelease.id, findings);
-
-  const graph = new Map();
-  for (const release of [...records.values()].sort((left, right) => left.id.localeCompare(right.id))) {
-    graph.set(release.id, release.policy?.mode === "dependency_graph" ? [...(release.policy.dependencyRefs || [])].sort() : []);
-  }
   const visiting = new Set();
   const visited = new Set();
   const stack = [];
   function visit(id) {
     if (visiting.has(id)) {
       const cycle = [...stack.slice(stack.indexOf(id)), id];
-      findings.push({ code: RELEASE_POLICY_FINDING_CODES.CYCLE_DETECTED, message: `dependency graph cycle detected: ${cycle.join(" -> ")}` });
+      findings.push({ code: RELEASE_POLICY_FINDING_CODES.CYCLE_DETECTED, message: `${label} cycle detected: ${cycle.join(" -> ")}` });
       return;
     }
     if (visited.has(id)) return;
     visiting.add(id);
     stack.push(id);
-    for (const next of graph.get(id) || []) {
-      if (records.has(next)) visit(next);
+    for (const next of [...(graph.get(id) || [])].sort()) {
+      if (graph.has(next)) visit(next);
     }
     stack.pop();
     visiting.delete(id);
     visited.add(id);
   }
-  visit(targetRelease.id);
+  for (const id of [...graph.keys()].sort()) visit(id);
   return findings;
 }
 
-export function releasePolicyFindings({ releases, targetRelease, nextPolicy, nextLaneId }) {
+function strictSequenceCatalogFindings(records) {
   const findings = [];
+  const laneMembers = new Map();
+  const graph = new Map();
+  const successorOwners = new Map();
+  const releases = [...records.values()]
+    .filter((release) => release.status !== "CANCELLED" && release.policy?.mode === "strict_sequence")
+    .sort((left, right) => left.id.localeCompare(right.id));
+
+  for (const release of releases) {
+    const previousRefs = release.policy.previousReleaseRefs || [];
+    const dependencyRefs = release.policy.dependencyRefs || [];
+    if (dependencyRefs.length > 0) {
+      findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `strict_sequence release ${release.id} cannot use dependencyRefs` });
+    }
+    if (previousRefs.length > 1) {
+      findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `strict_sequence release ${release.id} allows at most one previousReleaseRef` });
+    }
+    for (const duplicate of duplicateRefs(previousRefs)) {
+      findings.push({ code: RELEASE_POLICY_FINDING_CODES.DUPLICATE_REFERENCE, message: `duplicate previousReleaseRef on ${release.id}: ${duplicate}` });
+    }
+    const laneId = release.lane?.id;
+    if (!laneMembers.has(laneId)) laneMembers.set(laneId, []);
+    laneMembers.get(laneId).push(release);
+    graph.set(release.id, []);
+
+    if (previousRefs.length === 1) {
+      const predecessor = validateReferencedRelease(records, release, previousRefs[0], findings, "previousReleaseRef");
+      if (!predecessor) continue;
+      if (predecessor.policy?.mode !== "strict_sequence") {
+        findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `strict_sequence predecessor ${predecessor.id} for ${release.id} must also use strict_sequence` });
+      }
+      if (predecessor.lane?.id !== laneId) {
+        findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `strict_sequence predecessor ${predecessor.id} for ${release.id} must be in lane ${laneId}` });
+      }
+      graph.get(release.id).push(predecessor.id);
+      const owners = successorOwners.get(predecessor.id) || [];
+      owners.push(release.id);
+      successorOwners.set(predecessor.id, owners);
+    }
+  }
+
+  for (const [laneId, members] of [...laneMembers.entries()].sort(([left], [right]) => String(left).localeCompare(String(right)))) {
+    const roots = members.filter((release) => (release.policy.previousReleaseRefs || []).length === 0);
+    if (roots.length !== 1) {
+      findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `strict_sequence lane ${laneId} must contain exactly one non-cancelled root; found ${roots.length}` });
+    }
+  }
+  for (const [predecessorId, successors] of successorOwners) {
+    if (successors.length > 1) {
+      findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `strict_sequence predecessor ${predecessorId} has multiple non-cancelled successors: ${successors.sort().join(", ")}` });
+    }
+  }
+  findings.push(...cycleFindings(graph, "strict_sequence"));
+  return findings;
+}
+
+function dependencyGraphCatalogFindings(records) {
+  const findings = [];
+  const graph = new Map();
+  const releases = [...records.values()]
+    .filter((release) => release.status !== "CANCELLED" && release.policy?.mode === "dependency_graph")
+    .sort((left, right) => left.id.localeCompare(right.id));
+  for (const release of releases) {
+    const previousRefs = release.policy.previousReleaseRefs || [];
+    const dependencyRefs = release.policy.dependencyRefs || [];
+    if (previousRefs.length > 0) {
+      findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `dependency_graph release ${release.id} cannot use previousReleaseRefs` });
+    }
+    for (const duplicate of duplicateRefs(dependencyRefs)) {
+      findings.push({ code: RELEASE_POLICY_FINDING_CODES.DUPLICATE_REFERENCE, message: `duplicate dependencyRef on ${release.id}: ${duplicate}` });
+    }
+    graph.set(release.id, []);
+    for (const ref of dependencyRefs) {
+      const dependency = validateReferencedRelease(records, release, ref, findings, "dependencyRef");
+      if (dependency) graph.get(release.id).push(dependency.id);
+    }
+  }
+  findings.push(...cycleFindings(graph, "dependency_graph"));
+  return findings;
+}
+
+export function releaseCatalogPolicyFindings(releases) {
+  const records = releaseRecordMap(releases);
+  const findings = [];
+  for (const release of [...records.values()].sort((left, right) => left.id.localeCompare(right.id))) {
+    if (!["strict_sequence", "dependency_graph"].includes(release.policy?.mode)) {
+      findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `unsupported release policy mode on ${release.id}: ${release.policy?.mode}` });
+    }
+  }
+  findings.push(...strictSequenceCatalogFindings(records));
+  findings.push(...dependencyGraphCatalogFindings(records));
+  const unique = new Map();
+  for (const finding of findings) unique.set(`${finding.code}:${finding.message}`, finding);
+  return [...unique.values()].sort((left, right) => `${left.code}:${left.message}`.localeCompare(`${right.code}:${right.message}`));
+}
+
+export function releasePolicyFindings({ releases, targetRelease, nextPolicy, nextLaneId }) {
   if (!["strict_sequence", "dependency_graph"].includes(nextPolicy?.mode)) {
-    findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `unsupported release policy mode: ${nextPolicy?.mode}` });
-    return findings;
+    return [{ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `unsupported release policy mode: ${nextPolicy?.mode}` }];
   }
   const records = releaseRecordMap(releases, targetRelease, nextPolicy, nextLaneId);
-  if (nextPolicy.mode === "strict_sequence") {
-    findings.push(...strictSequenceFindings(records, targetRelease, nextPolicy, nextLaneId));
-  } else {
-    findings.push(...dependencyGraphFindings(records, targetRelease, nextPolicy));
-  }
-  return findings.sort((left, right) => `${left.code}:${left.message}`.localeCompare(`${right.code}:${right.message}`));
+  return releaseCatalogPolicyFindings([...records.values()]);
 }
 
 export function assertReleasePolicyValid(args) {

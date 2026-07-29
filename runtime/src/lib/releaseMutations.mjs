@@ -88,6 +88,85 @@ function releaseMutationRequestHash({ actor, kind, requestSnapshot }) {
   return revisionHash({ actor, kind, requestSnapshot });
 }
 
+function canonicalEqual(left, right) {
+  return revisionHash(left) === revisionHash(right);
+}
+
+export function releaseMutationInvariantFindings(changeSet, operation = null, planningRoot = null) {
+  const findings = [];
+  const payload = changeSet.payload || {};
+  const targetKeys = Object.keys(changeSet.target || {}).sort();
+  if (targetKeys.length !== 1 || targetKeys[0] !== "releaseId" || changeSet.target.releaseId !== payload.releaseId) {
+    findings.push(`${changeSet.kind} target must contain exactly releaseId equal to payload.releaseId`);
+  }
+  if (payload.operationId !== changeSet.operationId) findings.push(`${changeSet.kind} payload.operationId must match ChangeSet operationId`);
+
+  if (operation) {
+    if (payload.updatedAt !== operation.proposedAt) findings.push(`${changeSet.kind} updatedAt must match the server-owned Operation proposedAt`);
+    if (payload.updatedBy !== operation.proposedBy) findings.push(`${changeSet.kind} updatedBy must match the server-owned Operation proposedBy`);
+  }
+
+  const snapshot = payload.requestSnapshot;
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
+    findings.push(`${changeSet.kind} requestSnapshot must be a normalized object`);
+    return findings;
+  }
+
+  const actor = operation?.proposedBy ?? payload.updatedBy;
+  try {
+    const normalized = normalizeReleaseMutationRequest(changeSet.kind, { ...snapshot, idempotencyKey: payload.idempotencyKey }, {
+      actor,
+      defaultIdempotencyKey: payload.idempotencyKey
+    });
+    if (!canonicalEqual(normalized.requestSnapshot, snapshot)) findings.push(`${changeSet.kind} requestSnapshot is not canonical normalized caller intent`);
+    if (normalized.idempotencyRequestHash !== payload.idempotencyRequestHash) findings.push(`${changeSet.kind} idempotencyRequestHash does not match normalized caller intent and actor`);
+  } catch (error) {
+    findings.push(`${changeSet.kind} requestSnapshot is invalid: ${error.message}`);
+  }
+
+  let currentRelease = null;
+  if (planningRoot) {
+    try {
+      const resolved = resolveTargetRelease(planningRoot, snapshot.releaseRef);
+      if (resolved.id !== payload.releaseId) findings.push(`${changeSet.kind} requestSnapshot.releaseRef resolves to ${resolved.id}, not payload.releaseId ${payload.releaseId}`);
+      currentRelease = readReleaseFile(planningRoot, payload.releaseId).release;
+    } catch (error) {
+      findings.push(`${changeSet.kind} cannot rebind requestSnapshot.releaseRef: ${error.message}`);
+    }
+  }
+
+  if (changeSet.kind === "release.policy.configure") {
+    if (currentRelease) {
+      const expectedLaneId = snapshot.laneId ?? currentRelease.lane.id;
+      const expectedPolicy = {
+        mode: snapshot.policyMode ?? currentRelease.policy.mode,
+        previousReleaseRefs: snapshot.previousReleaseRefs ?? currentRelease.policy.previousReleaseRefs,
+        dependencyRefs: snapshot.dependencyRefs ?? currentRelease.policy.dependencyRefs
+      };
+      if (payload.laneId !== expectedLaneId) findings.push("release.policy.configure laneId is not derived from caller intent and the target Release base state");
+      if (!canonicalEqual(payload.policy, expectedPolicy)) findings.push("release.policy.configure policy is not derived from caller intent and the target Release base state");
+    }
+  } else if (changeSet.kind === "release.scopeRefs.set") {
+    const payloadScopeIds = Array.isArray(payload.scopeRefs) ? payload.scopeRefs.map((entry) => entry.scopeId).sort() : [];
+    if (!canonicalEqual(payloadScopeIds, [...(snapshot.scopeIds || [])].sort())) findings.push("release.scopeRefs.set scopeRefs do not correspond to requestSnapshot.scopeIds");
+  } else if (changeSet.kind === "release.operationalRefs.set") {
+    if (!canonicalEqual(payload.executionContextRefs, snapshot.executionContextRefs)) findings.push("release.operationalRefs.set executionContextRefs do not match caller intent");
+    if (!canonicalEqual(payload.environmentRefs, snapshot.environmentRefs)) findings.push("release.operationalRefs.set environmentRefs do not match caller intent");
+  } else if (changeSet.kind === "release.deployment.record") {
+    const event = payload.deploymentEvent || {};
+    if (!isUuidV7(event.id)) findings.push("release.deployment.record deploymentEvent.id must be a server-owned UUIDv7");
+    if (event.releaseId !== payload.releaseId) findings.push("release.deployment.record deploymentEvent.releaseId must match payload.releaseId");
+    if (event.operationId !== changeSet.operationId) findings.push("release.deployment.record deploymentEvent.operationId must match ChangeSet operationId");
+    if (operation && event.actor !== operation.proposedBy) findings.push("release.deployment.record deploymentEvent.actor must match the server-owned Operation proposedBy");
+    if (operation && event.startedAt !== operation.proposedAt) findings.push("release.deployment.record deploymentEvent.startedAt must match the server-owned Operation proposedAt");
+    for (const field of ["environmentRef", "executionContextRef", "status", "artifactRefs", "evidenceRefs", "completedAt"]) {
+      if (!canonicalEqual(event[field], snapshot[field])) findings.push(`release.deployment.record deploymentEvent.${field} does not match caller intent`);
+    }
+  }
+
+  return findings;
+}
+
 export function normalizeReleaseMutationRequest(kind, rawPayload, { actor, defaultIdempotencyKey }) {
   requireObject(rawPayload);
   rejectServerOwned(rawPayload);
