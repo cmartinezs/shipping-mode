@@ -1,8 +1,8 @@
 name: PR22 Observable Runner
 
 on:
-  push:
-    branches: [agent/corte-2-plan-2-release-policy-operational-refs]
+  pull_request:
+    branches: [develop]
 
 permissions:
   contents: write
@@ -71,5 +71,3 @@ jobs:
             git commit -m "build(runtime): regenerate Plan 2 review artifacts"
             git push origin HEAD:agent/corte-2-plan-2-release-policy-operational-refs
           fi
-
-# Trigger after workflow registration.
