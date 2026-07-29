@@ -1,0 +1,56 @@
+name: PR21 Review Corrections
+
+on:
+  pull_request:
+    branches: [develop]
+
+permissions:
+  contents: write
+
+jobs:
+  verify:
+    if: github.event.pull_request.head.ref == 'agent/corte-2-plan-1-release-core'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/corte-2-plan-1-release-core
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Apply PR21 review corrections
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl -fsSL \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github.raw+json" \
+            "https://api.github.com/repos/cmartinezs/shipping-mode/contents/.github/pr21-review-fix.sh?ref=7d28c74fa03eca52228f36dddbc9de6c076e2556" \
+            -o /tmp/pr21-review-fix.sh
+          bash /tmp/pr21-review-fix.sh
+      - run: npm ci --silent
+      - run: npm run build:schemas
+      - run: npm run build:runtime
+      - run: npm run build:test-bundle
+      - run: npm run test:unit
+      - run: npm run test:cli-e2e
+      - run: npm run test:real-crash-e2e
+      - run: npm run test:security-e2e
+      - run: npm run test:bundle
+      - run: npm run verify:artifacts
+      - run: npm run verify:next-generation
+      - run: git diff --check
+      - name: Commit product corrections to PR branch
+        run: |
+          git config user.name "shipping-mode-review-bot"
+          git config user.email "shipping-mode-review-bot@users.noreply.github.com"
+          git add bin docs runtime skills spikes
+          if git diff --cached --quiet; then
+            echo "No product changes to commit"
+            exit 0
+          fi
+          git commit -m "fix(release): close remaining Plan 1 trust gaps"
+          git push origin HEAD:agent/corte-2-plan-1-release-core
