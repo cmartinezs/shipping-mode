@@ -4,11 +4,14 @@ import os from "node:os";
 import path from "node:path";
 import { runInit, runConfigSet, runConfigScopeAdd } from "../init.mjs";
 import { runChangesetPropose, runChangesetValidate, runChangesetApprove, runChangesetApply } from "../changesetCommand.mjs";
-import { runReleaseNew, runReleaseStatus, runReleasePolicyConfigure, runReleaseScopeSet, runReleaseRefsSet, runReleaseDeploymentRecord } from "../release.mjs";
+import { checkRelease } from "../check.mjs";
+import { runReleaseNew, runReleaseStatus, runReleasePolicyConfigure, runReleaseScopeSet, runReleaseRefsSet, runReleaseDeploymentRecord, runReleaseFinalize } from "../release.mjs";
 import { readOperation, readChangeSet, writeChangeSet } from "../../lib/operationStore.mjs";
 import { computePersistedChangeSetHash } from "../../lib/changeset.mjs";
 import { parseYaml, stringifyYaml } from "../../lib/yaml.mjs";
 import { generateUuidV7, isUuidV7 } from "../../lib/ids.mjs";
+import { updateReleaseRevision } from "../../lib/releaseMutations.mjs";
+import { renderReleaseReadme } from "../../lib/releaseProjection.mjs";
 import { UsageError } from "../../lib/errors.mjs";
 import { PLUGIN_VERSION, TEMPLATE_PACK_FINGERPRINT } from "../../generated/build-meta.mjs";
 
@@ -260,6 +263,53 @@ const plan2Status = runReleaseStatus({ planningRoot, reference: releaseCreate.re
 assert.equal(plan2Status.deployment.count, 1);
 assert.deepEqual(plan2Status.refs.executionContextRefs, [executionContextId]);
 assert.deepEqual(plan2Status.refs.environmentRefs, [environmentId]);
+assert.equal(plan2Status.completion.status, "unavailable", "completion must not be inferred from empty itemRefs");
+assert.ok(plan2Status.derivedHealth.findings.some((finding) => finding.code === "CAPABILITY_UNAVAILABLE"));
+assert.throws(() => runReleaseFinalize({
+  planningRoot,
+  args: { releaseRef: releaseCreate.releaseId, idempotencyKey: "finalize-draft-plan3", actor: "carlos" }
+}), /requires lifecycle RELEASED/, "non-RELEASED lifecycles must fail closed for finalization");
+const checkReleaseResult = checkRelease({ planningRoot, reference: releaseCreate.displayId });
+assert.equal(checkReleaseResult.scope, "single");
+assert.equal(checkReleaseResult.releases[0].release.id, releaseCreate.releaseId);
+assert.equal(checkRelease({ planningRoot, reference: "ignored-for-identity" }).status, "NOT_FOUND", "check release must not resolve slugs");
+
+let releasableFixture = parseYaml(fs.readFileSync(releaseYmlPath, "utf8"));
+releasableFixture = {
+  ...releasableFixture,
+  status: "RELEASED",
+  scopeRefs: releasableFixture.scopeRefs.map((scopeRef) => ({ ...scopeRef, readiness: { ...scopeRef.readiness, ready: true }, findings: [] }))
+};
+releasableFixture = updateReleaseRevision(releasableFixture);
+fs.writeFileSync(releaseYmlPath, stringifyYaml(releasableFixture));
+fs.writeFileSync(releaseReadmePath, renderReleaseReadme(releasableFixture));
+const finalize = runReleaseFinalize({
+  planningRoot,
+  args: { releaseRef: releaseCreate.displayId, retrospectiveStatus: "not_required", idempotencyKey: "finalize-plan3", actor: "carlos" }
+});
+assert.equal(readChangeSet(operationsRoot, finalize.operationId).kind, "release.finalization.complete");
+runChangesetValidate({ planningRoot, operationsRoot, operationId: finalize.operationId });
+runChangesetApprove({ operationsRoot, planningRoot, operationId: finalize.operationId, actor: "carlos", allowSelfApproval: true });
+runChangesetApply({ planningRoot, operationsRoot, operationId: finalize.operationId, actor: "carlos" });
+const releaseAfterFinalize = parseYaml(fs.readFileSync(releaseYmlPath, "utf8"));
+assert.equal(releaseAfterFinalize.status, "RELEASED", "finalization metadata must not change lifecycle");
+assert.equal(releaseAfterFinalize.finalization.completed, true);
+assert.equal(releaseAfterFinalize.finalization.completedBy, "carlos");
+const finalizationEvent = readOperation(operationsRoot, finalize.operationId).expectedEvents[0].document;
+assert.equal(finalizationEvent.type, "release.finalization.completed");
+assert.equal(finalizationEvent.payload.previousFinalization.completed, false);
+assert.equal(finalizationEvent.payload.nextFinalization.completed, true);
+assert.equal(finalizationEvent.payload.derivedGuardSummary.lifecycle, "RELEASED");
+
+const finalizeRetry = runReleaseFinalize({
+  planningRoot,
+  args: { releaseRef: releaseCreate.displayId, retrospectiveStatus: "not_required", idempotencyKey: "finalize-plan3", actor: "carlos" }
+});
+assert.equal(finalizeRetry.operationId, finalize.operationId, "exact finalization retry must be idempotent");
+assert.throws(() => runReleaseFinalize({
+  planningRoot,
+  args: { releaseRef: releaseCreate.displayId, retrospectiveStatus: "approved", idempotencyKey: "finalize-plan3", actor: "carlos" }
+}), /different release\.finalization\.complete request/);
 const idempotent = runReleaseNew({
   planningRoot,
   args: {
