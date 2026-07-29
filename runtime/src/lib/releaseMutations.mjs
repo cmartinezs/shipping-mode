@@ -114,7 +114,27 @@ export function releaseMutationInvariantFindings(changeSet, operation = null, pl
 
   const actor = operation?.proposedBy ?? payload.updatedBy;
   try {
-    const normalized = normalizeReleaseMutationRequest(changeSet.kind, { ...snapshot, idempotencyKey: payload.idempotencyKey }, {
+    const rawRequest = { releaseRef: snapshot.releaseRef, idempotencyKey: payload.idempotencyKey };
+    if (changeSet.kind === "release.policy.configure") {
+      if (snapshot.laneId !== null) rawRequest.laneId = snapshot.laneId;
+      if (snapshot.policyMode !== null) rawRequest.policyMode = snapshot.policyMode;
+      if (snapshot.previousReleaseRefs !== null) rawRequest.previousReleaseRefs = snapshot.previousReleaseRefs;
+      if (snapshot.dependencyRefs !== null) rawRequest.dependencyRefs = snapshot.dependencyRefs;
+    } else if (changeSet.kind === "release.scopeRefs.set") {
+      rawRequest.scopeIds = snapshot.scopeIds;
+      rawRequest.policyMode = snapshot.policyMode;
+    } else if (changeSet.kind === "release.operationalRefs.set") {
+      rawRequest.executionContextRefs = snapshot.executionContextRefs;
+      rawRequest.environmentRefs = snapshot.environmentRefs;
+    } else if (changeSet.kind === "release.deployment.record") {
+      rawRequest.environmentRef = snapshot.environmentRef;
+      rawRequest.executionContextRef = snapshot.executionContextRef;
+      rawRequest.status = snapshot.status;
+      rawRequest.artifactRefs = snapshot.artifactRefs;
+      rawRequest.evidenceRefs = snapshot.evidenceRefs;
+      rawRequest.completedAt = snapshot.completedAt;
+    }
+    const normalized = normalizeReleaseMutationRequest(changeSet.kind, rawRequest, {
       actor,
       defaultIdempotencyKey: payload.idempotencyKey
     });

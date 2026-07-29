@@ -490,5 +490,8 @@ Adversarial review of PR #22 found and closed two trust-boundary gaps:
 - Release Plan 2 Operations now retain a server-owned request binding and proposal hash. Editing a persisted ChangeSet and recomputing its public hash cannot change caller intent, actor, timestamps, generated deployment identity or resolved Release targets before validation.
 - Release policy validation now evaluates the complete Release catalog. Reconfiguring a sequence root or predecessor cannot orphan existing successors, create multiple roots, introduce branching or hide a cycle. `check schema` reports these global policy inconsistencies.
 
+- Candidate Release policy states receive a recomputed canonical revision before full-catalog graph validation, so incoming references and indirect cycles are evaluated against the actual proposed state instead of synthetic revision drift.
+- Snapshot revalidation preserves the semantic distinction between omitted policy fields (`null`) and explicitly requested empty reference lists.
+
 The corrections preserve the Plan 2 boundary and do not add lifecycle transitions, deployment execution, Release Items, Work Packages, Tasks, final readiness or finalization.
 

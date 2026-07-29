@@ -57,10 +57,19 @@ function releaseRecordMap(releases, targetRelease = null, nextPolicy = null, nex
   const records = new Map();
   for (const release of releases) records.set(release.id, release);
   if (targetRelease) {
-    records.set(targetRelease.id, {
+    const candidateWithoutRevision = {
       ...targetRelease,
       lane: { id: nextLaneId },
-      policy: nextPolicy
+      policy: nextPolicy,
+      audit: { ...targetRelease.audit }
+    };
+    delete candidateWithoutRevision.audit.revision;
+    records.set(targetRelease.id, {
+      ...candidateWithoutRevision,
+      audit: {
+        ...candidateWithoutRevision.audit,
+        revision: `sha256:${revisionHash(candidateWithoutRevision)}`
+      }
     });
   }
   return records;
