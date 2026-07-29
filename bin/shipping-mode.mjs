@@ -18,7 +18,7 @@ function output(value) {
 
 function exitCodeForValue(value) {
   if (value?.status === "NOT_IMPLEMENTED") return 3;
-  if (["INVALID", "STALE", "RECOVERY_REQUIRED", "FAIL", "NOT_INITIALIZED"].includes(value?.status)) return 1;
+  if (["INVALID", "STALE", "RECOVERY_REQUIRED", "FAIL", "NOT_INITIALIZED", "NOT_FOUND", "AMBIGUOUS"].includes(value?.status)) return 1;
   return 0;
 }
 
@@ -42,10 +42,12 @@ if (args[0] === "--version") {
       "init --name <name> [--project-type software|non_software|mixed|unknown] [--base-branch <b>] [--vcs git|none] --actor <actor>",
       "config set --name <name> --actor <actor>",
       "config scope add --key <slug> --label <label> --kind code|non_code --path <path> [--owner <o>] --actor <actor>",
-      "changeset propose --kind <workspace.init|config.update|scope.add|scope.generator.set|guide.update> --payload-file <file|-> --actor <actor>",
+      "changeset propose --kind <workspace.init|config.update|scope.add|scope.generator.set|guide.update|release.create> --payload-file <file|-> --actor <actor>",
       "changeset validate <operation-id>",
       "changeset approve <operation-id> --actor <actor> [--allow-self-approval]",
       "changeset apply <operation-id> --actor <actor>",
+      "release new --title <title> --objective <objective> [--lane-id <id>] [--policy-mode strict_sequence|dependency_graph] [--slug <slug>] [--idempotency-key <key>] --actor <actor>",
+      "release status <id-or-display-id>",
       "check schema",
       "check guides [--scope-id <uuid>] [--mode strict|advisory]",
       "--help", "--version"

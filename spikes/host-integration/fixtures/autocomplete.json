@@ -3,6 +3,7 @@
   "commands": [
     "/shipping-mode:init",
     "/shipping-mode:config",
+    "/shipping-mode:release",
     "/shipping-mode:check"
   ]
 }

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { validateOperation, approveOperation, applyOperation, propose } from "../lib/changeset.mjs";
 import { generateUuidV7 } from "../lib/ids.mjs";
-import { renderWorkspaceInit, renderConfigUpdate, renderConfigAutonomySet, renderScopeAdd, renderScopeCommandSet, renderScopeGeneratorSet, renderDiscoveryPropose, renderGuideUpdate } from "./renderers.mjs";
+import { renderWorkspaceInit, renderConfigUpdate, renderConfigAutonomySet, renderScopeAdd, renderScopeCommandSet, renderScopeGeneratorSet, renderDiscoveryPropose, renderGuideUpdate, renderReleaseCreate } from "./renderers.mjs";
 import { readChangeSet, readOperation } from "../lib/operationStore.mjs";
 import { parseYaml } from "../lib/yaml.mjs";
 import { prepareProposal } from "./proposalPreparation.mjs";
@@ -11,6 +11,7 @@ import { confineRuntimeWritePath } from "../lib/paths.mjs";
 import { readConfirmedSources, readConfirmedScopes } from "../lib/discoverScan.mjs";
 import { generateGuideOutput } from "../lib/guideGeneration.mjs";
 import { revisionHash } from "../lib/canonical.mjs";
+import { proposeReleaseCreate } from "./release.mjs";
 
 function readCurrentConfig(planningRoot) {
   const configPath = confineRuntimeWritePath(planningRoot, "config.yml");
@@ -32,6 +33,7 @@ function renderFor(kind, payload, currentConfig, workspaceRoot, planningRoot, { 
   }
   if (kind === "discovery.propose") return renderDiscoveryPropose(payload, currentConfig, workspaceRoot, { currentSources, currentScopes, approvalMode });
   if (kind === "guide.update") return renderGuideUpdate(payload, currentConfig, planningRoot, { currentSources, proposedAt: payload.proposedAt || proposedAt || new Date().toISOString(), approval });
+  if (kind === "release.create") return renderReleaseCreate(payload);
   throw new UsageError(`unsupported changeset kind: ${kind}`);
 }
 
@@ -72,6 +74,10 @@ export function runChangesetPropose({ planningRoot, kind, payloadText, actor }) 
       };
     }
   }
+  if (kind === "release.create") {
+    const created = proposeReleaseCreate({ planningRoot, rawPayload, actor });
+    return { operationId: created.operationId, releaseId: created.releaseId, displayId: created.displayId, idempotent: created.idempotent };
+  }
   const runtimeContext = {};
   if (kind === "scope.command.set" || kind === "scope.generator.set" || kind === "guide.update") {
     runtimeContext.operationId = generateUuidV7();
@@ -80,6 +86,7 @@ export function runChangesetPropose({ planningRoot, kind, payloadText, actor }) 
   }
   const { payload, targetFiles } = prepareProposal(kind, rawPayload, runtimeContext);
   const operationsRoot = path.join(planningRoot, "operations");
+  const candidateOperationId = runtimeContext.operationId || null;
   const operationId = propose({
     operationsRoot,
     planningRoot,
@@ -88,7 +95,7 @@ export function runChangesetPropose({ planningRoot, kind, payloadText, actor }) 
     payload,
     targetFiles,
     actor,
-    operationId: runtimeContext.operationId || null,
+    operationId: candidateOperationId,
     proposedAt: runtimeContext.proposedAt || null
   });
   return { operationId };

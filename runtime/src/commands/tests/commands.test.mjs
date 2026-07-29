@@ -4,8 +4,9 @@ import os from "node:os";
 import path from "node:path";
 import { runInit, runConfigSet, runConfigScopeAdd } from "../init.mjs";
 import { runChangesetPropose, runChangesetValidate, runChangesetApprove, runChangesetApply } from "../changesetCommand.mjs";
+import { runReleaseNew, runReleaseStatus } from "../release.mjs";
 import { readOperation, readChangeSet } from "../../lib/operationStore.mjs";
-import { parseYaml } from "../../lib/yaml.mjs";
+import { parseYaml, stringifyYaml } from "../../lib/yaml.mjs";
 import { isUuidV7 } from "../../lib/ids.mjs";
 import { UsageError } from "../../lib/errors.mjs";
 import { PLUGIN_VERSION, TEMPLATE_PACK_FINGERPRINT } from "../../generated/build-meta.mjs";
@@ -139,6 +140,80 @@ const scopeWithCommand = parseYaml(fs.readFileSync(path.join(planningRoot, scope
 assert.equal(scopeWithCommand.commands.test.method, "declared");
 assert.equal(scopeWithCommand.commands.test.declaredOperationId, commandSet.operationId);
 assert.deepEqual(scopeWithCommand.commands.test.alternatives, []);
+
+const releaseCreate = runReleaseNew({
+  planningRoot,
+  args: {
+    title: "Release Core",
+    objective: "Create the Release aggregate core",
+    slug: "ignored-for-identity",
+    idempotencyKey: "release-core-key",
+    actor: "carlos"
+  }
+});
+assert.ok(isUuidV7(releaseCreate.releaseId));
+assert.match(releaseCreate.displayId, /^REL-[0-9A-HJKMNP-TV-Z]{8}$/);
+const releaseCreateChangeSet = readChangeSet(operationsRoot, releaseCreate.operationId);
+assert.equal(releaseCreateChangeSet.kind, "release.create");
+assert.equal(releaseCreateChangeSet.payload.status, "DRAFT");
+assert.equal(releaseCreateChangeSet.payload.slug, "ignored-for-identity");
+assert.equal(releaseCreateChangeSet.payload.laneId, "main", "Project Context lane default must be fixed at propose time");
+assert.equal(releaseCreateChangeSet.payload.policyMode, "strict_sequence", "Project Context policy default must be fixed at propose time");
+assert.equal(fs.existsSync(path.join(planningRoot, "releases", releaseCreate.releaseId, "release.yml")), false, "release new must only propose");
+assert.equal(runChangesetValidate({ planningRoot, operationsRoot, operationId: releaseCreate.operationId }).status, "VALIDATED");
+const configPathDuringRelease = path.join(planningRoot, "config.yml");
+const configBeforeReleaseApply = fs.readFileSync(configPathDuringRelease, "utf8");
+const configChangedAfterValidate = parseYaml(configBeforeReleaseApply);
+configChangedAfterValidate.policies.release.defaultLane = "hotfix";
+fs.writeFileSync(configPathDuringRelease, stringifyYaml(configChangedAfterValidate));
+runChangesetApprove({ operationsRoot, planningRoot, operationId: releaseCreate.operationId, actor: "carlos", allowSelfApproval: true });
+runChangesetApply({ planningRoot, operationsRoot, operationId: releaseCreate.operationId, actor: "carlos" });
+const releaseYmlPath = path.join(planningRoot, "releases", releaseCreate.releaseId, "release.yml");
+const releaseReadmePath = path.join(planningRoot, "releases", releaseCreate.releaseId, "README.md");
+assert.equal(fs.existsSync(releaseYmlPath), true);
+assert.equal(fs.existsSync(releaseReadmePath), true);
+const releaseDocument = parseYaml(fs.readFileSync(releaseYmlPath, "utf8"));
+assert.equal(releaseDocument.id, releaseCreate.releaseId);
+assert.equal(releaseDocument.displayId, releaseCreate.displayId);
+assert.equal(releaseDocument.status, "DRAFT");
+assert.equal(releaseDocument.lane.id, "main", "apply must use the validated/proposed lane snapshot, not the current mutable config default");
+assert.equal(releaseDocument.policy.mode, "strict_sequence");
+assert.deepEqual(releaseDocument.itemRefs, []);
+fs.writeFileSync(configPathDuringRelease, configBeforeReleaseApply);
+assert.equal(releaseDocument.audit.createdBy, "carlos");
+const releaseOperation = readOperation(operationsRoot, releaseCreate.operationId);
+assert.equal(releaseOperation.expectedEvents[0].document.aggregate.id, releaseCreate.releaseId);
+assert.equal(releaseOperation.expectedEvents[0].document.payload.previousStatus, null);
+assert.equal(releaseOperation.expectedEvents[0].document.payload.nextStatus, "DRAFT");
+assert.equal(releaseOperation.expectedEvents[0].document.payload.changeSetHash, releaseCreateChangeSet.hash);
+assert.equal(runReleaseStatus({ planningRoot, reference: releaseCreate.releaseId }).status, "FOUND");
+assert.equal(runReleaseStatus({ planningRoot, reference: releaseCreate.displayId }).release.id, releaseCreate.releaseId);
+assert.equal(runReleaseStatus({ planningRoot, reference: "ignored-for-identity" }).status, "NOT_FOUND", "slug must not resolve");
+const idempotent = runReleaseNew({
+  planningRoot,
+  args: {
+    title: "Release Core",
+    objective: "Create the Release aggregate core",
+    slug: "ignored-for-identity",
+    idempotencyKey: "release-core-key",
+    actor: "carlos"
+  }
+});
+assert.equal(idempotent.operationId, releaseCreate.operationId);
+assert.equal(idempotent.releaseId, releaseCreate.releaseId);
+assert.equal(idempotent.idempotent, true);
+assert.throws(() => runReleaseNew({
+  planningRoot,
+  args: { title: "Release Core", objective: "Different request", idempotencyKey: "release-core-key", actor: "carlos" }
+}), /idempotency key .* different release\.create request/, "same idempotency key must not alias a different create request");
+const pendingReleaseA = runReleaseNew({ planningRoot, args: { title: "Pending A", objective: "A", idempotencyKey: "pending-a", actor: "carlos" } });
+const pendingReleaseB = runReleaseNew({ planningRoot, args: { title: "Pending B", objective: "B", idempotencyKey: "pending-b", actor: "carlos" } });
+assert.notEqual(pendingReleaseA.displayId, pendingReleaseB.displayId, "separate pending releases must not inherit the same UUIDv7 timestamp-prefix display ID");
+const genericPayload = JSON.stringify({ title: "Generic", objective: "Generic path", idempotencyKey: "generic-release", slug: null });
+const genericFirst = runChangesetPropose({ planningRoot, kind: "release.create", actor: "carlos", payloadText: genericPayload });
+const genericSecond = runChangesetPropose({ planningRoot, kind: "release.create", actor: "carlos", payloadText: genericPayload });
+assert.equal(genericSecond.operationId, genericFirst.operationId, "generic changeset entrypoint must share release.create idempotency");
+assert.equal(genericSecond.idempotent, true);
 
 // changeset propose --payload-file equivalent: raw JSON text in, operationId out
 const proposeFromText = runChangesetPropose({

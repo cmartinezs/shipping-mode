@@ -1,0 +1,203 @@
+{
+  "$id": "https://shipping-mode.dev/schemas/release.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "displayId",
+    "displayIdStatus",
+    "slug",
+    "title",
+    "objective",
+    "status",
+    "lane",
+    "policy",
+    "scopeRefs",
+    "itemRefs",
+    "blockers",
+    "risks",
+    "deploymentEvents",
+    "finalization",
+    "audit"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "id": { "$ref": "#/$defs/uuid" },
+    "displayId": {
+      "type": "string",
+      "pattern": "^REL-([0-9A-HJKMNP-TV-Z]{8}|[0-9A-HJKMNP-TV-Z]{12}|[0-9A-HJKMNP-TV-Z]{16}|[0-9A-HJKMNP-TV-Z]{26}|[0-9A-HJKMNP-TV-Z]{52})$"
+    },
+    "displayIdStatus": { "const": "ACTIVE" },
+    "slug": {
+      "type": ["string", "null"],
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "title": { "type": "string", "minLength": 1 },
+    "objective": { "type": "string", "minLength": 1 },
+    "status": {
+      "enum": ["DRAFT", "PLANNED", "ACTIVE", "VERIFYING", "RELEASED", "CANCELLED"]
+    },
+    "lane": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "previousReleaseRefs", "dependencyRefs"],
+      "properties": {
+        "mode": { "enum": ["strict_sequence", "dependency_graph"] },
+        "previousReleaseRefs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/uuid" },
+          "uniqueItems": true
+        },
+        "dependencyRefs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/uuid" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "scopeRefs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["scopeId", "taskGuideRevision", "testGuideRevision"],
+        "properties": {
+          "scopeId": { "$ref": "#/$defs/uuid" },
+          "taskGuideRevision": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+          "testGuideRevision": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+        }
+      },
+      "uniqueItems": true
+    },
+    "itemRefs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/uuid" },
+      "uniqueItems": true
+    },
+    "blockers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/blocker" },
+      "uniqueItems": true
+    },
+    "risks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/risk" },
+      "uniqueItems": true
+    },
+    "deploymentEvents": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/deploymentEvent" },
+      "uniqueItems": true
+    },
+    "finalization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["completed", "completedAt", "completedBy", "retrospectiveStatus"],
+      "properties": {
+        "completed": { "type": "boolean" },
+        "completedAt": { "type": ["string", "null"], "minLength": 1 },
+        "completedBy": { "type": ["string", "null"], "minLength": 1 },
+        "retrospectiveStatus": {
+          "enum": ["not_started", "draft", "approved", "not_required"]
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "completed": { "const": true } } },
+          "then": {
+            "properties": {
+              "completedAt": { "type": "string", "minLength": 1 },
+              "completedBy": { "type": "string", "minLength": 1 }
+            }
+          },
+          "else": {
+            "properties": {
+              "completedAt": { "type": "null" },
+              "completedBy": { "type": "null" }
+            }
+          }
+        }
+      ]
+    },
+    "audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["createdAt", "createdBy", "updatedAt", "updatedBy", "operationId", "revision"],
+      "properties": {
+        "createdAt": { "type": "string", "minLength": 1 },
+        "createdBy": { "type": "string", "minLength": 1 },
+        "updatedAt": { "type": "string", "minLength": 1 },
+        "updatedBy": { "type": "string", "minLength": 1 },
+        "operationId": { "$ref": "#/$defs/uuid" },
+        "revision": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+      }
+    }
+  },
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "blocker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "severity", "summary", "createdAt", "createdBy"],
+      "properties": {
+        "id": { "$ref": "#/$defs/uuid" },
+        "severity": { "enum": ["low", "medium", "high", "critical"] },
+        "summary": { "type": "string", "minLength": 1 },
+        "createdAt": { "type": "string", "minLength": 1 },
+        "createdBy": { "type": "string", "minLength": 1 },
+        "resolvedAt": { "type": ["string", "null"], "minLength": 1 },
+        "resolvedBy": { "type": ["string", "null"], "minLength": 1 }
+      }
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "level", "summary", "createdAt", "createdBy"],
+      "properties": {
+        "id": { "$ref": "#/$defs/uuid" },
+        "level": { "enum": ["low", "medium", "high", "critical"] },
+        "summary": { "type": "string", "minLength": 1 },
+        "createdAt": { "type": "string", "minLength": 1 },
+        "createdBy": { "type": "string", "minLength": 1 }
+      }
+    },
+    "deploymentEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "releaseId", "environmentRef", "status", "startedAt", "actor", "operationId"],
+      "properties": {
+        "id": { "$ref": "#/$defs/uuid" },
+        "releaseId": { "$ref": "#/$defs/uuid" },
+        "environmentRef": { "type": "string", "minLength": 1 },
+        "executionContextRef": { "type": ["string", "null"], "minLength": 1 },
+        "status": { "enum": ["planned", "started", "succeeded", "failed", "cancelled"] },
+        "artifactRefs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "evidenceRefs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "startedAt": { "type": "string", "minLength": 1 },
+        "completedAt": { "type": ["string", "null"], "minLength": 1 },
+        "actor": { "type": "string", "minLength": 1 },
+        "operationId": { "$ref": "#/$defs/uuid" }
+      }
+    }
+  }
+}

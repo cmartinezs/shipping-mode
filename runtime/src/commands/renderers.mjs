@@ -6,8 +6,10 @@ import { BOOTSTRAP_CANONICAL_DIRECTORIES, DIRECTORY_RENDER_ENTRY } from "../lib/
 import { assertProjectContextConsistency } from "../lib/projectContextValidation.mjs";
 import { revisionHash, contentHash } from "../lib/canonical.mjs";
 import { renderGuideMarkdown } from "../lib/guideProjection.mjs";
+import { renderReleaseReadme } from "../lib/releaseProjection.mjs";
 import { validate } from "../lib/schema.mjs";
 import { generateUuidV7 } from "../lib/ids.mjs";
+import { releaseReadmeRelativePath, releaseYamlRelativePath } from "../lib/releaseStore.mjs";
 
 function toKebabCase(value) {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-+|-+$)/g, "");
@@ -82,6 +84,53 @@ export function renderWorkspaceInit({ name, baseBranch = null, vcs, projectType 
     ["plugin.lock.yml", stringifyYaml(pluginLock)],
     [".gitignore", ".runtime/\n"],
     ...BOOTSTRAP_CANONICAL_DIRECTORIES.map((relativeDirectory) => [relativeDirectory, DIRECTORY_RENDER_ENTRY])
+  ]);
+}
+
+function withReleaseRevision(releaseWithoutRevision) {
+  const revision = `sha256:${revisionHash(releaseWithoutRevision)}`;
+  return {
+    ...releaseWithoutRevision,
+    audit: { ...releaseWithoutRevision.audit, revision }
+  };
+}
+
+export function renderReleaseCreate(payload) {
+  const policyMode = payload.policyMode;
+  if (!["strict_sequence", "dependency_graph"].includes(policyMode)) throw new Error(`unsupported release policy mode: ${policyMode}`);
+  const laneId = payload.laneId;
+  if (typeof laneId !== "string" || laneId.length === 0) throw new Error("release.create payload requires resolved laneId");
+  const withoutRevision = {
+    schemaVersion: 1,
+    id: payload.id,
+    displayId: payload.displayId,
+    displayIdStatus: payload.displayIdStatus,
+    slug: payload.slug ?? null,
+    title: payload.title,
+    objective: payload.objective,
+    status: "DRAFT",
+    lane: { id: laneId },
+    policy: { mode: policyMode, previousReleaseRefs: [], dependencyRefs: [] },
+    scopeRefs: [],
+    itemRefs: [],
+    blockers: [],
+    risks: [],
+    deploymentEvents: [],
+    finalization: { completed: false, completedAt: null, completedBy: null, retrospectiveStatus: "not_started" },
+    audit: {
+      createdAt: payload.createdAt,
+      createdBy: payload.createdBy,
+      updatedAt: payload.updatedAt,
+      updatedBy: payload.updatedBy,
+      operationId: payload.operationId
+    }
+  };
+  const release = withReleaseRevision(withoutRevision);
+  const result = validate("release", release);
+  if (!result.valid) throw new Error(`release.create produced invalid release: ${result.errors.map((error) => `${error.path} ${error.message}`).join("; ")}`);
+  return new Map([
+    [releaseYamlRelativePath(payload.id), stringifyYaml(release)],
+    [releaseReadmeRelativePath(payload.id), renderReleaseReadme(release)]
   ]);
 }
 

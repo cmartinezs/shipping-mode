@@ -14,6 +14,8 @@ import { checkpoint } from "./faultInjection.mjs";
 import { runDiscoverScan } from "./discoverScan.mjs";
 import { bindAutonomyEvaluation, evaluateChangeSetAutonomy, currentPolicyFingerprint, hasAutonomousApprovalCapability, REASON_CODES } from "./autonomy.mjs";
 import { DIRECTORY_CONTENT_HASH, isDirectoryRenderEntry } from "./bootstrapTopology.mjs";
+import { releaseCreateInvariantFindings } from "./releaseCreate.mjs";
+import { listReleaseDocuments } from "./releaseStore.mjs";
 
 export function readFileState(planningRoot, relativePath) {
   const absolutePath = confineRuntimeWritePath(planningRoot, relativePath);
@@ -49,12 +51,60 @@ export function eventTypeFor(kind) {
     "scope.command.set": "scope.command.set",
     "scope.generator.set": "scope.generator.set",
     "discovery.propose": "discovery.proposed",
-    "guide.update": "guide.updated"
+    "guide.update": "guide.updated",
+    "release.create": "release.created"
   }[kind];
 }
 
-export function propose({ operationsRoot, planningRoot, kind, target, payload, targetFiles, actor, operationId = null, proposedAt = null, preconditions = null }) {
+function findIdempotentOperation(operationsRoot, { kind, key, requestHash }) {
+  if (!key || !fs.existsSync(operationsRoot)) return null;
+  let matchingOperationId = null;
+  for (const candidateId of fs.readdirSync(operationsRoot).sort()) {
+    let operation;
+    try {
+      operation = readOperation(operationsRoot, candidateId);
+    } catch (error) {
+      throw new StateError(`cannot establish ${kind} idempotency because operation ${candidateId} is unreadable: ${error.message}`);
+    }
+    if (operation.kind !== kind) continue;
+
+    let changeSet;
+    try {
+      changeSet = readChangeSet(operationsRoot, candidateId);
+    } catch (error) {
+      throw new StateError(`cannot establish ${kind} idempotency because ChangeSet ${candidateId} is unreadable: ${error.message}`);
+    }
+    if (changeSet.kind !== kind || changeSet.operationId !== candidateId || computePersistedChangeSetHash(changeSet) !== changeSet.hash) {
+      throw new StateError(`cannot establish ${kind} idempotency because operation ${candidateId} is internally inconsistent`);
+    }
+    if (changeSet.payload?.idempotencyKey !== key) continue;
+    if (changeSet.payload?.idempotencyRequestHash !== requestHash) {
+      throw new StateError(`idempotency key ${key} was already used for a different ${kind} request`);
+    }
+    if (matchingOperationId && matchingOperationId !== candidateId) {
+      throw new StateError(`idempotency key ${key} is bound to multiple ${kind} operations`);
+    }
+    matchingOperationId = candidateId;
+  }
+  return matchingOperationId;
+}
+
+export function propose({ operationsRoot, planningRoot, kind, target, payload, targetFiles, actor, operationId = null, proposedAt = null, preconditions = null, idempotency = null, prepareUnderLock = null }) {
   return withWorkspaceMutation({ planningRoot, operationsRoot, operationId: null }, () => {
+    if (idempotency) {
+      const existingOperationId = findIdempotentOperation(operationsRoot, { kind, ...idempotency });
+      if (existingOperationId) return existingOperationId;
+    }
+    if (prepareUnderLock) {
+      const prepared = prepareUnderLock();
+      if (!prepared || !prepared.target || !prepared.payload || !Array.isArray(prepared.targetFiles)) {
+        throw new StateError(`${kind} prepareUnderLock must return target, payload, and targetFiles`);
+      }
+      target = prepared.target;
+      payload = prepared.payload;
+      targetFiles = prepared.targetFiles;
+    }
+    if (!target || !payload || !Array.isArray(targetFiles)) throw new StateError(`${kind} proposal is missing target, payload, or targetFiles`);
     operationId ??= generateUuidV7();
     assertDistinctMutationTargets(planningRoot, targetFiles);
 
@@ -93,10 +143,11 @@ function schemaNameForRenderedPath(relativePath) {
   if (/^sources\/[^/]+\/source\.yml$/.test(relativePath)) return "source";
   if (/^scopes\/[^/]+\/scope\.yml$/.test(relativePath)) return "scope";
   if (/^scopes\/[^/]+\/(task|test)-guide\.yml$/.test(relativePath)) return "guide";
+  if (/^releases\/[^/]+\/release\.yml$/.test(relativePath)) return "release";
   return null;
 }
 
-function checkKindInvariants(changeSet) {
+function checkKindInvariants(changeSet, operation = null, planningRoot = null) {
   const errors = [];
   if (changeSet.kind === "workspace.init") {
     for (const relativePath of Object.keys(changeSet.baseRevisions)) {
@@ -128,10 +179,31 @@ function checkKindInvariants(changeSet) {
       errors.push(`${guidePath} must already exist for guide.${changeSet.payload.action}`);
     }
   }
+  if (changeSet.kind === "release.create") {
+    let existingReleases = [];
+    try {
+      existingReleases = listReleaseDocuments(planningRoot);
+    } catch (error) {
+      errors.push(`release.create cannot verify display ID uniqueness: ${error.message}`);
+    }
+    errors.push(...releaseCreateInvariantFindings(changeSet, operation, existingReleases));
+    const releasePath = `releases/${changeSet.payload.id}/release.yml`;
+    const readmePath = `releases/${changeSet.payload.id}/README.md`;
+    const actualPaths = new Set(Object.keys(changeSet.baseRevisions));
+    if (actualPaths.size !== 2 || !actualPaths.has(releasePath) || !actualPaths.has(readmePath)) {
+      errors.push("release.create baseRevisions must contain exactly release.yml and README.md for the UUIDv7 release directory");
+    }
+    for (const relativePath of [releasePath, readmePath]) {
+      const entry = changeSet.baseRevisions[relativePath];
+      if (!entry || entry.revisionHash !== ABSENT || entry.contentHash !== ABSENT) {
+        errors.push(`${relativePath} must be ABSENT for release.create`);
+      }
+    }
+  }
   return errors;
 }
 
-function revalidateChangeSet({ operationsRoot, planningRoot, operationId, render }) {
+function revalidateChangeSet({ operationsRoot, planningRoot, operationId, render, operation = null }) {
   const changeSet = readChangeSet(operationsRoot, operationId);
 
   if (changeSet.operationId !== operationId) {
@@ -148,7 +220,7 @@ function revalidateChangeSet({ operationsRoot, planningRoot, operationId, render
     return { ok: false, status: "INVALID", errors: changeSetResult.errors.map((e) => `change-set${e.path}: ${e.message}`), recomputedHash };
   }
 
-  const invariantErrors = checkKindInvariants(changeSet);
+  const invariantErrors = checkKindInvariants(changeSet, operation, planningRoot);
   if (invariantErrors.length > 0) {
     return { ok: false, status: "INVALID", errors: invariantErrors, recomputedHash };
   }
@@ -216,7 +288,7 @@ export function validateOperation({ operationsRoot, planningRoot, operationId, r
       throw new StateError(`cannot validate operation in status ${operation.status}`);
     }
 
-    const result = revalidateChangeSet({ operationsRoot, planningRoot, operationId, render });
+    const result = revalidateChangeSet({ operationsRoot, planningRoot, operationId, render, operation });
     const validatedAt = new Date().toISOString();
 
     if (!result.ok) {
@@ -313,7 +385,7 @@ function prepareApply({ operationsRoot, planningRoot, operationId, render, actor
   }
   const changeSet = readChangeSet(operationsRoot, operationId);
 
-  const revalidation = revalidateChangeSet({ operationsRoot, planningRoot, operationId, render });
+  const revalidation = revalidateChangeSet({ operationsRoot, planningRoot, operationId, render, operation });
   if (!revalidation.ok) {
     transitionToStale(operationsRoot, operationId, operation, revalidation.errors[0]);
   }
@@ -401,15 +473,38 @@ function prepareApply({ operationsRoot, planningRoot, operationId, render, actor
         }
         return expectedEvent;
       })
-    : operation.reservedEvents.map((reserved) => buildExpectedEvent({
-        eventId: reserved.eventId,
-        type: reserved.type,
-        aggregate: { type: operation.kind.split(".")[0], id: operationId },
-        actor,
-        operationId,
-        idempotencyKey: operationId,
-        payload: changeSet.payload
-      }));
+    : operation.reservedEvents.map((reserved) => {
+        if (changeSet.kind === "release.create") {
+          const releasePath = `releases/${changeSet.payload.id}/release.yml`;
+          const release = parseYaml(rendered.get(releasePath));
+          return buildExpectedEvent({
+            eventId: reserved.eventId,
+            type: reserved.type,
+            aggregate: { type: "release", id: release.id },
+            actor,
+            operationId,
+            idempotencyKey: changeSet.payload.idempotencyKey,
+            payload: {
+              releaseId: release.id,
+              displayId: release.displayId,
+              previousStatus: null,
+              nextStatus: release.status,
+              changeSetHash: recomputedHash,
+              revisionBefore: changeSet.baseRevisions[releasePath].revisionHash,
+              revisionAfter: release.audit.revision
+            }
+          });
+        }
+        return buildExpectedEvent({
+          eventId: reserved.eventId,
+          type: reserved.type,
+          aggregate: { type: operation.kind.split(".")[0], id: operationId },
+          actor,
+          operationId,
+          idempotencyKey: operationId,
+          payload: changeSet.payload
+        });
+      });
 
   operation = readOperation(operationsRoot, operationId);
   writeOperation(operationsRoot, operationId, { ...operation, filePlan, expectedEvents });
