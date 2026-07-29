@@ -39,19 +39,17 @@ jobs:
               'export function releaseCreateInvariantFindings(changeSet, operation = null) {',
               'export function releaseCreateInvariantFindings(changeSet, operation = null, existingReleases = []) {'
           )
-          marker = '''  if (!isReleaseDisplayIdForUuid(payload.id, payload.displayId)) {
-            findings.push(`release.create displayId ${payload.displayId} is not derived from release UUIDv7 ${payload.id}`);
-          }
-          '''
-          addition = marker + '''  const displayIdCollision = existingReleases.find((release) => release.id !== payload.id && release.displayId === payload.displayId);
-          if (displayIdCollision) {
-            findings.push(`release.create displayId ${payload.displayId} is already owned by release ${displayIdCollision.id}`);
-          }
-          '''
           if 'is already owned by release' not in s:
+              marker = '\n  for (const field of ["title", "objective", "laneId", "idempotencyKey"]) {'
+              collision = '''
+  const displayIdCollision = existingReleases.find((release) => release.id !== payload.id && release.displayId === payload.displayId);
+  if (displayIdCollision) {
+    findings.push(`release.create displayId ${payload.displayId} is already owned by release ${displayIdCollision.id}`);
+  }
+'''
               if marker not in s:
-                  raise SystemExit('display ID invariant marker not found')
-              s = s.replace(marker, addition)
+                  raise SystemExit('release field-validation marker not found')
+              s = s.replace(marker, collision + marker, 1)
           p.write_text(s)
           PY
       - run: npm ci --silent
