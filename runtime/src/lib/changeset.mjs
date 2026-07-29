@@ -52,7 +52,11 @@ export function eventTypeFor(kind) {
     "scope.generator.set": "scope.generator.set",
     "discovery.propose": "discovery.proposed",
     "guide.update": "guide.updated",
-    "release.create": "release.created"
+    "release.create": "release.created",
+    "release.policy.configure": "release.policy.configured",
+    "release.scopeRefs.set": "release.scopeRefs.set",
+    "release.operationalRefs.set": "release.operationalRefs.set",
+    "release.deployment.record": "release.deployment.recorded"
   }[kind];
 }
 
@@ -200,6 +204,23 @@ function checkKindInvariants(changeSet, operation = null, planningRoot = null) {
       }
     }
   }
+  if (["release.policy.configure", "release.scopeRefs.set", "release.operationalRefs.set", "release.deployment.record"].includes(changeSet.kind)) {
+    const releaseId = changeSet.payload.releaseId;
+    const releasePath = `releases/${releaseId}/release.yml`;
+    const readmePath = `releases/${releaseId}/README.md`;
+    const actualPaths = new Set(Object.keys(changeSet.baseRevisions));
+    if (actualPaths.size !== 2 || !actualPaths.has(releasePath) || !actualPaths.has(readmePath)) {
+      errors.push(`${changeSet.kind} baseRevisions must contain exactly release.yml and README.md for the target Release`);
+    }
+    for (const relativePath of [releasePath, readmePath]) {
+      const entry = changeSet.baseRevisions[relativePath];
+      if (!entry || entry.revisionHash === ABSENT || entry.contentHash === ABSENT) {
+        errors.push(`${relativePath} must already exist for ${changeSet.kind}`);
+      }
+    }
+    if (changeSet.target?.releaseId !== releaseId) errors.push(`${changeSet.kind} target.releaseId must match payload.releaseId`);
+    if (changeSet.payload.operationId !== changeSet.operationId || (operation && changeSet.payload.operationId !== operation.id)) errors.push(`${changeSet.kind} payload.operationId must match operation id`);
+  }
   return errors;
 }
 
@@ -230,7 +251,7 @@ function revalidateChangeSet({ operationsRoot, planningRoot, operationId, render
     rendered = render(changeSet.payload);
     assertDistinctMutationTargets(planningRoot, [...rendered.keys()]);
   } catch (error) {
-    return { ok: false, status: "INVALID", errors: [error.message], recomputedHash };
+    return { ok: false, status: error.code === "STALE" ? "STALE" : "INVALID", errors: [error.message], recomputedHash };
   }
 
   const renderedPaths = new Set(rendered.keys());
@@ -474,9 +495,15 @@ function prepareApply({ operationsRoot, planningRoot, operationId, render, actor
         return expectedEvent;
       })
     : operation.reservedEvents.map((reserved) => {
-        if (changeSet.kind === "release.create") {
-          const releasePath = `releases/${changeSet.payload.id}/release.yml`;
+        if (changeSet.kind.startsWith("release.")) {
+          const releaseId = changeSet.kind === "release.create" ? changeSet.payload.id : changeSet.payload.releaseId;
+          const releasePath = `releases/${releaseId}/release.yml`;
           const release = parseYaml(rendered.get(releasePath));
+          let previousStatus = null;
+          if (changeSet.kind !== "release.create" && changeSet.baseRevisions[releasePath]?.contentHash !== ABSENT) {
+            const previousPath = confineRuntimeWritePath(planningRoot, releasePath);
+            if (fs.existsSync(previousPath)) previousStatus = parseYaml(fs.readFileSync(previousPath, "utf8")).status ?? null;
+          }
           return buildExpectedEvent({
             eventId: reserved.eventId,
             type: reserved.type,
@@ -487,11 +514,22 @@ function prepareApply({ operationsRoot, planningRoot, operationId, render, actor
             payload: {
               releaseId: release.id,
               displayId: release.displayId,
-              previousStatus: null,
+              previousStatus,
               nextStatus: release.status,
               changeSetHash: recomputedHash,
               revisionBefore: changeSet.baseRevisions[releasePath].revisionHash,
-              revisionAfter: release.audit.revision
+              revisionAfter: release.audit.revision,
+              kind: changeSet.kind,
+              policy: release.policy,
+              lane: release.lane,
+              refs: {
+                scopeRefs: release.scopeRefs,
+                executionContextRefs: release.executionContextRefs,
+                environmentRefs: release.environmentRefs,
+                previousReleaseRefs: release.policy.previousReleaseRefs,
+                dependencyRefs: release.policy.dependencyRefs
+              },
+              deploymentEventId: changeSet.payload.deploymentEvent?.id || null
             }
           });
         }

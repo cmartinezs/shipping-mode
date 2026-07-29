@@ -6,6 +6,8 @@ const exportNameByPublicName = {
   scope: "validate_scope",
   guide: "validate_guide",
   release: "validate_release",
+  "execution-context": "validate_execution_context",
+  environment: "validate_environment",
   source: "validate_source",
   "change-set": "validate_change_set",
   "discovery-proposal": "validate_discovery_proposal",

@@ -29,7 +29,11 @@
         "discovery.propose",
         "guide.update",
         "scope.generator.set",
-        "release.create"
+        "release.create",
+        "release.policy.configure",
+        "release.scopeRefs.set",
+        "release.operationalRefs.set",
+        "release.deployment.record"
       ]
     },
     "target": {
@@ -910,9 +914,167 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "release.policy.configure"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/releasePolicyConfigurePayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "release.scopeRefs.set"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/releaseScopeRefsSetPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "release.operationalRefs.set"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/releaseOperationalRefsSetPayload"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "release.deployment.record"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "$ref": "#/$defs/releaseDeploymentRecordPayload"
+          }
+        }
+      }
     }
   ],
   "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "releaseMutationCommon": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operationId", "releaseId", "updatedAt", "updatedBy", "requestSnapshot", "idempotencyKey", "idempotencyRequestHash", "observedRevisions"],
+      "properties": {
+        "operationId": { "$ref": "#/$defs/uuid" },
+        "releaseId": { "$ref": "#/$defs/uuid" },
+        "updatedAt": { "type": "string", "minLength": 1 },
+        "updatedBy": { "type": "string", "minLength": 1 },
+        "requestSnapshot": { "type": "object" },
+        "idempotencyKey": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "idempotencyRequestHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "observedRevisions": { "type": "object" }
+      }
+    },
+    "releasePolicyConfigurePayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operationId", "releaseId", "updatedAt", "updatedBy", "requestSnapshot", "idempotencyKey", "idempotencyRequestHash", "observedRevisions", "laneId", "policy"],
+      "properties": {
+        "operationId": { "$ref": "#/$defs/uuid" },
+        "releaseId": { "$ref": "#/$defs/uuid" },
+        "updatedAt": { "type": "string", "minLength": 1 },
+        "updatedBy": { "type": "string", "minLength": 1 },
+        "requestSnapshot": { "type": "object" },
+        "idempotencyKey": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "idempotencyRequestHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "observedRevisions": { "type": "object" },
+        "laneId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" },
+        "policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "previousReleaseRefs", "dependencyRefs"],
+          "properties": {
+            "mode": { "enum": ["strict_sequence", "dependency_graph"] },
+            "previousReleaseRefs": { "type": "array", "items": { "$ref": "#/$defs/uuid" }, "uniqueItems": true },
+            "dependencyRefs": { "type": "array", "items": { "$ref": "#/$defs/uuid" }, "uniqueItems": true }
+          }
+        }
+      }
+    },
+    "releaseScopeRefsSetPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operationId", "releaseId", "updatedAt", "updatedBy", "requestSnapshot", "idempotencyKey", "idempotencyRequestHash", "observedRevisions", "scopeRefs"],
+      "properties": {
+        "operationId": { "$ref": "#/$defs/uuid" },
+        "releaseId": { "$ref": "#/$defs/uuid" },
+        "updatedAt": { "type": "string", "minLength": 1 },
+        "updatedBy": { "type": "string", "minLength": 1 },
+        "requestSnapshot": { "type": "object" },
+        "idempotencyKey": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "idempotencyRequestHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "observedRevisions": { "type": "object" },
+        "scopeRefs": { "type": "array", "items": { "$ref": "https://shipping-mode.dev/schemas/release.schema.json#/properties/scopeRefs/items" } }
+      }
+    },
+    "releaseOperationalRefsSetPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operationId", "releaseId", "updatedAt", "updatedBy", "requestSnapshot", "idempotencyKey", "idempotencyRequestHash", "observedRevisions", "executionContextRefs", "environmentRefs"],
+      "properties": {
+        "operationId": { "$ref": "#/$defs/uuid" },
+        "releaseId": { "$ref": "#/$defs/uuid" },
+        "updatedAt": { "type": "string", "minLength": 1 },
+        "updatedBy": { "type": "string", "minLength": 1 },
+        "requestSnapshot": { "type": "object" },
+        "idempotencyKey": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "idempotencyRequestHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "observedRevisions": { "type": "object" },
+        "executionContextRefs": { "type": "array", "items": { "$ref": "#/$defs/uuid" }, "uniqueItems": true },
+        "environmentRefs": { "type": "array", "items": { "$ref": "#/$defs/uuid" }, "uniqueItems": true }
+      }
+    },
+    "releaseDeploymentRecordPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operationId", "releaseId", "updatedAt", "updatedBy", "requestSnapshot", "idempotencyKey", "idempotencyRequestHash", "observedRevisions", "deploymentEvent"],
+      "properties": {
+        "operationId": { "$ref": "#/$defs/uuid" },
+        "releaseId": { "$ref": "#/$defs/uuid" },
+        "updatedAt": { "type": "string", "minLength": 1 },
+        "updatedBy": { "type": "string", "minLength": 1 },
+        "requestSnapshot": { "type": "object" },
+        "idempotencyKey": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "idempotencyRequestHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "observedRevisions": { "type": "object" },
+        "deploymentEvent": { "$ref": "https://shipping-mode.dev/schemas/release.schema.json#/$defs/deploymentEvent" }
+      }
+    },
     "mode": {
       "enum": [
         "pause",

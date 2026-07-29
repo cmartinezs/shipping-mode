@@ -14,6 +14,8 @@
     "lane",
     "policy",
     "scopeRefs",
+    "executionContextRefs",
+    "environmentRefs",
     "itemRefs",
     "blockers",
     "risks",
@@ -69,13 +71,41 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["scopeId", "taskGuideRevision", "testGuideRevision"],
+        "required": ["scopeId", "evaluatedAt", "readiness", "guides", "findings"],
         "properties": {
           "scopeId": { "$ref": "#/$defs/uuid" },
-          "taskGuideRevision": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
-          "testGuideRevision": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+          "evaluatedAt": { "type": "string", "minLength": 1 },
+          "readiness": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["policyMode", "ready"],
+            "properties": {
+              "policyMode": { "enum": ["strict", "advisory"] },
+              "ready": { "type": "boolean" }
+            }
+          },
+          "guides": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": { "$ref": "#/$defs/guideEvidence" }
+          },
+          "findings": {
+            "type": "array",
+            "items": { "$ref": "#/$defs/finding" }
+          }
         }
       },
+      "uniqueItems": true
+    },
+    "executionContextRefs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/uuid" },
+      "uniqueItems": true
+    },
+    "environmentRefs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/uuid" },
       "uniqueItems": true
     },
     "itemRefs": {
@@ -180,8 +210,11 @@
       "properties": {
         "id": { "$ref": "#/$defs/uuid" },
         "releaseId": { "$ref": "#/$defs/uuid" },
-        "environmentRef": { "type": "string", "minLength": 1 },
-        "executionContextRef": { "type": ["string", "null"], "minLength": 1 },
+        "environmentRef": { "$ref": "#/$defs/uuid" },
+        "executionContextRef": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
         "status": { "enum": ["planned", "started", "succeeded", "failed", "cancelled"] },
         "artifactRefs": {
           "type": "array",
@@ -197,6 +230,48 @@
         "completedAt": { "type": ["string", "null"], "minLength": 1 },
         "actor": { "type": "string", "minLength": 1 },
         "operationId": { "$ref": "#/$defs/uuid" }
+      }
+    },
+    "guideEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "revision", "contentHash", "state", "usable"],
+      "properties": {
+        "kind": { "enum": ["task", "test"] },
+        "id": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "revision": {
+          "type": ["string", "null"],
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "contentHash": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "state": { "type": "string", "minLength": 1 },
+        "usable": { "type": "boolean" }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "severity", "message"],
+      "properties": {
+        "code": { "type": "string", "minLength": 1 },
+        "severity": { "enum": ["info", "warning", "error"] },
+        "scopeId": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+        },
+        "guideKind": {
+          "type": ["string", "null"],
+          "enum": ["task", "test", null]
+        },
+        "message": { "type": "string", "minLength": 1 },
+        "evidence": { "type": "object" },
+        "recommendedAction": { "type": ["string", "null"], "minLength": 1 }
       }
     }
   }

@@ -9,6 +9,8 @@ import { compareReleaseReadme } from "../lib/releaseProjection.mjs";
 import { confineWritePath } from "../lib/paths.mjs";
 import { validate } from "../lib/schema.mjs";
 import { parseYaml } from "../lib/yaml.mjs";
+import { prepareReleaseMutation, normalizeReleaseMutationRequest } from "../lib/releaseMutations.mjs";
+import { revisionHash } from "../lib/canonical.mjs";
 
 function readCurrentConfig(planningRoot) {
   const configPath = confineWritePath(planningRoot, "config.yml");
@@ -87,6 +89,103 @@ export function runReleaseNew({ planningRoot, args }) {
   return proposeReleaseCreate({ planningRoot, rawPayload, actor: args.actor });
 }
 
+export function proposeReleasePlan2Mutation({ planningRoot, rawPayload, actor, kind }) {
+  const operationsRoot = path.join(planningRoot, "operations");
+  const candidateOperationId = generateUuidV7();
+  const proposedAt = new Date().toISOString();
+  const releaseRequest = normalizeReleaseMutationRequest(kind, rawPayload, { actor, defaultIdempotencyKey: candidateOperationId });
+  const persistedOperationId = propose({
+    operationsRoot,
+    planningRoot,
+    kind,
+    target: null,
+    payload: null,
+    targetFiles: null,
+    actor,
+    operationId: candidateOperationId,
+    proposedAt,
+    idempotency: { key: releaseRequest.idempotencyKey, requestHash: releaseRequest.idempotencyRequestHash },
+    prepareUnderLock: () => prepareReleaseMutation(kind, rawPayload, {
+      planningRoot,
+      workspaceRoot: path.dirname(planningRoot),
+      operationId: candidateOperationId,
+      actor,
+      proposedAt,
+      releaseRequest
+    })
+  });
+  const persistedChangeSet = readChangeSet(operationsRoot, persistedOperationId);
+  const operation = readOperation(operationsRoot, persistedOperationId);
+  return {
+    operationId: persistedOperationId,
+    releaseId: persistedChangeSet.payload.releaseId,
+    operationStatus: operation.status,
+    idempotent: persistedOperationId !== candidateOperationId
+  };
+}
+
+export function runReleasePolicyConfigure({ planningRoot, args }) {
+  return proposeReleasePlan2Mutation({
+    planningRoot,
+    kind: "release.policy.configure",
+    actor: args.actor,
+    rawPayload: {
+      releaseRef: args.releaseRef,
+      ...(args.laneId ? { laneId: args.laneId } : {}),
+      ...(args.policyMode ? { policyMode: args.policyMode } : {}),
+      ...(args.previousReleaseRefs !== undefined ? { previousReleaseRefs: args.previousReleaseRefs } : {}),
+      ...(args.dependencyRefs !== undefined ? { dependencyRefs: args.dependencyRefs } : {}),
+      ...(args.idempotencyKey ? { idempotencyKey: args.idempotencyKey } : {})
+    }
+  });
+}
+
+export function runReleaseScopeSet({ planningRoot, args }) {
+  return proposeReleasePlan2Mutation({
+    planningRoot,
+    kind: "release.scopeRefs.set",
+    actor: args.actor,
+    rawPayload: {
+      releaseRef: args.releaseRef,
+      scopeIds: args.scopeIds,
+      ...(args.policyMode ? { policyMode: args.policyMode } : {}),
+      ...(args.idempotencyKey ? { idempotencyKey: args.idempotencyKey } : {})
+    }
+  });
+}
+
+export function runReleaseRefsSet({ planningRoot, args }) {
+  return proposeReleasePlan2Mutation({
+    planningRoot,
+    kind: "release.operationalRefs.set",
+    actor: args.actor,
+    rawPayload: {
+      releaseRef: args.releaseRef,
+      executionContextRefs: args.executionContextRefs,
+      environmentRefs: args.environmentRefs,
+      ...(args.idempotencyKey ? { idempotencyKey: args.idempotencyKey } : {})
+    }
+  });
+}
+
+export function runReleaseDeploymentRecord({ planningRoot, args }) {
+  return proposeReleasePlan2Mutation({
+    planningRoot,
+    kind: "release.deployment.record",
+    actor: args.actor,
+    rawPayload: {
+      releaseRef: args.releaseRef,
+      environmentRef: args.environmentRef,
+      ...(args.executionContextRef ? { executionContextRef: args.executionContextRef } : {}),
+      status: args.status,
+      ...(args.artifactRefs !== undefined ? { artifactRefs: args.artifactRefs } : {}),
+      ...(args.evidenceRefs !== undefined ? { evidenceRefs: args.evidenceRefs } : {}),
+      ...(args.completedAt ? { completedAt: args.completedAt } : {}),
+      ...(args.idempotencyKey ? { idempotencyKey: args.idempotencyKey } : {})
+    }
+  });
+}
+
 function projectionStatus(planningRoot, release) {
   const relativePath = releaseReadmeRelativePath(release.id);
   let filePath;
@@ -132,9 +231,23 @@ export function runReleaseStatus({ planningRoot, reference }) {
     },
     refs: {
       scopeRefs: release.scopeRefs,
+      executionContextRefs: release.executionContextRefs,
+      environmentRefs: release.environmentRefs,
       itemRefs: release.itemRefs,
       previousReleaseRefs: release.policy.previousReleaseRefs,
       dependencyRefs: release.policy.dependencyRefs
+    },
+    deployment: {
+      count: release.deploymentEvents.length,
+      events: release.deploymentEvents.map((event) => ({
+        id: event.id,
+        environmentRef: event.environmentRef,
+        executionContextRef: event.executionContextRef,
+        status: event.status,
+        startedAt: event.startedAt,
+        completedAt: event.completedAt
+      })),
+      summaryRevision: revisionHash(release.deploymentEvents)
     },
     findings
   };

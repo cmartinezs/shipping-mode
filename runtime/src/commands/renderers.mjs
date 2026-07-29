@@ -10,6 +10,7 @@ import { renderReleaseReadme } from "../lib/releaseProjection.mjs";
 import { validate } from "../lib/schema.mjs";
 import { generateUuidV7 } from "../lib/ids.mjs";
 import { releaseReadmeRelativePath, releaseYamlRelativePath } from "../lib/releaseStore.mjs";
+import { renderReleaseMutation } from "../lib/releaseMutations.mjs";
 
 function toKebabCase(value) {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-+|-+$)/g, "");
@@ -43,7 +44,7 @@ export function renderWorkspaceInit({ name, baseBranch = null, vcs, projectType 
     work_sources: [],
     documentation: { source_refs: [], gaps: [] },
     policies: {
-      release: { mode: "strict_sequence", defaultLane: "main" },
+      release: { mode: "strict_sequence", defaultLane: "main", lanes: [{ id: "main", label: "Main" }] },
       workSources: {
         defaultSyncMode: "import_only",
         defaultSourcePolicy: "import_snapshot",
@@ -112,6 +113,8 @@ export function renderReleaseCreate(payload) {
     lane: { id: laneId },
     policy: { mode: policyMode, previousReleaseRefs: [], dependencyRefs: [] },
     scopeRefs: [],
+    executionContextRefs: [],
+    environmentRefs: [],
     itemRefs: [],
     blockers: [],
     risks: [],
@@ -131,6 +134,14 @@ export function renderReleaseCreate(payload) {
   return new Map([
     [releaseYamlRelativePath(payload.id), stringifyYaml(release)],
     [releaseReadmeRelativePath(payload.id), renderReleaseReadme(release)]
+  ]);
+}
+
+export function renderReleasePlan2Mutation(kind, payload, planningRoot, workspaceRoot, currentConfig) {
+  const release = renderReleaseMutation(kind, payload, { planningRoot, workspaceRoot, currentConfig });
+  return new Map([
+    [releaseYamlRelativePath(release.id), stringifyYaml(release)],
+    [releaseReadmeRelativePath(release.id), renderReleaseReadme(release)]
   ]);
 }
 

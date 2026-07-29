@@ -26,7 +26,11 @@
         "discovery.propose",
         "guide.update",
         "scope.generator.set",
-        "release.create"
+        "release.create",
+        "release.policy.configure",
+        "release.scopeRefs.set",
+        "release.operationalRefs.set",
+        "release.deployment.record"
       ]
     },
     "status": {
