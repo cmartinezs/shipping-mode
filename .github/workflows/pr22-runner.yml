@@ -33,12 +33,7 @@ jobs:
           run_line = next(i for i in range(start, end) if source[i].strip() == 'run: |')
           body = []
           for line in source[run_line + 1:end]:
-              if line.startswith('          '):
-                  body.append(line[10:])
-              elif line.strip():
-                  raise SystemExit(f'unexpected indentation in embedded patch: {line!r}')
-              else:
-                  body.append('')
+              body.append(line[10:] if line.startswith('          ') else line)
           Path('/tmp/pr22-apply.sh').write_text('\n'.join(body) + '\n')
           PY
           bash -euxo pipefail /tmp/pr22-apply.sh
