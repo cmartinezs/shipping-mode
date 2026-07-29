@@ -676,3 +676,5 @@ The corrections preserve the Plan 2 boundary and do not add lifecycle transition
           git add -A
           git commit -m "fix(release): close Plan 2 trust boundaries"
           git push origin HEAD:agent/corte-2-plan-2-release-policy-operational-refs
+
+# Triggered after registration so the correction job runs.
