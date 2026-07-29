@@ -1,0 +1,678 @@
+name: PR22 Review Fix
+
+on:
+  push:
+    branches: [agent/corte-2-plan-2-release-policy-operational-refs]
+
+permissions:
+  contents: write
+
+jobs:
+  fix-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/corte-2-plan-2-release-policy-operational-refs
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Apply review corrections
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cat > runtime/src/lib/releasePolicy.mjs <<'EOF'
+          import { isUuidV7 } from "./ids.mjs";
+          import { releaseIntegrityFindings } from "./releaseStore.mjs";
+          import { revisionHash } from "./canonical.mjs";
+
+          export const RELEASE_POLICY_FINDING_CODES = Object.freeze({
+            INVALID_REFERENCE: "INVALID_REFERENCE",
+            AMBIGUOUS_REFERENCE: "AMBIGUOUS_REFERENCE",
+            DUPLICATE_REFERENCE: "DUPLICATE_REFERENCE",
+            SELF_REFERENCE: "SELF_REFERENCE",
+            POLICY_VIOLATION: "POLICY_VIOLATION",
+            CYCLE_DETECTED: "CYCLE_DETECTED",
+            LANE_INVALID: "LANE_INVALID"
+          });
+
+          export function laneConfigFindings(config, laneId = null) {
+            const findings = [];
+            const releasePolicy = config?.policies?.release;
+            const lanes = releasePolicy?.lanes;
+            if (!releasePolicy || !Array.isArray(lanes) || lanes.length === 0) {
+              findings.push({ code: RELEASE_POLICY_FINDING_CODES.LANE_INVALID, message: "Project Context release lane catalog is missing or empty" });
+              return findings;
+            }
+            const counts = new Map();
+            for (const lane of lanes) counts.set(lane.id, (counts.get(lane.id) || 0) + 1);
+            for (const [id, count] of counts) {
+              if (count > 1) findings.push({ code: RELEASE_POLICY_FINDING_CODES.LANE_INVALID, message: `release lane ${id} is duplicated` });
+            }
+            if (!counts.has(releasePolicy.defaultLane)) {
+              findings.push({ code: RELEASE_POLICY_FINDING_CODES.LANE_INVALID, message: `default release lane ${releasePolicy.defaultLane} is not configured` });
+            }
+            if (laneId && !counts.has(laneId)) {
+              findings.push({ code: RELEASE_POLICY_FINDING_CODES.LANE_INVALID, message: `release lane ${laneId} is not configured` });
+            }
+            return findings;
+          }
+
+          export function assertValidLaneConfig(config, laneId = null) {
+            const findings = laneConfigFindings(config, laneId);
+            if (findings.length > 0) {
+              const error = new Error(findings.map((finding) => `${finding.code}: ${finding.message}`).join("; "));
+              error.code = "INVALID";
+              throw error;
+            }
+          }
+
+          function duplicateRefs(refs) {
+            const seen = new Set();
+            const duplicates = [];
+            for (const ref of refs) {
+              if (seen.has(ref)) duplicates.push(ref);
+              seen.add(ref);
+            }
+            return duplicates;
+          }
+
+          function releaseRecordMap(releases, targetRelease = null, nextPolicy = null, nextLaneId = null) {
+            const records = new Map();
+            for (const release of releases) records.set(release.id, release);
+            if (targetRelease) {
+              records.set(targetRelease.id, {
+                ...targetRelease,
+                lane: { id: nextLaneId },
+                policy: nextPolicy
+              });
+            }
+            return records;
+          }
+
+          function validateReferencedRelease(records, sourceRelease, ref, findings, relationship) {
+            if (!isUuidV7(ref)) {
+              findings.push({ code: RELEASE_POLICY_FINDING_CODES.INVALID_REFERENCE, message: `${relationship} must be UUIDv7: ${ref}` });
+              return null;
+            }
+            if (ref === sourceRelease.id) {
+              findings.push({ code: RELEASE_POLICY_FINDING_CODES.SELF_REFERENCE, message: `release ${sourceRelease.id} cannot reference itself` });
+              return null;
+            }
+            const release = records.get(ref);
+            if (!release) {
+              findings.push({ code: RELEASE_POLICY_FINDING_CODES.INVALID_REFERENCE, message: `${relationship} does not resolve from ${sourceRelease.id}: ${ref}` });
+              return null;
+            }
+            const integrity = releaseIntegrityFindings(release);
+            if (!integrity.schemaValid || integrity.findings.length > 0) {
+              findings.push({ code: RELEASE_POLICY_FINDING_CODES.INVALID_REFERENCE, message: `${relationship} is structurally invalid from ${sourceRelease.id}: ${ref}`, findings: integrity.findings });
+              return null;
+            }
+            if (release.status === "CANCELLED") {
+              findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `cancelled release cannot satisfy ${relationship} from ${sourceRelease.id}: ${ref}` });
+              return null;
+            }
+            return release;
+          }
+
+          function cycleFindings(graph, label) {
+            const findings = [];
+            const visiting = new Set();
+            const visited = new Set();
+            const stack = [];
+            function visit(id) {
+              if (visiting.has(id)) {
+                const cycle = [...stack.slice(stack.indexOf(id)), id];
+                findings.push({ code: RELEASE_POLICY_FINDING_CODES.CYCLE_DETECTED, message: `${label} cycle detected: ${cycle.join(" -> ")}` });
+                return;
+              }
+              if (visited.has(id)) return;
+              visiting.add(id);
+              stack.push(id);
+              for (const next of [...(graph.get(id) || [])].sort()) {
+                if (graph.has(next)) visit(next);
+              }
+              stack.pop();
+              visiting.delete(id);
+              visited.add(id);
+            }
+            for (const id of [...graph.keys()].sort()) visit(id);
+            return findings;
+          }
+
+          function strictSequenceCatalogFindings(records) {
+            const findings = [];
+            const laneMembers = new Map();
+            const graph = new Map();
+            const successorOwners = new Map();
+            const releases = [...records.values()]
+              .filter((release) => release.status !== "CANCELLED" && release.policy?.mode === "strict_sequence")
+              .sort((left, right) => left.id.localeCompare(right.id));
+
+            for (const release of releases) {
+              const previousRefs = release.policy.previousReleaseRefs || [];
+              const dependencyRefs = release.policy.dependencyRefs || [];
+              if (dependencyRefs.length > 0) {
+                findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `strict_sequence release ${release.id} cannot use dependencyRefs` });
+              }
+              if (previousRefs.length > 1) {
+                findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `strict_sequence release ${release.id} allows at most one previousReleaseRef` });
+              }
+              for (const duplicate of duplicateRefs(previousRefs)) {
+                findings.push({ code: RELEASE_POLICY_FINDING_CODES.DUPLICATE_REFERENCE, message: `duplicate previousReleaseRef on ${release.id}: ${duplicate}` });
+              }
+              const laneId = release.lane?.id;
+              if (!laneMembers.has(laneId)) laneMembers.set(laneId, []);
+              laneMembers.get(laneId).push(release);
+              graph.set(release.id, []);
+
+              if (previousRefs.length === 1) {
+                const predecessor = validateReferencedRelease(records, release, previousRefs[0], findings, "previousReleaseRef");
+                if (!predecessor) continue;
+                if (predecessor.policy?.mode !== "strict_sequence") {
+                  findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `strict_sequence predecessor ${predecessor.id} for ${release.id} must also use strict_sequence` });
+                }
+                if (predecessor.lane?.id !== laneId) {
+                  findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `strict_sequence predecessor ${predecessor.id} for ${release.id} must be in lane ${laneId}` });
+                }
+                graph.get(release.id).push(predecessor.id);
+                const owners = successorOwners.get(predecessor.id) || [];
+                owners.push(release.id);
+                successorOwners.set(predecessor.id, owners);
+              }
+            }
+
+            for (const [laneId, members] of [...laneMembers.entries()].sort(([left], [right]) => String(left).localeCompare(String(right)))) {
+              const roots = members.filter((release) => (release.policy.previousReleaseRefs || []).length === 0);
+              if (roots.length !== 1) {
+                findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `strict_sequence lane ${laneId} must contain exactly one non-cancelled root; found ${roots.length}` });
+              }
+            }
+            for (const [predecessorId, successors] of successorOwners) {
+              if (successors.length > 1) {
+                findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `strict_sequence predecessor ${predecessorId} has multiple non-cancelled successors: ${successors.sort().join(", ")}` });
+              }
+            }
+            findings.push(...cycleFindings(graph, "strict_sequence"));
+            return findings;
+          }
+
+          function dependencyGraphCatalogFindings(records) {
+            const findings = [];
+            const graph = new Map();
+            const releases = [...records.values()]
+              .filter((release) => release.status !== "CANCELLED" && release.policy?.mode === "dependency_graph")
+              .sort((left, right) => left.id.localeCompare(right.id));
+            for (const release of releases) {
+              const previousRefs = release.policy.previousReleaseRefs || [];
+              const dependencyRefs = release.policy.dependencyRefs || [];
+              if (previousRefs.length > 0) {
+                findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `dependency_graph release ${release.id} cannot use previousReleaseRefs` });
+              }
+              for (const duplicate of duplicateRefs(dependencyRefs)) {
+                findings.push({ code: RELEASE_POLICY_FINDING_CODES.DUPLICATE_REFERENCE, message: `duplicate dependencyRef on ${release.id}: ${duplicate}` });
+              }
+              graph.set(release.id, []);
+              for (const ref of dependencyRefs) {
+                const dependency = validateReferencedRelease(records, release, ref, findings, "dependencyRef");
+                if (dependency) graph.get(release.id).push(dependency.id);
+              }
+            }
+            findings.push(...cycleFindings(graph, "dependency_graph"));
+            return findings;
+          }
+
+          export function releaseCatalogPolicyFindings(releases) {
+            const records = releaseRecordMap(releases);
+            const findings = [];
+            for (const release of [...records.values()].sort((left, right) => left.id.localeCompare(right.id))) {
+              if (!["strict_sequence", "dependency_graph"].includes(release.policy?.mode)) {
+                findings.push({ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `unsupported release policy mode on ${release.id}: ${release.policy?.mode}` });
+              }
+            }
+            findings.push(...strictSequenceCatalogFindings(records));
+            findings.push(...dependencyGraphCatalogFindings(records));
+            const unique = new Map();
+            for (const finding of findings) unique.set(`${finding.code}:${finding.message}`, finding);
+            return [...unique.values()].sort((left, right) => `${left.code}:${left.message}`.localeCompare(`${right.code}:${right.message}`));
+          }
+
+          export function releasePolicyFindings({ releases, targetRelease, nextPolicy, nextLaneId }) {
+            if (!["strict_sequence", "dependency_graph"].includes(nextPolicy?.mode)) {
+              return [{ code: RELEASE_POLICY_FINDING_CODES.POLICY_VIOLATION, message: `unsupported release policy mode: ${nextPolicy?.mode}` }];
+            }
+            const records = releaseRecordMap(releases, targetRelease, nextPolicy, nextLaneId);
+            return releaseCatalogPolicyFindings([...records.values()]);
+          }
+
+          export function assertReleasePolicyValid(args) {
+            const findings = releasePolicyFindings(args);
+            if (findings.length > 0) {
+              const error = new Error(findings.map((finding) => `${finding.code}: ${finding.message}`).join("; "));
+              error.code = "INVALID";
+              throw error;
+            }
+          }
+
+          export function releasePolicyRequestHash({ actor, requestSnapshot }) {
+            return revisionHash({ actor, requestSnapshot });
+          }
+          EOF
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace(path, old, new):
+              p = Path(path)
+              text = p.read_text()
+              if old not in text:
+                  raise SystemExit(f"expected text not found in {path}: {old[:120]!r}")
+              p.write_text(text.replace(old, new, 1))
+
+          replace(
+              "runtime/src/lib/changeset.mjs",
+              'import { listReleaseDocuments } from "./releaseStore.mjs";\n',
+              'import { listReleaseDocuments } from "./releaseStore.mjs";\nimport { releaseMutationInvariantFindings } from "./releaseMutations.mjs";\n'
+          )
+
+          replace(
+              "runtime/src/lib/changeset.mjs",
+              '''    if (changeSet.kind !== kind || changeSet.operationId !== candidateId || computePersistedChangeSetHash(changeSet) !== changeSet.hash) {
+      throw new StateError(`cannot establish ${kind} idempotency because operation ${candidateId} is internally inconsistent`);
+    }
+    if (changeSet.payload?.idempotencyKey !== key) continue;
+    if (changeSet.payload?.idempotencyRequestHash !== requestHash) {
+      throw new StateError(`idempotency key ${key} was already used for a different ${kind} request`);
+    }
+''',
+              '''    if (changeSet.kind !== kind || changeSet.operationId !== candidateId || computePersistedChangeSetHash(changeSet) !== changeSet.hash) {
+      throw new StateError(`cannot establish ${kind} idempotency because operation ${candidateId} is internally inconsistent`);
+    }
+    const persistedKey = operation.requestBinding?.key ?? changeSet.payload?.idempotencyKey;
+    const persistedRequestHash = operation.requestBinding?.requestHash ?? changeSet.payload?.idempotencyRequestHash;
+    if (operation.requestBinding && (changeSet.payload?.idempotencyKey !== persistedKey || changeSet.payload?.idempotencyRequestHash !== persistedRequestHash)) {
+      throw new StateError(`cannot establish ${kind} idempotency because operation ${candidateId} request binding disagrees with its ChangeSet`);
+    }
+    if (persistedKey !== key) continue;
+    if (persistedRequestHash !== requestHash) {
+      throw new StateError(`idempotency key ${key} was already used for a different ${kind} request`);
+    }
+'''
+          )
+
+          replace(
+              "runtime/src/lib/changeset.mjs",
+              '''      history: [{ at: proposedAt, from: null, to: "PROPOSED", actor, reason: null }]
+    };
+''',
+              '''      history: [{ at: proposedAt, from: null, to: "PROPOSED", actor, reason: null }],
+      ...(idempotency ? {
+        requestBinding: { key: idempotency.key, requestHash: idempotency.requestHash },
+        proposalHash: hash
+      } : {})
+    };
+'''
+          )
+
+          replace(
+              "runtime/src/lib/changeset.mjs",
+              '''    if (changeSet.target?.releaseId !== releaseId) errors.push(`${changeSet.kind} target.releaseId must match payload.releaseId`);
+    if (changeSet.payload.operationId !== changeSet.operationId || (operation && changeSet.payload.operationId !== operation.id)) errors.push(`${changeSet.kind} payload.operationId must match operation id`);
+  }
+  return errors;
+''',
+              '''    if (changeSet.target?.releaseId !== releaseId) errors.push(`${changeSet.kind} target.releaseId must match payload.releaseId`);
+    if (changeSet.payload.operationId !== changeSet.operationId || (operation && changeSet.payload.operationId !== operation.id)) errors.push(`${changeSet.kind} payload.operationId must match operation id`);
+    errors.push(...releaseMutationInvariantFindings(changeSet, operation, planningRoot));
+  }
+  if (changeSet.kind.startsWith("release.") && operation?.requestBinding) {
+    if (changeSet.payload?.idempotencyKey !== operation.requestBinding.key) errors.push(`${changeSet.kind} idempotencyKey must match the server-owned Operation request binding`);
+    if (changeSet.payload?.idempotencyRequestHash !== operation.requestBinding.requestHash) errors.push(`${changeSet.kind} idempotencyRequestHash must match the server-owned Operation request binding`);
+  }
+  if (changeSet.kind.startsWith("release.") && operation?.proposalHash && operation.proposalHash !== changeSet.hash) {
+    errors.push(`${changeSet.kind} ChangeSet no longer matches the server-owned proposal hash`);
+  }
+  return errors;
+'''
+          )
+
+          replace(
+              "runtime/src/schemas/operation.schema.json",
+              '''    "proposedAt": {
+      "type": "string"
+    },
+    "reservedEvents": {
+''',
+              '''    "proposedAt": {
+      "type": "string"
+    },
+    "requestBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "requestHash"],
+      "properties": {
+        "key": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "requestHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "proposalHash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "reservedEvents": {
+'''
+          )
+
+          replace(
+              "runtime/src/lib/releaseMutations.mjs",
+              '''function releaseMutationRequestHash({ actor, kind, requestSnapshot }) {
+  return revisionHash({ actor, kind, requestSnapshot });
+}
+
+export function normalizeReleaseMutationRequest''',
+              '''function releaseMutationRequestHash({ actor, kind, requestSnapshot }) {
+  return revisionHash({ actor, kind, requestSnapshot });
+}
+
+function canonicalEqual(left, right) {
+  return revisionHash(left) === revisionHash(right);
+}
+
+export function releaseMutationInvariantFindings(changeSet, operation = null, planningRoot = null) {
+  const findings = [];
+  const payload = changeSet.payload || {};
+  const targetKeys = Object.keys(changeSet.target || {}).sort();
+  if (targetKeys.length !== 1 || targetKeys[0] !== "releaseId" || changeSet.target.releaseId !== payload.releaseId) {
+    findings.push(`${changeSet.kind} target must contain exactly releaseId equal to payload.releaseId`);
+  }
+  if (payload.operationId !== changeSet.operationId) findings.push(`${changeSet.kind} payload.operationId must match ChangeSet operationId`);
+
+  if (operation) {
+    if (payload.updatedAt !== operation.proposedAt) findings.push(`${changeSet.kind} updatedAt must match the server-owned Operation proposedAt`);
+    if (payload.updatedBy !== operation.proposedBy) findings.push(`${changeSet.kind} updatedBy must match the server-owned Operation proposedBy`);
+  }
+
+  const snapshot = payload.requestSnapshot;
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
+    findings.push(`${changeSet.kind} requestSnapshot must be a normalized object`);
+    return findings;
+  }
+
+  const actor = operation?.proposedBy ?? payload.updatedBy;
+  try {
+    const normalized = normalizeReleaseMutationRequest(changeSet.kind, { ...snapshot, idempotencyKey: payload.idempotencyKey }, {
+      actor,
+      defaultIdempotencyKey: payload.idempotencyKey
+    });
+    if (!canonicalEqual(normalized.requestSnapshot, snapshot)) findings.push(`${changeSet.kind} requestSnapshot is not canonical normalized caller intent`);
+    if (normalized.idempotencyRequestHash !== payload.idempotencyRequestHash) findings.push(`${changeSet.kind} idempotencyRequestHash does not match normalized caller intent and actor`);
+  } catch (error) {
+    findings.push(`${changeSet.kind} requestSnapshot is invalid: ${error.message}`);
+  }
+
+  let currentRelease = null;
+  if (planningRoot) {
+    try {
+      const resolved = resolveTargetRelease(planningRoot, snapshot.releaseRef);
+      if (resolved.id !== payload.releaseId) findings.push(`${changeSet.kind} requestSnapshot.releaseRef resolves to ${resolved.id}, not payload.releaseId ${payload.releaseId}`);
+      currentRelease = readReleaseFile(planningRoot, payload.releaseId).release;
+    } catch (error) {
+      findings.push(`${changeSet.kind} cannot rebind requestSnapshot.releaseRef: ${error.message}`);
+    }
+  }
+
+  if (changeSet.kind === "release.policy.configure") {
+    if (currentRelease) {
+      const expectedLaneId = snapshot.laneId ?? currentRelease.lane.id;
+      const expectedPolicy = {
+        mode: snapshot.policyMode ?? currentRelease.policy.mode,
+        previousReleaseRefs: snapshot.previousReleaseRefs ?? currentRelease.policy.previousReleaseRefs,
+        dependencyRefs: snapshot.dependencyRefs ?? currentRelease.policy.dependencyRefs
+      };
+      if (payload.laneId !== expectedLaneId) findings.push("release.policy.configure laneId is not derived from caller intent and the target Release base state");
+      if (!canonicalEqual(payload.policy, expectedPolicy)) findings.push("release.policy.configure policy is not derived from caller intent and the target Release base state");
+    }
+  } else if (changeSet.kind === "release.scopeRefs.set") {
+    const payloadScopeIds = Array.isArray(payload.scopeRefs) ? payload.scopeRefs.map((entry) => entry.scopeId).sort() : [];
+    if (!canonicalEqual(payloadScopeIds, [...(snapshot.scopeIds || [])].sort())) findings.push("release.scopeRefs.set scopeRefs do not correspond to requestSnapshot.scopeIds");
+  } else if (changeSet.kind === "release.operationalRefs.set") {
+    if (!canonicalEqual(payload.executionContextRefs, snapshot.executionContextRefs)) findings.push("release.operationalRefs.set executionContextRefs do not match caller intent");
+    if (!canonicalEqual(payload.environmentRefs, snapshot.environmentRefs)) findings.push("release.operationalRefs.set environmentRefs do not match caller intent");
+  } else if (changeSet.kind === "release.deployment.record") {
+    const event = payload.deploymentEvent || {};
+    if (!isUuidV7(event.id)) findings.push("release.deployment.record deploymentEvent.id must be a server-owned UUIDv7");
+    if (event.releaseId !== payload.releaseId) findings.push("release.deployment.record deploymentEvent.releaseId must match payload.releaseId");
+    if (event.operationId !== changeSet.operationId) findings.push("release.deployment.record deploymentEvent.operationId must match ChangeSet operationId");
+    if (operation && event.actor !== operation.proposedBy) findings.push("release.deployment.record deploymentEvent.actor must match the server-owned Operation proposedBy");
+    if (operation && event.startedAt !== operation.proposedAt) findings.push("release.deployment.record deploymentEvent.startedAt must match the server-owned Operation proposedAt");
+    for (const field of ["environmentRef", "executionContextRef", "status", "artifactRefs", "evidenceRefs", "completedAt"]) {
+      if (!canonicalEqual(event[field], snapshot[field])) findings.push(`release.deployment.record deploymentEvent.${field} does not match caller intent`);
+    }
+  }
+
+  return findings;
+}
+
+export function normalizeReleaseMutationRequest'''
+          )
+
+          replace(
+              "runtime/src/commands/check.mjs",
+              'import { readCatalogEntry } from "../lib/operationalCatalog.mjs";\n',
+              'import { readCatalogEntry } from "../lib/operationalCatalog.mjs";\nimport { releaseCatalogPolicyFindings } from "../lib/releasePolicy.mjs";\n'
+          )
+          replace(
+              "runtime/src/commands/check.mjs",
+              '''  const displayIdOwners = new Map();
+  for (const releaseId of fs.readdirSync(releasesRoot).sort()) {
+''',
+              '''  const displayIdOwners = new Map();
+  const releaseDocuments = [];
+  for (const releaseId of fs.readdirSync(releasesRoot).sort()) {
+'''
+          )
+          replace(
+              "runtime/src/commands/check.mjs",
+              '''    if (!integrity.schemaValid) continue;
+    if (release.itemRefs.length > 0) findings.push(`${releaseRelativePath}: itemRefs cannot be resolved before Release Items exist`);
+''',
+              '''    if (!integrity.schemaValid) continue;
+    if (integrity.findings.length === 0) releaseDocuments.push(release);
+    if (release.itemRefs.length > 0) findings.push(`${releaseRelativePath}: itemRefs cannot be resolved before Release Items exist`);
+'''
+          )
+          replace(
+              "runtime/src/commands/check.mjs",
+              '''    if (readmePath) {
+      const currentReadme = fs.readFileSync(readmePath, "utf8");
+      if (!compareReleaseReadme(release, currentReadme).equal) findings.push(`${readmeRelativePath}: projection drift`);
+    }
+  }
+}
+''',
+              '''    if (readmePath) {
+      const currentReadme = fs.readFileSync(readmePath, "utf8");
+      if (!compareReleaseReadme(release, currentReadme).equal) findings.push(`${readmeRelativePath}: projection drift`);
+    }
+  }
+  for (const finding of releaseCatalogPolicyFindings(releaseDocuments)) {
+    findings.push(`releases: ${finding.code}: ${finding.message}`);
+  }
+}
+'''
+          )
+
+          replace(
+              "runtime/src/commands/tests/commands.test.mjs",
+              'import { readOperation, readChangeSet } from "../../lib/operationStore.mjs";\n',
+              'import { readOperation, readChangeSet, writeChangeSet } from "../../lib/operationStore.mjs";\nimport { computePersistedChangeSetHash } from "../../lib/changeset.mjs";\n'
+          )
+          replace(
+              "runtime/src/commands/tests/commands.test.mjs",
+              '''assert.equal(readOperation(operationsRoot, deploymentRecord.operationId).expectedEvents[0].document.payload.deploymentEventId, releaseAfterDeployment.deploymentEvents[0].id);
+const plan2Status = runReleaseStatus({ planningRoot, reference: releaseCreate.releaseId });
+''',
+              '''assert.equal(readOperation(operationsRoot, deploymentRecord.operationId).expectedEvents[0].document.payload.deploymentEventId, releaseAfterDeployment.deploymentEvents[0].id);
+const tamperedDeployment = runReleaseDeploymentRecord({
+  planningRoot,
+  args: { releaseRef: releaseCreate.releaseId, environmentRef: environmentId, executionContextRef: executionContextId, status: "started", idempotencyKey: "deploy-plan2-tampered", actor: "carlos" }
+});
+const tamperedChangeSet = readChangeSet(operationsRoot, tamperedDeployment.operationId);
+tamperedChangeSet.payload.updatedBy = "mallory";
+tamperedChangeSet.payload.deploymentEvent.actor = "mallory";
+tamperedChangeSet.payload.requestSnapshot.status = "failed";
+tamperedChangeSet.payload.deploymentEvent.status = "failed";
+tamperedChangeSet.payload.idempotencyRequestHash = "0".repeat(64);
+tamperedChangeSet.hash = computePersistedChangeSetHash(tamperedChangeSet);
+writeChangeSet(operationsRoot, tamperedDeployment.operationId, tamperedChangeSet);
+const tamperedOutcome = runChangesetValidate({ planningRoot, operationsRoot, operationId: tamperedDeployment.operationId });
+assert.equal(tamperedOutcome.status, "INVALID", "recomputed ChangeSet hashes must not permit caller edits to server-bound Plan 2 state");
+assert.ok(tamperedOutcome.errors.some((error) => error.includes("server-owned proposal hash") || error.includes("server-owned Operation")));
+const plan2Status = runReleaseStatus({ planningRoot, reference: releaseCreate.releaseId });
+'''
+          )
+
+          plan = Path("docs/superpowers/plans/2026-07-29-corte-2-plan-2-release-policy-operational-refs.md")
+          text = plan.read_text()
+          appendix = '''
+
+## 26. Post-review Corrections
+
+Adversarial review of PR #22 found and closed two trust-boundary gaps:
+
+- Release Plan 2 Operations now retain a server-owned request binding and proposal hash. Editing a persisted ChangeSet and recomputing its public hash cannot change caller intent, actor, timestamps, generated deployment identity or resolved Release targets before validation.
+- Release policy validation now evaluates the complete Release catalog. Reconfiguring a sequence root or predecessor cannot orphan existing successors, create multiple roots, introduce branching or hide a cycle. `check schema` reports these global policy inconsistencies.
+
+The corrections preserve the Plan 2 boundary and do not add lifecycle transitions, deployment execution, Release Items, Work Packages, Tasks, final readiness or finalization.
+'''
+          if "## 26. Post-review Corrections" not in text:
+              plan.write_text(text.rstrip() + appendix + "\n")
+          PY
+
+          cat > runtime/src/lib/tests/release-policy.test.mjs <<'EOF'
+          import assert from "node:assert/strict";
+          import { releasePolicyFindings, releaseCatalogPolicyFindings, laneConfigFindings } from "../releasePolicy.mjs";
+          import { revisionHash } from "../canonical.mjs";
+          import { releaseDisplayIdForUuid } from "../releaseIdentity.mjs";
+
+          function release(id, { lane = "main", mode = "strict_sequence", previous = [], dependencies = [], status = "DRAFT" } = {}) {
+            const withoutRevision = {
+              schemaVersion: 1,
+              id,
+              displayId: releaseDisplayIdForUuid(id),
+              displayIdStatus: "ACTIVE",
+              slug: null,
+              title: id,
+              objective: id,
+              status,
+              lane: { id: lane },
+              policy: { mode, previousReleaseRefs: previous, dependencyRefs: dependencies },
+              scopeRefs: [],
+              executionContextRefs: [],
+              environmentRefs: [],
+              itemRefs: [],
+              blockers: [],
+              risks: [],
+              deploymentEvents: [],
+              finalization: { completed: false, completedAt: null, completedBy: null, retrospectiveStatus: "not_started" },
+              audit: { createdAt: "t", createdBy: "a", updatedAt: "t", updatedBy: "a", operationId: id }
+            };
+            return { ...withoutRevision, audit: { ...withoutRevision.audit, revision: `sha256:${revisionHash(withoutRevision)}` } };
+          }
+
+          const a = "018f0000-0000-7000-8000-000000000001";
+          const b = "018f0000-0000-7000-8000-000000000002";
+          const c = "018f0000-0000-7000-8000-000000000003";
+
+          assert.deepEqual(laneConfigFindings({ policies: { release: { defaultLane: "main", lanes: [{ id: "main" }] } } }, "main"), []);
+          assert.equal(laneConfigFindings({ policies: { release: { defaultLane: "main", lanes: [{ id: "main" }] } } }, "hotfix")[0].code, "LANE_INVALID");
+
+          assert.equal(releasePolicyFindings({
+            releases: [],
+            targetRelease: release(a),
+            nextLaneId: "main",
+            nextPolicy: { mode: "strict_sequence", previousReleaseRefs: [], dependencyRefs: [] }
+          }).length, 0, "first strict_sequence release may have no predecessor");
+
+          const root = release(a);
+          const successor = release(b, { previous: [a] });
+          assert.equal(releaseCatalogPolicyFindings([root, successor]).length, 0, "one root and one successor form a valid strict sequence");
+
+          assert.equal(releasePolicyFindings({
+            releases: [root, successor],
+            targetRelease: root,
+            nextLaneId: "main",
+            nextPolicy: root.policy
+          }).length, 0, "revalidating an existing strict-sequence root must remain valid when it already has a successor");
+
+          assert.ok(releasePolicyFindings({
+            releases: [root, successor],
+            targetRelease: root,
+            nextLaneId: "hotfix",
+            nextPolicy: root.policy
+          }).some((finding) => finding.code === "POLICY_VIOLATION"), "moving a predecessor must not orphan its existing successor");
+
+          assert.ok(releasePolicyFindings({
+            releases: [root, successor],
+            targetRelease: root,
+            nextLaneId: "main",
+            nextPolicy: { mode: "dependency_graph", previousReleaseRefs: [], dependencyRefs: [] }
+          }).some((finding) => finding.code === "POLICY_VIOLATION"), "changing a predecessor policy mode must not invalidate an incoming strict-sequence link");
+
+          assert.ok(releaseCatalogPolicyFindings([
+            root,
+            successor,
+            release(c, { previous: [a] })
+          ]).some((finding) => finding.message.includes("multiple non-cancelled successors")), "strict_sequence rejects branching across the complete catalog");
+
+          assert.ok(releasePolicyFindings({
+            releases: [release(a, { status: "CANCELLED" })],
+            targetRelease: release(b),
+            nextLaneId: "main",
+            nextPolicy: { mode: "strict_sequence", previousReleaseRefs: [a], dependencyRefs: [] }
+          }).some((finding) => finding.message.includes("cancelled")), "cancelled predecessors do not satisfy strict_sequence");
+
+          assert.ok(releasePolicyFindings({
+            releases: [release(a, { mode: "dependency_graph", dependencies: [b] }), release(b, { mode: "dependency_graph", dependencies: [c] })],
+            targetRelease: release(c, { mode: "dependency_graph" }),
+            nextLaneId: "main",
+            nextPolicy: { mode: "dependency_graph", previousReleaseRefs: [], dependencyRefs: [a] }
+          }).some((finding) => finding.code === "CYCLE_DETECTED"), "dependency_graph rejects indirect cycles deterministically");
+
+          console.log("release-policy: global lanes, strict_sequence and dependency_graph invariants pass");
+          EOF
+
+          rm -f .github/workflows/pr22-review-fix.yml
+
+      - name: Install and regenerate artifacts
+        run: |
+          set -euo pipefail
+          npm ci --silent
+          npm run build:schemas
+          npm run build:runtime
+          npm run build:test-bundle
+      - name: Verify
+        run: |
+          set -euo pipefail
+          npm run test:unit
+          npm run test:cli-e2e
+          npm run test:real-crash-e2e
+          npm run test:security-e2e
+          npm run test:bundle
+          npm run verify:artifacts
+          npm run verify:next-generation
+          git diff --check
+      - name: Commit corrections
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(release): close Plan 2 trust boundaries"
+          git push origin HEAD:agent/corte-2-plan-2-release-policy-operational-refs
