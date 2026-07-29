@@ -21,114 +21,12 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - name: Apply follow-up corrections
+      - name: Apply reviewed patch
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          def replace(path, old, new):
-              target = Path(path)
-              text = target.read_text()
-              if old not in text:
-                  raise SystemExit(f'expected text not found in {path}')
-              target.write_text(text.replace(old, new, 1))
-
-          replace(
-              'runtime/src/lib/releasePolicy.mjs',
-              '''function releaseRecordMap(releases, targetRelease = null, nextPolicy = null, nextLaneId = null) {
-            const records = new Map();
-            for (const release of releases) records.set(release.id, release);
-            if (targetRelease) {
-              records.set(targetRelease.id, {
-                ...targetRelease,
-                lane: { id: nextLaneId },
-                policy: nextPolicy
-              });
-            }
-            return records;
-          }
-''',
-              '''function releaseRecordMap(releases, targetRelease = null, nextPolicy = null, nextLaneId = null) {
-            const records = new Map();
-            for (const release of releases) records.set(release.id, release);
-            if (targetRelease) {
-              const candidateWithoutRevision = {
-                ...targetRelease,
-                lane: { id: nextLaneId },
-                policy: nextPolicy,
-                audit: { ...targetRelease.audit }
-              };
-              delete candidateWithoutRevision.audit.revision;
-              records.set(targetRelease.id, {
-                ...candidateWithoutRevision,
-                audit: {
-                  ...candidateWithoutRevision.audit,
-                  revision: `sha256:${revisionHash(candidateWithoutRevision)}`
-                }
-              });
-            }
-            return records;
-          }
-'''
-          )
-
-          replace(
-              'runtime/src/lib/releaseMutations.mjs',
-              '''  const actor = operation?.proposedBy ?? payload.updatedBy;
-            try {
-              const normalized = normalizeReleaseMutationRequest(changeSet.kind, { ...snapshot, idempotencyKey: payload.idempotencyKey }, {
-                actor,
-                defaultIdempotencyKey: payload.idempotencyKey
-              });
-              if (!canonicalEqual(normalized.requestSnapshot, snapshot)) findings.push(`${changeSet.kind} requestSnapshot is not canonical normalized caller intent`);
-              if (normalized.idempotencyRequestHash !== payload.idempotencyRequestHash) findings.push(`${changeSet.kind} idempotencyRequestHash does not match normalized caller intent and actor`);
-            } catch (error) {
-''',
-              '''  const actor = operation?.proposedBy ?? payload.updatedBy;
-            try {
-              const rawRequest = { releaseRef: snapshot.releaseRef, idempotencyKey: payload.idempotencyKey };
-              if (changeSet.kind === "release.policy.configure") {
-                if (snapshot.laneId !== null) rawRequest.laneId = snapshot.laneId;
-                if (snapshot.policyMode !== null) rawRequest.policyMode = snapshot.policyMode;
-                if (snapshot.previousReleaseRefs !== null) rawRequest.previousReleaseRefs = snapshot.previousReleaseRefs;
-                if (snapshot.dependencyRefs !== null) rawRequest.dependencyRefs = snapshot.dependencyRefs;
-              } else if (changeSet.kind === "release.scopeRefs.set") {
-                rawRequest.scopeIds = snapshot.scopeIds;
-                rawRequest.policyMode = snapshot.policyMode;
-              } else if (changeSet.kind === "release.operationalRefs.set") {
-                rawRequest.executionContextRefs = snapshot.executionContextRefs;
-                rawRequest.environmentRefs = snapshot.environmentRefs;
-              } else if (changeSet.kind === "release.deployment.record") {
-                rawRequest.environmentRef = snapshot.environmentRef;
-                rawRequest.executionContextRef = snapshot.executionContextRef;
-                rawRequest.status = snapshot.status;
-                rawRequest.artifactRefs = snapshot.artifactRefs;
-                rawRequest.evidenceRefs = snapshot.evidenceRefs;
-                rawRequest.completedAt = snapshot.completedAt;
-              }
-              const normalized = normalizeReleaseMutationRequest(changeSet.kind, rawRequest, {
-                actor,
-                defaultIdempotencyKey: payload.idempotencyKey
-              });
-              if (!canonicalEqual(normalized.requestSnapshot, snapshot)) findings.push(`${changeSet.kind} requestSnapshot is not canonical normalized caller intent`);
-              if (normalized.idempotencyRequestHash !== payload.idempotencyRequestHash) findings.push(`${changeSet.kind} idempotencyRequestHash does not match normalized caller intent and actor`);
-            } catch (error) {
-'''
-          )
-
-          plan = Path('docs/superpowers/plans/2026-07-29-corte-2-plan-2-release-policy-operational-refs.md')
-          text = plan.read_text()
-          note = '''
-- Candidate Release policy states are assigned a recomputed canonical revision before full-catalog graph validation, so incoming references and indirect cycles are evaluated against the actual proposed state rather than rejected as synthetic revision drift.
-- Snapshot revalidation preserves the semantic distinction between omitted policy fields (`null`) and explicitly requested empty reference lists.
-'''
-          marker = 'The corrections preserve the Plan 2 boundary and do not add lifecycle transitions, deployment execution, Release Items, Work Packages, Tasks, final readiness or finalization.'
-          if note.strip() not in text:
-              text = text.replace(marker, note + '\n' + marker)
-              plan.write_text(text)
-          PY
-          rm -f .github/workflows/pr22-followup.yml
-      - name: Publish source fix
+          git apply --check .github/pr22-followup.patch
+          git apply .github/pr22-followup.patch
+          rm -f .github/pr22-followup.patch .github/pr22-followup.trigger .github/workflows/pr22-followup.yml
+      - name: Publish source correction
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
