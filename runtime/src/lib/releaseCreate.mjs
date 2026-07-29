@@ -16,7 +16,7 @@ function isCanonicalTrimmedString(value) {
   return typeof value === "string" && value.length > 0 && value === value.trim();
 }
 
-export function releaseCreateInvariantFindings(changeSet, operation = null) {
+export function releaseCreateInvariantFindings(changeSet, operation = null, existingReleases = []) {
   const findings = [];
   const payload = changeSet.payload;
 
@@ -31,6 +31,10 @@ export function releaseCreateInvariantFindings(changeSet, operation = null) {
 
   if (!isReleaseDisplayIdForUuid(payload.id, payload.displayId)) {
     findings.push(`release.create displayId ${payload.displayId} is not derived from release UUIDv7 ${payload.id}`);
+  }
+  const displayIdCollision = existingReleases.find((release) => release.id !== payload.id && release.displayId === payload.displayId);
+  if (displayIdCollision) {
+    findings.push(`release.create displayId ${payload.displayId} is already owned by release ${displayIdCollision.id}`);
   }
 
   for (const field of ["title", "objective", "laneId", "idempotencyKey"]) {

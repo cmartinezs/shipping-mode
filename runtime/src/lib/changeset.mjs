@@ -15,6 +15,7 @@ import { runDiscoverScan } from "./discoverScan.mjs";
 import { bindAutonomyEvaluation, evaluateChangeSetAutonomy, currentPolicyFingerprint, hasAutonomousApprovalCapability, REASON_CODES } from "./autonomy.mjs";
 import { DIRECTORY_CONTENT_HASH, isDirectoryRenderEntry } from "./bootstrapTopology.mjs";
 import { releaseCreateInvariantFindings } from "./releaseCreate.mjs";
+import { listReleaseDocuments } from "./releaseStore.mjs";
 
 export function readFileState(planningRoot, relativePath) {
   const absolutePath = confineRuntimeWritePath(planningRoot, relativePath);
@@ -136,7 +137,7 @@ function schemaNameForRenderedPath(relativePath) {
   return null;
 }
 
-function checkKindInvariants(changeSet, operation = null) {
+function checkKindInvariants(changeSet, operation = null, planningRoot = null) {
   const errors = [];
   if (changeSet.kind === "workspace.init") {
     for (const relativePath of Object.keys(changeSet.baseRevisions)) {
@@ -169,7 +170,13 @@ function checkKindInvariants(changeSet, operation = null) {
     }
   }
   if (changeSet.kind === "release.create") {
-    errors.push(...releaseCreateInvariantFindings(changeSet, operation));
+    let existingReleases = [];
+    try {
+      existingReleases = listReleaseDocuments(planningRoot);
+    } catch (error) {
+      errors.push(`release.create cannot verify display ID uniqueness: ${error.message}`);
+    }
+    errors.push(...releaseCreateInvariantFindings(changeSet, operation, existingReleases));
     const releasePath = `releases/${changeSet.payload.id}/release.yml`;
     const readmePath = `releases/${changeSet.payload.id}/README.md`;
     const actualPaths = new Set(Object.keys(changeSet.baseRevisions));
@@ -203,7 +210,7 @@ function revalidateChangeSet({ operationsRoot, planningRoot, operationId, render
     return { ok: false, status: "INVALID", errors: changeSetResult.errors.map((e) => `change-set${e.path}: ${e.message}`), recomputedHash };
   }
 
-  const invariantErrors = checkKindInvariants(changeSet, operation);
+  const invariantErrors = checkKindInvariants(changeSet, operation, planningRoot);
   if (invariantErrors.length > 0) {
     return { ok: false, status: "INVALID", errors: invariantErrors, recomputedHash };
   }

@@ -108,7 +108,8 @@ Plan 1 validation rules:
 - relation arrays are UUIDv7 only;
 - directory UUID and `release.id` must match;
 - validate/apply must rebind `payload.operationId`, `target.releaseId`, actor and timestamps to the persisted Operation, and verify that `displayId` is derived from `release.id`;
-- the normalized idempotency request hash is recomputed during validation rather than trusted from editable ChangeSet content.
+- the normalized idempotency request hash is recomputed during validation rather than trusted from editable ChangeSet content;
+- validate and apply re-check display-ID ownership against the persisted Release catalog under the workspace mutation lock, so concurrent pending proposals cannot both persist the same display ID.
 
 ## 4. Identity And Display-ID Algorithm
 
@@ -380,6 +381,7 @@ This is audit evidence, not event sourcing.
 | Idempotency key could alias different requests or differ by entrypoint | Bind the key to a server-owned request hash inside the workspace mutation lock for both `release new` and generic `changeset propose` |
 | `release status` could crash or trust a valid-looking corrupted aggregate | Safe resolver and shared schema/identity/revision integrity checks fail closed |
 | Project Context defaults could change between validate and apply | Resolve lane/policy at propose time and bind them into the ChangeSet/idempotency request hash |
+| Concurrent pending proposals could reserve the same compact display ID | Re-check persisted display-ID ownership during validate and apply under the workspace mutation lock; the later operation fails closed |
 
 No production blocker remains after these corrections.
 

@@ -6,6 +6,7 @@ import { runInit } from "../../commands/init.mjs";
 import { runChangesetApply, runChangesetApprove, runChangesetValidate } from "../../commands/changesetCommand.mjs";
 import { runReleaseNew } from "../../commands/release.mjs";
 import { computePersistedChangeSetHash } from "../changeset.mjs";
+import { releaseCreateInvariantFindings } from "../releaseCreate.mjs";
 import { generateUuidV7 } from "../ids.mjs";
 import { readChangeSet, readOperation, writeChangeSet } from "../operationStore.mjs";
 import { releaseDisplayIdForUuid } from "../releaseIdentity.mjs";
@@ -61,6 +62,15 @@ function tamperChangeSet(operationsRoot, operationId, mutate) {
 
 {
   const { planningRoot, operationsRoot } = initializedWorkspace();
+  const proposal = runReleaseNew({ planningRoot, args: { title: "Collision guard", objective: "Reject a display ID already owned by another Release", idempotencyKey: "collision-guard", actor: "carlos" } });
+  const changeSet = readChangeSet(operationsRoot, proposal.operationId);
+  const operation = readOperation(operationsRoot, proposal.operationId);
+  const findings = releaseCreateInvariantFindings(changeSet, operation, [{ id: generateUuidV7(), displayId: proposal.displayId }]);
+  assert.ok(findings.some((finding) => finding.includes("is already owned by release")), "validate/apply invariants must reject a persisted display ID collision");
+}
+
+{
+  const { planningRoot, operationsRoot } = initializedWorkspace();
   const args = { title: "Permanent key", objective: "Preserve idempotency after invalidation", idempotencyKey: "permanent-key", actor: "carlos" };
   const proposal = runReleaseNew({ planningRoot, args });
   tamperChangeSet(operationsRoot, proposal.operationId, (changeSet) => {
@@ -78,4 +88,4 @@ function tamperChangeSet(operationsRoot, operationId, mutate) {
   );
 }
 
-console.log("release-create-integrity: relational server fields and permanent idempotency bindings pass");
+console.log("release-create-integrity: relational server fields, collision guards and permanent idempotency bindings pass");

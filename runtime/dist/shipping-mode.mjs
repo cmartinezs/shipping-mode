@@ -5491,8 +5491,8 @@ import path22 from "node:path";
 import path11 from "node:path";
 
 // runtime/src/lib/changeset.mjs
-import fs11 from "node:fs";
-import path9 from "node:path";
+import fs12 from "node:fs";
+import path10 from "node:path";
 
 // runtime/src/lib/ids.mjs
 import crypto from "node:crypto";
@@ -18791,11 +18791,13 @@ function releaseCreateRequestHash({ actor, title, objective, laneId, policyMode,
 function isCanonicalTrimmedString(value) {
   return typeof value == "string" && value.length > 0 && value === value.trim();
 }
-function releaseCreateInvariantFindings(changeSet, operation = null) {
+function releaseCreateInvariantFindings(changeSet, operation = null, existingReleases = []) {
   let findings = [], payload = changeSet.payload;
   payload.operationId !== changeSet.operationId && findings.push(`release.create payload.operationId ${payload.operationId} does not match ChangeSet operationId ${changeSet.operationId}`);
   let targetKeys = Object.keys(changeSet.target || {}).sort();
   (targetKeys.length !== 1 || targetKeys[0] !== "releaseId" || changeSet.target.releaseId !== payload.id) && findings.push("release.create target must contain exactly releaseId equal to payload.id"), isReleaseDisplayIdForUuid(payload.id, payload.displayId) || findings.push(`release.create displayId ${payload.displayId} is not derived from release UUIDv7 ${payload.id}`);
+  let displayIdCollision = existingReleases.find((release) => release.id !== payload.id && release.displayId === payload.displayId);
+  displayIdCollision && findings.push(`release.create displayId ${payload.displayId} is already owned by release ${displayIdCollision.id}`);
   for (let field of ["title", "objective", "laneId", "idempotencyKey"])
     isCanonicalTrimmedString(payload[field]) || findings.push(`release.create payload.${field} must be a canonical non-blank trimmed string`);
   let expectedRequestHash = releaseCreateRequestHash({
@@ -18809,14 +18811,108 @@ function releaseCreateInvariantFindings(changeSet, operation = null) {
   return payload.idempotencyRequestHash !== expectedRequestHash && findings.push("release.create idempotencyRequestHash does not match the normalized request snapshot"), payload.createdAt !== payload.updatedAt && findings.push("release.create createdAt and updatedAt must be identical at creation"), payload.createdBy !== payload.updatedBy && findings.push("release.create createdBy and updatedBy must be identical at creation"), operation && (operation.id !== changeSet.operationId && findings.push(`release.create operation.id ${operation.id} does not match ChangeSet operationId ${changeSet.operationId}`), (payload.createdAt !== operation.proposedAt || payload.updatedAt !== operation.proposedAt) && findings.push("release.create timestamps must match the server-owned operation proposedAt value"), (payload.createdBy !== operation.proposedBy || payload.updatedBy !== operation.proposedBy) && findings.push("release.create actors must match the server-owned operation proposedBy value")), findings;
 }
 
+// runtime/src/lib/releaseStore.mjs
+import fs11 from "node:fs";
+import path9 from "node:path";
+function releaseRelativeDir(releaseId) {
+  if (!isUuidV7(releaseId)) throw new Error(`invalid release id: ${releaseId}`);
+  return path9.join("releases", releaseId);
+}
+function releaseYamlRelativePath(releaseId) {
+  return path9.join(releaseRelativeDir(releaseId), "release.yml");
+}
+function releaseReadmeRelativePath(releaseId) {
+  return path9.join(releaseRelativeDir(releaseId), "README.md");
+}
+function releaseIntegrityFindings(release, { directoryId = null } = {}) {
+  let findings = [], schemaResult = validate("release", release);
+  if (!schemaResult.valid) {
+    for (let error2 of schemaResult.errors) findings.push(`release.yml${error2.path}: ${error2.message}`);
+    return { schemaValid: !1, findings };
+  }
+  directoryId && release.id !== directoryId && findings.push(`release.id ${release.id} does not match directory ${directoryId}`), isReleaseDisplayIdForUuid(release.id, release.displayId) || findings.push(`displayId ${release.displayId} is not derived from release UUIDv7 ${release.id}`);
+  let revisionless = { ...release, audit: { ...release.audit } };
+  delete revisionless.audit.revision;
+  let expectedRevision = `sha256:${revisionHash(revisionless)}`;
+  return release.audit.revision !== expectedRevision && findings.push(`audit.revision does not match canonical release content (expected ${expectedRevision})`), { schemaValid: !0, findings };
+}
+function readReleaseFile(planningRoot, releaseId) {
+  let relativePath = releaseYamlRelativePath(releaseId), filePath = confineWritePath(planningRoot, relativePath);
+  if (!fs11.existsSync(filePath)) {
+    let error2 = new Error(`release not found: ${releaseId}`);
+    throw error2.code = "ENOENT", error2;
+  }
+  let stat = fs11.lstatSync(filePath);
+  if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`${relativePath}: canonical release must be a real file`);
+  let release = parseYaml(fs11.readFileSync(filePath, "utf8"));
+  return { relativePath, filePath, release };
+}
+function scanReleaseRecords(planningRoot, { includeInvalid = !1, requireIntegrity = !0 } = {}) {
+  let releasesRoot = confineWritePath(planningRoot, "releases");
+  if (!fs11.existsSync(releasesRoot)) return [];
+  let rootStat = fs11.lstatSync(releasesRoot);
+  if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) throw new Error("releases catalog must be a real directory");
+  let records = [];
+  for (let entry of fs11.readdirSync(releasesRoot).sort()) {
+    if (!isUuidV7(entry)) throw new Error(`releases/${entry}: not a valid release id`);
+    let releasePath;
+    try {
+      releasePath = confineWritePath(planningRoot, releaseYamlRelativePath(entry));
+    } catch (error2) {
+      throw new Error(`releases/${entry}: ${error2.message}`);
+    }
+    if (!fs11.existsSync(releasePath)) throw new Error(`releases/${entry}/release.yml: required file is missing`);
+    let stat = fs11.lstatSync(releasePath);
+    if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`releases/${entry}/release.yml: canonical release must be a real file`);
+    try {
+      let release = parseYaml(fs11.readFileSync(releasePath, "utf8")), integrity = releaseIntegrityFindings(release, { directoryId: entry }), invalid = !integrity.schemaValid || requireIntegrity && integrity.findings.length > 0;
+      if (invalid && !includeInvalid) throw new Error(integrity.findings.join("; "));
+      records.push({ directoryId: entry, release, invalid, findings: integrity.findings });
+    } catch (error2) {
+      if (!includeInvalid) throw error2;
+      records.push({ directoryId: entry, release: null, invalid: !0, findings: [error2.message] });
+    }
+  }
+  return records;
+}
+function listReleaseDocuments(planningRoot, options = {}) {
+  return scanReleaseRecords(planningRoot, options).filter((record) => record.release).map((record) => record.release);
+}
+function resolveReleaseReference(planningRoot, reference) {
+  if (isUuidV7(reference)) {
+    let read;
+    try {
+      read = readReleaseFile(planningRoot, reference);
+    } catch (error2) {
+      return { status: error2.code === "ENOENT" ? "NOT_FOUND" : "INVALID", reference, findings: [error2.message] };
+    }
+    let integrity2 = releaseIntegrityFindings(read.release, { directoryId: reference });
+    return integrity2.findings.length > 0 ? { status: "INVALID", reference, release: read.release, findings: integrity2.findings } : { status: "FOUND", reference, release: read.release, findings: [] };
+  }
+  if (!isReleaseDisplayId(reference))
+    return { status: "NOT_FOUND", reference, findings: ["release references must be UUIDv7 or display ID; slug is not accepted"] };
+  let records;
+  try {
+    records = scanReleaseRecords(planningRoot, { includeInvalid: !0, requireIntegrity: !1 });
+  } catch (error2) {
+    return { status: "INVALID", reference, findings: [`release catalog is invalid: ${error2.message}`] };
+  }
+  let matches = records.filter((record) => record.release?.displayId === reference);
+  if (matches.length === 0) return { status: "NOT_FOUND", reference, findings: [`release not found: ${reference}`] };
+  if (matches.length > 1)
+    return { status: "AMBIGUOUS", reference, findings: [`display ID ${reference} is ambiguous across ${matches.length} releases`], matches: matches.map((record) => record.directoryId).sort() };
+  let match = matches[0], integrity = releaseIntegrityFindings(match.release, { directoryId: match.directoryId });
+  return match.invalid || integrity.findings.length > 0 ? { status: "INVALID", reference, release: match.release, findings: [.../* @__PURE__ */ new Set([...match.findings, ...integrity.findings])] } : { status: "FOUND", reference, release: match.release, findings: [] };
+}
+
 // runtime/src/lib/changeset.mjs
 function readFileState(planningRoot, relativePath) {
   let absolutePath = confineRuntimeWritePath(planningRoot, relativePath);
-  if (!fs11.existsSync(absolutePath))
+  if (!fs12.existsSync(absolutePath))
     return { revisionHash: ABSENT, contentHash: ABSENT };
-  if (fs11.lstatSync(absolutePath).isDirectory())
+  if (fs12.lstatSync(absolutePath).isDirectory())
     return { revisionHash: DIRECTORY_CONTENT_HASH, contentHash: DIRECTORY_CONTENT_HASH };
-  let bytes = fs11.readFileSync(absolutePath), isStructured = relativePath.endsWith(".yml") || relativePath.endsWith(".yaml") || relativePath.endsWith(".json"), structuredValue = isStructured ? relativePath.endsWith(".json") ? JSON.parse(bytes.toString("utf8")) : parseYaml(bytes.toString("utf8")) : null;
+  let bytes = fs12.readFileSync(absolutePath), isStructured = relativePath.endsWith(".yml") || relativePath.endsWith(".yaml") || relativePath.endsWith(".json"), structuredValue = isStructured ? relativePath.endsWith(".json") ? JSON.parse(bytes.toString("utf8")) : parseYaml(bytes.toString("utf8")) : null;
   return {
     revisionHash: isStructured ? revisionHash(structuredValue) : contentHash(bytes),
     contentHash: contentHash(bytes)
@@ -18840,9 +18936,9 @@ function eventTypeFor(kind) {
   }[kind];
 }
 function findIdempotentOperation(operationsRoot, { kind, key, requestHash }) {
-  if (!key || !fs11.existsSync(operationsRoot)) return null;
+  if (!key || !fs12.existsSync(operationsRoot)) return null;
   let matchingOperationId = null;
-  for (let candidateId of fs11.readdirSync(operationsRoot).sort()) {
+  for (let candidateId of fs12.readdirSync(operationsRoot).sort()) {
     let operation;
     try {
       operation = readOperation(operationsRoot, candidateId);
@@ -18899,7 +18995,7 @@ function propose({ operationsRoot, planningRoot, kind, target, payload, targetFi
 function schemaNameForRenderedPath(relativePath) {
   return relativePath === "config.yml" ? "config" : relativePath === "plugin.lock.yml" ? "plugin-lock" : /^sources\/[^/]+\/source\.yml$/.test(relativePath) ? "source" : /^scopes\/[^/]+\/scope\.yml$/.test(relativePath) ? "scope" : /^scopes\/[^/]+\/(task|test)-guide\.yml$/.test(relativePath) ? "guide" : /^releases\/[^/]+\/release\.yml$/.test(relativePath) ? "release" : null;
 }
-function checkKindInvariants(changeSet, operation = null) {
+function checkKindInvariants(changeSet, operation = null, planningRoot = null) {
   let errors = [];
   if (changeSet.kind === "workspace.init")
     for (let relativePath of Object.keys(changeSet.baseRevisions)) {
@@ -18919,7 +19015,13 @@ function checkKindInvariants(changeSet, operation = null) {
     changeSet.payload.action === "generate" ? (!guideBase || guideBase.contentHash !== ABSENT) && errors.push(`${guidePath2} must be ABSENT for initial guide.generate`) : (!guideBase || guideBase.contentHash === ABSENT) && errors.push(`${guidePath2} must already exist for guide.${changeSet.payload.action}`);
   }
   if (changeSet.kind === "release.create") {
-    errors.push(...releaseCreateInvariantFindings(changeSet, operation));
+    let existingReleases = [];
+    try {
+      existingReleases = listReleaseDocuments(planningRoot);
+    } catch (error2) {
+      errors.push(`release.create cannot verify display ID uniqueness: ${error2.message}`);
+    }
+    errors.push(...releaseCreateInvariantFindings(changeSet, operation, existingReleases));
     let releasePath = `releases/${changeSet.payload.id}/release.yml`, readmePath = `releases/${changeSet.payload.id}/README.md`, actualPaths = new Set(Object.keys(changeSet.baseRevisions));
     (actualPaths.size !== 2 || !actualPaths.has(releasePath) || !actualPaths.has(readmePath)) && errors.push("release.create baseRevisions must contain exactly release.yml and README.md for the UUIDv7 release directory");
     for (let relativePath of [releasePath, readmePath]) {
@@ -18939,7 +19041,7 @@ function revalidateChangeSet({ operationsRoot, planningRoot, operationId, render
   let changeSetResult = validate("change-set", changeSet);
   if (!changeSetResult.valid)
     return { ok: !1, status: "INVALID", errors: changeSetResult.errors.map((e) => `change-set${e.path}: ${e.message}`), recomputedHash };
-  let invariantErrors = checkKindInvariants(changeSet, operation);
+  let invariantErrors = checkKindInvariants(changeSet, operation, planningRoot);
   if (invariantErrors.length > 0)
     return { ok: !1, status: "INVALID", errors: invariantErrors, recomputedHash };
   let rendered;
@@ -19056,15 +19158,15 @@ function prepareApply({ operationsRoot, planningRoot, operationId, render, actor
   let discoveryWorkspace = changeSet.preconditions?.discoveryWorkspace;
   discoveryWorkspace && runDiscoverScan({
     planningRoot,
-    workspaceRoot: path9.dirname(planningRoot),
+    workspaceRoot: path10.dirname(planningRoot),
     maxSourceBytes: discoveryWorkspace.scanParameters.maxSourceBytes
   }).baseRevision.workspaceHash !== discoveryWorkspace.workspaceHash && transitionToStale(operationsRoot, operationId, operation, "discovery workspace changed since validation; rescan and create a new operation");
-  let rendered = revalidation.rendered, runtimeOperationRelative = path9.join(".runtime", "operations", operationId), stagingRelative = path9.join(runtimeOperationRelative, "staged"), beforeRelative = path9.join(runtimeOperationRelative, "before");
+  let rendered = revalidation.rendered, runtimeOperationRelative = path10.join(".runtime", "operations", operationId), stagingRelative = path10.join(runtimeOperationRelative, "staged"), beforeRelative = path10.join(runtimeOperationRelative, "before");
   ensureDirectoryTree(planningRoot, stagingRelative), ensureDirectoryTree(planningRoot, beforeRelative), assertDistinctMutationTargets(planningRoot, [...rendered.keys()]);
   let filePlan = [];
   for (let [relativePath, newContent] of rendered) {
     let before = changeSet.baseRevisions[relativePath];
-    confineRuntimeWritePath(planningRoot, relativePath), before.contentHash !== ABSENT && !isDirectoryRenderEntry(newContent) && copyFileAtomic(planningRoot, relativePath, path9.join(beforeRelative, relativePath)), isDirectoryRenderEntry(newContent) ? filePlan.push({
+    confineRuntimeWritePath(planningRoot, relativePath), before.contentHash !== ABSENT && !isDirectoryRenderEntry(newContent) && copyFileAtomic(planningRoot, relativePath, path10.join(beforeRelative, relativePath)), isDirectoryRenderEntry(newContent) ? filePlan.push({
       target: relativePath,
       action: "mkdir",
       expectedBefore: before.contentHash === ABSENT ? "ABSENT" : "PRESENT",
@@ -19093,7 +19195,7 @@ function prepareApply({ operationsRoot, planningRoot, operationId, render, actor
   }
   checkpoint("AFTER_BEFORE");
   for (let [relativePath, newContent] of rendered)
-    newContent === null || isDirectoryRenderEntry(newContent) || writeFileAtomic(planningRoot, path9.join(stagingRelative, relativePath), newContent);
+    newContent === null || isDirectoryRenderEntry(newContent) || writeFileAtomic(planningRoot, path10.join(stagingRelative, relativePath), newContent);
   checkpoint("AFTER_STAGED");
   let expectedEvents = operation.expectedEvents?.length ? operation.expectedEvents.map((expectedEvent) => {
     let relationallyConsistent = expectedEvent.eventId === expectedEvent.document?.eventId && expectedEvent.document?.operationId === operation.id && expectedEvent.relativePath.endsWith(`/${expectedEvent.eventId}.json`), eventSchemaCheck = validate("event", expectedEvent.document);
@@ -19146,13 +19248,13 @@ function applyOperation({ operationsRoot, planningRoot, operationId, render, act
       throw new StateError(`cannot apply operation in status ${operation.status}`);
     let { filePlan, expectedEvents, stagingRelative, runtimeOperationRelative } = prepareApply({ operationsRoot, planningRoot, operationId, render, actor }), files = [];
     for (let [index, entry] of filePlan.entries())
-      entry.action === "delete" ? (deleteWithinRoot(planningRoot, entry.target), operation.kind === "discovery.propose" && removeEmptyParentDirectoryWithinRoot(planningRoot, entry.target)) : entry.action === "mkdir" ? ensureDirectoryTree(planningRoot, entry.target) : renameWithinRoot(planningRoot, path9.join(stagingRelative, entry.stagedRelativePath), entry.target), files.push({ target: entry.target, action: entry.action, contentHash: entry.stagedContentHash }), index === 0 && checkpoint("AFTER_FIRST_RENAME");
+      entry.action === "delete" ? (deleteWithinRoot(planningRoot, entry.target), operation.kind === "discovery.propose" && removeEmptyParentDirectoryWithinRoot(planningRoot, entry.target)) : entry.action === "mkdir" ? ensureDirectoryTree(planningRoot, entry.target) : renameWithinRoot(planningRoot, path10.join(stagingRelative, entry.stagedRelativePath), entry.target), files.push({ target: entry.target, action: entry.action, contentHash: entry.stagedContentHash }), index === 0 && checkpoint("AFTER_FIRST_RENAME");
     checkpoint("AFTER_ALL_RENAMES");
     let result = { operationId, files }, resultSchemaCheck = validate("result", result);
     if (!resultSchemaCheck.valid)
       throw new Error(`constructed result is schema-invalid: ${resultSchemaCheck.errors.map((e) => `${e.path} ${e.message}`).join("; ")}`);
     writeResult(operationsRoot, operationId, result), checkpoint("AFTER_RESULT");
-    let eventsRoot = path9.join(planningRoot, "events");
+    let eventsRoot = path10.join(planningRoot, "events");
     for (let [index, expectedEvent] of expectedEvents.entries())
       writeEventIdempotent(eventsRoot, expectedEvent), index === 0 && checkpoint("AFTER_FIRST_EVENT");
     checkpoint("AFTER_ALL_EVENTS"), checkpoint("BEFORE_APPLIED");
@@ -19164,102 +19266,8 @@ function applyOperation({ operationsRoot, planningRoot, operationId, render, act
       history: [...current.history, { at: appliedAt, from: "APPLYING", to: "APPLIED", actor, reason: null }]
     });
     let residuePath = confineRuntimeWritePath(planningRoot, runtimeOperationRelative);
-    return fs11.rmSync(residuePath, { recursive: !0, force: !0 }), { status: "APPLIED", files };
+    return fs12.rmSync(residuePath, { recursive: !0, force: !0 }), { status: "APPLIED", files };
   });
-}
-
-// runtime/src/lib/releaseStore.mjs
-import fs12 from "node:fs";
-import path10 from "node:path";
-function releaseRelativeDir(releaseId) {
-  if (!isUuidV7(releaseId)) throw new Error(`invalid release id: ${releaseId}`);
-  return path10.join("releases", releaseId);
-}
-function releaseYamlRelativePath(releaseId) {
-  return path10.join(releaseRelativeDir(releaseId), "release.yml");
-}
-function releaseReadmeRelativePath(releaseId) {
-  return path10.join(releaseRelativeDir(releaseId), "README.md");
-}
-function releaseIntegrityFindings(release, { directoryId = null } = {}) {
-  let findings = [], schemaResult = validate("release", release);
-  if (!schemaResult.valid) {
-    for (let error2 of schemaResult.errors) findings.push(`release.yml${error2.path}: ${error2.message}`);
-    return { schemaValid: !1, findings };
-  }
-  directoryId && release.id !== directoryId && findings.push(`release.id ${release.id} does not match directory ${directoryId}`), isReleaseDisplayIdForUuid(release.id, release.displayId) || findings.push(`displayId ${release.displayId} is not derived from release UUIDv7 ${release.id}`);
-  let revisionless = { ...release, audit: { ...release.audit } };
-  delete revisionless.audit.revision;
-  let expectedRevision = `sha256:${revisionHash(revisionless)}`;
-  return release.audit.revision !== expectedRevision && findings.push(`audit.revision does not match canonical release content (expected ${expectedRevision})`), { schemaValid: !0, findings };
-}
-function readReleaseFile(planningRoot, releaseId) {
-  let relativePath = releaseYamlRelativePath(releaseId), filePath = confineWritePath(planningRoot, relativePath);
-  if (!fs12.existsSync(filePath)) {
-    let error2 = new Error(`release not found: ${releaseId}`);
-    throw error2.code = "ENOENT", error2;
-  }
-  let stat = fs12.lstatSync(filePath);
-  if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`${relativePath}: canonical release must be a real file`);
-  let release = parseYaml(fs12.readFileSync(filePath, "utf8"));
-  return { relativePath, filePath, release };
-}
-function scanReleaseRecords(planningRoot, { includeInvalid = !1, requireIntegrity = !0 } = {}) {
-  let releasesRoot = confineWritePath(planningRoot, "releases");
-  if (!fs12.existsSync(releasesRoot)) return [];
-  let rootStat = fs12.lstatSync(releasesRoot);
-  if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) throw new Error("releases catalog must be a real directory");
-  let records = [];
-  for (let entry of fs12.readdirSync(releasesRoot).sort()) {
-    if (!isUuidV7(entry)) throw new Error(`releases/${entry}: not a valid release id`);
-    let releasePath;
-    try {
-      releasePath = confineWritePath(planningRoot, releaseYamlRelativePath(entry));
-    } catch (error2) {
-      throw new Error(`releases/${entry}: ${error2.message}`);
-    }
-    if (!fs12.existsSync(releasePath)) throw new Error(`releases/${entry}/release.yml: required file is missing`);
-    let stat = fs12.lstatSync(releasePath);
-    if (!stat.isFile() || stat.isSymbolicLink()) throw new Error(`releases/${entry}/release.yml: canonical release must be a real file`);
-    try {
-      let release = parseYaml(fs12.readFileSync(releasePath, "utf8")), integrity = releaseIntegrityFindings(release, { directoryId: entry }), invalid = !integrity.schemaValid || requireIntegrity && integrity.findings.length > 0;
-      if (invalid && !includeInvalid) throw new Error(integrity.findings.join("; "));
-      records.push({ directoryId: entry, release, invalid, findings: integrity.findings });
-    } catch (error2) {
-      if (!includeInvalid) throw error2;
-      records.push({ directoryId: entry, release: null, invalid: !0, findings: [error2.message] });
-    }
-  }
-  return records;
-}
-function listReleaseDocuments(planningRoot, options = {}) {
-  return scanReleaseRecords(planningRoot, options).filter((record) => record.release).map((record) => record.release);
-}
-function resolveReleaseReference(planningRoot, reference) {
-  if (isUuidV7(reference)) {
-    let read;
-    try {
-      read = readReleaseFile(planningRoot, reference);
-    } catch (error2) {
-      return { status: error2.code === "ENOENT" ? "NOT_FOUND" : "INVALID", reference, findings: [error2.message] };
-    }
-    let integrity2 = releaseIntegrityFindings(read.release, { directoryId: reference });
-    return integrity2.findings.length > 0 ? { status: "INVALID", reference, release: read.release, findings: integrity2.findings } : { status: "FOUND", reference, release: read.release, findings: [] };
-  }
-  if (!isReleaseDisplayId(reference))
-    return { status: "NOT_FOUND", reference, findings: ["release references must be UUIDv7 or display ID; slug is not accepted"] };
-  let records;
-  try {
-    records = scanReleaseRecords(planningRoot, { includeInvalid: !0, requireIntegrity: !1 });
-  } catch (error2) {
-    return { status: "INVALID", reference, findings: [`release catalog is invalid: ${error2.message}`] };
-  }
-  let matches = records.filter((record) => record.release?.displayId === reference);
-  if (matches.length === 0) return { status: "NOT_FOUND", reference, findings: [`release not found: ${reference}`] };
-  if (matches.length > 1)
-    return { status: "AMBIGUOUS", reference, findings: [`display ID ${reference} is ambiguous across ${matches.length} releases`], matches: matches.map((record) => record.directoryId).sort() };
-  let match = matches[0], integrity = releaseIntegrityFindings(match.release, { directoryId: match.directoryId });
-  return match.invalid || integrity.findings.length > 0 ? { status: "INVALID", reference, release: match.release, findings: [.../* @__PURE__ */ new Set([...match.findings, ...integrity.findings])] } : { status: "FOUND", reference, release: match.release, findings: [] };
 }
 
 // runtime/src/commands/proposalPreparation.mjs
