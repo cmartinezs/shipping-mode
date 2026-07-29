@@ -29,6 +29,7 @@ function exitCodeForError(error) {
   if (error instanceof RecoveryRequiredError) return 1;
   if (error instanceof LockHeldError) return 1;
   if (error instanceof PathConfinementError) return 1;
+  if (["INVALID", "STALE", "CAPABILITY_UNAVAILABLE"].includes(error.code)) return 1;
   return 2;
 }
 
@@ -42,7 +43,7 @@ if (args[0] === "--version") {
       "init --name <name> [--project-type software|non_software|mixed|unknown] [--base-branch <b>] [--vcs git|none] --actor <actor>",
       "config set --name <name> --actor <actor>",
       "config scope add --key <slug> --label <label> --kind code|non_code --path <path> [--owner <o>] --actor <actor>",
-      "changeset propose --kind <workspace.init|config.update|scope.add|scope.generator.set|guide.update|release.create|release.policy.configure|release.scopeRefs.set|release.operationalRefs.set|release.deployment.record> --payload-file <file|-> --actor <actor>",
+      "changeset propose --kind <workspace.init|config.update|scope.add|scope.generator.set|guide.update|release.create|release.policy.configure|release.scopeRefs.set|release.operationalRefs.set|release.deployment.record|release.finalization.complete> --payload-file <file|-> --actor <actor>",
       "changeset validate <operation-id>",
       "changeset approve <operation-id> --actor <actor> [--allow-self-approval]",
       "changeset apply <operation-id> --actor <actor>",
@@ -52,7 +53,9 @@ if (args[0] === "--version") {
       "release scope set <id-or-display-id> --scope-ids <uuid,...> [--policy-mode strict|advisory] [--idempotency-key <key>] --actor <actor>",
       "release refs set <id-or-display-id> [--execution-context-refs <uuid,...>] [--environment-refs <uuid,...>] [--idempotency-key <key>] --actor <actor>",
       "release deployment record <id-or-display-id> --environment-ref <uuid> [--execution-context-ref <uuid>] --status planned|started|succeeded|failed|cancelled [--artifact-refs <ref,...>] [--evidence-refs <ref,...>] [--idempotency-key <key>] --actor <actor>",
+      "release finalize <id-or-display-id> [--retrospective-status not_started|draft|approved|not_required] [--idempotency-key <key>] --actor <actor>",
       "check schema",
+      "check release [id-or-display-id]",
       "check guides [--scope-id <uuid>] [--mode strict|advisory]",
       "--help", "--version"
     ]

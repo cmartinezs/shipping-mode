@@ -10,9 +10,11 @@ import { REQUIRED_BOOTSTRAP_DIRECTORIES } from "../lib/bootstrapTopology.mjs";
 import { projectContextConsistencyFindings } from "../lib/projectContextValidation.mjs";
 import { contentHash, revisionHash } from "../lib/canonical.mjs";
 import { compareReleaseReadme } from "../lib/releaseProjection.mjs";
-import { releaseIntegrityFindings } from "../lib/releaseStore.mjs";
+import { listReleaseDocuments, releaseIntegrityFindings, resolveReleaseReference } from "../lib/releaseStore.mjs";
 import { readCatalogEntry } from "../lib/operationalCatalog.mjs";
 import { releaseCatalogPolicyFindings } from "../lib/releasePolicy.mjs";
+import { evaluateReleaseHealth } from "../lib/releaseHealth.mjs";
+import { pendingRecovery } from "./release.mjs";
 
 function checkRequiredFile(planningRoot, relativePath, schemaName, findings) {
   let filePath;
@@ -373,4 +375,66 @@ export function checkSchema({ planningRoot }) {
 
   const status = findings.length > 0 ? "FAIL" : pendingOperations.length > 0 ? "RECOVERY_REQUIRED" : "PASS";
   return { status, findings, pendingOperations };
+}
+
+function checkReleaseDocument(planningRoot, release) {
+  const health = evaluateReleaseHealth({ planningRoot, release, directoryId: release.id });
+  return {
+    release: {
+      id: release.id,
+      displayId: release.displayId,
+      lifecycle: release.status,
+      laneId: release.lane?.id ?? null,
+      policyMode: release.policy?.mode ?? null
+    },
+    derivedHealth: health,
+    completion: health.completion,
+    readiness: health.readiness,
+    findings: health.findings
+  };
+}
+
+function releaseCheckStatus(entries, extraFindings = []) {
+  if (extraFindings.length > 0) return "FAIL";
+  return entries.some((entry) => !entry.derivedHealth.aggregate.valid) ? "FAIL" : "PASS";
+}
+
+export function checkRelease({ planningRoot, reference = null }) {
+  if (!fs.existsSync(planningRoot)) {
+    return { status: "NOT_INITIALIZED", scope: reference ? "single" : "catalog", releases: [], findings: ["workspace is not initialized: .planning/ does not exist"], pendingOperations: [] };
+  }
+  const pending = pendingRecovery(planningRoot);
+  if (pending.length > 0) {
+    return { status: "RECOVERY_REQUIRED", scope: reference ? "single" : "catalog", releases: [], findings: ["workspace has pending or recovery-required operations"], pendingOperations: pending };
+  }
+  if (reference) {
+    const resolution = resolveReleaseReference(planningRoot, reference);
+    if (resolution.status !== "FOUND") {
+      return { status: resolution.status, scope: "single", releases: [], findings: resolution.findings, matches: resolution.matches || [] };
+    }
+    const entry = checkReleaseDocument(planningRoot, resolution.release);
+    return {
+      status: releaseCheckStatus([entry]),
+      scope: "single",
+      releases: [entry],
+      findings: entry.findings.map((finding) => `${finding.code}: ${finding.message}`),
+      pendingOperations: []
+    };
+  }
+  let releases;
+  try {
+    releases = listReleaseDocuments(planningRoot, { includeInvalid: true, requireIntegrity: false });
+  } catch (error) {
+    return { status: "FAIL", scope: "catalog", releases: [], findings: [`release catalog is invalid: ${error.message}`], pendingOperations: [] };
+  }
+  const entries = releases.sort((left, right) => left.id.localeCompare(right.id)).map((release) => checkReleaseDocument(planningRoot, release));
+  const findings = entries.flatMap((entry) => entry.findings.map((finding) => `${entry.release.id}: ${finding.code}: ${finding.message}`));
+  if (entries.length === 0) findings.push("release catalog is empty");
+  return {
+    status: entries.length === 0 ? "FAIL" : releaseCheckStatus(entries),
+    scope: "catalog",
+    releases: entries,
+    findings,
+    pendingOperations: []
+  };
 }

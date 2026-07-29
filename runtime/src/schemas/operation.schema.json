@@ -30,7 +30,8 @@
         "release.policy.configure",
         "release.scopeRefs.set",
         "release.operationalRefs.set",
-        "release.deployment.record"
+        "release.deployment.record",
+        "release.finalization.complete"
       ]
     },
     "status": {

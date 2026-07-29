@@ -10,12 +10,14 @@ import { isReleaseDisplayId } from "./releaseIdentity.mjs";
 import { assertReleasePolicyValid, assertValidLaneConfig, releasePolicyRequestHash } from "./releasePolicy.mjs";
 import { assertCatalogRefsValid } from "./operationalCatalog.mjs";
 import { buildScopeRefsEvidence, assertScopeEvidenceCurrent } from "./releaseScopeEvidence.mjs";
+import { assertReleaseCanFinalize, evaluateReleaseHealth } from "./releaseHealth.mjs";
 
 export const RELEASE_PLAN2_KINDS = Object.freeze([
   "release.policy.configure",
   "release.scopeRefs.set",
   "release.operationalRefs.set",
-  "release.deployment.record"
+  "release.deployment.record",
+  "release.finalization.complete"
 ]);
 
 function requireObject(rawPayload) {
@@ -47,7 +49,7 @@ function normalizeUuidList(value, field) {
 }
 
 function rejectServerOwned(rawPayload) {
-  const serverOwned = new Set(["id", "displayId", "audit", "operationId", "createdAt", "updatedAt", "actor", "eventId", "changeSetHash", "revision", "readiness", "completion", "deploymentEvents"]);
+  const serverOwned = new Set(["id", "displayId", "audit", "operationId", "createdAt", "updatedAt", "actor", "eventId", "changeSetHash", "revision", "readiness", "completion", "health", "findings", "deploymentEvents", "finalization", "completed", "completedBy"]);
   for (const field of Object.keys(rawPayload)) {
     if (serverOwned.has(field)) throw new Error(`release mutation field is server-owned: ${field}`);
   }
@@ -58,7 +60,8 @@ function assertAllowedFields(kind, rawPayload) {
     "release.policy.configure": new Set(["releaseRef", "laneId", "policyMode", "previousReleaseRefs", "dependencyRefs", "idempotencyKey"]),
     "release.scopeRefs.set": new Set(["releaseRef", "scopeIds", "policyMode", "idempotencyKey"]),
     "release.operationalRefs.set": new Set(["releaseRef", "executionContextRefs", "environmentRefs", "idempotencyKey"]),
-    "release.deployment.record": new Set(["releaseRef", "environmentRef", "executionContextRef", "status", "artifactRefs", "evidenceRefs", "completedAt", "idempotencyKey"])
+    "release.deployment.record": new Set(["releaseRef", "environmentRef", "executionContextRef", "status", "artifactRefs", "evidenceRefs", "completedAt", "idempotencyKey"]),
+    "release.finalization.complete": new Set(["releaseRef", "retrospectiveStatus", "idempotencyKey"])
   };
   const allowed = allowedByKind[kind];
   if (!allowed) throw new Error(`unsupported release mutation kind: ${kind}`);
@@ -133,6 +136,8 @@ export function releaseMutationInvariantFindings(changeSet, operation = null, pl
       rawRequest.artifactRefs = snapshot.artifactRefs;
       rawRequest.evidenceRefs = snapshot.evidenceRefs;
       rawRequest.completedAt = snapshot.completedAt;
+    } else if (changeSet.kind === "release.finalization.complete") {
+      rawRequest.retrospectiveStatus = snapshot.retrospectiveStatus;
     }
     const normalized = normalizeReleaseMutationRequest(changeSet.kind, rawRequest, {
       actor,
@@ -182,6 +187,15 @@ export function releaseMutationInvariantFindings(changeSet, operation = null, pl
     for (const field of ["environmentRef", "executionContextRef", "status", "artifactRefs", "evidenceRefs", "completedAt"]) {
       if (!canonicalEqual(event[field], snapshot[field])) findings.push(`release.deployment.record deploymentEvent.${field} does not match caller intent`);
     }
+  } else if (changeSet.kind === "release.finalization.complete") {
+    if (payload.previousFinalization?.completed !== false) findings.push("release.finalization.complete previousFinalization must be the current incomplete state at propose");
+    if (payload.nextFinalization?.completed !== true) findings.push("release.finalization.complete nextFinalization must complete finalization");
+    if (operation && payload.nextFinalization?.completedAt !== operation.proposedAt) findings.push("release.finalization.complete completedAt must match the server-owned Operation proposedAt");
+    if (operation && payload.nextFinalization?.completedBy !== operation.proposedBy) findings.push("release.finalization.complete completedBy must match the server-owned Operation proposedBy");
+    if (payload.nextFinalization?.retrospectiveStatus !== snapshot.retrospectiveStatus) findings.push("release.finalization.complete retrospectiveStatus must match caller intent");
+    if (payload.guardSummary && payload.guardSummary.lifecycle !== payload.lifecycleStatus) findings.push("release.finalization.complete guard lifecycle must match payload lifecycleStatus");
+    if (payload.guardSummary && payload.guardSummaryHash !== releasePolicyRequestHash({ actor: "system:release-health", requestSnapshot: payload.guardSummary })) findings.push("release.finalization.complete guardSummaryHash must match guardSummary");
+    if (currentRelease && !canonicalEqual(currentRelease.finalization, payload.previousFinalization)) findings.push("release.finalization.complete previousFinalization must match current Release finalization at validation");
   }
 
   return findings;
@@ -234,6 +248,13 @@ export function normalizeReleaseMutationRequest(kind, rawPayload, { actor, defau
     };
     if (!isUuidV7(requestSnapshot.environmentRef)) throw new Error("environmentRef must be UUIDv7");
     if (requestSnapshot.executionContextRef !== null && !isUuidV7(requestSnapshot.executionContextRef)) throw new Error("executionContextRef must be UUIDv7 or null");
+  } else if (kind === "release.finalization.complete") {
+    const retrospectiveStatus = optionalString(rawPayload.retrospectiveStatus, "retrospectiveStatus") || "not_required";
+    if (!["not_started", "draft", "approved", "not_required"].includes(retrospectiveStatus)) throw new Error("release.finalization.complete retrospectiveStatus is invalid");
+    requestSnapshot = {
+      releaseRef,
+      retrospectiveStatus
+    };
   } else {
     throw new Error(`unsupported release mutation kind: ${kind}`);
   }
@@ -322,6 +343,23 @@ export function prepareReleaseMutation(kind, rawPayload, {
       },
       observedRevisions: { ...payload.observedRevisions, executionContextRefs: executionContextRevisions, environmentRefs: environmentRevisions }
     };
+  } else if (kind === "release.finalization.complete") {
+    const health = evaluateReleaseHealth({ planningRoot, release, directoryId: release.id });
+    const guardSummary = assertReleaseCanFinalize({ health, release });
+    const nextFinalization = {
+      completed: true,
+      completedAt: proposedAt,
+      completedBy: actor,
+      retrospectiveStatus: normalized.requestSnapshot.retrospectiveStatus
+    };
+    payload = {
+      ...payload,
+      lifecycleStatus: release.status,
+      previousFinalization: release.finalization,
+      nextFinalization,
+      guardSummary,
+      guardSummaryHash: releasePolicyRequestHash({ actor: "system:release-health", requestSnapshot: guardSummary })
+    };
   }
 
   return { target: { releaseId: release.id }, payload, targetFiles: mutationTargets(release.id), normalized };
@@ -393,6 +431,21 @@ export function renderReleaseMutation(kind, payload, { planningRoot, workspaceRo
     }
     if (release.deploymentEvents.some((event) => event.id === payload.deploymentEvent.id)) throw new Error(`DUPLICATE_REFERENCE: deployment event already exists: ${payload.deploymentEvent.id}`);
     nextRelease = { ...nextRelease, deploymentEvents: [...release.deploymentEvents, payload.deploymentEvent] };
+  } else if (kind === "release.finalization.complete") {
+    const health = evaluateReleaseHealth({ planningRoot, release, directoryId: release.id });
+    const guardSummary = assertReleaseCanFinalize({ health, release });
+    const guardHash = releasePolicyRequestHash({ actor: "system:release-health", requestSnapshot: guardSummary });
+    if (guardHash !== payload.guardSummaryHash) {
+      const error = new Error("REFERENCE_STALE: release finalization guard summary changed since propose");
+      error.code = "STALE";
+      throw error;
+    }
+    if (revisionHash(release.finalization) !== revisionHash(payload.previousFinalization)) {
+      const error = new Error("REFERENCE_STALE: finalization metadata changed since propose");
+      error.code = "STALE";
+      throw error;
+    }
+    nextRelease = { ...nextRelease, finalization: payload.nextFinalization };
   } else {
     throw new Error(`unsupported release mutation kind: ${kind}`);
   }
