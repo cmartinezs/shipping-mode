@@ -1,6 +1,6 @@
 ---
 description: Check Shipping Mode schema, guides and Release health query-only.
-argument-hint: "schema | guides [--scope-id <uuid>] | release [id-or-display-id]"
+argument-hint: "schema | guides [--scope-id <uuid>] | release [id-or-display-id] [--format json]"
 disable-model-invocation: true
 allowed-tools: Bash(shipping-mode check schema:*), Bash(shipping-mode check guides:*), Bash(shipping-mode check release:*)
 ---
@@ -10,7 +10,7 @@ Run query-only checks:
 ```text
 shipping-mode check schema
 shipping-mode check guides [--scope-id <uuid>] [--mode strict|advisory]
-shipping-mode check release [id-or-display-id]
+shipping-mode check release [id-or-display-id] [--format json]
 ```
 
 `check release` uses the same derived health evaluator as `release status`.

@@ -412,3 +412,14 @@ Deferred as structured `CAPABILITY_UNAVAILABLE`, not approved:
 - release trains;
 - parallel release execution;
 - generic `release.update`.
+
+## 21. Post-review Corrections
+
+Adversarial review of PR #23 closed four material gaps:
+
+- Scope/Guide health now rebuilds current canonical evidence instead of trusting the persisted readiness snapshot; stale guide content, metadata or source evidence is reported as `GUIDE_EVIDENCE_STALE` and blocks finalization.
+- Finalization guard summaries include a deterministic health/evidence revision. Changes to Scope/Guide, Environment or Execution Context documents stale the operation even when their boolean health result remains unchanged.
+- Whole-catalog `check release` retains parse/schema-invalid Release records and reports them structurally instead of silently omitting them or dereferencing missing fields.
+- `check release --format json` is parsed as an option for both single and catalog checks; unsupported formats and extra positional arguments fail with a controlled usage error.
+
+Required Project Context state and selected operational references are not treated as vacuously satisfied capabilities. Only explicitly deferred Corte 3+ completion capabilities remain non-blocking for current Release health.

@@ -10,6 +10,7 @@ import { compareReleaseReadme } from "./releaseProjection.mjs";
 import { releaseCatalogPolicyFindings, laneConfigFindings } from "./releasePolicy.mjs";
 import { listReleaseDocuments } from "./releaseStore.mjs";
 import { readCatalogEntry } from "./operationalCatalog.mjs";
+import { buildScopeRefsEvidence } from "./releaseScopeEvidence.mjs";
 
 export const RELEASE_HEALTH_FINDING_CODES = Object.freeze({
   SCHEMA_INVALID: "RELEASE_SCHEMA_INVALID",
@@ -43,9 +44,14 @@ function dimension(id, status, summary, findings = [], evidence = {}) {
 
 function readConfig(planningRoot) {
   const relativePath = "config.yml";
-  const configPath = confineWritePath(planningRoot, relativePath);
+  let configPath;
+  try {
+    configPath = confineWritePath(planningRoot, relativePath);
+  } catch (error) {
+    return { status: "corrupt", config: null, revision: null, findings: [finding({ code: RELEASE_HEALTH_FINDING_CODES.CATALOG_CORRUPT, dimension: "lane", message: `Project Context config.yml path is unsafe: ${error.message}`, evidence: { relativePath } })] };
+  }
   if (!fs.existsSync(configPath)) {
-    return { status: "missing", config: null, revision: null, findings: [finding({ code: RELEASE_HEALTH_FINDING_CODES.CAPABILITY_UNAVAILABLE, dimension: "lane", message: "Project Context config.yml is missing", evidence: { relativePath } })] };
+    return { status: "missing", config: null, revision: null, findings: [finding({ code: RELEASE_HEALTH_FINDING_CODES.CATALOG_CORRUPT, dimension: "lane", message: "Project Context config.yml is missing", evidence: { relativePath } })] };
   }
   const stat = fs.lstatSync(configPath);
   if (!stat.isFile() || stat.isSymbolicLink()) {
@@ -124,7 +130,7 @@ function structuralDimensions(release, directoryId) {
 }
 
 function laneDimension(configRead, release) {
-  if (configRead.status !== "found") return dimension("lane", configRead.status === "missing" ? "unavailable" : "invalid", "Release lane cannot be evaluated without a valid Project Context", configRead.findings, {});
+  if (configRead.status !== "found") return dimension("lane", "invalid", "Release lane cannot be evaluated without a valid Project Context", configRead.findings, {});
   const findings = laneConfigFindings(configRead.config, release.lane.id).map((entry) => finding({ code: entry.code, dimension: "lane", message: entry.message, evidence: { laneId: release.lane.id } }));
   return findings.length === 0
     ? dimension("lane", "valid", "Release lane is configured", [], { laneId: release.lane.id, configRevision: configRead.revision })
@@ -147,63 +153,127 @@ function policyDimension(planningRoot, release) {
 function scopeDimension(planningRoot, release) {
   if (release.scopeRefs.length === 0) {
     const f = finding({ code: RELEASE_HEALTH_FINDING_CODES.INVALID_REFERENCE, dimension: "scope", message: "Release has no scopeRefs; an empty list is not completion evidence", evidence: { scopeRefCount: 0 } });
-    return dimension("scope", "failed", "No Release scope evidence is selected", [f], { scopeRefCount: 0 });
+    return dimension("scope", "failed", "No Release scope evidence is selected", [f], { scopeRefCount: 0, evidenceByScope: {} });
   }
   const findings = [];
-  for (const scopeRef of release.scopeRefs) {
-    const scopePath = path.join("scopes", scopeRef.scopeId, "scope.yml");
-    const absolute = confineWritePath(planningRoot, scopePath);
-    if (!fs.existsSync(absolute)) {
-      findings.push(finding({ code: RELEASE_HEALTH_FINDING_CODES.INVALID_REFERENCE, dimension: "scope", message: `scopeRef ${scopeRef.scopeId} does not resolve`, evidence: { scopeId: scopeRef.scopeId, relativePath: scopePath } }));
-      continue;
-    }
-    if (!scopeRef.readiness.ready) {
-      findings.push(finding({ code: RELEASE_HEALTH_FINDING_CODES.SCOPE_NOT_READY, dimension: "scope", message: `scopeRef ${scopeRef.scopeId} is not ready`, evidence: { scopeId: scopeRef.scopeId, findings: scopeRef.findings } }));
+  const evidenceByScope = {};
+  for (const scopeRef of [...release.scopeRefs].sort((left, right) => left.scopeId.localeCompare(right.scopeId))) {
+    try {
+      const current = buildScopeRefsEvidence({
+        planningRoot,
+        workspaceRoot: path.dirname(planningRoot),
+        scopeIds: [scopeRef.scopeId],
+        evaluatedAt: scopeRef.evaluatedAt,
+        policyMode: scopeRef.readiness.policyMode
+      });
+      const currentRef = current.refs[0];
+      const persistedEvidenceRevision = revisionHash(scopeRef);
+      const currentEvidenceRevision = revisionHash(currentRef);
+      evidenceByScope[scopeRef.scopeId] = {
+        persistedEvidenceRevision,
+        currentEvidenceRevision,
+        observedRevisions: current.observedRevisions
+      };
+      if (persistedEvidenceRevision !== currentEvidenceRevision) {
+        findings.push(finding({
+          code: RELEASE_HEALTH_FINDING_CODES.GUIDE_EVIDENCE_STALE,
+          dimension: "scope",
+          message: `scopeRef ${scopeRef.scopeId} guide evidence is stale`,
+          evidence: { scopeId: scopeRef.scopeId, persistedEvidenceRevision, currentEvidenceRevision, observedRevisions: current.observedRevisions }
+        }));
+      }
+      if (!currentRef.readiness.ready) {
+        findings.push(finding({
+          code: RELEASE_HEALTH_FINDING_CODES.SCOPE_NOT_READY,
+          dimension: "scope",
+          message: `scopeRef ${scopeRef.scopeId} is not currently ready`,
+          evidence: { scopeId: scopeRef.scopeId, findings: currentRef.findings }
+        }));
+      }
+    } catch (error) {
+      const corrupt = /schema-invalid|failed to parse|real file|catalog|unsafe/i.test(error.message);
+      findings.push(finding({
+        code: corrupt ? RELEASE_HEALTH_FINDING_CODES.CATALOG_CORRUPT : RELEASE_HEALTH_FINDING_CODES.INVALID_REFERENCE,
+        dimension: "scope",
+        message: `scopeRef ${scopeRef.scopeId} cannot be reevaluated: ${error.message}`,
+        evidence: { scopeId: scopeRef.scopeId }
+      }));
     }
   }
+  const invalid = findings.some((entry) => entry.code === RELEASE_HEALTH_FINDING_CODES.CATALOG_CORRUPT);
   return findings.length === 0
-    ? dimension("scope", "valid", "Release scope evidence is present and ready", [], { scopeRefCount: release.scopeRefs.length })
-    : dimension("scope", "failed", "Release scope evidence is missing or not ready", findings, { scopeRefCount: release.scopeRefs.length });
+    ? dimension("scope", "valid", "Release scope evidence is current and ready", [], { scopeRefCount: release.scopeRefs.length, evidenceByScope })
+    : dimension("scope", invalid ? "invalid" : "failed", "Release scope evidence is stale, missing or not ready", findings, { scopeRefCount: release.scopeRefs.length, evidenceByScope });
 }
 
 function refsDimension(planningRoot, release) {
   const findings = [];
-  for (const id of release.executionContextRefs || []) {
-    const result = readCatalogEntry(planningRoot, "executionContext", id);
-    if (result.status !== "FOUND") findings.push(...result.findings.map((entry) => finding({ code: entry.code, dimension: "refs", message: entry.message, evidence: { executionContextRef: id } })));
+  const revisions = { executionContexts: {}, environments: {} };
+  for (const id of [...(release.executionContextRefs || [])].sort()) {
+    try {
+      const result = readCatalogEntry(planningRoot, "executionContext", id);
+      if (result.status !== "FOUND") findings.push(...result.findings.map((entry) => finding({ code: entry.code, dimension: "refs", message: entry.message, evidence: { executionContextRef: id } })));
+      else revisions.executionContexts[id] = result.revision;
+    } catch (error) {
+      findings.push(finding({ code: RELEASE_HEALTH_FINDING_CODES.CATALOG_CORRUPT, dimension: "refs", message: `executionContext ${id} cannot be read: ${error.message}`, evidence: { executionContextRef: id } }));
+    }
   }
-  for (const id of release.environmentRefs || []) {
-    const result = readCatalogEntry(planningRoot, "environment", id);
-    if (result.status !== "FOUND") {
-      findings.push(...result.findings.map((entry) => finding({ code: entry.code, dimension: "refs", message: entry.message, evidence: { environmentRef: id } })));
-    } else if (Array.isArray(result.entry.laneRefs) && result.entry.laneRefs.length > 0 && !result.entry.laneRefs.includes(release.lane.id)) {
-      findings.push(finding({ code: RELEASE_HEALTH_FINDING_CODES.POLICY_VIOLATION, dimension: "refs", message: `environment ${id} is not compatible with lane ${release.lane.id}`, evidence: { environmentRef: id, laneId: release.lane.id } }));
+  for (const id of [...(release.environmentRefs || [])].sort()) {
+    try {
+      const result = readCatalogEntry(planningRoot, "environment", id);
+      if (result.status !== "FOUND") {
+        findings.push(...result.findings.map((entry) => finding({ code: entry.code, dimension: "refs", message: entry.message, evidence: { environmentRef: id } })));
+      } else {
+        revisions.environments[id] = result.revision;
+        if (Array.isArray(result.entry.laneRefs) && result.entry.laneRefs.length > 0 && !result.entry.laneRefs.includes(release.lane.id)) {
+          findings.push(finding({ code: RELEASE_HEALTH_FINDING_CODES.POLICY_VIOLATION, dimension: "refs", message: `environment ${id} is not compatible with lane ${release.lane.id}`, evidence: { environmentRef: id, laneId: release.lane.id } }));
+        }
+      }
+    } catch (error) {
+      findings.push(finding({ code: RELEASE_HEALTH_FINDING_CODES.CATALOG_CORRUPT, dimension: "refs", message: `environment ${id} cannot be read: ${error.message}`, evidence: { environmentRef: id } }));
     }
   }
   if ((release.executionContextRefs || []).length === 0 && (release.environmentRefs || []).length === 0) {
-    return dimension("refs", "unavailable", "No operational refs are selected for this Release", [finding({ code: RELEASE_HEALTH_FINDING_CODES.CAPABILITY_UNAVAILABLE, severity: "warning", dimension: "refs", message: "Execution Context and Environment refs are empty; operational evidence cannot be fully evaluated" })], { executionContextRefCount: 0, environmentRefCount: 0 });
+    return dimension("refs", "unavailable", "No operational refs are selected for this Release", [finding({ code: RELEASE_HEALTH_FINDING_CODES.CAPABILITY_UNAVAILABLE, severity: "warning", dimension: "refs", message: "Execution Context and Environment refs are empty; operational evidence cannot be fully evaluated" })], { executionContextRefCount: 0, environmentRefCount: 0, revisions });
   }
   return findings.length === 0
-    ? dimension("refs", "valid", "Release operational refs resolve", [], { executionContextRefCount: release.executionContextRefs.length, environmentRefCount: release.environmentRefs.length })
-    : dimension("refs", findings.some((entry) => entry.code === RELEASE_HEALTH_FINDING_CODES.CATALOG_CORRUPT) ? "invalid" : "failed", "Release operational refs have findings", findings, { executionContextRefCount: release.executionContextRefs.length, environmentRefCount: release.environmentRefs.length });
+    ? dimension("refs", "valid", "Release operational refs resolve", [], { executionContextRefCount: release.executionContextRefs.length, environmentRefCount: release.environmentRefs.length, revisions })
+    : dimension("refs", findings.some((entry) => entry.code === RELEASE_HEALTH_FINDING_CODES.CATALOG_CORRUPT) ? "invalid" : "failed", "Release operational refs have findings", findings, { executionContextRefCount: release.executionContextRefs.length, environmentRefCount: release.environmentRefs.length, revisions });
 }
 
 function deploymentDimension(planningRoot, release) {
   if (release.deploymentEvents.length === 0) {
     const f = finding({ code: RELEASE_HEALTH_FINDING_CODES.DEPLOYMENT_EVIDENCE_MISSING, dimension: "deployment", message: "Release has no deployment evidence", evidence: { deploymentEventCount: 0 } });
-    return dimension("deployment", "failed", "No deployment evidence is recorded", [f], { deploymentEventCount: 0 });
+    return dimension("deployment", "failed", "No deployment evidence is recorded", [f], { deploymentEventCount: 0, revisions: { executionContexts: {}, environments: {} } });
   }
   const findings = [];
+  const revisions = { executionContexts: {}, environments: {} };
   let succeededWithEvidence = false;
-  for (const event of release.deploymentEvents) {
+  for (const event of [...release.deploymentEvents].sort((left, right) => left.id.localeCompare(right.id))) {
     if (event.releaseId !== release.id) {
       findings.push(finding({ code: RELEASE_HEALTH_FINDING_CODES.DEPLOYMENT_EVIDENCE_INVALID, dimension: "deployment", message: `deployment event ${event.id} releaseId does not match Release`, evidence: { eventId: event.id, releaseId: event.releaseId } }));
     }
-    const environment = readCatalogEntry(planningRoot, "environment", event.environmentRef);
-    if (environment.status !== "FOUND") findings.push(...environment.findings.map((entry) => finding({ code: entry.code, dimension: "deployment", message: entry.message, evidence: { eventId: event.id, environmentRef: event.environmentRef } })));
+    try {
+      const environment = readCatalogEntry(planningRoot, "environment", event.environmentRef);
+      if (environment.status !== "FOUND") {
+        findings.push(...environment.findings.map((entry) => finding({ code: entry.code, dimension: "deployment", message: entry.message, evidence: { eventId: event.id, environmentRef: event.environmentRef } })));
+      } else {
+        revisions.environments[event.environmentRef] = environment.revision;
+        if (Array.isArray(environment.entry.laneRefs) && environment.entry.laneRefs.length > 0 && !environment.entry.laneRefs.includes(release.lane.id)) {
+          findings.push(finding({ code: RELEASE_HEALTH_FINDING_CODES.POLICY_VIOLATION, dimension: "deployment", message: `deployment event ${event.id} environment ${event.environmentRef} is not compatible with lane ${release.lane.id}`, evidence: { eventId: event.id, environmentRef: event.environmentRef, laneId: release.lane.id } }));
+        }
+      }
+    } catch (error) {
+      findings.push(finding({ code: RELEASE_HEALTH_FINDING_CODES.CATALOG_CORRUPT, dimension: "deployment", message: `deployment event ${event.id} environment cannot be read: ${error.message}`, evidence: { eventId: event.id, environmentRef: event.environmentRef } }));
+    }
     if (event.executionContextRef) {
-      const executionContext = readCatalogEntry(planningRoot, "executionContext", event.executionContextRef);
-      if (executionContext.status !== "FOUND") findings.push(...executionContext.findings.map((entry) => finding({ code: entry.code, dimension: "deployment", message: entry.message, evidence: { eventId: event.id, executionContextRef: event.executionContextRef } })));
+      try {
+        const executionContext = readCatalogEntry(planningRoot, "executionContext", event.executionContextRef);
+        if (executionContext.status !== "FOUND") findings.push(...executionContext.findings.map((entry) => finding({ code: entry.code, dimension: "deployment", message: entry.message, evidence: { eventId: event.id, executionContextRef: event.executionContextRef } })));
+        else revisions.executionContexts[event.executionContextRef] = executionContext.revision;
+      } catch (error) {
+        findings.push(finding({ code: RELEASE_HEALTH_FINDING_CODES.CATALOG_CORRUPT, dimension: "deployment", message: `deployment event ${event.id} execution context cannot be read: ${error.message}`, evidence: { eventId: event.id, executionContextRef: event.executionContextRef } }));
+      }
     }
     if (event.status === "succeeded" && ((event.evidenceRefs || []).length > 0 || (event.artifactRefs || []).length > 0)) succeededWithEvidence = true;
   }
@@ -211,8 +281,8 @@ function deploymentDimension(planningRoot, release) {
     findings.push(finding({ code: RELEASE_HEALTH_FINDING_CODES.DEPLOYMENT_EVIDENCE_MISSING, dimension: "deployment", message: "Release has no succeeded deployment event with artifactRefs or evidenceRefs", evidence: { deploymentEventCount: release.deploymentEvents.length } }));
   }
   return findings.length === 0
-    ? dimension("deployment", "valid", "Release has succeeded deployment evidence", [], { deploymentEventCount: release.deploymentEvents.length })
-    : dimension("deployment", findings.some((entry) => entry.code === RELEASE_HEALTH_FINDING_CODES.CATALOG_CORRUPT) ? "invalid" : "failed", "Release deployment evidence has findings", findings, { deploymentEventCount: release.deploymentEvents.length });
+    ? dimension("deployment", "valid", "Release has succeeded deployment evidence", [], { deploymentEventCount: release.deploymentEvents.length, revisions })
+    : dimension("deployment", findings.some((entry) => entry.code === RELEASE_HEALTH_FINDING_CODES.CATALOG_CORRUPT) ? "invalid" : "failed", "Release deployment evidence has findings", findings, { deploymentEventCount: release.deploymentEvents.length, revisions });
 }
 
 function blockerRiskDimension(release) {
@@ -248,23 +318,28 @@ function summarize(dimensions) {
   const blocking = dimensions.flatMap((entry) => entry.findings.filter((f) => f.severity !== "info" && f.severity !== "warning"));
   const invalid = dimensions.some((entry) => entry.status === "invalid");
   const failed = dimensions.some((entry) => entry.status === "failed");
-  const unavailable = dimensions.some((entry) => entry.status === "unavailable");
+  const unavailable = dimensions.filter((entry) => entry.status === "unavailable");
+  const unavailableCurrent = unavailable.filter((entry) => entry.id !== "futureCapabilities");
   return {
-    status: invalid ? "invalid" : failed ? "failed" : unavailable ? "partial" : "valid",
-    valid: !invalid && !failed,
+    status: invalid ? "invalid" : failed ? "failed" : unavailable.length > 0 ? "partial" : "valid",
+    valid: !invalid && !failed && unavailableCurrent.length === 0,
     blockingFindingCount: blocking.length,
-    unavailableDimensionCount: dimensions.filter((entry) => entry.status === "unavailable").length
+    unavailableDimensionCount: unavailable.length,
+    unavailableCurrentDimensionCount: unavailableCurrent.length
   };
 }
 
 function readiness(dimensions, release) {
   const blocking = dimensions.flatMap((entry) => entry.findings.filter((f) => f.severity !== "info" && f.severity !== "warning"));
-  const currentFailures = dimensions.filter((entry) => ["invalid", "failed"].includes(entry.status)).map((entry) => entry.id);
+  const failedCurrent = dimensions.filter((entry) => ["invalid", "failed"].includes(entry.status)).map((entry) => entry.id);
+  const unavailableCurrent = dimensions.filter((entry) => entry.status === "unavailable" && entry.id !== "futureCapabilities").map((entry) => entry.id);
+  const blockedDimensions = [...new Set([...failedCurrent, ...unavailableCurrent])].sort();
   return {
-    status: currentFailures.length > 0 ? "blocked" : "available",
-    releasable: currentFailures.length === 0,
+    status: failedCurrent.length > 0 ? "blocked" : unavailableCurrent.length > 0 ? "unavailable" : "available",
+    releasable: blockedDimensions.length === 0,
     lifecycle: release.status,
-    blockedDimensions: currentFailures,
+    blockedDimensions,
+    unavailableDimensions: unavailableCurrent.sort(),
     blockingFindings: blocking.map((entry) => entry.code),
     unavailableFutureCapabilities: FUTURE_CAPABILITIES
   };
@@ -319,12 +394,22 @@ export function releaseFinalizationGuardSummary(health, release) {
     .filter((entry) => ["invalid", "failed"].includes(entry.status))
     .map((entry) => entry.id)
     .sort();
+  const unavailableCurrentDimensions = health.dimensions
+    .filter((entry) => entry.status === "unavailable" && entry.id !== "futureCapabilities")
+    .map((entry) => entry.id)
+    .sort();
+  const guardDimensions = health.dimensions
+    .filter((entry) => entry.id !== "futureCapabilities")
+    .map((entry) => ({ id: entry.id, status: entry.status, evidence: entry.evidence, findings: entry.findings }))
+    .sort((left, right) => left.id.localeCompare(right.id));
   return {
     lifecycle: release.status,
     releasable: health.readiness.releasable,
     failedCurrentDimensions,
+    unavailableCurrentDimensions,
     blockingFindingCodes: health.findings.filter((entry) => entry.severity !== "info" && entry.severity !== "warning").map((entry) => entry.code).sort(),
-    unavailableFutureCapabilities: FUTURE_CAPABILITIES
+    unavailableFutureCapabilities: FUTURE_CAPABILITIES,
+    healthRevision: revisionHash({ dimensions: guardDimensions, completion: health.completion, readiness: health.readiness })
   };
 }
 
@@ -343,6 +428,13 @@ export function assertReleaseCanFinalize({ health, release }) {
     error.guardSummary = guardSummary;
     throw error;
   }
+  const unavailable = guardSummary.unavailableCurrentDimensions.filter((id) => id !== "finalization");
+  if (unavailable.length > 0) {
+    const error = new Error(`CAPABILITY_UNAVAILABLE: release finalization guard cannot evaluate: ${unavailable.join(", ")}`);
+    error.code = "CAPABILITY_UNAVAILABLE";
+    error.guardSummary = guardSummary;
+    throw error;
+  }
   if (release.finalization.completed) {
     const error = new Error("POLICY_VIOLATION: release is already finalized");
     error.code = "INVALID";
@@ -351,3 +443,4 @@ export function assertReleaseCanFinalize({ health, release }) {
   }
   return guardSummary;
 }
+

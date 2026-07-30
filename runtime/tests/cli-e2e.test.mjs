@@ -183,6 +183,15 @@ function fullyInit(cwd) {
   const checkCatalog = run(["check", "release"], cwd);
   assert.equal(checkCatalog.code, 1);
   assert.equal(checkCatalog.json.scope, "catalog");
+  const checkCatalogJson = run(["check", "release", "--format", "json"], cwd);
+  assert.equal(checkCatalogJson.code, 1);
+  assert.equal(checkCatalogJson.json.scope, "catalog", "--format json must not be parsed as a Release reference");
+  const checkSingleJson = run(["check", "release", release.json.displayId, "--format", "json"], cwd);
+  assert.equal(checkSingleJson.code, 1);
+  assert.equal(checkSingleJson.json.scope, "single");
+  const unsupportedFormat = run(["check", "release", "--format", "yaml"], cwd);
+  assert.equal(unsupportedFormat.code, 1);
+  assert.match(unsupportedFormat.json.error, /--format must be json/);
   const byDisplay = run(["release", "status", release.json.displayId], cwd);
   assert.equal(byDisplay.code, 0);
   assert.equal(byDisplay.json.release.id, release.json.releaseId);

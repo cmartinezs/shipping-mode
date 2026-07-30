@@ -10,7 +10,7 @@ import { REQUIRED_BOOTSTRAP_DIRECTORIES } from "../lib/bootstrapTopology.mjs";
 import { projectContextConsistencyFindings } from "../lib/projectContextValidation.mjs";
 import { contentHash, revisionHash } from "../lib/canonical.mjs";
 import { compareReleaseReadme } from "../lib/releaseProjection.mjs";
-import { listReleaseDocuments, releaseIntegrityFindings, resolveReleaseReference } from "../lib/releaseStore.mjs";
+import { listReleaseDocuments, listReleaseRecords, releaseIntegrityFindings, resolveReleaseReference } from "../lib/releaseStore.mjs";
 import { readCatalogEntry } from "../lib/operationalCatalog.mjs";
 import { releaseCatalogPolicyFindings } from "../lib/releasePolicy.mjs";
 import { evaluateReleaseHealth } from "../lib/releaseHealth.mjs";
@@ -377,15 +377,28 @@ export function checkSchema({ planningRoot }) {
   return { status, findings, pendingOperations };
 }
 
-function checkReleaseDocument(planningRoot, release) {
-  const health = evaluateReleaseHealth({ planningRoot, release, directoryId: release.id });
+function checkReleaseDocument(planningRoot, record) {
+  const release = record.release;
+  const directoryId = record.directoryId ?? release?.id ?? null;
+  const health = evaluateReleaseHealth({ planningRoot, release, directoryId });
+  if (!release && record.findings.length > 0) {
+    const structure = health.dimensions.find((entry) => entry.id === "structure");
+    const parseFindings = record.findings.map((message) => ({ code: "RELEASE_SCHEMA_INVALID", severity: "error", dimension: "structure", message: `releases/${directoryId}/release.yml: ${message}`, evidence: { directoryId } }));
+    if (structure) {
+      structure.findings.push(...parseFindings);
+      structure.findings.sort((left, right) => `${left.code}:${left.message}`.localeCompare(`${right.code}:${right.message}`));
+    }
+    health.findings.push(...parseFindings);
+    health.findings.sort((left, right) => `${left.dimension}:${left.code}:${left.message}`.localeCompare(`${right.dimension}:${right.code}:${right.message}`));
+    health.aggregate = { ...health.aggregate, status: "invalid", valid: false, blockingFindingCount: health.aggregate.blockingFindingCount + parseFindings.length };
+  }
   return {
     release: {
-      id: release.id,
-      displayId: release.displayId,
-      lifecycle: release.status,
-      laneId: release.lane?.id ?? null,
-      policyMode: release.policy?.mode ?? null
+      id: typeof release?.id === "string" ? release.id : directoryId,
+      displayId: typeof release?.displayId === "string" ? release.displayId : null,
+      lifecycle: typeof release?.status === "string" ? release.status : null,
+      laneId: typeof release?.lane?.id === "string" ? release.lane.id : null,
+      policyMode: typeof release?.policy?.mode === "string" ? release.policy.mode : null
     },
     derivedHealth: health,
     completion: health.completion,
@@ -412,7 +425,7 @@ export function checkRelease({ planningRoot, reference = null }) {
     if (resolution.status !== "FOUND") {
       return { status: resolution.status, scope: "single", releases: [], findings: resolution.findings, matches: resolution.matches || [] };
     }
-    const entry = checkReleaseDocument(planningRoot, resolution.release);
+    const entry = checkReleaseDocument(planningRoot, { directoryId: resolution.release.id, release: resolution.release, invalid: false, findings: [] });
     return {
       status: releaseCheckStatus([entry]),
       scope: "single",
@@ -421,13 +434,13 @@ export function checkRelease({ planningRoot, reference = null }) {
       pendingOperations: []
     };
   }
-  let releases;
+  let records;
   try {
-    releases = listReleaseDocuments(planningRoot, { includeInvalid: true, requireIntegrity: false });
+    records = listReleaseRecords(planningRoot, { includeInvalid: true, requireIntegrity: false });
   } catch (error) {
     return { status: "FAIL", scope: "catalog", releases: [], findings: [`release catalog is invalid: ${error.message}`], pendingOperations: [] };
   }
-  const entries = releases.sort((left, right) => left.id.localeCompare(right.id)).map((release) => checkReleaseDocument(planningRoot, release));
+  const entries = records.sort((left, right) => left.directoryId.localeCompare(right.directoryId)).map((record) => checkReleaseDocument(planningRoot, record));
   const findings = entries.flatMap((entry) => entry.findings.map((finding) => `${entry.release.id}: ${finding.code}: ${finding.message}`));
   if (entries.length === 0) findings.push("release catalog is empty");
   return {
@@ -438,3 +451,4 @@ export function checkRelease({ planningRoot, reference = null }) {
     pendingOperations: []
   };
 }
+

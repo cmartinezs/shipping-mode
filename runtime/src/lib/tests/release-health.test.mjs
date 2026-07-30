@@ -110,4 +110,39 @@ function writeRelease(planningRoot, release) {
   assert.ok(health.findings.some((finding) => finding.code === "RELEASE_PROJECTION_DRIFT"));
 }
 
+
+{
+  const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "release-health-stale-scope-"));
+  for (const dir of ["releases", "scopes", "sources", "execution-contexts", "environments"]) fs.mkdirSync(path.join(planningRoot, dir), { recursive: true });
+  writeConfig(planningRoot);
+  const scopeId = generateUuidV7();
+  fs.mkdirSync(path.join(planningRoot, "scopes", scopeId), { recursive: true });
+  fs.writeFileSync(path.join(planningRoot, "scopes", scopeId, "scope.yml"), stringifyYaml({ schemaVersion: 1, id: scopeId, key: "api", label: "API", kind: "code", path: "src/", owner: null, commands: {} }));
+  const claimedReady = {
+    scopeId,
+    evaluatedAt: "2026-07-29T00:00:00.000Z",
+    readiness: { policyMode: "strict", ready: true },
+    guides: [
+      { kind: "task", id: null, revision: null, contentHash: null, state: "approved_current", usable: true },
+      { kind: "test", id: null, revision: null, contentHash: null, state: "approved_current", usable: true }
+    ],
+    findings: []
+  };
+  const release = releaseFixture({ scopeRefs: [claimedReady] });
+  writeRelease(planningRoot, release);
+  const health = evaluateReleaseHealth({ planningRoot, release, directoryId: release.id });
+  assert.ok(health.findings.some((entry) => entry.code === "GUIDE_EVIDENCE_STALE"), "live Scope/Guide evidence must be recomputed");
+  assert.equal(health.readiness.releasable, false, "stale claimed readiness must not become releasable");
+}
+
+{
+  const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "release-health-missing-config-"));
+  for (const dir of ["releases", "scopes", "sources", "execution-contexts", "environments"]) fs.mkdirSync(path.join(planningRoot, dir), { recursive: true });
+  const release = releaseFixture();
+  writeRelease(planningRoot, release);
+  const health = evaluateReleaseHealth({ planningRoot, release, directoryId: release.id });
+  assert.equal(health.dimensions.find((entry) => entry.id === "lane").status, "invalid");
+  assert.equal(health.aggregate.valid, false, "missing required Project Context must not pass as optional capability");
+}
+
 console.log("release-health: all tests passed");

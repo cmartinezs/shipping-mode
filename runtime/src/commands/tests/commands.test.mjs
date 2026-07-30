@@ -9,11 +9,83 @@ import { runReleaseNew, runReleaseStatus, runReleasePolicyConfigure, runReleaseS
 import { readOperation, readChangeSet, writeChangeSet } from "../../lib/operationStore.mjs";
 import { computePersistedChangeSetHash } from "../../lib/changeset.mjs";
 import { parseYaml, stringifyYaml } from "../../lib/yaml.mjs";
+import { contentHash, revisionHash } from "../../lib/canonical.mjs";
 import { generateUuidV7, isUuidV7 } from "../../lib/ids.mjs";
 import { updateReleaseRevision } from "../../lib/releaseMutations.mjs";
 import { renderReleaseReadme } from "../../lib/releaseProjection.mjs";
+import { renderGuideMarkdown } from "../../lib/guideProjection.mjs";
+import { computeSourceFingerprint } from "../../lib/fingerprint.mjs";
+import { DEFAULT_MAX_SOURCE_BYTES } from "../../lib/discoverScan.mjs";
 import { UsageError } from "../../lib/errors.mjs";
 import { PLUGIN_VERSION, TEMPLATE_PACK_FINGERPRINT } from "../../generated/build-meta.mjs";
+
+function persistApprovedManualGuides({ workspace, planningRoot, scopeId }) {
+  const sourceId = generateUuidV7();
+  const sourcePath = "docs/release-guide-source.md";
+  fs.mkdirSync(path.join(workspace, "docs"), { recursive: true });
+  fs.writeFileSync(path.join(workspace, sourcePath), "release guide source\n");
+  const observed = computeSourceFingerprint(path.join(workspace, sourcePath), { maxBytes: DEFAULT_MAX_SOURCE_BYTES });
+  const source = {
+    schemaVersion: 1,
+    id: sourceId,
+    path: sourcePath,
+    family: "technical-sources",
+    kind: "testing",
+    role: "canonical",
+    authority: { standing: "authoritative", force: "normative" },
+    availability: "implemented",
+    confirmedFingerprint: observed.fingerprint,
+    confirmedContentHash: observed.contentHash
+  };
+  fs.mkdirSync(path.join(planningRoot, "sources", sourceId), { recursive: true });
+  fs.writeFileSync(path.join(planningRoot, "sources", sourceId, "source.yml"), stringifyYaml(source));
+
+  const configPath = path.join(planningRoot, "config.yml");
+  const config = parseYaml(fs.readFileSync(configPath, "utf8"));
+  config.documentation.source_refs = [...new Set([...(config.documentation.source_refs || []), sourceId])].sort();
+  fs.writeFileSync(configPath, stringifyYaml(config));
+
+  const scopePath = path.join(planningRoot, "scopes", scopeId, "scope.yml");
+  const scope = parseYaml(fs.readFileSync(scopePath, "utf8"));
+  const guides = {};
+  for (const kind of ["task", "test"]) {
+    const guideId = generateUuidV7();
+    const body = kind === "task"
+      ? { workPackageTypes: [], taskTypes: [], requiredSections: [], requiredGateRefs: [], templateRefs: [], decompositionRules: [], automation: { fallback: "markGaps" } }
+      : { gatesByWorkPackageType: [], gatesByTaskType: [], commandRefs: [], evidenceRequirements: [], testData: [], executionContexts: [], environments: [] };
+    const document = { sourceRefs: [sourceId], ...body, openGaps: [] };
+    const provenance = {
+      sourceMapRevision: revisionHash({ sourceRefs: [sourceId], sourceFingerprints: { [sourceId]: source.confirmedFingerprint } }),
+      generationMethod: "manual",
+      generatorVersion: "shipping-mode:manual-guide-input/1",
+      generatorFingerprint: null,
+      generatedAt: "2026-07-29T00:00:00.000Z",
+      sourceFingerprints: { [sourceId]: source.confirmedFingerprint },
+      generationInputHash: revisionHash({ scopeId, guideKind: kind, document }),
+      generationOutputHash: revisionHash(document)
+    };
+    const withoutRevision = { schemaVersion: 1, dslVersion: 1, id: guideId, scopeId, kind, sourceRefs: [sourceId], provenance, openGaps: [], ...body };
+    const guide = { ...withoutRevision, revision: `sha256:${revisionHash(withoutRevision)}` };
+    const bytes = Buffer.from(stringifyYaml(guide));
+    const hash = contentHash(bytes);
+    guides[kind] = {
+      id: guideId,
+      scopeId,
+      kind,
+      status: "approved",
+      path: `${kind}-guide.yml`,
+      projection: `${kind}-guide.md`,
+      revision: guide.revision,
+      contentHash: hash,
+      sourceRefs: guide.sourceRefs,
+      provenance: guide.provenance,
+      approval: { actor: "reviewer", approvedAt: "2026-07-29T00:00:00.000Z", revision: guide.revision, contentHash: hash }
+    };
+    fs.writeFileSync(path.join(planningRoot, "scopes", scopeId, `${kind}-guide.yml`), bytes);
+    fs.writeFileSync(path.join(planningRoot, "scopes", scopeId, `${kind}-guide.md`), renderGuideMarkdown(guide));
+  }
+  fs.writeFileSync(scopePath, stringifyYaml({ ...scope, guides }));
+}
 
 const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "commands-"));
 const planningRoot = path.join(workspace, ".planning");
@@ -283,6 +355,44 @@ releasableFixture = {
 releasableFixture = updateReleaseRevision(releasableFixture);
 fs.writeFileSync(releaseYmlPath, stringifyYaml(releasableFixture));
 fs.writeFileSync(releaseReadmePath, renderReleaseReadme(releasableFixture));
+assert.throws(() => runReleaseFinalize({
+  planningRoot,
+  args: { releaseRef: releaseCreate.displayId, retrospectiveStatus: "not_required", idempotencyKey: "finalize-stale-scope-plan3", actor: "carlos" }
+}), /scope|GUIDE_EVIDENCE_STALE/, "caller-edited readiness cannot replace live Scope/Guide evaluation");
+
+persistApprovedManualGuides({ workspace, planningRoot, scopeId: scopeResult.scopeId });
+const currentScopeEvidence = runReleaseScopeSet({
+  planningRoot,
+  args: { releaseRef: releaseCreate.releaseId, scopeIds: scopeResult.scopeId, policyMode: "strict", idempotencyKey: "scope-refs-current-plan3", actor: "carlos" }
+});
+assert.equal(runChangesetValidate({ planningRoot, operationsRoot, operationId: currentScopeEvidence.operationId }).status, "VALIDATED");
+runChangesetApprove({ operationsRoot, planningRoot, operationId: currentScopeEvidence.operationId, actor: "carlos", allowSelfApproval: true });
+runChangesetApply({ planningRoot, operationsRoot, operationId: currentScopeEvidence.operationId, actor: "carlos" });
+assert.equal(parseYaml(fs.readFileSync(releaseYmlPath, "utf8")).scopeRefs[0].readiness.ready, true);
+
+const driftedFinalize = runReleaseFinalize({
+  planningRoot,
+  args: { releaseRef: releaseCreate.displayId, retrospectiveStatus: "not_required", idempotencyKey: "finalize-drift-plan3", actor: "carlos" }
+});
+const environmentPath = path.join(planningRoot, "environments", environmentId, "environment.yml");
+const environmentBeforeDrift = fs.readFileSync(environmentPath, "utf8");
+const changedEnvironment = parseYaml(environmentBeforeDrift);
+changedEnvironment.label = "Staging changed after propose";
+fs.writeFileSync(environmentPath, stringifyYaml(changedEnvironment));
+assert.equal(runChangesetValidate({ planningRoot, operationsRoot, operationId: driftedFinalize.operationId }).status, "STALE", "external evidence revision drift must stale finalization even when health remains valid");
+fs.writeFileSync(environmentPath, environmentBeforeDrift);
+
+const tamperedFinalize = runReleaseFinalize({
+  planningRoot,
+  args: { releaseRef: releaseCreate.displayId, retrospectiveStatus: "not_required", idempotencyKey: "finalize-tampered-plan3", actor: "carlos" }
+});
+const tamperedFinalizeChangeSet = readChangeSet(operationsRoot, tamperedFinalize.operationId);
+tamperedFinalizeChangeSet.payload.nextFinalization.completedBy = "mallory";
+tamperedFinalizeChangeSet.payload.guardSummary.healthRevision = "0".repeat(64);
+tamperedFinalizeChangeSet.hash = computePersistedChangeSetHash(tamperedFinalizeChangeSet);
+writeChangeSet(operationsRoot, tamperedFinalize.operationId, tamperedFinalizeChangeSet);
+assert.equal(runChangesetValidate({ planningRoot, operationsRoot, operationId: tamperedFinalize.operationId }).status, "INVALID", "recomputed public hashes must not permit forged finalization evidence");
+
 const finalize = runReleaseFinalize({
   planningRoot,
   args: { releaseRef: releaseCreate.displayId, retrospectiveStatus: "not_required", idempotencyKey: "finalize-plan3", actor: "carlos" }
@@ -347,5 +457,14 @@ assert.equal(textValidate.status, "VALIDATED");
 
 // invalid payload text must be rejected with a UsageError, not a crash
 assert.throws(() => runChangesetPropose({ planningRoot, kind: "config.update", actor: "carlos", payloadText: "{not json or yaml::" }), UsageError);
+
+
+const corruptReleaseId = generateUuidV7();
+fs.mkdirSync(path.join(planningRoot, "releases", corruptReleaseId), { recursive: true });
+fs.writeFileSync(path.join(planningRoot, "releases", corruptReleaseId, "release.yml"), "schemaVersion: 1\n");
+fs.writeFileSync(path.join(planningRoot, "releases", corruptReleaseId, "README.md"), "invalid\n");
+const corruptCatalogCheck = checkRelease({ planningRoot });
+assert.equal(corruptCatalogCheck.status, "FAIL");
+assert.ok(corruptCatalogCheck.releases.some((entry) => entry.release.id === corruptReleaseId), "catalog checks must retain schema-invalid Release records instead of omitting or crashing");
 
 console.log("commands: all tests passed");
