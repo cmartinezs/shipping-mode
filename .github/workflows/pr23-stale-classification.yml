@@ -32,30 +32,21 @@ jobs:
           if old_import not in text:
               raise SystemExit('releaseHealth import anchor not found')
           text = text.replace(old_import, new_import, 1)
-          old = '''  } else if (kind === "release.finalization.complete") {
-    const health = evaluateReleaseHealth({ planningRoot, release, directoryId: release.id });
-    const guardSummary = assertReleaseCanFinalize({ health, release });
-    const guardHash = releasePolicyRequestHash({ actor: "system:release-health", requestSnapshot: guardSummary });
-    if (guardHash !== payload.guardSummaryHash) {
-      const error = new Error("REFERENCE_STALE: release finalization guard summary changed since propose");
-      error.code = "STALE";
-      throw error;
-    }
-'''
-          new = '''  } else if (kind === "release.finalization.complete") {
-    const health = evaluateReleaseHealth({ planningRoot, release, directoryId: release.id });
-    const currentGuardSummary = releaseFinalizationGuardSummary(health, release);
-    const guardHash = releasePolicyRequestHash({ actor: "system:release-health", requestSnapshot: currentGuardSummary });
-    if (guardHash !== payload.guardSummaryHash) {
-      const error = new Error("REFERENCE_STALE: release finalization guard summary changed since propose");
-      error.code = "STALE";
-      throw error;
-    }
-    assertReleaseCanFinalize({ health, release });
-'''
-          if old not in text:
-              raise SystemExit('finalization render anchor not found')
-          path.write_text(text.replace(old, new, 1))
+          old_guard = '    const guardSummary = assertReleaseCanFinalize({ health, release });'
+          new_guard = '    const currentGuardSummary = releaseFinalizationGuardSummary(health, release);'
+          if old_guard not in text:
+              raise SystemExit('finalization guard anchor not found')
+          text = text.replace(old_guard, new_guard, 1)
+          old_hash = '    const guardHash = releasePolicyRequestHash({ actor: "system:release-health", requestSnapshot: guardSummary });'
+          new_hash = '    const guardHash = releasePolicyRequestHash({ actor: "system:release-health", requestSnapshot: currentGuardSummary });'
+          if old_hash not in text:
+              raise SystemExit('finalization guard hash anchor not found')
+          text = text.replace(old_hash, new_hash, 1)
+          marker = '    if (revisionHash(release.finalization) !== revisionHash(payload.previousFinalization)) {'
+          if marker not in text:
+              raise SystemExit('finalization revision anchor not found')
+          text = text.replace(marker, '    assertReleaseCanFinalize({ health, release });\n' + marker, 1)
+          path.write_text(text)
           PY
           rm -f .github/pr23-stale.trigger .github/workflows/pr23-stale-classification.yml
       - name: Publish source correction
