@@ -25,6 +25,7 @@ jobs:
           python scripts/pr26-review-fix.py
           git checkout origin/develop -- .github/workflows/runtime-foundation.yml
           rm scripts/pr26-review-fix.py
+          rm .pr26-review-trigger
       - name: Commit corrective source changes
         run: |
           git config user.name "github-actions[bot]"
