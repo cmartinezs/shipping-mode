@@ -48,6 +48,7 @@ shipping-mode changeset apply <operation-id> --actor <actor>
 - The parent Release is `DRAFT` and not finalized.
 - Dependencies are UUIDv7 Release Item IDs in the same Release.
 - Idempotency is bound to both normalized item intent and the canonical parent Release ID.
+- Source references supplied by an internal caller must use the closed local or external provider shape. Caller-owned import timestamps and raw provider metadata are rejected.
 - Slugs are decorative and never resolve.
 
 ## Stop Conditions
