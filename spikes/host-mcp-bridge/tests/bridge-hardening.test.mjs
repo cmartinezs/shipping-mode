@@ -4,12 +4,12 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+import { consumeBridgeEnvelope } from "../bridge-consume.mjs";
 import {
   BRIDGE_RESULT_CODES,
   BridgeError,
   capturePostToolFailureEvent,
   capturePostToolUseEvent,
-  consumeBridgeEnvelope,
   inspectBridgeMetadata,
   loadBridgeState,
   prepareBridgeRequest
