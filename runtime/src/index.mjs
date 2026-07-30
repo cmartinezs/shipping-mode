@@ -5,7 +5,7 @@ import { runChangesetPropose, runChangesetValidate, runChangesetApprove, runChan
 import { checkSchema, checkRelease } from "./commands/check.mjs";
 import { checkGuides } from "./commands/checkGuides.mjs";
 import { runReleaseNew, runReleaseStatus, runReleasePolicyConfigure, runReleaseScopeSet, runReleaseRefsSet, runReleaseDeploymentRecord, runReleaseFinalize } from "./commands/release.mjs";
-import { runItemCreate, runItemStatus } from "./commands/item.mjs";
+import { runCheckItem, runItemCreate, runItemStatus } from "./commands/item.mjs";
 import { runDiscoverScan, runDiscoverValidate } from "./commands/discover.mjs";
 import { runDiscoveryPropose } from "./commands/discoveryChangeSet.mjs";
 import { isUuidV7 } from "./lib/ids.mjs";
@@ -333,7 +333,7 @@ export function dispatch(command, args, cwd, runtimeContext = null) {
     if (stage === "release") return checkRelease({ planningRoot, reference: parseCheckReleaseArgs(rest) });
     if (stage === "item") {
       const parsed = parseCheckItemArgs(rest);
-      return runItemStatus({ planningRoot, releaseRef: parsed.releaseRef, itemRef: parsed.itemRef });
+      return runCheckItem({ planningRoot, releaseRef: parsed.releaseRef, itemRef: parsed.itemRef });
     }
     if (stage === "guides") {
       const options = argsToOptions(rest);

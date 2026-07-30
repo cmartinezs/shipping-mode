@@ -337,6 +337,96 @@
       }
     },
     {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "DONE"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "resolution": {
+            "properties": {
+              "type": {
+                "const": "DONE"
+              },
+              "replacementId": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "type",
+              "replacementId"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "CANCELLED"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "resolution": {
+            "properties": {
+              "type": {
+                "const": "CANCELLED"
+              },
+              "replacementId": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "type",
+              "replacementId"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "SUPERSEDED"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "resolution": {
+            "properties": {
+              "type": {
+                "const": "SUPERSEDED"
+              },
+              "replacementId": {
+                "$ref": "#/$defs/uuid"
+              }
+            },
+            "required": [
+              "type",
+              "replacementId"
+            ]
+          }
+        }
+      }
+    },
+    {
       "$ref": "#/$defs/userStoryVariant"
     },
     {
@@ -434,24 +524,193 @@
           "minLength": 1
         }
       },
-      "anyOf": [
+      "oneOf": [
         {
-          "required": [
-            "externalId"
-          ],
-          "type": "object",
           "properties": {
-            "externalId": {}
-          }
-        },
-        {
+            "provider": {
+              "const": "local_repository"
+            }
+          },
           "required": [
+            "provider",
             "path"
           ],
-          "type": "object",
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "contentRevision"
+                  ]
+                },
+                {
+                  "required": [
+                    "fingerprint"
+                  ]
+                }
+              ]
+            },
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "externalId"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "externalUrl"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "externalRevision"
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
           "properties": {
-            "path": {}
-          }
+            "provider": {
+              "enum": [
+                "jira",
+                "github_issues",
+                "azure_boards",
+                "linear"
+              ]
+            }
+          },
+          "required": [
+            "provider",
+            "externalId"
+          ],
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "externalRevision"
+                  ]
+                },
+                {
+                  "required": [
+                    "fingerprint"
+                  ]
+                }
+              ]
+            },
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "path"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "contentRevision"
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "properties": {
+            "provider": {
+              "const": "custom"
+            }
+          },
+          "required": [
+            "provider",
+            "path"
+          ],
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "contentRevision"
+                  ]
+                },
+                {
+                  "required": [
+                    "fingerprint"
+                  ]
+                }
+              ]
+            },
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "externalId"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "externalUrl"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "externalRevision"
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "properties": {
+            "provider": {
+              "const": "custom"
+            }
+          },
+          "required": [
+            "provider",
+            "externalId"
+          ],
+          "allOf": [
+            {
+              "anyOf": [
+                {
+                  "required": [
+                    "externalRevision"
+                  ]
+                },
+                {
+                  "required": [
+                    "fingerprint"
+                  ]
+                }
+              ]
+            },
+            {
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "path"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "contentRevision"
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
         }
       ]
     },

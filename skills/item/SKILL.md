@@ -47,6 +47,7 @@ shipping-mode changeset apply <operation-id> --actor <actor>
 - The parent Release resolves by UUIDv7 or `REL-*` display ID.
 - The parent Release is `DRAFT` and not finalized.
 - Dependencies are UUIDv7 Release Item IDs in the same Release.
+- Idempotency is bound to both normalized item intent and the canonical parent Release ID.
 - Slugs are decorative and never resolve.
 
 ## Stop Conditions

@@ -207,6 +207,18 @@ export function releaseItemCatalogFindings(items, { releaseId }) {
       if (!target) findings.push({ code: "RELEASE_ITEM_DEPENDENCY_MISSING", severity: "error", itemId: item.id, message: `Release Item ${item.id} depends on missing item ${dep}` });
       else if (target.releaseId !== item.releaseId) findings.push({ code: "RELEASE_ITEM_DEPENDENCY_CROSS_RELEASE", severity: "error", itemId: item.id, message: `Release Item ${item.id} depends on item ${dep} from another release` });
     }
+    if (item.status === "SUPERSEDED") {
+      const replacementId = item.resolution?.replacementId;
+      if (!replacementId) findings.push({ code: "RELEASE_ITEM_REPLACEMENT_MISSING", severity: "error", itemId: item.id, message: `Superseded Release Item ${item.id} requires replacementId` });
+      else if (replacementId === item.id) findings.push({ code: "RELEASE_ITEM_REPLACEMENT_SELF", severity: "error", itemId: item.id, message: `Release Item ${item.id} cannot replace itself` });
+      else {
+        const replacementItem = byId.get(replacementId);
+        if (!replacementItem) findings.push({ code: "RELEASE_ITEM_REPLACEMENT_NOT_FOUND", severity: "error", itemId: item.id, message: `Release Item ${item.id} replacement ${replacementId} does not exist` });
+        else if (replacementItem.releaseId !== item.releaseId) findings.push({ code: "RELEASE_ITEM_REPLACEMENT_CROSS_RELEASE", severity: "error", itemId: item.id, message: `Release Item ${item.id} replacement ${replacementId} belongs to another Release` });
+      }
+    } else if (item.resolution?.replacementId) {
+      findings.push({ code: "RELEASE_ITEM_REPLACEMENT_UNEXPECTED", severity: "error", itemId: item.id, message: `Release Item ${item.id} status ${item.status} cannot declare replacementId` });
+    }
   }
   const visiting = new Set();
   const visited = new Set();

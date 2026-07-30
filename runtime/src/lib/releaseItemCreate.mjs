@@ -59,8 +59,13 @@ function normalizeUuidArray(value, field) {
 function normalizeSourceRefs(value) {
   if (value === undefined || value === null) return [];
   if (!Array.isArray(value)) throw new Error("sourceRefs must be an array");
-  return value.map((ref, index) => {
+  const allowedFields = new Set(["sourceId", "provider", "role", "mappingVersion", "externalId", "externalUrl", "externalRevision", "path", "contentRevision", "fingerprint"]);
+  const normalizedRefs = value.map((ref, index) => {
     if (ref === null || typeof ref !== "object" || Array.isArray(ref)) throw new Error(`sourceRefs[${index}] must be an object`);
+    for (const field of Object.keys(ref)) {
+      if (field === "importedAt") throw new Error(`sourceRefs[${index}].importedAt is server-owned`);
+      if (!allowedFields.has(field)) throw new Error(`sourceRefs[${index}] contains unsupported field: ${field}`);
+    }
     const provider = requireString(ref.provider, `sourceRefs[${index}].provider`);
     if (!["local_repository", "jira", "github_issues", "azure_boards", "linear", "custom"].includes(provider)) throw new Error(`sourceRefs[${index}].provider is invalid`);
     const role = requireString(ref.role, `sourceRefs[${index}].role`);
@@ -72,12 +77,24 @@ function normalizeSourceRefs(value) {
       mappingVersion: Number(ref.mappingVersion)
     };
     if (!Number.isInteger(normalized.mappingVersion) || normalized.mappingVersion < 1) throw new Error(`sourceRefs[${index}].mappingVersion must be a positive integer`);
-    for (const field of ["externalId", "externalUrl", "externalRevision", "path", "contentRevision", "fingerprint", "importedAt"]) {
+    for (const field of ["externalId", "externalUrl", "externalRevision", "path", "contentRevision", "fingerprint"]) {
       if (ref[field] !== undefined && ref[field] !== null && ref[field] !== "") normalized[field] = requireString(ref[field], `sourceRefs[${index}].${field}`);
     }
-    if (!normalized.externalId && !normalized.path) throw new Error(`sourceRefs[${index}] requires externalId or path`);
+    const localShape = provider === "local_repository" || (provider === "custom" && Boolean(normalized.path));
+    if (localShape) {
+      if (!normalized.path) throw new Error(`sourceRefs[${index}] local providers require path`);
+      if (normalized.externalId || normalized.externalUrl || normalized.externalRevision) throw new Error(`sourceRefs[${index}] local providers cannot use external locator fields`);
+      if (!normalized.contentRevision && !normalized.fingerprint) throw new Error(`sourceRefs[${index}] local providers require contentRevision or fingerprint`);
+    } else {
+      if (!normalized.externalId) throw new Error(`sourceRefs[${index}] external providers require externalId`);
+      if (normalized.path || normalized.contentRevision) throw new Error(`sourceRefs[${index}] external providers cannot use local path/contentRevision fields`);
+      if (!normalized.externalRevision && !normalized.fingerprint) throw new Error(`sourceRefs[${index}] external providers require externalRevision or fingerprint`);
+    }
     return normalized;
   }).sort((left, right) => `${left.role}:${left.provider}:${left.sourceId}:${left.externalId || left.path}`.localeCompare(`${right.role}:${right.provider}:${right.sourceId}:${right.externalId || right.path}`));
+  const identities = normalizedRefs.map((ref) => `${ref.role}:${ref.provider}:${ref.sourceId}:${ref.externalId || ref.path}`);
+  if (new Set(identities).size !== identities.length) throw new Error("sourceRefs cannot contain duplicate source identities");
+  return normalizedRefs;
 }
 
 function rejectServerOwned(rawPayload) {
@@ -105,11 +122,12 @@ function normalizeKindSpecific(rawPayload, kind) {
   throw new Error(`unsupported Release Item kind: ${kind}`);
 }
 
-export function releaseItemCreateRequestHash({ actor, requestSnapshot }) {
-  return revisionHash({ actor, ...requestSnapshot });
+export function releaseItemCreateRequestHash({ actor, releaseId, requestSnapshot }) {
+  if (!isUuidV7(releaseId)) throw new Error(`invalid Release Item parent release id: ${releaseId}`);
+  return revisionHash({ actor, releaseId, ...requestSnapshot });
 }
 
-export function normalizeReleaseItemCreateRequest(rawPayload, { actor, defaultIdempotencyKey }) {
+export function normalizeReleaseItemCreateRequest(rawPayload, { actor, defaultIdempotencyKey, releaseId }) {
   requireObject(rawPayload);
   rejectServerOwned(rawPayload);
   const kind = requireString(rawPayload.kind, "kind");
@@ -127,7 +145,7 @@ export function normalizeReleaseItemCreateRequest(rawPayload, { actor, defaultId
     ...normalizeKindSpecific(rawPayload, kind)
   };
   const idempotencyKey = rawPayload.idempotencyKey === undefined ? requireString(defaultIdempotencyKey, "idempotencyKey") : requireString(rawPayload.idempotencyKey, "idempotencyKey");
-  return { requestSnapshot, idempotencyKey, idempotencyRequestHash: releaseItemCreateRequestHash({ actor, requestSnapshot }) };
+  return { requestSnapshot, idempotencyKey, idempotencyRequestHash: releaseItemCreateRequestHash({ actor, releaseId, requestSnapshot }) };
 }
 
 export function prepareReleaseItemCreate(rawPayload, {
@@ -138,12 +156,20 @@ export function prepareReleaseItemCreate(rawPayload, {
   proposedAt,
   releaseRef,
   itemRequest = null,
-  itemId = null
+  itemId = null,
+  expectedReleaseId = null
 }) {
-  const normalized = itemRequest ?? normalizeReleaseItemCreateRequest(rawPayload, { actor, defaultIdempotencyKey: operationId });
   const resolution = resolveReleaseReference(planningRoot, releaseRef);
   if (resolution.status !== "FOUND") throw new Error(`release reference failed: ${resolution.status}: ${resolution.findings.join("; ")}`);
   const release = resolution.release;
+  if (expectedReleaseId && release.id !== expectedReleaseId) {
+    const error = new Error(`REFERENCE_STALE: Release reference resolved to ${release.id}, expected ${expectedReleaseId}`);
+    error.code = "STALE";
+    throw error;
+  }
+  const normalized = itemRequest ?? normalizeReleaseItemCreateRequest(rawPayload, { actor, defaultIdempotencyKey: operationId, releaseId: release.id });
+  const expectedRequestHash = releaseItemCreateRequestHash({ actor, releaseId: release.id, requestSnapshot: normalized.requestSnapshot });
+  if (normalized.idempotencyRequestHash !== expectedRequestHash) throw new Error("release-item.create request binding does not match the canonical parent Release");
   assertReleaseParentCanAcceptItem(release);
   const currentParent = readReleaseFile(planningRoot, release.id).release;
   if (currentParent.audit.revision !== release.audit.revision) {
@@ -274,7 +300,7 @@ export function releaseItemCreateInvariantFindings(changeSet, operation = null, 
   if (!payload.requestSnapshot || typeof payload.requestSnapshot !== "object" || Array.isArray(payload.requestSnapshot)) {
     findings.push("release-item.create requestSnapshot must be a normalized object");
   } else {
-    const expectedHash = releaseItemCreateRequestHash({ actor: payload.actor, requestSnapshot: payload.requestSnapshot });
+    const expectedHash = releaseItemCreateRequestHash({ actor: payload.actor, releaseId: payload.releaseId, requestSnapshot: payload.requestSnapshot });
     if (payload.idempotencyRequestHash !== expectedHash) findings.push("release-item.create idempotencyRequestHash does not match normalized caller intent and actor");
   }
   if (operation) {

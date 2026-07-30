@@ -218,7 +218,14 @@ function fullyInit(cwd) {
   assert.equal(itemStatus.json.item.id, item.json.itemId);
   const checkItem = run(["check", "item", release.json.displayId, item.json.itemId, "--format", "json"], cwd);
   assert.equal(checkItem.code, 0);
-  assert.equal(checkItem.json.status, "FOUND");
+  assert.equal(checkItem.json.status, "PASS");
+  const itemReadmePath = path.join(cwd, ".planning", "releases", release.json.releaseId, "items", item.json.itemId, "README.md");
+  const itemReadme = fs.readFileSync(itemReadmePath, "utf8");
+  fs.appendFileSync(itemReadmePath, "drift\n");
+  const failedItemCheck = run(["check", "item", release.json.displayId, item.json.itemId, "--format", "json"], cwd);
+  assert.equal(failedItemCheck.code, 1);
+  assert.equal(failedItemCheck.json.status, "FAIL");
+  fs.writeFileSync(itemReadmePath, itemReadme);
   const releaseWithItems = run(["release", "status", release.json.releaseId], cwd);
   assert.deepEqual(releaseWithItems.json.refs.canonicalItemIds, [item.json.itemId]);
   const bySlug = run(["release", "status", "release-core"], cwd);

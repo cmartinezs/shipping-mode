@@ -3,64 +3,39 @@ name: Runtime Foundation
 on:
   pull_request:
     branches: [develop]
+  push:
+    branches: [feat/corte-0-runtime-foundation]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   verify:
-    if: github.event.pull_request.head.ref == 'agent/corte-3-plan-1-release-item-core' && github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: agent/corte-3-plan-1-release-item-core
-          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-      - name: Extract and apply review patch
+      - run: npm ci --silent
+      - name: Build review artifacts outside the source tree
+        run: node scripts/build-runtime.mjs --out "$RUNNER_TEMP/generated" --bundle-out "$RUNNER_TEMP/shipping-mode.mjs"
+      - name: Stage review artifacts
+        if: always()
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          source = Path('.github/workflows/pr24-review-corrections.yml').read_text()
-          marker = "          python3 - <<'PY'\n"
-          start = source.index(marker) + len(marker)
-          end = source.index("\n          PY\n", start)
-          lines = source[start:end].splitlines()
-          script = "\n".join(line[10:] if line.startswith("          ") else line for line in lines) + "\n"
-          Path('/tmp/pr24-review-patch.py').write_text(script)
-          PY
-          python3 /tmp/pr24-review-patch.py
-          rm -f .github/pr24-review.trigger .github/workflows/pr24-review-corrections.yml
-          git checkout origin/develop -- .github/workflows/runtime-foundation.yml
-      - name: Publish source corrections
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "fix(item): close Release Item trust and check contracts"
-          git push origin HEAD:agent/corte-3-plan-1-release-item-core
-      - name: Build and verify
-        run: |
-          npm ci --silent
-          npm run build:schemas
-          npm run build:runtime
-          npm run build:test-bundle
-          npm run test:unit
-          npm run test:cli-e2e
-          npm run test:real-crash-e2e
-          npm run test:security-e2e
-          npm run test:bundle
-          npm run verify:artifacts
-          npm run verify:next-generation
-          git diff --check
-      - name: Publish generated artifacts
-        run: |
-          git add -A
-          if ! git diff --cached --quiet; then
-            git commit -m "build(runtime): regenerate reviewed Corte 3 artifacts"
-            git push origin HEAD:agent/corte-3-plan-1-release-item-core
-          fi
+          mkdir -p ci-artifacts/runtime/src/generated ci-artifacts/runtime/dist
+          cp "$RUNNER_TEMP/generated/validators.mjs" ci-artifacts/runtime/src/generated/validators.mjs
+          cp "$RUNNER_TEMP/generated/build-meta.mjs" ci-artifacts/runtime/src/generated/build-meta.mjs
+          cp "$RUNNER_TEMP/shipping-mode.mjs" ci-artifacts/runtime/dist/shipping-mode.mjs
+      - name: Upload generated runtime for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-foundation-generated
+          path: ci-artifacts
+          if-no-files-found: error
+      - run: npm run verify:next-generation
+      - name: Prove verification leaves committed artifacts unchanged
+        run: git diff --exit-code -- runtime/src/generated runtime/dist/shipping-mode.mjs

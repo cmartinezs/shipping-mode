@@ -21,7 +21,8 @@ policy consistency, scope evidence, operational refs, deployment evidence,
 Release Item catalog health, blockers, risks, finalization metadata and
 remaining unavailable Work Package/Task/gate capabilities.
 
-`check item` uses the same evaluator as `item status`. It checks one Release
+`check item` uses the same evaluator as `item status`, but returns `PASS` or
+`FAIL` for the evaluated health while `item status` continues to return `FOUND`. It checks one Release
 Item only; catalog-wide Release Item discovery is part of `check release` and
 `check schema`.
 

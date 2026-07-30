@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { runInit } from "../init.mjs";
 import { runReleaseNew } from "../release.mjs";
-import { runItemCreate, runItemStatus } from "../item.mjs";
+import { runCheckItem, runItemCreate, runItemStatus } from "../item.mjs";
 import { checkSchema, checkRelease } from "../check.mjs";
 import { runChangesetApply, runChangesetApprove, runChangesetValidate } from "../changesetCommand.mjs";
 import { readChangeSet, readOperation, writeChangeSet } from "../../lib/operationStore.mjs";
@@ -12,6 +12,7 @@ import { computePersistedChangeSetHash } from "../../lib/changeset.mjs";
 import { parseYaml, stringifyYaml } from "../../lib/yaml.mjs";
 import { generateUuidV7, isUuidV7 } from "../../lib/ids.mjs";
 import { renderReleaseReadme } from "../../lib/releaseProjection.mjs";
+import { renderReleaseItemReadme } from "../../lib/releaseItemProjection.mjs";
 import { updateReleaseRevision } from "../../lib/releaseMutations.mjs";
 
 function initializedWorkspace() {
@@ -106,10 +107,18 @@ function tamperChangeSet(operationsRoot, operationId, mutate) {
   assert.equal(status.status, "FOUND");
   assert.equal(status.item.id, proposal.itemId);
   assert.equal(status.derivedHealth.completion.status, "unavailable");
+  assert.equal(runCheckItem({ planningRoot, releaseRef: release.displayId, itemRef: proposal.displayId }).status, "PASS");
+  const itemReadmePath = path.join(planningRoot, "releases", release.releaseId, "items", proposal.itemId, "README.md");
+  fs.appendFileSync(itemReadmePath, "drift
+");
+  assert.equal(runItemStatus({ planningRoot, releaseRef: release.releaseId, itemRef: proposal.itemId }).status, "FOUND", "status resolution remains FOUND when live health fails");
+  assert.equal(runCheckItem({ planningRoot, releaseRef: release.releaseId, itemRef: proposal.itemId }).status, "FAIL", "check item must expose health failure with a failing check status");
+  fs.writeFileSync(itemReadmePath, renderReleaseItemReadme(item));
   const operationsBefore = fs.readdirSync(path.join(planningRoot, "operations")).length;
   runItemStatus({ planningRoot, releaseRef: release.releaseId, itemRef: proposal.itemId });
+  runCheckItem({ planningRoot, releaseRef: release.releaseId, itemRef: proposal.itemId });
   checkSchema({ planningRoot });
-  assert.equal(fs.readdirSync(path.join(planningRoot, "operations")).length, operationsBefore, "item status and check schema must be query-only");
+  assert.equal(fs.readdirSync(path.join(planningRoot, "operations")).length, operationsBefore, "item status and checks must be query-only");
   const releaseCheck = checkRelease({ planningRoot, reference: release.releaseId });
   assert.equal(releaseCheck.releases[0].derivedHealth.dimensions.find((entry) => entry.id === "releaseItems").status, "valid");
   assert.equal(releaseCheck.releases[0].completion.complete, false);
@@ -121,6 +130,15 @@ function tamperChangeSet(operationsRoot, operationId, mutate) {
   const retry = runItemCreate({ planningRoot, releaseRef: release.releaseId, args: { kind: "spike", title: "Spike", question: "Q", timebox: "1d", expectedDecision: "D", idempotencyKey: "spike", commandActor: "carlos" } });
   assert.equal(retry.operationId, exact.operationId);
   assert.equal(retry.itemId, exact.itemId);
+  const secondRelease = runReleaseNew({ planningRoot, args: { title: "Second Release", objective: "Idempotency target binding", idempotencyKey: "release-two", actor: "carlos" } });
+  runChangesetValidate({ planningRoot, operationsRoot, operationId: secondRelease.operationId });
+  runChangesetApprove({ planningRoot, operationsRoot, operationId: secondRelease.operationId, actor: "carlos", allowSelfApproval: true });
+  runChangesetApply({ planningRoot, operationsRoot, operationId: secondRelease.operationId, actor: "carlos" });
+  assert.throws(
+    () => runItemCreate({ planningRoot, releaseRef: secondRelease.releaseId, args: { kind: "spike", title: "Spike", question: "Q", timebox: "1d", expectedDecision: "D", idempotencyKey: "spike", commandActor: "carlos" } }),
+    /idempotency key spike was already used for a different release-item\.create request/,
+    "the same item intent under a different parent Release must not reuse the first Operation"
+  );
   assert.throws(
     () => runItemCreate({ planningRoot, releaseRef: release.releaseId, args: { kind: "spike", title: "Different", question: "Q", timebox: "1d", expectedDecision: "D", idempotencyKey: "spike", commandActor: "carlos" } }),
     /idempotency key spike was already used for a different release-item\.create request/

@@ -12,7 +12,10 @@ export function proposeReleaseItemCreate({ planningRoot, releaseRef, rawPayload,
   const operationsRoot = path.join(planningRoot, "operations");
   const candidateOperationId = generateUuidV7();
   const proposedAt = new Date().toISOString();
-  const itemRequest = normalizeReleaseItemCreateRequest(rawPayload, { actor, defaultIdempotencyKey: candidateOperationId });
+  const releaseResolution = resolveReleaseReference(planningRoot, releaseRef);
+  if (releaseResolution.status !== "FOUND") throw new Error(`release reference failed: ${releaseResolution.status}: ${releaseResolution.findings.join("; ")}`);
+  const canonicalReleaseId = releaseResolution.release.id;
+  const itemRequest = normalizeReleaseItemCreateRequest(rawPayload, { actor, defaultIdempotencyKey: candidateOperationId, releaseId: canonicalReleaseId });
   const persistedOperationId = propose({
     operationsRoot,
     planningRoot,
@@ -32,7 +35,8 @@ export function proposeReleaseItemCreate({ planningRoot, releaseRef, rawPayload,
       proposedAt,
       releaseRef,
       itemRequest,
-      itemId
+      itemId,
+      expectedReleaseId: canonicalReleaseId
     })
   });
   const persistedChangeSet = readChangeSet(operationsRoot, persistedOperationId);
@@ -95,5 +99,28 @@ export function runItemStatus({ planningRoot, releaseRef, itemRef }) {
     completion: health.completion,
     readiness: health.readiness,
     findings: health.findings.map((finding) => `${finding.code}: ${finding.message}`)
+  };
+}
+
+
+export function runCheckItem({ planningRoot, releaseRef, itemRef }) {
+  const status = runItemStatus({ planningRoot, releaseRef, itemRef });
+  if (status.status !== "FOUND") {
+    return { ...status, scope: "single", items: [], pendingOperations: status.pendingOperations || [] };
+  }
+  const entry = {
+    release: status.release,
+    item: status.item,
+    derivedHealth: status.derivedHealth,
+    completion: status.completion,
+    readiness: status.readiness,
+    findings: status.derivedHealth.findings
+  };
+  return {
+    status: status.derivedHealth.aggregate.valid ? "PASS" : "FAIL",
+    scope: "single",
+    items: [entry],
+    findings: status.derivedHealth.findings.map((finding) => `${finding.code}: ${finding.message}`),
+    pendingOperations: []
   };
 }

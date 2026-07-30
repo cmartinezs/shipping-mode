@@ -166,3 +166,13 @@ server-owned, YAML/README publish atomically, `release-item.created` exists,
 queries are read-only, dependencies fail closed, Release health discovers items
 canonically, deferred capabilities are honest, docs/skill are updated and the
 full verification suite is green.
+
+
+## 24. Post-review Corrections
+
+Adversarial review closed four trust and contract gaps:
+
+- `release-item.create` idempotency is bound to the canonical parent Release ID as well as normalized item intent, so the same key cannot silently reuse an Operation under another Release.
+- `check item` now exposes check semantics (`PASS`/`FAIL`) and a failing process exit code without changing query-only `item status` resolution semantics (`FOUND`).
+- `sourceRefs` use closed provider-specific locator/revision unions; unknown nested fields and caller-owned import timestamps are rejected.
+- terminal resolution metadata is status-consistent, and `SUPERSEDED` replacement references are validated against the same-Release catalog.
