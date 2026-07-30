@@ -38,6 +38,20 @@ jobs:
           helper.write_text(text)
           PY
           python scripts/pr26-review-fix.py
+          python - <<'PY'
+          from pathlib import Path
+          schema_test = Path("runtime/src/lib/tests/release-item-schema.test.mjs")
+          text = schema_test.read_text()
+          text = text.replace('const localRef = { sourceId: "local-backlog", provider: "local_repository", role: "primary", path: "docs/backlog.md",', 'const localRef = { sourceId: "local-backlog", provider: "local_repository", role: "primary", itemId: "local-story-1", path: "docs/backlog.md",')
+          start = text.index('const sourceRequest = {')
+          end = text.index('\n\nconsole.log(', start)
+          text = text[:start] + '''const sourceRequest = { kind: "spike", title: "Source", question: "Q", timebox: "1d", expectedDecision: "D", sourceRefs: [localRef], idempotencyKey: "source" };\nassert.throws(() => normalizeReleaseItemCreateRequest(sourceRequest, { actor: "carlos", defaultIdempotencyKey: "default", releaseId }), /server-owned: sourceRefs/, "manual Release Item creation cannot forge source provenance");''' + text[end:]
+          schema_test.write_text(text)
+
+          foundation_test = Path("runtime/src/lib/tests/work-source-foundation.test.mjs")
+          text = foundation_test.read_text().replace('/sourceRefs.*server-owned/', '/server-owned: sourceRefs/')
+          foundation_test.write_text(text)
+          PY
           git checkout origin/develop -- .github/workflows/runtime-foundation.yml
           rm scripts/pr26-review-fix.py
           rm .pr26-review-trigger
