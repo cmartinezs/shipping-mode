@@ -148,13 +148,15 @@ const policyUpdate = runChangesetPropose({
       }
     },
     work_sources: [{
-      id: "jira-gradeops",
-      provider: "jira",
+      id: "local-backlog",
+      provider: "local_repository",
       enabled: false,
-      transport: "mcp",
-      source_policy: "external_authoritative",
-      sync_mode: "pull",
-      mcp_connection_ref: "atlassian"
+      roots: ["docs/backlog/"],
+      import_policy: "import_snapshot",
+      sync_mode: "import_only",
+      mapping_version: 1,
+      capabilities: ["discover", "search", "get"],
+      options: {}
     }]
   })
 });
@@ -165,7 +167,7 @@ const persistedPolicy = parseYaml(fs.readFileSync(path.join(planningRoot, "confi
 assert.equal(persistedPolicy.git.pull_requests.promotion.target, "master");
 assert.equal(persistedPolicy.vcs, "git");
 assert.equal(persistedPolicy.baseBranch, "develop");
-assert.equal(persistedPolicy.work_sources[0].mcp_connection_ref, "atlassian");
+assert.equal(persistedPolicy.work_sources[0].provider, "local_repository");
 
 const invalidPolicyUpdate = runChangesetPropose({
   planningRoot,
@@ -185,9 +187,9 @@ const duplicateWorkSourceUpdate = runChangesetPropose({
   planningRoot,
   kind: "config.update",
   actor: "test-user",
-  payloadText: JSON.stringify({ work_sources: [
-    { id: "local-backlog", provider: "local_repository", enabled: true, roots: ["docs/backlog/"], source_policy: "import_snapshot", sync_mode: "import_only" },
-    { id: "local-backlog", provider: "local_repository", enabled: false, roots: ["docs/requirements/"], source_policy: "import_snapshot", sync_mode: "import_only" }
+    payloadText: JSON.stringify({ work_sources: [
+    { id: "local-backlog", provider: "local_repository", enabled: true, roots: ["docs/backlog/"], import_policy: "import_snapshot", sync_mode: "import_only", mapping_version: 1, capabilities: ["discover", "search", "get"], options: {} },
+    { id: "local-backlog", provider: "local_repository", enabled: false, roots: ["docs/requirements/"], import_policy: "import_snapshot", sync_mode: "import_only", mapping_version: 1, capabilities: ["discover", "search", "get"], options: {} }
   ] })
 });
 assert.equal(runChangesetValidate({ planningRoot, operationsRoot, operationId: duplicateWorkSourceUpdate.operationId }).status, "INVALID", "duplicate Work Source ids must be rejected before apply");

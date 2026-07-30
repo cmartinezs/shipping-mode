@@ -82,8 +82,8 @@ function writeValidBaseFiles(planningRoot) {
   const configPath = path.join(planningRoot, "config.yml");
   const config = parseYaml(fs.readFileSync(configPath, "utf8"));
   config.work_sources = [
-    { id: "local-backlog", provider: "local_repository", enabled: true, roots: ["docs/backlog/"], source_policy: "import_snapshot", sync_mode: "import_only" },
-    { id: "local-backlog", provider: "local_repository", enabled: false, roots: ["docs/requirements/"], source_policy: "import_snapshot", sync_mode: "import_only" }
+    { id: "local-backlog", provider: "local_repository", enabled: true, roots: ["docs/backlog/"], import_policy: "import_snapshot", sync_mode: "import_only", mapping_version: 1, capabilities: ["discover", "search", "get"], options: {} },
+    { id: "local-backlog", provider: "local_repository", enabled: false, roots: ["docs/requirements/"], import_policy: "import_snapshot", sync_mode: "import_only", mapping_version: 1, capabilities: ["discover", "search", "get"], options: {} }
   ];
   fs.writeFileSync(configPath, stringifyYaml(config));
   const result = checkSchema({ planningRoot });
@@ -91,19 +91,36 @@ function writeValidBaseFiles(planningRoot) {
   assert.ok(result.findings.some((finding) => finding.includes("duplicate work source id")));
 }
 
-// Work Source roots cannot escape the workspace or use an incompatible transport.
+// Work Source roots cannot escape the workspace and external providers remain deferred.
 {
   const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-work-source-safety-"));
   writeValidBaseFiles(planningRoot);
   ensureBaseTopology(planningRoot);
   const configPath = path.join(planningRoot, "config.yml");
   const config = parseYaml(fs.readFileSync(configPath, "utf8"));
-  config.work_sources = [{ id: "jira-gradeops", provider: "jira", enabled: false, transport: "filesystem", roots: ["../outside"], source_policy: "external_authoritative", sync_mode: "pull" }];
+  config.work_sources = [
+    { id: "local-escape", provider: "local_repository", enabled: false, roots: ["../outside"], import_policy: "import_snapshot", sync_mode: "import_only", mapping_version: 1, capabilities: [], options: {} }
+  ];
   fs.writeFileSync(configPath, stringifyYaml(config));
   const result = checkSchema({ planningRoot });
   assert.equal(result.status, "FAIL");
-  assert.ok(result.findings.some((finding) => finding.includes("inside the workspace")));
-  assert.ok(result.findings.some((finding) => finding.includes("filesystem transport")));
+  assert.ok(result.findings.some((finding) => finding.includes("inside the workspace") || finding.includes("must match pattern")));
+}
+
+// External Work Source providers remain deferred to Plan 4.
+{
+  const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-work-source-deferred-provider-"));
+  writeValidBaseFiles(planningRoot);
+  ensureBaseTopology(planningRoot);
+  const configPath = path.join(planningRoot, "config.yml");
+  const config = parseYaml(fs.readFileSync(configPath, "utf8"));
+  config.work_sources = [
+    { id: "jira-gradeops", provider: "jira", enabled: false, roots: ["docs/backlog"], import_policy: "import_snapshot", sync_mode: "import_only", mapping_version: 1, capabilities: [], options: {} }
+  ];
+  fs.writeFileSync(configPath, stringifyYaml(config));
+  const result = checkSchema({ planningRoot });
+  assert.equal(result.status, "FAIL");
+  assert.ok(result.findings.some((finding) => finding.includes("deferred to Plan 4")));
 }
 
 function ensureBaseTopology(planningRoot) {

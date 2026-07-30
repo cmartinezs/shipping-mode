@@ -59,12 +59,12 @@ assert.equal(parsedUpdated.project.name, "renamed");
 assert.equal(parsedUpdated.vcs, "git", "fields not touched by config set must be preserved");
 const policyUpdate = parseYaml(renderConfigUpdate({
   git: { enabled: false, provider: "none" },
-  work_sources: [{ id: "jira-gradeops", provider: "jira", enabled: false, transport: "mcp", source_policy: "external_authoritative", sync_mode: "pull", mcp_connection_ref: "atlassian" }]
+  work_sources: [{ id: "local-backlog", provider: "local_repository", enabled: false, roots: ["docs/backlog/"], import_policy: "import_snapshot", sync_mode: "import_only", mapping_version: 1, capabilities: ["discover", "search", "get"], options: {} }]
 }, parsedConfig).get("config.yml"));
 assert.equal(policyUpdate.git.enabled, false);
 assert.equal(policyUpdate.vcs, "none", "canonical git.enabled must synchronize compatibility vcs");
 assert.equal(policyUpdate.baseBranch, null, "disabled Git must clear compatibility baseBranch");
-assert.equal(policyUpdate.work_sources[0].mcp_connection_ref, "atlassian");
+assert.equal(policyUpdate.work_sources[0].provider, "local_repository");
 const enabledPolicyUpdate = parseYaml(renderConfigUpdate({
   git: { enabled: true, provider: "github", branches: { work_base: "develop", integration: "develop", production: "master" } }
 }, parsedConfig).get("config.yml"));
