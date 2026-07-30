@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import fs from "node:fs";
+import path from "node:path";
 import { consumeBridgeEnvelope } from "./bridge-consume.mjs";
 import {
   BridgeError,
@@ -30,12 +31,26 @@ function readExpectedInput(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
 }
 
+function requireDirectoryOption(value, optionName) {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new BridgeError("BRIDGE_INVALID", `${optionName} requires a non-blank directory`);
+  }
+  const resolved = path.resolve(value.trim());
+  if (resolved.split(path.sep).includes(".planning")) {
+    throw new BridgeError("BRIDGE_INVALID", `${optionName} must not point inside .planning`);
+  }
+  return resolved;
+}
+
 function dataRootOption(options) {
+  if (options.plugin_data_dir) {
+    return requireDirectoryOption(options.plugin_data_dir, "--plugin-data-dir");
+  }
   if (!options.data_root) return undefined;
   if (process.env.BRIDGE_SPIKE_ALLOW_DATA_ROOT !== "1") {
     throw new BridgeError("BRIDGE_INVALID", "--data-root is test-only and requires BRIDGE_SPIKE_ALLOW_DATA_ROOT=1");
   }
-  return options.data_root;
+  return requireDirectoryOption(options.data_root, "--data-root");
 }
 
 function output(value) {
