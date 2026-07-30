@@ -11,6 +11,9 @@ import { validate } from "../lib/schema.mjs";
 import { generateUuidV7 } from "../lib/ids.mjs";
 import { releaseReadmeRelativePath, releaseYamlRelativePath } from "../lib/releaseStore.mjs";
 import { renderReleaseMutation } from "../lib/releaseMutations.mjs";
+import { renderReleaseItemCreate } from "../lib/releaseItemCreate.mjs";
+import { releaseItemReadmeRelativePath, releaseItemYamlRelativePath } from "../lib/releaseItemStore.mjs";
+import { renderReleaseItemReadme } from "../lib/releaseItemProjection.mjs";
 
 function toKebabCase(value) {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-+|-+$)/g, "");
@@ -142,6 +145,14 @@ export function renderReleasePlan2Mutation(kind, payload, planningRoot, workspac
   return new Map([
     [releaseYamlRelativePath(release.id), stringifyYaml(release)],
     [releaseReadmeRelativePath(release.id), renderReleaseReadme(release)]
+  ]);
+}
+
+export function renderReleaseItemCreateChangeSet(payload, planningRoot) {
+  const item = renderReleaseItemCreate(payload, { planningRoot });
+  return new Map([
+    [releaseItemYamlRelativePath(item.releaseId, item.id), stringifyYaml(item)],
+    [releaseItemReadmeRelativePath(item.releaseId, item.id), renderReleaseItemReadme(item)]
   ]);
 }
 
