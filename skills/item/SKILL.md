@@ -54,6 +54,7 @@ shipping-mode changeset apply <operation-id> --actor <actor>
 - Idempotency is bound to both normalized item intent and the canonical parent Release ID.
 - For `package add`, the parent Release and Release Item resolve by UUIDv7 or display ID, the Scope is an explicit UUIDv7, both task and test guides must be approved/current, and Work Package dependencies are UUIDv7 Work Package IDs in the same Release.
 - Work Package creation stores guide revisions and declarative gate requirements only; it does not execute gates and does not mutate the parent Release Item.
+- Internal Work Package payloads must use unique IDs for interfaces, contracts, risks and blockers; invalid nested identities fail before an Operation is reserved.
 - Source references supplied by an internal caller must use the closed local or external provider shape. Caller-owned import timestamps and raw provider metadata are rejected.
 - Slugs are decorative and never resolve.
 
