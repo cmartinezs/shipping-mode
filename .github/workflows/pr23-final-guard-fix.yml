@@ -1,0 +1,71 @@
+name: PR23 Final Guard Fix
+
+on:
+  pull_request:
+    branches: [develop]
+
+permissions:
+  contents: write
+
+jobs:
+  fix-and-verify:
+    if: github.event.pull_request.head.ref == 'agent/corte-2-plan-3-derived-health-closure' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/corte-2-plan-3-derived-health-closure
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Correct propose and revalidation guard placement
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('runtime/src/lib/releaseMutations.mjs')
+          text = path.read_text()
+          current = '    const currentGuardSummary = releaseFinalizationGuardSummary(health, release);'
+          strict = '    const guardSummary = assertReleaseCanFinalize({ health, release });'
+          if current not in text:
+              raise SystemExit('prepare guard anchor not found')
+          text = text.replace(current, strict, 1)
+          render_index = text.rfind(strict)
+          if render_index < 0:
+              raise SystemExit('render guard anchor not found')
+          text = text[:render_index] + current + text[render_index + len(strict):]
+          path.write_text(text)
+          PY
+          rm -f .github/workflows/pr23-final-guard-fix.yml
+      - name: Publish source correction
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(release): preserve propose and stale guard semantics"
+          git push origin HEAD:agent/corte-2-plan-3-derived-health-closure
+      - name: Build and verify
+        run: |
+          npm ci --silent
+          npm run build:schemas
+          npm run build:runtime
+          npm run build:test-bundle
+          npm run test:unit
+          npm run test:cli-e2e
+          npm run test:real-crash-e2e
+          npm run test:security-e2e
+          npm run test:bundle
+          npm run verify:artifacts
+          npm run verify:next-generation
+          git diff --check
+      - name: Publish generated artifacts
+        run: |
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "build(runtime): regenerate reviewed Corte 2 artifacts"
+            git push origin HEAD:agent/corte-2-plan-3-derived-health-closure
+          fi
+
+# Registered after creation.
