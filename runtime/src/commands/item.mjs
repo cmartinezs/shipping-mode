@@ -8,6 +8,7 @@ import { resolveReleaseReference } from "../lib/releaseStore.mjs";
 import { resolveReleaseItemReference, evaluateReleaseItemHealth } from "../lib/releaseItemStore.mjs";
 import { normalizeWorkPackageCreateRequest, prepareWorkPackageCreate } from "../lib/workPackageCreate.mjs";
 import { resolveWorkPackageReference, evaluateWorkPackageHealth } from "../lib/workPackageStore.mjs";
+import { parseSourceRef, prepareWorkSourceImport } from "../lib/workSourceImport.mjs";
 import { pendingRecovery } from "./release.mjs";
 
 export function proposeReleaseItemCreate({ planningRoot, releaseRef, rawPayload, actor, itemId = null }) {
@@ -79,6 +80,72 @@ export function runItemCreate({ planningRoot, releaseRef, args }) {
     planningRoot,
     releaseRef,
     rawPayload: commonPayload(args),
+    actor: args.commandActor
+  });
+}
+
+export function proposeWorkSourceImport({ planningRoot, releaseRef, rawPayload, actor, itemId = null }) {
+  const operationsRoot = path.join(planningRoot, "operations");
+  const candidateOperationId = generateUuidV7();
+  const proposedAt = new Date().toISOString();
+  const releaseResolution = resolveReleaseReference(planningRoot, releaseRef);
+  if (releaseResolution.status !== "FOUND") throw new Error(`release reference failed: ${releaseResolution.status}: ${releaseResolution.findings.join("; ")}`);
+  const canonicalReleaseId = releaseResolution.release.id;
+  const preparedForIdempotency = prepareWorkSourceImport(rawPayload, {
+    planningRoot,
+    operationsRoot,
+    operationId: candidateOperationId,
+    actor,
+    proposedAt,
+    releaseRef,
+    itemId,
+    expectedReleaseId: canonicalReleaseId,
+    skipDuplicatePrimaryCheck: true
+  });
+  const persistedOperationId = propose({
+    operationsRoot,
+    planningRoot,
+    kind: "work-source.import",
+    target: null,
+    payload: null,
+    targetFiles: null,
+    actor,
+    operationId: candidateOperationId,
+    proposedAt,
+    idempotency: { key: preparedForIdempotency.normalized.idempotencyKey, requestHash: preparedForIdempotency.normalized.idempotencyRequestHash },
+    prepareUnderLock: () => prepareWorkSourceImport(rawPayload, {
+      planningRoot,
+      operationsRoot,
+      operationId: candidateOperationId,
+      actor,
+      proposedAt,
+      releaseRef,
+      importRequest: preparedForIdempotency.normalized,
+      itemId,
+      expectedReleaseId: canonicalReleaseId
+    })
+  });
+  const persistedChangeSet = readChangeSet(operationsRoot, persistedOperationId);
+  const operation = readOperation(operationsRoot, persistedOperationId);
+  return {
+    operationId: persistedOperationId,
+    releaseId: persistedChangeSet.payload.releaseId,
+    itemId: persistedChangeSet.payload.id,
+    displayId: persistedChangeSet.payload.displayId,
+    operationStatus: operation.status,
+    idempotent: persistedOperationId !== candidateOperationId
+  };
+}
+
+export function runItemImport({ planningRoot, releaseRef, args }) {
+  parseSourceRef(args.sourceRef);
+  return proposeWorkSourceImport({
+    planningRoot,
+    releaseRef,
+    rawPayload: {
+      sourceRef: args.sourceRef,
+      ...(args.idempotencyKey ? { idempotencyKey: args.idempotencyKey } : {})
+    },
     actor: args.commandActor
   });
 }

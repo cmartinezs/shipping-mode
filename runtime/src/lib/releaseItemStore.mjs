@@ -138,22 +138,22 @@ export function listReservedReleaseItemDocuments(operationsRoot) {
     } catch (error) {
       throw new StateError(`cannot inspect operation ${operationId} while reserving Release Item identities: ${error.message}`);
     }
-    if (operation.kind !== "release-item.create" || ["APPLIED"].includes(operation.status)) continue;
+    if (!["release-item.create", "work-source.import"].includes(operation.kind) || ["APPLIED"].includes(operation.status)) continue;
     let changeSet;
     try {
       changeSet = readChangeSet(operationsRoot, operationId);
     } catch (error) {
       throw new StateError(`cannot verify release-item.create identity reservation for operation ${operationId}: ${error.message}`);
     }
-    if (changeSet.kind !== "release-item.create" || changeSet.operationId !== operationId) {
-      throw new StateError(`release-item.create identity reservation is inconsistent for operation ${operationId}`);
+    if (changeSet.kind !== operation.kind || changeSet.operationId !== operationId) {
+      throw new StateError(`${operation.kind} identity reservation is inconsistent for operation ${operationId}`);
     }
     const itemId = changeSet.payload?.id;
     const displayId = changeSet.payload?.displayId;
     if (!isUuidV7(itemId) || !isReleaseItemDisplayIdForUuid(itemId, displayId)) {
-      throw new StateError(`release-item.create identity reservation is invalid for operation ${operationId}`);
+      throw new StateError(`${operation.kind} identity reservation is invalid for operation ${operationId}`);
     }
-    reserved.push({ id: itemId, displayId, releaseId: changeSet.payload.releaseId });
+    reserved.push({ id: itemId, displayId, releaseId: changeSet.payload.releaseId, sourceRefs: changeSet.payload.requestSnapshot?.sourceRefs || [] });
   }
   return reserved;
 }
