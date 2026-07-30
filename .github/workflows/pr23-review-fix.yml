@@ -35,6 +35,10 @@ jobs:
               '    "\\n}",\n    \'\'\'export function assertReleaseCanFinalize',
               '    "",\n    \'\'\'export function assertReleaseCanFinalize'
           )
+          text = text.replace(
+              "replace_once(commands_test, 'import { revisionHash } from \"../../lib/canonical.mjs\";\\n', 'import { contentHash, revisionHash } from \"../../lib/canonical.mjs\";\\n')",
+              "replace_once(commands_test, 'import { parseYaml, stringifyYaml } from \"../../lib/yaml.mjs\";\\n', 'import { parseYaml, stringifyYaml } from \"../../lib/yaml.mjs\";\\nimport { contentHash, revisionHash } from \"../../lib/canonical.mjs\";\\n')"
+          )
           p.write_text(text)
           PY
           python3 .github/pr23-review-fix.py
