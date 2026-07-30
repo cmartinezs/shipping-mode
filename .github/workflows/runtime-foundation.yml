@@ -23,6 +23,15 @@ jobs:
           cache: npm
       - name: Apply PR 26 review corrections
         run: |
+          python - <<'PY'
+          from pathlib import Path
+          helper = Path("scripts/pr26-review-fix.py")
+          text = helper.read_text()
+          start = text.index("# Config roots cannot be Git internals either.")
+          end = text.index('replace_once("runtime/src/lib/projectContextValidation.mjs"', start)
+          replacement = '''# Config roots cannot be Git internals either.\nconfig_path = ROOT / "runtime/src/schemas/config.schema.json"\nconfig_schema = json.loads(config_path.read_text(encoding="utf-8"))\nconfig_schema["$defs"]["workSource"]["properties"]["roots"]["items"]["pattern"] = r"^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!\\.planning(?:/|$))(?!\\.git(?:/|$)).+"\nconfig_path.write_text(json.dumps(config_schema, indent=2) + "\\n", encoding="utf-8")\n'''
+          helper.write_text(text[:start] + replacement + text[end:])
+          PY
           python scripts/pr26-review-fix.py
           git checkout origin/develop -- .github/workflows/runtime-foundation.yml
           rm scripts/pr26-review-fix.py
