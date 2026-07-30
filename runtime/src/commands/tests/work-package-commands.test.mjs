@@ -227,12 +227,34 @@ function tamperChangeSet(operationsRoot, operationId, mutate) {
   );
   const b = createPackage(first.planningRoot, first.operationsRoot, first.release.releaseId, first.item.itemId, first.scope.scopeId, "b", "required", a.packageId);
   assert.equal(runItemPackageStatus({ planningRoot: first.planningRoot, releaseRef: first.release.releaseId, itemRef: first.item.itemId, packageRef: b.packageId }).status, "FOUND");
+  completePackage(first.planningRoot, first.release.releaseId, first.item.itemId, b.packageId);
+  const dependencyBlocked = runCheckWorkPackage({ planningRoot: first.planningRoot, releaseRef: first.release.releaseId, itemRef: first.item.itemId, packageRef: b.packageId });
+  assert.equal(dependencyBlocked.status, "FAIL", "terminal package cannot complete while a dependency remains unresolved");
+  assert.ok(dependencyBlocked.findings.some((finding) => finding.includes("WORK_PACKAGE_DEPENDENCY_UNSATISFIED")));
+  completePackage(first.planningRoot, first.release.releaseId, first.item.itemId, a.packageId);
+  assert.equal(runCheckWorkPackage({ planningRoot: first.planningRoot, releaseRef: first.release.releaseId, itemRef: first.item.itemId, packageRef: b.packageId }).status, "PASS");
   const second = initializedWorkspace();
   const other = createPackage(second.planningRoot, second.operationsRoot, second.release.releaseId, second.item.itemId, second.scope.scopeId, "other");
   assert.throws(
     () => runItemPackageAdd({ planningRoot: first.planningRoot, releaseRef: first.release.releaseId, itemRef: first.item.itemId, args: { scopeId: first.scope.scopeId, commitment: "required", title: "Cross", dependencyRefs: other.packageId, idempotencyKey: "cross", commandActor: "carlos" } }),
     /does not resolve to a Work Package/
   );
+}
+
+{
+  const { planningRoot, operationsRoot, release, item, scope } = initializedWorkspace();
+  const blocked = createPackage(planningRoot, operationsRoot, release.releaseId, item.itemId, scope.scopeId, "blocked");
+  completePackage(planningRoot, release.releaseId, item.itemId, blocked.packageId);
+  const packagePath = path.join(planningRoot, "releases", release.releaseId, "items", item.itemId, "work-packages", blocked.packageId, "work-package.yml");
+  const packageDoc = parseYaml(fs.readFileSync(packagePath, "utf8"));
+  const withBlocker = updateWorkPackageRevision({
+    ...packageDoc,
+    blockers: [{ id: generateUuidV7(), severity: "critical", summary: "Open production blocker", createdAt: "2026-07-29T00:00:00.000Z", createdBy: "carlos", resolvedAt: null, resolvedBy: null }]
+  });
+  fs.writeFileSync(packagePath, stringifyYaml(withBlocker));
+  fs.writeFileSync(path.join(path.dirname(packagePath), "README.md"), renderWorkPackageReadme(withBlocker));
+  assert.equal(runCheckWorkPackage({ planningRoot, releaseRef: release.releaseId, itemRef: item.itemId, packageRef: blocked.packageId }).status, "FAIL", "open blockers must invalidate completion contribution");
+  assert.equal(runCheckItem({ planningRoot, releaseRef: release.releaseId, itemRef: item.itemId }).items[0].completion.complete, false);
 }
 
 {

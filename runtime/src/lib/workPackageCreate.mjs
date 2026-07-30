@@ -238,8 +238,9 @@ export function prepareWorkPackageCreate(rawPayload, {
   const display = deriveUniqueWorkPackageDisplayId(id, existingPackages);
   const dependencies = normalized.requestSnapshot.dependencies;
   for (const dep of dependencies) {
-    const target = existingPackages.find((pkg) => pkg.id === dep && pkg.releaseId === release.id);
-    if (!target) throw new Error(`INVALID_REFERENCE: dependency ${dep} does not resolve to a Work Package in ${release.id}`);
+    const target = existingPackages.find((pkg) => pkg.id === dep);
+    if (!target) throw new Error(`INVALID_REFERENCE: dependency ${dep} does not resolve to a Work Package`);
+    if (target.releaseId !== release.id) throw new Error(`INVALID_REFERENCE: dependency ${dep} belongs to another Release ${target.releaseId}`);
   }
   if (dependencies.includes(id)) throw new Error("INVALID_REFERENCE: Work Package cannot depend on itself");
 

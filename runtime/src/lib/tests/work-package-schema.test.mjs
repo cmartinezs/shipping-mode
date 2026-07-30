@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { validate } from "../schema.mjs";
-import { updateWorkPackageRevision } from "../workPackageStore.mjs";
+import { updateWorkPackageRevision, workPackageCatalogFindings, workPackageIntegrityFindings } from "../workPackageStore.mjs";
 
 function validPackage() {
   return updateWorkPackageRevision({
@@ -63,5 +63,18 @@ done.resolution = {
   evidence: [{ id: "review", summary: "Reviewed", detail: null }]
 };
 assert.equal(validate("work-package", updateWorkPackageRevision(done)).valid, true);
+
+const duplicateSemanticIds = validPackage();
+duplicateSemanticIds.risks.push({ ...duplicateSemanticIds.risks[0], summary: "Second risk with same ID" });
+const duplicateIntegrity = workPackageIntegrityFindings(updateWorkPackageRevision(duplicateSemanticIds));
+assert.ok(duplicateIntegrity.findings.some((finding) => finding.includes("risks contains duplicate identity")));
+
+const mismatchedGateSource = validPackage();
+mismatchedGateSource.gateRequirements[0].source.guideId = "018f0000-0000-7000-8000-000000000399";
+const gateIntegrity = workPackageIntegrityFindings(updateWorkPackageRevision(mismatchedGateSource));
+assert.ok(gateIntegrity.findings.some((finding) => finding.includes("source does not match the captured")));
+
+const duplicatePackage = updateWorkPackageRevision({ ...validPackage(), releaseItemId: "018f0000-0000-7000-8000-000000000398", title: "Duplicate physical identity" });
+assert.ok(workPackageCatalogFindings([validPackage(), duplicatePackage], { releaseId: duplicatePackage.releaseId }).some((finding) => finding.code === "WORK_PACKAGE_ID_DUPLICATE"));
 
 console.log("work-package-schema: closed schema, status/resolution and nested tamper cases pass");
