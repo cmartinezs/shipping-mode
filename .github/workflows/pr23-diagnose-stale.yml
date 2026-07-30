@@ -1,0 +1,36 @@
+name: PR23 Stale Diagnostics
+
+on:
+  pull_request:
+    branches: [develop]
+
+jobs:
+  diagnose:
+    if: github.event.pull_request.head.ref == 'agent/corte-2-plan-3-derived-health-closure' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/corte-2-plan-3-derived-health-closure
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Expose validation errors
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('runtime/src/commands/tests/commands.test.mjs')
+          text = path.read_text()
+          old = 'assert.equal(runChangesetValidate({ planningRoot, operationsRoot, operationId: driftedFinalize.operationId }).status, "STALE", "external evidence revision drift must stale finalization even when health remains valid");'
+          new = 'const driftValidation = runChangesetValidate({ planningRoot, operationsRoot, operationId: driftedFinalize.operationId });\nassert.equal(driftValidation.status, "STALE", `external evidence revision drift must stale finalization even when health remains valid: ${JSON.stringify(driftValidation.errors)}`);'
+          if old not in text:
+              raise SystemExit('drift assertion anchor not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
+          npm ci --silent
+          npm run build:schemas
+          node runtime/src/commands/tests/commands.test.mjs
+
+# Registered after creation.
