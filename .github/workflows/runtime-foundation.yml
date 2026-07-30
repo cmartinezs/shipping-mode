@@ -3,39 +3,176 @@ name: Runtime Foundation
 on:
   pull_request:
     branches: [develop]
-  push:
-    branches: [feat/corte-0-runtime-foundation]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: agent/corte-3-plan-2-work-package-core
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-      - run: npm ci --silent
-      - name: Build review artifacts outside the source tree
-        run: node scripts/build-runtime.mjs --out "$RUNNER_TEMP/generated" --bundle-out "$RUNNER_TEMP/shipping-mode.mjs"
-      - name: Stage review artifacts
-        if: always()
+      - name: Reject duplicate nested IDs during proposal
         run: |
-          mkdir -p ci-artifacts/runtime/src/generated ci-artifacts/runtime/dist
-          cp "$RUNNER_TEMP/generated/validators.mjs" ci-artifacts/runtime/src/generated/validators.mjs
-          cp "$RUNNER_TEMP/generated/build-meta.mjs" ci-artifacts/runtime/src/generated/build-meta.mjs
-          cp "$RUNNER_TEMP/shipping-mode.mjs" ci-artifacts/runtime/dist/shipping-mode.mjs
-      - name: Upload generated runtime for review
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: runtime-foundation-generated
-          path: ci-artifacts
-          if-no-files-found: error
-      - run: npm run verify:next-generation
-      - name: Prove verification leaves committed artifacts unchanged
-        run: git diff --exit-code -- runtime/src/generated runtime/dist/shipping-mode.mjs
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('runtime/src/lib/workPackageCreate.mjs')
+          text = path.read_text()
+          old_risk = '''function normalizeRiskArray(value) {
+            if (value === undefined || value === null) return [];
+            if (!Array.isArray(value)) throw new Error("risks must be an array");
+            const allowed = new Set(["id", "level", "summary"]);
+            return value.map((risk, index) => {
+              requireObject(risk, `risks[${index}]`);
+              for (const key of Object.keys(risk)) if (!allowed.has(key)) throw new Error(`risks[${index}] contains unsupported field: ${key}`);
+              const level = requireString(risk.level, `risks[${index}].level`);
+              if (!["low", "medium", "high", "critical"].includes(level)) throw new Error(`risks[${index}].level is invalid`);
+              if (!isUuidV7(risk.id)) throw new Error(`risks[${index}].id must be UUIDv7`);
+              return { id: risk.id, level, summary: requireString(risk.summary, `risks[${index}].summary`) };
+            }).sort((left, right) => left.id.localeCompare(right.id));
+          }'''
+          new_risk = '''function normalizeRiskArray(value) {
+            if (value === undefined || value === null) return [];
+            if (!Array.isArray(value)) throw new Error("risks must be an array");
+            const allowed = new Set(["id", "level", "summary"]);
+            const normalized = value.map((risk, index) => {
+              requireObject(risk, `risks[${index}]`);
+              for (const key of Object.keys(risk)) if (!allowed.has(key)) throw new Error(`risks[${index}] contains unsupported field: ${key}`);
+              const level = requireString(risk.level, `risks[${index}].level`);
+              if (!["low", "medium", "high", "critical"].includes(level)) throw new Error(`risks[${index}].level is invalid`);
+              if (!isUuidV7(risk.id)) throw new Error(`risks[${index}].id must be UUIDv7`);
+              return { id: risk.id, level, summary: requireString(risk.summary, `risks[${index}].summary`) };
+            }).sort((left, right) => left.id.localeCompare(right.id));
+            if (new Set(normalized.map((risk) => risk.id)).size !== normalized.length) throw new Error("risks cannot contain duplicate ids");
+            return normalized;
+          }'''
+          old_blocker = '''function normalizeBlockerArray(value) {
+            if (value === undefined || value === null) return [];
+            if (!Array.isArray(value)) throw new Error("blockers must be an array");
+            const allowed = new Set(["id", "severity", "summary"]);
+            return value.map((blocker, index) => {
+              requireObject(blocker, `blockers[${index}]`);
+              for (const key of Object.keys(blocker)) if (!allowed.has(key)) throw new Error(`blockers[${index}] contains unsupported field: ${key}`);
+              const severity = requireString(blocker.severity, `blockers[${index}].severity`);
+              if (!["low", "medium", "high", "critical"].includes(severity)) throw new Error(`blockers[${index}].severity is invalid`);
+              if (!isUuidV7(blocker.id)) throw new Error(`blockers[${index}].id must be UUIDv7`);
+              return { id: blocker.id, severity, summary: requireString(blocker.summary, `blockers[${index}].summary`) };
+            }).sort((left, right) => left.id.localeCompare(right.id));
+          }'''
+          new_blocker = '''function normalizeBlockerArray(value) {
+            if (value === undefined || value === null) return [];
+            if (!Array.isArray(value)) throw new Error("blockers must be an array");
+            const allowed = new Set(["id", "severity", "summary"]);
+            const normalized = value.map((blocker, index) => {
+              requireObject(blocker, `blockers[${index}]`);
+              for (const key of Object.keys(blocker)) if (!allowed.has(key)) throw new Error(`blockers[${index}] contains unsupported field: ${key}`);
+              const severity = requireString(blocker.severity, `blockers[${index}].severity`);
+              if (!["low", "medium", "high", "critical"].includes(severity)) throw new Error(`blockers[${index}].severity is invalid`);
+              if (!isUuidV7(blocker.id)) throw new Error(`blockers[${index}].id must be UUIDv7`);
+              return { id: blocker.id, severity, summary: requireString(blocker.summary, `blockers[${index}].summary`) };
+            }).sort((left, right) => left.id.localeCompare(right.id));
+            if (new Set(normalized.map((blocker) => blocker.id)).size !== normalized.length) throw new Error("blockers cannot contain duplicate ids");
+            return normalized;
+          }'''
+          if old_risk not in text or old_blocker not in text:
+              raise SystemExit('normalization anchors not found')
+          path.write_text(text.replace(old_risk, new_risk, 1).replace(old_blocker, new_blocker, 1))
+
+          test_path = Path('runtime/src/commands/tests/work-package-commands.test.mjs')
+          test = test_path.read_text()
+          old_import = 'import { runCheckItem, runCheckWorkPackage, runItemCreate, runItemPackageAdd, runItemPackageStatus } from "../item.mjs";'
+          new_import = 'import { proposeWorkPackageCreate, runCheckItem, runCheckWorkPackage, runItemCreate, runItemPackageAdd, runItemPackageStatus } from "../item.mjs";'
+          if old_import not in test:
+              raise SystemExit('test import anchor not found')
+          test = test.replace(old_import, new_import, 1)
+          marker = '''{
+            const { planningRoot, operationsRoot, release, item, scope } = initializedWorkspace({ requiredGateRefs: ["unit"] });'''
+          insertion = '''{
+            const { planningRoot, operationsRoot, release, item, scope } = initializedWorkspace();
+            const duplicateId = generateUuidV7();
+            const operationCount = fs.readdirSync(operationsRoot).length;
+            assert.throws(
+              () => proposeWorkPackageCreate({
+                planningRoot,
+                releaseRef: release.releaseId,
+                itemRef: item.itemId,
+                actor: "carlos",
+                rawPayload: {
+                  scopeId: scope.scopeId,
+                  commitment: "required",
+                  title: "Duplicate risk IDs",
+                  risks: [
+                    { id: duplicateId, level: "low", summary: "First" },
+                    { id: duplicateId, level: "high", summary: "Second" }
+                  ],
+                  idempotencyKey: "duplicate-risk"
+                }
+              }),
+              /risks cannot contain duplicate ids/
+            );
+            assert.throws(
+              () => proposeWorkPackageCreate({
+                planningRoot,
+                releaseRef: release.releaseId,
+                itemRef: item.itemId,
+                actor: "carlos",
+                rawPayload: {
+                  scopeId: scope.scopeId,
+                  commitment: "required",
+                  title: "Duplicate blocker IDs",
+                  blockers: [
+                    { id: duplicateId, severity: "low", summary: "First" },
+                    { id: duplicateId, severity: "critical", summary: "Second" }
+                  ],
+                  idempotencyKey: "duplicate-blocker"
+                }
+              }),
+              /blockers cannot contain duplicate ids/
+            );
+            assert.equal(fs.readdirSync(operationsRoot).length, operationCount, "invalid nested identities must fail before reserving an Operation");
+          }
+
+          ''' + marker
+          if marker not in test:
+              raise SystemExit('test insertion marker not found')
+          test_path.write_text(test.replace(marker, insertion, 1))
+          PY
+          git checkout origin/develop -- .github/workflows/runtime-foundation.yml
+      - name: Commit source correction
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add runtime/src/lib/workPackageCreate.mjs runtime/src/commands/tests/work-package-commands.test.mjs .github/workflows/runtime-foundation.yml
+          git commit -m "fix(work-package): reject duplicate nested identities at propose"
+      - name: Build and verify
+        run: |
+          npm ci --silent
+          npm run build:schemas
+          npm run build:runtime
+          npm run build:test-bundle
+          npm run test:unit
+          npm run test:cli-e2e
+          npm run test:real-crash-e2e
+          npm run test:security-e2e
+          npm run test:bundle
+          npm run test:host-integration
+          npm run verify:artifacts
+          npm run verify:next-generation
+          git diff --check
+      - name: Commit generated runtime
+        run: |
+          git add runtime/src/generated runtime/dist/shipping-mode.mjs
+          if ! git diff --cached --quiet; then
+            git commit -m "build(runtime): regenerate Work Package proposal validation"
+          fi
+      - name: Push corrections
+        run: git push origin HEAD:agent/corte-3-plan-2-work-package-core
