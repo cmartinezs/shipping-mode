@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
 import fs from "node:fs";
+import { consumeBridgeEnvelope } from "./bridge-consume.mjs";
 import {
   BridgeError,
   cleanupExpiredRequests,
-  consumeBridgeEnvelope,
   inspectBridgeMetadata,
   prepareBridgeRequest
 } from "./bridge-verified.mjs";
