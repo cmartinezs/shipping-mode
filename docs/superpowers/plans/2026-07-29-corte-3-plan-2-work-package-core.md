@@ -81,6 +81,10 @@ whole Release package catalog and rejects missing targets, cross-Release
 targets, self-dependency, duplicate/unsorted dependency lists, direct cycles
 and indirect cycles with deterministic findings.
 
+A terminal Work Package contributes to completion only when every declared
+dependency is also terminally resolved. Existence and acyclic structure alone
+are not sufficient completion evidence.
+
 ## 11. Gates declarativos
 
 Gate requirements are derived from approved task guide `requiredGateRefs`.
@@ -104,6 +108,12 @@ completed counts, blocking package IDs, invalid package IDs and unavailable
 capabilities. Empty package catalogs and required-empty catalogs are
 incomplete. Required invalid packages make completion invalid. Required gates
 without execution capability make completion unavailable.
+
+A Work Package contributes `complete` only when it has a matching terminal
+resolution and no invalid, failed or current unavailable health dimension.
+Projection drift, guide drift, unresolved dependencies and open blockers all
+prevent completion contribution. Child package error findings are propagated
+into Release Item completion evidence.
 
 ## 14. Readiness y capability availability
 
@@ -143,6 +153,11 @@ operation ID, event ID, target paths, base revisions, proposal hash or binding
 hashes. `checkKindInvariants` rejects tampering even when
 `change-set.json.hash` is recomputed.
 
+Semantic integrity additionally requires exactly one task Guide and one test
+Guide, Guide ownership matching `scopeId`, gate provenance matching the
+captured Guide revision, unique nested identities and paired blocker resolution
+metadata.
+
 ## 19. Optimistic locking y staleness
 
 The ChangeSet records target file base revisions and server-owned Release,
@@ -179,6 +194,10 @@ status/check query-only behavior, idempotency, trust-boundary tampering,
 dependency validation, non-vacuous completion, declarative gate unavailability
 and crash recovery.
 
+Post-review tests additionally cover unresolved terminal dependencies, open
+blockers on terminal packages, duplicate nested semantic identities, mismatched
+gate provenance and duplicate Work Package IDs across physical locations.
+
 ## 24. Matriz adversarial
 
 Implemented tamper coverage rejects server-owned display ID, Scope ID, target
@@ -186,6 +205,10 @@ paths, request binding and proposal hash through kind invariants and existing
 operation binding checks. Schema tests reject unknown top-level and nested
 properties, fake gate PASS fields, invalid UUIDs, invalid guide refs and
 invalid blocker/risk shapes.
+
+Catalog integrity rejects duplicate primary IDs, duplicate display IDs,
+dependency cycles, cross-Release dependencies and unresolved dependency
+completion. A public hash recomputation cannot override Operation bindings.
 
 ## 25. Matriz de regresión
 
@@ -218,3 +241,21 @@ intent-specific lifecycle operation. Gate requirements are captured from
 currently available guide evidence only; richer gate catalogs remain deferred.
 Release completion remains honest but not fully complete while Tasks, gate
 execution and Work Sources are unavailable.
+
+## 29. Post-review corrections
+
+Adversarial review found and corrected completion and catalog-integrity gaps:
+
+- terminal status alone no longer overrides failed health dimensions;
+- unresolved dependencies block completion contribution;
+- open blockers, projection drift and Guide drift remain blocking after a
+  terminal resolution is present;
+- Release Item completion propagates child Work Package errors rather than
+  exposing only package IDs;
+- package catalogs reject duplicate primary/display identities;
+- nested identities, Guide cardinality, gate provenance and blocker-resolution
+  pairs receive semantic validation beyond JSON Schema structural checks;
+- cross-Release dependency attempts receive an explicit fail-closed result.
+
+The complete runtime, CLI, recovery, security, bundle, host integration and
+artifact-determinism suites passed after these corrections.
