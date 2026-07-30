@@ -57,7 +57,8 @@ export function eventTypeFor(kind) {
     "release.policy.configure": "release.policy.configured",
     "release.scopeRefs.set": "release.scopeRefs.set",
     "release.operationalRefs.set": "release.operationalRefs.set",
-    "release.deployment.record": "release.deployment.recorded"
+    "release.deployment.record": "release.deployment.recorded",
+    "release.finalization.complete": "release.finalization.completed"
   }[kind];
 }
 
@@ -214,7 +215,7 @@ function checkKindInvariants(changeSet, operation = null, planningRoot = null) {
       }
     }
   }
-  if (["release.policy.configure", "release.scopeRefs.set", "release.operationalRefs.set", "release.deployment.record"].includes(changeSet.kind)) {
+  if (["release.policy.configure", "release.scopeRefs.set", "release.operationalRefs.set", "release.deployment.record", "release.finalization.complete"].includes(changeSet.kind)) {
     const releaseId = changeSet.payload.releaseId;
     const releasePath = `releases/${releaseId}/release.yml`;
     const readmePath = `releases/${releaseId}/README.md`;
@@ -522,6 +523,35 @@ function prepareApply({ operationsRoot, planningRoot, operationId, render, actor
             const previousPath = confineRuntimeWritePath(planningRoot, releasePath);
             if (fs.existsSync(previousPath)) previousStatus = parseYaml(fs.readFileSync(previousPath, "utf8")).status ?? null;
           }
+          const basePayload = {
+            releaseId: release.id,
+            displayId: release.displayId,
+            previousStatus,
+            nextStatus: release.status,
+            changeSetHash: recomputedHash,
+            revisionBefore: changeSet.baseRevisions[releasePath].revisionHash,
+            revisionAfter: release.audit.revision,
+            kind: changeSet.kind,
+            policy: release.policy,
+            lane: release.lane,
+            refs: {
+              scopeRefs: release.scopeRefs,
+              executionContextRefs: release.executionContextRefs,
+              environmentRefs: release.environmentRefs,
+              previousReleaseRefs: release.policy.previousReleaseRefs,
+              dependencyRefs: release.policy.dependencyRefs
+            },
+            deploymentEventId: changeSet.payload.deploymentEvent?.id || null
+          };
+          const payload = changeSet.kind === "release.finalization.complete"
+            ? {
+                ...basePayload,
+                lifecycleStatus: release.status,
+                previousFinalization: changeSet.payload.previousFinalization,
+                nextFinalization: changeSet.payload.nextFinalization,
+                derivedGuardSummary: changeSet.payload.guardSummary
+              }
+            : basePayload;
           return buildExpectedEvent({
             eventId: reserved.eventId,
             type: reserved.type,
@@ -529,26 +559,7 @@ function prepareApply({ operationsRoot, planningRoot, operationId, render, actor
             actor,
             operationId,
             idempotencyKey: changeSet.payload.idempotencyKey,
-            payload: {
-              releaseId: release.id,
-              displayId: release.displayId,
-              previousStatus,
-              nextStatus: release.status,
-              changeSetHash: recomputedHash,
-              revisionBefore: changeSet.baseRevisions[releasePath].revisionHash,
-              revisionAfter: release.audit.revision,
-              kind: changeSet.kind,
-              policy: release.policy,
-              lane: release.lane,
-              refs: {
-                scopeRefs: release.scopeRefs,
-                executionContextRefs: release.executionContextRefs,
-                environmentRefs: release.environmentRefs,
-                previousReleaseRefs: release.policy.previousReleaseRefs,
-                dependencyRefs: release.policy.dependencyRefs
-              },
-              deploymentEventId: changeSet.payload.deploymentEvent?.id || null
-            }
+            payload
           });
         }
         return buildExpectedEvent({

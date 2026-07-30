@@ -7,6 +7,8 @@ import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 import { parseYaml, stringifyYaml } from "../src/lib/yaml.mjs";
 import { isUuidV7 } from "../src/lib/ids.mjs";
+import { updateReleaseRevision } from "../src/lib/releaseMutations.mjs";
+import { renderReleaseReadme } from "../src/lib/releaseProjection.mjs";
 import { PLUGIN_VERSION, TEMPLATE_PACK_FINGERPRINT } from "../src/generated/build-meta.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -16,7 +18,7 @@ const testBundle = path.join(root, "runtime", "dist", "shipping-mode.test-bundle
 
 function run(args, cwd, options = {}) {
   try {
-    const stdout = execFileSync("node", [bin, ...args], { cwd, encoding: "utf8", ...options });
+    const stdout = execFileSync(process.execPath, [bin, ...args], { cwd, encoding: "utf8", ...options });
     return { code: 0, json: JSON.parse(stdout) };
   } catch (error) {
     return { code: error.status, json: JSON.parse(error.stdout) };
@@ -25,7 +27,7 @@ function run(args, cwd, options = {}) {
 
 async function runAsync(args, cwd) {
   try {
-    const { stdout } = await execFileAsync("node", [bin, ...args], { cwd, encoding: "utf8" });
+    const { stdout } = await execFileAsync(process.execPath, [bin, ...args], { cwd, encoding: "utf8" });
     return { code: 0, json: JSON.parse(stdout) };
   } catch (error) {
     return { code: error.code, json: JSON.parse(error.stdout) };
@@ -172,7 +174,24 @@ function fullyInit(cwd) {
   assert.equal(byId.code, 0);
   assert.equal(byId.json.status, "FOUND");
   assert.equal(byId.json.release.lifecycle, "DRAFT");
-  assert.equal(byId.json.derivedHealth.readiness.available, false);
+  assert.equal(byId.json.completion.status, "unavailable");
+  assert.equal(byId.json.readiness.status, "blocked");
+  const checkRelease = run(["check", "release", release.json.displayId], cwd);
+  assert.equal(checkRelease.code, 1);
+  assert.equal(checkRelease.json.scope, "single");
+  assert.equal(checkRelease.json.releases[0].release.id, release.json.releaseId);
+  const checkCatalog = run(["check", "release"], cwd);
+  assert.equal(checkCatalog.code, 1);
+  assert.equal(checkCatalog.json.scope, "catalog");
+  const checkCatalogJson = run(["check", "release", "--format", "json"], cwd);
+  assert.equal(checkCatalogJson.code, 1);
+  assert.equal(checkCatalogJson.json.scope, "catalog", "--format json must not be parsed as a Release reference");
+  const checkSingleJson = run(["check", "release", release.json.displayId, "--format", "json"], cwd);
+  assert.equal(checkSingleJson.code, 1);
+  assert.equal(checkSingleJson.json.scope, "single");
+  const unsupportedFormat = run(["check", "release", "--format", "yaml"], cwd);
+  assert.equal(unsupportedFormat.code, 1);
+  assert.match(unsupportedFormat.json.error, /--format must be json/);
   const byDisplay = run(["release", "status", release.json.displayId], cwd);
   assert.equal(byDisplay.code, 0);
   assert.equal(byDisplay.json.release.id, release.json.releaseId);
@@ -249,8 +268,16 @@ function fullyInit(cwd) {
   assert.deepEqual(status.json.refs.executionContextRefs, [executionContextId]);
   assert.deepEqual(status.json.refs.environmentRefs, [environmentId]);
   assert.equal(status.json.deployment.count, 1);
+  const releasePath = path.join(cwd, ".planning", "releases", release.json.releaseId, "release.yml");
+  const readmePath = path.join(cwd, ".planning", "releases", release.json.releaseId, "README.md");
+  let releaseDocument = parseYaml(fs.readFileSync(releasePath, "utf8"));
+  releaseDocument = updateReleaseRevision({ ...releaseDocument, status: "RELEASED" });
+  fs.writeFileSync(releasePath, stringifyYaml(releaseDocument));
+  fs.writeFileSync(readmePath, renderReleaseReadme(releaseDocument));
+  const finalizeBlocked = run(["release", "finalize", release.json.releaseId, "--idempotency-key", "cli-finalize-blocked", "--actor", "carlos"], cwd);
+  assert.equal(finalizeBlocked.code, 1, "scope readiness is still an evaluable guard and must block finalization");
   const invalidLane = run(["release", "policy", "configure", release.json.releaseId, "--lane-id", "missing", "--idempotency-key", "cli-plan2-invalid-lane", "--actor", "carlos"], cwd);
-  assert.equal(invalidLane.code, 2);
+  assert.equal(invalidLane.code, 1);
   assert.match(invalidLane.json.error, /LANE_INVALID/);
 }
 
@@ -268,7 +295,7 @@ function fullyInit(cwd) {
 {
   const cwd = freshWorkspace();
   fullyInit(cwd);
-  const stdout = execFileSync("node", [bin, "changeset", "propose", "--kind", "config.update", "--payload-file", "-", "--actor", "carlos"], {
+  const stdout = execFileSync(process.execPath, [bin, "changeset", "propose", "--kind", "config.update", "--payload-file", "-", "--actor", "carlos"], {
     cwd, encoding: "utf8", input: JSON.stringify({ name: "from-stdin" })
   });
   assert.ok(JSON.parse(stdout).operationId);
@@ -485,7 +512,7 @@ function fullyInit(cwd) {
       process.stdout.write(JSON.stringify({ crashed: true, message: error.message }));
     }
   `;
-  const crashOutput = execFileSync("node", ["--input-type=module", "-e", crashScript], {
+  const crashOutput = execFileSync(process.execPath, ["--input-type=module", "-e", crashScript], {
     cwd, encoding: "utf8", env: { ...process.env, SHIPPING_MODE_FAULT_CHECKPOINT: "AFTER_APPLYING" }
   });
   assert.equal(JSON.parse(crashOutput).crashed, true, "the test bundle must actually crash mid-apply when armed");

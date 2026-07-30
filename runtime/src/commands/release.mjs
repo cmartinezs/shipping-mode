@@ -3,14 +3,13 @@ import path from "node:path";
 import { generateUuidV7 } from "../lib/ids.mjs";
 import { propose } from "../lib/changeset.mjs";
 import { normalizeReleaseCreateRequest, prepareProposal } from "./proposalPreparation.mjs";
-import { listReleaseDocuments, listReservedReleaseDocuments, resolveReleaseReference, releaseReadmeRelativePath } from "../lib/releaseStore.mjs";
+import { listReleaseDocuments, listReservedReleaseDocuments, resolveReleaseReference } from "../lib/releaseStore.mjs";
 import { readChangeSet, readOperation } from "../lib/operationStore.mjs";
-import { compareReleaseReadme } from "../lib/releaseProjection.mjs";
 import { confineWritePath } from "../lib/paths.mjs";
-import { validate } from "../lib/schema.mjs";
 import { parseYaml } from "../lib/yaml.mjs";
 import { prepareReleaseMutation, normalizeReleaseMutationRequest } from "../lib/releaseMutations.mjs";
 import { revisionHash } from "../lib/canonical.mjs";
+import { evaluateReleaseHealth } from "../lib/releaseHealth.mjs";
 
 function readCurrentConfig(planningRoot) {
   const configPath = confineWritePath(planningRoot, "config.yml");
@@ -18,7 +17,7 @@ function readCurrentConfig(planningRoot) {
   return parseYaml(fs.readFileSync(configPath, "utf8"));
 }
 
-function pendingRecovery(planningRoot) {
+export function pendingRecovery(planningRoot) {
   const operationsRoot = path.join(planningRoot, "operations");
   if (!fs.existsSync(operationsRoot)) return [];
   const pending = [];
@@ -186,20 +185,17 @@ export function runReleaseDeploymentRecord({ planningRoot, args }) {
   });
 }
 
-function projectionStatus(planningRoot, release) {
-  const relativePath = releaseReadmeRelativePath(release.id);
-  let filePath;
-  try {
-    filePath = confineWritePath(planningRoot, relativePath);
-  } catch (error) {
-    return { status: "UNSAFE", findings: [`${relativePath}: ${error.message}`] };
-  }
-  if (!fs.existsSync(filePath)) return { status: "MISSING", findings: [`${relativePath}: projection is missing`] };
-  const stat = fs.lstatSync(filePath);
-  if (stat.isSymbolicLink() || !stat.isFile()) return { status: "UNSAFE", findings: [`${relativePath}: projection must be a real file`] };
-  const current = fs.readFileSync(filePath, "utf8");
-  const comparison = compareReleaseReadme(release, current);
-  return comparison.equal ? { status: "MATCH", findings: [] } : { status: "DRIFT", findings: [`${relativePath}: projection drift`] };
+export function runReleaseFinalize({ planningRoot, args }) {
+  return proposeReleasePlan2Mutation({
+    planningRoot,
+    kind: "release.finalization.complete",
+    actor: args.actor,
+    rawPayload: {
+      releaseRef: args.releaseRef,
+      ...(args.retrospectiveStatus ? { retrospectiveStatus: args.retrospectiveStatus } : {}),
+      ...(args.idempotencyKey ? { idempotencyKey: args.idempotencyKey } : {})
+    }
+  });
 }
 
 export function runReleaseStatus({ planningRoot, reference }) {
@@ -209,10 +205,8 @@ export function runReleaseStatus({ planningRoot, reference }) {
   const resolution = resolveReleaseReference(planningRoot, reference);
   if (resolution.status !== "FOUND") return { status: resolution.status, release: null, derivedHealth: null, refs: null, findings: resolution.findings, matches: resolution.matches || [] };
   const release = resolution.release;
-  const schemaResult = validate("release", release);
-  const projection = projectionStatus(planningRoot, release);
-  const findings = [...resolution.findings, ...projection.findings];
-  for (const error of schemaResult.errors) findings.push(`release.yml${error.path}: ${error.message}`);
+  const health = evaluateReleaseHealth({ planningRoot, release, directoryId: release.id });
+  const findings = health.findings.map((entry) => `${entry.code}: ${entry.message}`);
   return {
     status: "FOUND",
     release: {
@@ -224,10 +218,14 @@ export function runReleaseStatus({ planningRoot, reference }) {
       laneId: release.lane.id,
       policyMode: release.policy.mode
     },
-    derivedHealth: {
-      schemaValid: schemaResult.valid,
-      projection: projection.status,
-      readiness: { available: false, releasable: false, unavailableDependencies: ["release_items", "work_packages", "gates"] }
+    derivedHealth: health,
+    completion: health.completion,
+    readiness: health.readiness,
+    policy: {
+      mode: release.policy.mode,
+      previousReleaseRefs: release.policy.previousReleaseRefs,
+      dependencyRefs: release.policy.dependencyRefs,
+      dimensions: health.dimensions.filter((entry) => ["lane", "policy"].includes(entry.id))
     },
     refs: {
       scopeRefs: release.scopeRefs,
@@ -249,6 +247,7 @@ export function runReleaseStatus({ planningRoot, reference }) {
       })),
       summaryRevision: revisionHash(release.deploymentEvents)
     },
+    finalization: release.finalization,
     findings
   };
 }

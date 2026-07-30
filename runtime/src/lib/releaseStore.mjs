@@ -87,6 +87,10 @@ export function listReleaseDocuments(planningRoot, options = {}) {
   return scanReleaseRecords(planningRoot, options).filter((record) => record.release).map((record) => record.release);
 }
 
+export function listReleaseRecords(planningRoot, options = {}) {
+  return scanReleaseRecords(planningRoot, options).map((record) => ({ ...record, findings: [...record.findings] }));
+}
+
 export function listReservedReleaseDocuments(operationsRoot) {
   if (!fs.existsSync(operationsRoot)) return [];
   const reserved = [];

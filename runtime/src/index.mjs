@@ -2,9 +2,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { runInit, runConfigSet, runConfigScopeAdd } from "./commands/init.mjs";
 import { runChangesetPropose, runChangesetValidate, runChangesetApprove, runChangesetApply } from "./commands/changesetCommand.mjs";
-import { checkSchema } from "./commands/check.mjs";
+import { checkSchema, checkRelease } from "./commands/check.mjs";
 import { checkGuides } from "./commands/checkGuides.mjs";
-import { runReleaseNew, runReleaseStatus, runReleasePolicyConfigure, runReleaseScopeSet, runReleaseRefsSet, runReleaseDeploymentRecord } from "./commands/release.mjs";
+import { runReleaseNew, runReleaseStatus, runReleasePolicyConfigure, runReleaseScopeSet, runReleaseRefsSet, runReleaseDeploymentRecord, runReleaseFinalize } from "./commands/release.mjs";
 import { runDiscoverScan, runDiscoverValidate } from "./commands/discover.mjs";
 import { runDiscoveryPropose } from "./commands/discoveryChangeSet.mjs";
 import { isUuidV7 } from "./lib/ids.mjs";
@@ -18,7 +18,7 @@ import { evaluateGuideHealth, evaluateGuideReadiness } from "./lib/guideHealth.m
 
 export { UsageError, StateError, StaleError, RecoveryRequiredError, LockHeldError, PathConfinementError, evaluateCondition, renderGuideMarkdown, compareGuideProjection, evaluateGuideHealth, evaluateGuideReadiness };
 
-const IN_SCOPE_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "scope.generator.set", "guide.update", "release.create", "release.policy.configure", "release.scopeRefs.set", "release.operationalRefs.set", "release.deployment.record"]);
+const IN_SCOPE_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "scope.generator.set", "guide.update", "release.create", "release.policy.configure", "release.scopeRefs.set", "release.operationalRefs.set", "release.deployment.record", "release.finalization.complete"]);
 const PROJECT_TYPES = new Set(["software", "non_software", "mixed", "unknown"]);
 
 function requireProjectType(value) {
@@ -47,6 +47,23 @@ function argsToOptions(args) {
     options[key] = next === undefined || next.startsWith("--") ? true : args[++index];
   }
   return options;
+}
+
+function parseCheckReleaseArgs(args) {
+  let reference = null;
+  for (let index = 0; index < args.length; index += 1) {
+    const value = args[index];
+    if (value === "--format") {
+      const format = args[++index];
+      if (!format || format.startsWith("--")) throw new UsageError("check release --format requires json");
+      if (format !== "json") throw new UsageError("check release --format must be json");
+      continue;
+    }
+    if (value.startsWith("--")) throw new UsageError(`check release does not support option ${value}`);
+    if (reference !== null) throw new UsageError("check release accepts at most one id-or-display-id");
+    reference = value;
+  }
+  return reference;
 }
 
 function requireOperationId(value) {
@@ -225,12 +242,19 @@ export function dispatch(command, args, cwd, runtimeContext = null) {
         }
       });
     }
+    if (stage === "finalize") {
+      const reference = rest[0];
+      const options = argsToOptions(rest.slice(1));
+      if (!reference || !options.actor) throw new UsageError("release finalize requires <id-or-display-id> and --actor");
+      return runReleaseFinalize({ planningRoot, args: { releaseRef: reference, retrospectiveStatus: options.retrospective_status, idempotencyKey: options.idempotency_key, actor: options.actor } });
+    }
     return notImplemented(`release ${stage || ""}`.trim());
   }
 
   if (command === "check") {
     const [stage, ...rest] = args;
     if (stage === "schema") return checkSchema({ planningRoot });
+    if (stage === "release") return checkRelease({ planningRoot, reference: parseCheckReleaseArgs(rest) });
     if (stage === "guides") {
       const options = argsToOptions(rest);
       return checkGuides({ planningRoot, workspaceRoot: cwd, scopeId: options.scope_id || null, policyMode: options.mode || "strict" });
