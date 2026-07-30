@@ -66,6 +66,11 @@ Release policy validation evaluates the complete catalog using a canonically
 revised candidate state, so incoming links, branching and indirect cycles cannot
 be hidden by reconfiguring one Release in isolation.
 
+Finalization guard snapshots bind live Scope/Guide, Environment and Execution
+Context evidence revisions. External evidence drift makes an otherwise intact
+operation `STALE`; editing the persisted ChangeSet or its guard payload remains
+`INVALID`, even when its public hash is recomputed.
+
 ## Stop Conditions
 
 - Stop if `status` reports `RECOVERY_REQUIRED`, `AMBIGUOUS` or `NOT_FOUND`.
