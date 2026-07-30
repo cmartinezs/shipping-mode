@@ -5,9 +5,9 @@ import {
   BridgeError,
   cleanupExpiredRequests,
   consumeBridgeEnvelope,
-  loadBridgeState,
+  inspectBridgeMetadata,
   prepareBridgeRequest
-} from "./bridge-core.mjs";
+} from "./bridge-verified.mjs";
 
 function parseArgs(argv) {
   const [command, ...rest] = argv;
@@ -30,6 +30,14 @@ function readExpectedInput(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
 }
 
+function dataRootOption(options) {
+  if (!options.data_root) return undefined;
+  if (process.env.BRIDGE_SPIKE_ALLOW_DATA_ROOT !== "1") {
+    throw new BridgeError("BRIDGE_INVALID", "--data-root is test-only and requires BRIDGE_SPIKE_ALLOW_DATA_ROOT=1");
+  }
+  return options.data_root;
+}
+
 function output(value) {
   process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
 }
@@ -43,9 +51,10 @@ function fail(error) {
 const { command, options } = parseArgs(process.argv.slice(2));
 
 try {
+  const dataRoot = dataRootOption(options);
   if (command === "prepare") {
     output(prepareBridgeRequest({
-      dataRoot: options.data_root,
+      dataRoot,
       operation: options.operation,
       server: options.server,
       tool: options.tool,
@@ -56,18 +65,17 @@ try {
     }));
   } else if (command === "consume") {
     output(consumeBridgeEnvelope({
-      dataRoot: options.data_root,
+      dataRoot,
       requestId: options.request_id,
       projectRoot: options.project_root
     }));
   } else if (command === "cleanup-expired") {
-    output(cleanupExpiredRequests({ dataRoot: options.data_root }));
+    output(cleanupExpiredRequests({ dataRoot }));
   } else if (command === "inspect") {
-    output(loadBridgeState({ dataRoot: options.data_root, requestId: options.request_id }));
+    output(inspectBridgeMetadata({ dataRoot, requestId: options.request_id }));
   } else {
     throw new BridgeError("BRIDGE_INVALID", "usage: prepare|consume|cleanup-expired|inspect");
   }
 } catch (error) {
   fail(error);
 }
-
