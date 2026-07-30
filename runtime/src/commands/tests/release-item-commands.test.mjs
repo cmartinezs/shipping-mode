@@ -109,8 +109,7 @@ function tamperChangeSet(operationsRoot, operationId, mutate) {
   assert.equal(status.derivedHealth.completion.status, "unavailable");
   assert.equal(runCheckItem({ planningRoot, releaseRef: release.displayId, itemRef: proposal.displayId }).status, "PASS");
   const itemReadmePath = path.join(planningRoot, "releases", release.releaseId, "items", proposal.itemId, "README.md");
-  fs.appendFileSync(itemReadmePath, "drift
-");
+  fs.appendFileSync(itemReadmePath, "drift\n");
   assert.equal(runItemStatus({ planningRoot, releaseRef: release.releaseId, itemRef: proposal.itemId }).status, "FOUND", "status resolution remains FOUND when live health fails");
   assert.equal(runCheckItem({ planningRoot, releaseRef: release.releaseId, itemRef: proposal.itemId }).status, "FAIL", "check item must expose health failure with a failing check status");
   fs.writeFileSync(itemReadmePath, renderReleaseItemReadme(item));
