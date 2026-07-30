@@ -361,7 +361,8 @@
             "required": [
               "type",
               "replacementId"
-            ]
+            ],
+            "type": "object"
           }
         }
       }
@@ -391,7 +392,8 @@
             "required": [
               "type",
               "replacementId"
-            ]
+            ],
+            "type": "object"
           }
         }
       }
@@ -421,7 +423,8 @@
             "required": [
               "type",
               "replacementId"
-            ]
+            ],
+            "type": "object"
           }
         }
       }
