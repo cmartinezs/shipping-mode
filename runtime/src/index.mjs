@@ -5,6 +5,7 @@ import { runChangesetPropose, runChangesetValidate, runChangesetApprove, runChan
 import { checkSchema, checkRelease } from "./commands/check.mjs";
 import { checkGuides } from "./commands/checkGuides.mjs";
 import { runReleaseNew, runReleaseStatus, runReleasePolicyConfigure, runReleaseScopeSet, runReleaseRefsSet, runReleaseDeploymentRecord, runReleaseFinalize } from "./commands/release.mjs";
+import { runItemCreate, runItemStatus } from "./commands/item.mjs";
 import { runDiscoverScan, runDiscoverValidate } from "./commands/discover.mjs";
 import { runDiscoveryPropose } from "./commands/discoveryChangeSet.mjs";
 import { isUuidV7 } from "./lib/ids.mjs";
@@ -18,7 +19,7 @@ import { evaluateGuideHealth, evaluateGuideReadiness } from "./lib/guideHealth.m
 
 export { UsageError, StateError, StaleError, RecoveryRequiredError, LockHeldError, PathConfinementError, evaluateCondition, renderGuideMarkdown, compareGuideProjection, evaluateGuideHealth, evaluateGuideReadiness };
 
-const IN_SCOPE_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "scope.generator.set", "guide.update", "release.create", "release.policy.configure", "release.scopeRefs.set", "release.operationalRefs.set", "release.deployment.record", "release.finalization.complete"]);
+const IN_SCOPE_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "scope.generator.set", "guide.update", "release.create", "release.policy.configure", "release.scopeRefs.set", "release.operationalRefs.set", "release.deployment.record", "release.finalization.complete", "release-item.create"]);
 const PROJECT_TYPES = new Set(["software", "non_software", "mixed", "unknown"]);
 
 function requireProjectType(value) {
@@ -49,6 +50,11 @@ function argsToOptions(args) {
   return options;
 }
 
+function splitCsv(value) {
+  if (value === undefined || value === null || value === "") return [];
+  return String(value).split(",").map((entry) => entry.trim()).filter(Boolean);
+}
+
 function parseCheckReleaseArgs(args) {
   let reference = null;
   for (let index = 0; index < args.length; index += 1) {
@@ -64,6 +70,23 @@ function parseCheckReleaseArgs(args) {
     reference = value;
   }
   return reference;
+}
+
+function parseCheckItemArgs(args) {
+  const positional = [];
+  for (let index = 0; index < args.length; index += 1) {
+    const value = args[index];
+    if (value === "--format") {
+      const format = args[++index];
+      if (!format || format.startsWith("--")) throw new UsageError("check item --format requires json");
+      if (format !== "json") throw new UsageError("check item --format must be json");
+      continue;
+    }
+    if (value.startsWith("--")) throw new UsageError(`check item does not support option ${value}`);
+    positional.push(value);
+  }
+  if (positional.length !== 2) throw new UsageError("check item requires <release-id-or-display-id> <item-id-or-display-id>");
+  return { releaseRef: positional[0], itemRef: positional[1] };
 }
 
 function requireOperationId(value) {
@@ -251,10 +274,67 @@ export function dispatch(command, args, cwd, runtimeContext = null) {
     return notImplemented(`release ${stage || ""}`.trim());
   }
 
+  if (command === "item") {
+    const [stage, ...rest] = args;
+    if (stage === "create") {
+      const releaseRef = rest[0];
+      const options = argsToOptions(rest.slice(1));
+      if (!releaseRef || !options.kind || !options.title || !options.actor) throw new UsageError("item create requires <release-id-or-display-id>, --kind, --title and --actor");
+      return runItemCreate({
+        planningRoot,
+        releaseRef,
+        args: {
+          kind: options.kind,
+          title: options.title,
+          description: options.description,
+          dependencyRefs: options.dependency_refs,
+          slug: options.slug,
+          idempotencyKey: options.idempotency_key,
+          commandActor: options.actor,
+          actor: options.item_actor,
+          need: options.need,
+          value: options.value,
+          acceptanceCriteria: options.acceptance_criteria === undefined ? undefined : splitCsv(options.acceptance_criteria),
+          outcome: options.outcome,
+          behavior: options.behavior,
+          observedBehavior: options.observed_behavior,
+          expectedBehavior: options.expected_behavior,
+          reproduction: options.reproduction,
+          severity: options.severity,
+          technicalOutcome: options.technical_outcome,
+          unlockedCapabilities: options.unlocked_capabilities === undefined ? undefined : splitCsv(options.unlocked_capabilities),
+          question: options.question,
+          timebox: options.timebox,
+          expectedDecision: options.expected_decision,
+          obligation: options.obligation,
+          authority: options.authority,
+          deadline: options.deadline,
+          evidence: options.evidence === undefined ? undefined : splitCsv(options.evidence),
+          sourceState: options.source_state,
+          targetState: options.target_state,
+          rollback: options.rollback,
+          procedure: options.procedure,
+          owner: options.owner
+        }
+      });
+    }
+    if (stage === "status") {
+      const releaseRef = rest[0];
+      const itemRef = rest[1];
+      if (!releaseRef || !itemRef) throw new UsageError("item status requires <release-id-or-display-id> <item-id-or-display-id>");
+      return runItemStatus({ planningRoot, releaseRef, itemRef });
+    }
+    return notImplemented(`item ${stage || ""}`.trim());
+  }
+
   if (command === "check") {
     const [stage, ...rest] = args;
     if (stage === "schema") return checkSchema({ planningRoot });
     if (stage === "release") return checkRelease({ planningRoot, reference: parseCheckReleaseArgs(rest) });
+    if (stage === "item") {
+      const parsed = parseCheckItemArgs(rest);
+      return runItemStatus({ planningRoot, releaseRef: parsed.releaseRef, itemRef: parsed.itemRef });
+    }
     if (stage === "guides") {
       const options = argsToOptions(rest);
       return checkGuides({ planningRoot, workspaceRoot: cwd, scopeId: options.scope_id || null, policyMode: options.mode || "strict" });

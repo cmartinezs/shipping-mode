@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { validateOperation, approveOperation, applyOperation, propose } from "../lib/changeset.mjs";
 import { generateUuidV7 } from "../lib/ids.mjs";
-import { renderWorkspaceInit, renderConfigUpdate, renderConfigAutonomySet, renderScopeAdd, renderScopeCommandSet, renderScopeGeneratorSet, renderDiscoveryPropose, renderGuideUpdate, renderReleaseCreate, renderReleasePlan2Mutation } from "./renderers.mjs";
+import { renderWorkspaceInit, renderConfigUpdate, renderConfigAutonomySet, renderScopeAdd, renderScopeCommandSet, renderScopeGeneratorSet, renderDiscoveryPropose, renderGuideUpdate, renderReleaseCreate, renderReleasePlan2Mutation, renderReleaseItemCreateChangeSet } from "./renderers.mjs";
 import { readChangeSet, readOperation } from "../lib/operationStore.mjs";
 import { parseYaml } from "../lib/yaml.mjs";
 import { prepareProposal } from "./proposalPreparation.mjs";
@@ -12,6 +12,7 @@ import { readConfirmedSources, readConfirmedScopes } from "../lib/discoverScan.m
 import { generateGuideOutput } from "../lib/guideGeneration.mjs";
 import { revisionHash } from "../lib/canonical.mjs";
 import { proposeReleaseCreate, proposeReleasePlan2Mutation } from "./release.mjs";
+import { proposeReleaseItemCreate } from "./item.mjs";
 
 function readCurrentConfig(planningRoot) {
   const configPath = confineRuntimeWritePath(planningRoot, "config.yml");
@@ -34,6 +35,7 @@ function renderFor(kind, payload, currentConfig, workspaceRoot, planningRoot, { 
   if (kind === "discovery.propose") return renderDiscoveryPropose(payload, currentConfig, workspaceRoot, { currentSources, currentScopes, approvalMode });
   if (kind === "guide.update") return renderGuideUpdate(payload, currentConfig, planningRoot, { currentSources, proposedAt: payload.proposedAt || proposedAt || new Date().toISOString(), approval });
   if (kind === "release.create") return renderReleaseCreate(payload);
+  if (kind === "release-item.create") return renderReleaseItemCreateChangeSet(payload, planningRoot);
   if (kind.startsWith("release.")) return renderReleasePlan2Mutation(kind, payload, planningRoot, workspaceRoot, currentConfig);
   throw new UsageError(`unsupported changeset kind: ${kind}`);
 }
@@ -82,6 +84,13 @@ export function runChangesetPropose({ planningRoot, kind, payloadText, actor }) 
   if (kind.startsWith("release.")) {
     const proposed = proposeReleasePlan2Mutation({ planningRoot, rawPayload, actor, kind });
     return { operationId: proposed.operationId, releaseId: proposed.releaseId, idempotent: proposed.idempotent };
+  }
+  if (kind === "release-item.create") {
+    const releaseRef = rawPayload.releaseRef;
+    if (!releaseRef) throw new UsageError("changeset propose --kind release-item.create requires releaseRef in the payload");
+    const { releaseRef: _releaseRef, ...itemPayload } = rawPayload;
+    const proposed = proposeReleaseItemCreate({ planningRoot, releaseRef, rawPayload: itemPayload, actor });
+    return { operationId: proposed.operationId, releaseId: proposed.releaseId, itemId: proposed.itemId, displayId: proposed.displayId, idempotent: proposed.idempotent };
   }
   const runtimeContext = {};
   if (kind === "scope.command.set" || kind === "scope.generator.set" || kind === "guide.update") {
