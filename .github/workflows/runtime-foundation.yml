@@ -30,7 +30,11 @@ jobs:
           start = text.index("# Config roots cannot be Git internals either.")
           end = text.index('replace_once("runtime/src/lib/projectContextValidation.mjs"', start)
           replacement = '''# Config roots cannot be Git internals either.\nconfig_path = ROOT / "runtime/src/schemas/config.schema.json"\nconfig_schema = json.loads(config_path.read_text(encoding="utf-8"))\nconfig_schema["$defs"]["workSource"]["properties"]["roots"]["items"]["pattern"] = r"^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!\\.planning(?:/|$))(?!\\.git(?:/|$)).+"\nconfig_path.write_text(json.dumps(config_schema, indent=2) + "\\n", encoding="utf-8")\n'''
-          helper.write_text(text[:start] + replacement + text[end:])
+          text = text[:start] + replacement + text[end:]
+          text = text.replace('local_variant = source_ref["oneOf"][0]\nif "itemId" not in local_variant["required"]:', 'local_variant = source_ref["oneOf"][0]\nlocal_variant.setdefault("properties", {})["itemId"] = {}\nif "itemId" not in local_variant["required"]:')
+          text = text.replace('normalized_schema["allOf"].append({"if": {"type": "object", "required": ["provider"], "properties": {"provider": {"const": "local_repository"}}}, "then": {"type": "object", "required": ["path"], "not": {"required": ["url"]}}, "else": {"type": "object", "not": {"required": ["path"]}}})', 'normalized_schema["allOf"].append({"if": {"type": "object", "required": ["provider"], "properties": {"provider": {"const": "local_repository"}}}, "then": {"type": "object", "required": ["path"], "properties": {"path": {}}, "not": {"type": "object", "required": ["url"], "properties": {"url": {}}}}, "else": {"type": "object", "not": {"type": "object", "required": ["path"], "properties": {"path": {}}}}})')
+          text = text.replace('"then": {"type": "object", "properties": {"fields": {"type": "object", "required": fields}}}})', '"then": {"type": "object", "properties": {"fields": {"type": "object", "required": fields, "properties": {field: {} for field in fields}}}}})')
+          helper.write_text(text)
           PY
           python scripts/pr26-review-fix.py
           git checkout origin/develop -- .github/workflows/runtime-foundation.yml
