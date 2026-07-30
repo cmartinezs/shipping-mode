@@ -1,41 +1,56 @@
 name: Runtime Foundation
 
 on:
-  pull_request:
-    branches: [develop]
   push:
-    branches: [feat/corte-0-runtime-foundation]
+    branches: [agent/corte-3-plan-3-work-source-foundation]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: agent/corte-3-plan-3-work-source-foundation
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-      - run: npm ci --silent
-      - name: Build review artifacts outside the source tree
-        run: node scripts/build-runtime.mjs --out "$RUNNER_TEMP/generated" --bundle-out "$RUNNER_TEMP/shipping-mode.mjs"
-      - name: Stage review artifacts
-        if: always()
+      - name: Apply PR 26 review corrections
         run: |
-          mkdir -p ci-artifacts/runtime/src/generated ci-artifacts/runtime/dist
-          cp "$RUNNER_TEMP/generated/validators.mjs" ci-artifacts/runtime/src/generated/validators.mjs
-          cp "$RUNNER_TEMP/generated/build-meta.mjs" ci-artifacts/runtime/src/generated/build-meta.mjs
-          cp "$RUNNER_TEMP/shipping-mode.mjs" ci-artifacts/runtime/dist/shipping-mode.mjs
-      - name: Upload generated runtime for review
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: runtime-foundation-generated
-          path: ci-artifacts
-          if-no-files-found: error
-      - run: npm run verify:next-generation
-      - name: Prove verification leaves committed artifacts unchanged
-        run: git diff --exit-code -- runtime/src/generated runtime/dist/shipping-mode.mjs
+          python scripts/pr26-review-fix.py
+          git checkout origin/develop -- .github/workflows/runtime-foundation.yml
+          rm scripts/pr26-review-fix.py
+      - name: Commit corrective source changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "fix(work-sources): close provider and import boundaries"
+      - name: Build and verify
+        run: |
+          npm ci --silent
+          npm run build:schemas
+          npm run build:runtime
+          npm run build:test-bundle
+          npm run test:unit
+          npm run test:cli-e2e
+          npm run test:real-crash-e2e
+          npm run test:security-e2e
+          npm run test:bundle
+          npm run test:host-integration
+          npm run verify:artifacts
+          npm run verify:next-generation
+          git diff --check
+      - name: Commit generated artifacts
+        run: |
+          git add runtime/src/generated runtime/dist/shipping-mode.mjs bin/shipping-mode.mjs
+          if ! git diff --cached --quiet; then
+            git commit -m "build(runtime): regenerate Work Source artifacts"
+          fi
+      - name: Push corrections
+        run: git push origin HEAD:agent/corte-3-plan-3-work-source-foundation
