@@ -5920,8 +5920,8 @@ function __deepEqual(a, b) {
   }
   return a !== a && b !== b;
 }
-var validate_change_set = validate10, schema11 = { $id: "https://shipping-mode.dev/schemas/change-set.schema.json", type: "object", additionalProperties: !1, required: ["schemaVersion", "operationId", "kind", "target", "baseRevisions", "payload", "hash"], properties: { schemaVersion: { const: 1 }, operationId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, kind: { enum: ["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "discovery.propose", "guide.update", "scope.generator.set", "release.create", "release.policy.configure", "release.scopeRefs.set", "release.operationalRefs.set", "release.deployment.record", "release.finalization.complete"] }, target: { type: "object" }, baseRevisions: { type: "object", additionalProperties: { type: "object", additionalProperties: !1, required: ["revisionHash", "contentHash"], properties: { revisionHash: { type: "string", pattern: "^([0-9a-f]{64}|ABSENT)$" }, contentHash: { type: "string", pattern: "^([0-9a-f]{64}|ABSENT)$" } } } }, payload: { type: "object" }, preconditions: { type: "object", additionalProperties: !1, properties: { discoveryWorkspace: { type: "object", additionalProperties: !1, required: ["workspaceHash", "scanParameters"], properties: { workspaceHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, scanParameters: { type: "object", additionalProperties: !1, required: ["maxSourceBytes"], properties: { maxSourceBytes: { type: "integer" } } } } } } }, hash: { type: "string", pattern: "^[0-9a-f]{64}$" } }, allOf: [{ if: { properties: { kind: { const: "workspace.init" } } }, then: { properties: { payload: { type: "object", additionalProperties: !1, required: ["name", "vcs", "pluginVersion", "templatePackFingerprint"], properties: { name: { type: "string", minLength: 1 }, baseBranch: { type: ["string", "null"] }, vcs: { enum: ["git", "none"] }, pluginVersion: { type: "string", minLength: 1 }, templatePackFingerprint: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" }, projectType: { enum: ["software", "non_software", "mixed", "unknown"] } } } } } }, { if: { properties: { kind: { const: "release.create" } } }, then: { properties: { payload: { type: "object", additionalProperties: !1, required: ["operationId", "id", "displayId", "displayIdStatus", "title", "objective", "laneId", "policyMode", "slug", "status", "createdAt", "createdBy", "updatedAt", "updatedBy", "requestSnapshot", "idempotencyKey", "idempotencyRequestHash"], properties: { operationId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, id: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, displayId: { type: "string", pattern: "^REL-([0-9A-HJKMNP-TV-Z]{8}|[0-9A-HJKMNP-TV-Z]{12}|[0-9A-HJKMNP-TV-Z]{16}|[0-9A-HJKMNP-TV-Z]{26}|[0-9A-HJKMNP-TV-Z]{52})$" }, displayIdStatus: { const: "ACTIVE" }, title: { type: "string", minLength: 1 }, objective: { type: "string", minLength: 1 }, laneId: { type: "string", pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" }, policyMode: { enum: ["strict_sequence", "dependency_graph"] }, slug: { type: ["string", "null"], pattern: "^[a-z0-9]+(-[a-z0-9]+)*$" }, status: { const: "DRAFT" }, createdAt: { type: "string", minLength: 1 }, createdBy: { type: "string", minLength: 1 }, updatedAt: { type: "string", minLength: 1 }, updatedBy: { type: "string", minLength: 1 }, idempotencyKey: { type: "string", minLength: 1, maxLength: 256 }, idempotencyRequestHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, requestSnapshot: { type: "object", additionalProperties: !1, required: ["title", "objective", "laneId", "policyMode", "slug"], properties: { title: { type: "string", minLength: 1 }, objective: { type: "string", minLength: 1 }, laneId: { type: ["string", "null"], pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" }, policyMode: { enum: ["strict_sequence", "dependency_graph", null] }, slug: { type: ["string", "null"], pattern: "^[a-z0-9]+(-[a-z0-9]+)*$" } } } } } } } }, { if: { properties: { kind: { const: "config.update" } } }, then: { properties: { payload: { type: "object", additionalProperties: !1, minProperties: 1, properties: { name: { type: "string", minLength: 1 }, git: { $ref: "https://shipping-mode.dev/schemas/config.schema.json#/$defs/gitPolicy" }, work_sources: { type: "array", items: { $ref: "https://shipping-mode.dev/schemas/config.schema.json#/$defs/workSource" }, uniqueItems: !0 }, documentation: { $ref: "https://shipping-mode.dev/schemas/config.schema.json#/$defs/documentationContext" } } } } } }, { if: { properties: { kind: { const: "config.autonomy.set" } } }, then: { properties: { payload: { type: "object", additionalProperties: !1, required: ["discovery"], properties: { discovery: { $ref: "#/$defs/discoveryAutonomyPolicy" } } } } } }, { if: { properties: { kind: { const: "scope.add" } } }, then: { properties: { payload: { type: "object", additionalProperties: !1, required: ["id", "key", "label", "kind", "path", "guideGapId"], properties: { id: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, key: { type: "string", minLength: 1 }, label: { type: "string", minLength: 1 }, kind: { enum: ["code", "non_code"] }, path: { type: "string", minLength: 1 }, owner: { type: ["string", "null"] }, guideGapId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" } } } } } }, { if: { properties: { kind: { const: "scope.command.set" } } }, then: { properties: { payload: { type: "object", additionalProperties: !1, required: ["operationId", "scopeId", "role", "command", "requiresEnvironment", "requiresSecrets", "declaredBy", "declaredAt"], properties: { operationId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, scopeId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, role: { anyOf: [{ enum: ["build", "test", "smoke", "lint", "verify"] }, { type: "string", pattern: "^custom\\.[a-z][a-z0-9-]{0,63}$" }] }, command: { type: "string", minLength: 1 }, requiresEnvironment: { type: "boolean" }, requiresSecrets: { type: "boolean" }, declaredBy: { type: "string", minLength: 1 }, declaredAt: { type: "string", minLength: 1 } } } } } }, { if: { properties: { kind: { const: "discovery.propose" } } }, then: { required: ["preconditions"], properties: { preconditions: { $ref: "#/properties/preconditions" }, payload: { type: "object", additionalProperties: !1, required: ["operationId", "proposal", "sourceIdAssignments", "scopeIdAssignments", "confirmedBy", "confirmedAt"], properties: { operationId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, proposal: { type: "object" }, sourceIdAssignments: { type: "array", items: { type: "object", additionalProperties: !1, required: ["sourceActionIndex", "sourceId"], properties: { sourceActionIndex: { type: "integer", minimum: 0 }, sourceId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" } } } }, scopeIdAssignments: { type: "array", items: { type: "object", additionalProperties: !1, required: ["scopeIndex", "scopeId", "guideGapId"], properties: { scopeIndex: { type: "integer", minimum: 0 }, scopeId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, guideGapId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" } } } }, confirmedBy: { type: "string", minLength: 1 }, confirmedAt: { type: "string", minLength: 1 } } } } } }, { if: { properties: { kind: { const: "guide.update" } } }, then: { properties: { payload: { type: "object", additionalProperties: !1, required: ["operationId", "scopeId", "guideKind", "action", "guideId", "proposedAt"], properties: { operationId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, scopeId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, guideKind: { enum: ["task", "test"] }, action: { enum: ["generate", "regenerate", "submit_review", "approve", "reject", "mark_stale"] }, guideId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, proposedAt: { type: "string", minLength: 1 }, document: { type: "object", additionalProperties: !1, required: ["sourceRefs", "openGaps"], properties: { sourceRefs: { type: "array" }, openGaps: { type: "array" }, workPackageTypes: { type: "array" }, taskTypes: { type: "array" }, requiredSections: { type: "array" }, requiredGateRefs: { type: "array" }, templateRefs: { type: "array" }, decompositionRules: { type: "array" }, automation: { type: "object" }, gatesByWorkPackageType: { type: "array" }, gatesByTaskType: { type: "array" }, commandRefs: { type: "array" }, evidenceRequirements: { type: "array" }, testData: { type: "array" }, executionContexts: { type: "array" }, environments: { type: "array" } } }, reason: { type: "string", minLength: 1 }, generationEvidence: { type: "object", additionalProperties: !1, required: ["generationMethod", "generatorVersion", "generatorFingerprint", "generationInputHash", "generationOutputHash"], properties: { generationMethod: { enum: ["generic", "custom", "manual"] }, generatorVersion: { type: "string", minLength: 1 }, generatorFingerprint: { type: ["string", "null"], pattern: "^[0-9a-f]{64}$" }, generationInputHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, generationOutputHash: { type: "string", pattern: "^[0-9a-f]{64}$" } } } }, allOf: [{ if: { properties: { action: { enum: ["generate", "regenerate"] } } }, then: { required: ["document", "generationEvidence"], properties: { document: { type: "object" }, generationEvidence: { type: "object", additionalProperties: !1, required: ["generationMethod", "generatorVersion", "generatorFingerprint", "generationInputHash", "generationOutputHash"], properties: { generationMethod: { enum: ["generic", "custom", "manual"] }, generatorVersion: { type: "string", minLength: 1 }, generatorFingerprint: { type: ["string", "null"], pattern: "^[0-9a-f]{64}$" }, generationInputHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, generationOutputHash: { type: "string", pattern: "^[0-9a-f]{64}$" } } } } }, else: { not: { anyOf: [{ required: ["document"] }, { required: ["generationEvidence"] }] } } }, { if: { properties: { action: { enum: ["reject", "mark_stale"] } } }, then: { required: ["reason"], properties: { reason: { type: "string" } } } }] } } } }, { if: { properties: { kind: { const: "scope.generator.set" } } }, then: { properties: { payload: { type: "object", additionalProperties: !1, required: ["operationId", "scopeId", "guideKind", "generator", "declaredBy", "declaredAt"], properties: { operationId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, scopeId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, guideKind: { enum: ["task", "test"] }, generator: { anyOf: [{ $ref: "https://shipping-mode.dev/schemas/scope.schema.json#/$defs/generator" }, { type: "null" }] }, declaredBy: { type: "string", minLength: 1 }, declaredAt: { type: "string", minLength: 1 } } } } } }, { if: { properties: { kind: { const: "release.policy.configure" } } }, then: { properties: { payload: { $ref: "#/$defs/releasePolicyConfigurePayload" } } } }, { if: { properties: { kind: { const: "release.scopeRefs.set" } } }, then: { properties: { payload: { $ref: "#/$defs/releaseScopeRefsSetPayload" } } } }, { if: { properties: { kind: { const: "release.operationalRefs.set" } } }, then: { properties: { payload: { $ref: "#/$defs/releaseOperationalRefsSetPayload" } } } }, { if: { properties: { kind: { const: "release.deployment.record" } } }, then: { properties: { payload: { $ref: "#/$defs/releaseDeploymentRecordPayload" } } } }, { if: { properties: { kind: { const: "release.finalization.complete" } } }, then: { properties: { payload: { $ref: "#/$defs/releaseFinalizationCompletePayload" } } } }], $defs: { uuid: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, releaseMutationCommon: { type: "object", additionalProperties: !1, required: ["operationId", "releaseId", "updatedAt", "updatedBy", "requestSnapshot", "idempotencyKey", "idempotencyRequestHash", "observedRevisions"], properties: { operationId: { $ref: "#/$defs/uuid" }, releaseId: { $ref: "#/$defs/uuid" }, updatedAt: { type: "string", minLength: 1 }, updatedBy: { type: "string", minLength: 1 }, requestSnapshot: { type: "object" }, idempotencyKey: { type: "string", minLength: 1, maxLength: 256 }, idempotencyRequestHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, observedRevisions: { type: "object" } } }, releasePolicyConfigurePayload: { type: "object", additionalProperties: !1, required: ["operationId", "releaseId", "updatedAt", "updatedBy", "requestSnapshot", "idempotencyKey", "idempotencyRequestHash", "observedRevisions", "laneId", "policy"], properties: { operationId: { $ref: "#/$defs/uuid" }, releaseId: { $ref: "#/$defs/uuid" }, updatedAt: { type: "string", minLength: 1 }, updatedBy: { type: "string", minLength: 1 }, requestSnapshot: { type: "object" }, idempotencyKey: { type: "string", minLength: 1, maxLength: 256 }, idempotencyRequestHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, observedRevisions: { type: "object" }, laneId: { type: "string", pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" }, policy: { type: "object", additionalProperties: !1, required: ["mode", "previousReleaseRefs", "dependencyRefs"], properties: { mode: { enum: ["strict_sequence", "dependency_graph"] }, previousReleaseRefs: { type: "array", items: { $ref: "#/$defs/uuid" }, uniqueItems: !0 }, dependencyRefs: { type: "array", items: { $ref: "#/$defs/uuid" }, uniqueItems: !0 } } } } }, releaseScopeRefsSetPayload: { type: "object", additionalProperties: !1, required: ["operationId", "releaseId", "updatedAt", "updatedBy", "requestSnapshot", "idempotencyKey", "idempotencyRequestHash", "observedRevisions", "scopeRefs"], properties: { operationId: { $ref: "#/$defs/uuid" }, releaseId: { $ref: "#/$defs/uuid" }, updatedAt: { type: "string", minLength: 1 }, updatedBy: { type: "string", minLength: 1 }, requestSnapshot: { type: "object" }, idempotencyKey: { type: "string", minLength: 1, maxLength: 256 }, idempotencyRequestHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, observedRevisions: { type: "object" }, scopeRefs: { type: "array", items: { $ref: "https://shipping-mode.dev/schemas/release.schema.json#/properties/scopeRefs/items" } } } }, releaseOperationalRefsSetPayload: { type: "object", additionalProperties: !1, required: ["operationId", "releaseId", "updatedAt", "updatedBy", "requestSnapshot", "idempotencyKey", "idempotencyRequestHash", "observedRevisions", "executionContextRefs", "environmentRefs"], properties: { operationId: { $ref: "#/$defs/uuid" }, releaseId: { $ref: "#/$defs/uuid" }, updatedAt: { type: "string", minLength: 1 }, updatedBy: { type: "string", minLength: 1 }, requestSnapshot: { type: "object" }, idempotencyKey: { type: "string", minLength: 1, maxLength: 256 }, idempotencyRequestHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, observedRevisions: { type: "object" }, executionContextRefs: { type: "array", items: { $ref: "#/$defs/uuid" }, uniqueItems: !0 }, environmentRefs: { type: "array", items: { $ref: "#/$defs/uuid" }, uniqueItems: !0 } } }, releaseDeploymentRecordPayload: { type: "object", additionalProperties: !1, required: ["operationId", "releaseId", "updatedAt", "updatedBy", "requestSnapshot", "idempotencyKey", "idempotencyRequestHash", "observedRevisions", "deploymentEvent"], properties: { operationId: { $ref: "#/$defs/uuid" }, releaseId: { $ref: "#/$defs/uuid" }, updatedAt: { type: "string", minLength: 1 }, updatedBy: { type: "string", minLength: 1 }, requestSnapshot: { type: "object" }, idempotencyKey: { type: "string", minLength: 1, maxLength: 256 }, idempotencyRequestHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, observedRevisions: { type: "object" }, deploymentEvent: { $ref: "https://shipping-mode.dev/schemas/release.schema.json#/$defs/deploymentEvent" } } }, releaseFinalizationCompletePayload: { type: "object", additionalProperties: !1, required: ["operationId", "releaseId", "updatedAt", "updatedBy", "requestSnapshot", "idempotencyKey", "idempotencyRequestHash", "observedRevisions", "lifecycleStatus", "previousFinalization", "nextFinalization", "guardSummary", "guardSummaryHash"], properties: { operationId: { $ref: "#/$defs/uuid" }, releaseId: { $ref: "#/$defs/uuid" }, updatedAt: { type: "string", minLength: 1 }, updatedBy: { type: "string", minLength: 1 }, requestSnapshot: { type: "object", additionalProperties: !1, required: ["releaseRef", "retrospectiveStatus"], properties: { releaseRef: { type: "string", minLength: 1 }, retrospectiveStatus: { enum: ["not_started", "draft", "approved", "not_required"] } } }, idempotencyKey: { type: "string", minLength: 1, maxLength: 256 }, idempotencyRequestHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, observedRevisions: { type: "object" }, lifecycleStatus: { enum: ["DRAFT", "PLANNED", "ACTIVE", "VERIFYING", "RELEASED", "CANCELLED"] }, previousFinalization: { $ref: "https://shipping-mode.dev/schemas/release.schema.json#/properties/finalization" }, nextFinalization: { $ref: "https://shipping-mode.dev/schemas/release.schema.json#/properties/finalization" }, guardSummary: { type: "object", additionalProperties: !1, required: ["lifecycle", "releasable", "failedCurrentDimensions", "blockingFindingCodes", "unavailableFutureCapabilities"], properties: { lifecycle: { enum: ["DRAFT", "PLANNED", "ACTIVE", "VERIFYING", "RELEASED", "CANCELLED"] }, releasable: { type: "boolean" }, failedCurrentDimensions: { type: "array", items: { type: "string", minLength: 1 } }, blockingFindingCodes: { type: "array", items: { type: "string", minLength: 1 } }, unavailableFutureCapabilities: { type: "array", items: { enum: ["release_items", "work_packages", "tasks", "gates"] } } } }, guardSummaryHash: { type: "string", pattern: "^[0-9a-f]{64}$" } } }, mode: { enum: ["pause", "auto-approve"] }, confidence: { enum: ["low", "medium", "high"] }, sourceFamily: { enum: ["product-sources", "functional-sources", "technical-sources", "agent-repository-instructions", "project-module-manifests", "execution-commands", "quality-definitions", "local-runtime-environment", "public-data-contracts", "delivery-ci-deployment", "ownership", "decision-sources", "developer-guides", "engineering-standards", "repository-map", "evidence-contracts", "design-system", "prompt-sources", "custom-automation"] }, sourceAuthority: { type: "object", additionalProperties: !1, required: ["standing", "force"], properties: { standing: { enum: ["contextual", "supporting", "authoritative"] }, force: { enum: ["unknown", "informational", "advisory", "normative"] } } }, discoveryAutonomyPolicy: { type: "object", additionalProperties: !1, required: ["default", "scopeCommandConfidenceFloor", "sourceOverrides", "scopeCommand"], properties: { default: { $ref: "#/$defs/mode" }, scopeCommandConfidenceFloor: { $ref: "#/$defs/confidence" }, sourceOverrides: { type: "array", items: { type: "object", additionalProperties: !1, required: ["family", "mode"], properties: { family: { $ref: "#/$defs/sourceFamily" }, mode: { $ref: "#/$defs/mode" }, authorityCeiling: { $ref: "#/$defs/sourceAuthority" } }, allOf: [{ if: { required: ["mode"], properties: { mode: { const: "auto-approve" } } }, then: { required: ["authorityCeiling"], properties: { authorityCeiling: { $ref: "#/$defs/sourceAuthority" } } } }] } }, scopeCommand: { type: "object", additionalProperties: !1, required: ["mode"], properties: { mode: { $ref: "#/$defs/mode" } } } } } } };
-var func2 = __ucs2length, func4 = Object.prototype.hasOwnProperty, func0 = __deepEqual, pattern0 = new RegExp("^sha256:[0-9a-f]{64}$", "u"), pattern1 = new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", "u"), pattern3 = new RegExp("^REL-([0-9A-HJKMNP-TV-Z]{8}|[0-9A-HJKMNP-TV-Z]{12}|[0-9A-HJKMNP-TV-Z]{16}|[0-9A-HJKMNP-TV-Z]{26}|[0-9A-HJKMNP-TV-Z]{52})$", "u"), pattern4 = new RegExp("^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$", "u"), pattern5 = new RegExp("^[a-z0-9]+(-[a-z0-9]+)*$", "u"), pattern6 = new RegExp("^[0-9a-f]{64}$", "u"), pattern36 = new RegExp("^custom\\.[a-z][a-z0-9-]{0,63}$", "u"), pattern60 = new RegExp("^(?!/)(?!.*\\.\\.).+$", "u"), pattern128 = new RegExp("^([0-9a-f]{64}|ABSENT)$", "u"), schema13 = { type: "object", additionalProperties: !1, required: ["enabled", "provider"], properties: { enabled: { type: "boolean" }, provider: { enum: ["github", "gitlab", "azure-devops", "none", "custom"] }, branches: { $ref: "#/$defs/gitBranches" }, work: { $ref: "#/$defs/gitWorkPolicy" }, worktrees: { $ref: "#/$defs/gitWorktreePolicy" }, commits: { $ref: "#/$defs/gitCommitPolicy" }, pull_requests: { $ref: "#/$defs/gitPullRequestPolicy" }, automation: { $ref: "#/$defs/gitAutomationPolicy" } }, allOf: [{ if: { properties: { enabled: { const: !1 } } }, then: { properties: { provider: { const: "none" } } } }] }, schema14 = { type: "object", additionalProperties: !1, properties: { work_base: { type: ["string", "null"], minLength: 1 }, integration: { type: ["string", "null"], minLength: 1 }, production: { type: ["string", "null"], minLength: 1 } } }, schema15 = { type: "object", additionalProperties: !1, required: ["branch_unit", "branch_pattern", "reuse"], properties: { branch_unit: { enum: ["task", "work_package", "release_item", "release", "manual"] }, branch_pattern: { type: "string", minLength: 1 }, reuse: { enum: ["within_task", "within_work_package", "never", "manual"] } } }, schema16 = { type: "object", additionalProperties: !1, required: ["mode", "unit", "cleanup"], properties: { mode: { enum: ["disabled", "optional", "required"] }, unit: { enum: ["task", "work_package", "release_item", "release", "manual"] }, cleanup: { enum: ["after_integration", "manual", "never"] } } }, schema17 = { type: "object", additionalProperties: !1, required: ["granularity", "message_policy"], properties: { granularity: { enum: ["task", "work_package", "release_item", "release", "manual"] }, message_policy: { enum: ["host_defined", "conventional", "custom"] } } }, schema18 = { type: "object", additionalProperties: !1, required: ["enabled", "work_target", "draft_by_default", "merge_strategy", "promotion"], properties: { enabled: { type: "boolean" }, work_target: { type: ["string", "null"], minLength: 1 }, draft_by_default: { type: "boolean" }, merge_strategy: { enum: ["merge", "squash", "rebase", "provider_default", "none"] }, promotion: { type: "object", additionalProperties: !1, required: ["source", "target"], properties: { source: { type: ["string", "null"], minLength: 1 }, target: { type: ["string", "null"], minLength: 1 } } } } }, schema19 = { type: "object", additionalProperties: !1, required: ["create_branch", "create_worktree", "commit", "push", "create_pr", "merge_pr"], properties: { create_branch: { enum: ["allowed", "approval_required", "forbidden"] }, create_worktree: { enum: ["allowed", "approval_required", "forbidden"] }, commit: { enum: ["allowed", "approval_required", "forbidden"] }, push: { enum: ["allowed", "approval_required", "forbidden"] }, create_pr: { enum: ["allowed", "approval_required", "forbidden"] }, merge_pr: { enum: ["allowed", "approval_required", "forbidden"] } } };
+var validate_change_set = validate10, schema11 = { $id: "https://shipping-mode.dev/schemas/change-set.schema.json", type: "object", additionalProperties: !1, required: ["schemaVersion", "operationId", "kind", "target", "baseRevisions", "payload", "hash"], properties: { schemaVersion: { const: 1 }, operationId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, kind: { enum: ["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "discovery.propose", "guide.update", "scope.generator.set", "release.create", "release.policy.configure", "release.scopeRefs.set", "release.operationalRefs.set", "release.deployment.record", "release.finalization.complete"] }, target: { type: "object" }, baseRevisions: { type: "object", additionalProperties: { type: "object", additionalProperties: !1, required: ["revisionHash", "contentHash"], properties: { revisionHash: { type: "string", pattern: "^([0-9a-f]{64}|ABSENT)$" }, contentHash: { type: "string", pattern: "^([0-9a-f]{64}|ABSENT)$" } } } }, payload: { type: "object" }, preconditions: { type: "object", additionalProperties: !1, properties: { discoveryWorkspace: { type: "object", additionalProperties: !1, required: ["workspaceHash", "scanParameters"], properties: { workspaceHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, scanParameters: { type: "object", additionalProperties: !1, required: ["maxSourceBytes"], properties: { maxSourceBytes: { type: "integer" } } } } } } }, hash: { type: "string", pattern: "^[0-9a-f]{64}$" } }, allOf: [{ if: { properties: { kind: { const: "workspace.init" } } }, then: { properties: { payload: { type: "object", additionalProperties: !1, required: ["name", "vcs", "pluginVersion", "templatePackFingerprint"], properties: { name: { type: "string", minLength: 1 }, baseBranch: { type: ["string", "null"] }, vcs: { enum: ["git", "none"] }, pluginVersion: { type: "string", minLength: 1 }, templatePackFingerprint: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" }, projectType: { enum: ["software", "non_software", "mixed", "unknown"] } } } } } }, { if: { properties: { kind: { const: "release.create" } } }, then: { properties: { payload: { type: "object", additionalProperties: !1, required: ["operationId", "id", "displayId", "displayIdStatus", "title", "objective", "laneId", "policyMode", "slug", "status", "createdAt", "createdBy", "updatedAt", "updatedBy", "requestSnapshot", "idempotencyKey", "idempotencyRequestHash"], properties: { operationId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, id: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, displayId: { type: "string", pattern: "^REL-([0-9A-HJKMNP-TV-Z]{8}|[0-9A-HJKMNP-TV-Z]{12}|[0-9A-HJKMNP-TV-Z]{16}|[0-9A-HJKMNP-TV-Z]{26}|[0-9A-HJKMNP-TV-Z]{52})$" }, displayIdStatus: { const: "ACTIVE" }, title: { type: "string", minLength: 1 }, objective: { type: "string", minLength: 1 }, laneId: { type: "string", pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" }, policyMode: { enum: ["strict_sequence", "dependency_graph"] }, slug: { type: ["string", "null"], pattern: "^[a-z0-9]+(-[a-z0-9]+)*$" }, status: { const: "DRAFT" }, createdAt: { type: "string", minLength: 1 }, createdBy: { type: "string", minLength: 1 }, updatedAt: { type: "string", minLength: 1 }, updatedBy: { type: "string", minLength: 1 }, idempotencyKey: { type: "string", minLength: 1, maxLength: 256 }, idempotencyRequestHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, requestSnapshot: { type: "object", additionalProperties: !1, required: ["title", "objective", "laneId", "policyMode", "slug"], properties: { title: { type: "string", minLength: 1 }, objective: { type: "string", minLength: 1 }, laneId: { type: ["string", "null"], pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" }, policyMode: { enum: ["strict_sequence", "dependency_graph", null] }, slug: { type: ["string", "null"], pattern: "^[a-z0-9]+(-[a-z0-9]+)*$" } } } } } } } }, { if: { properties: { kind: { const: "config.update" } } }, then: { properties: { payload: { type: "object", additionalProperties: !1, minProperties: 1, properties: { name: { type: "string", minLength: 1 }, git: { $ref: "https://shipping-mode.dev/schemas/config.schema.json#/$defs/gitPolicy" }, work_sources: { type: "array", items: { $ref: "https://shipping-mode.dev/schemas/config.schema.json#/$defs/workSource" }, uniqueItems: !0 }, documentation: { $ref: "https://shipping-mode.dev/schemas/config.schema.json#/$defs/documentationContext" } } } } } }, { if: { properties: { kind: { const: "config.autonomy.set" } } }, then: { properties: { payload: { type: "object", additionalProperties: !1, required: ["discovery"], properties: { discovery: { $ref: "#/$defs/discoveryAutonomyPolicy" } } } } } }, { if: { properties: { kind: { const: "scope.add" } } }, then: { properties: { payload: { type: "object", additionalProperties: !1, required: ["id", "key", "label", "kind", "path", "guideGapId"], properties: { id: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, key: { type: "string", minLength: 1 }, label: { type: "string", minLength: 1 }, kind: { enum: ["code", "non_code"] }, path: { type: "string", minLength: 1 }, owner: { type: ["string", "null"] }, guideGapId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" } } } } } }, { if: { properties: { kind: { const: "scope.command.set" } } }, then: { properties: { payload: { type: "object", additionalProperties: !1, required: ["operationId", "scopeId", "role", "command", "requiresEnvironment", "requiresSecrets", "declaredBy", "declaredAt"], properties: { operationId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, scopeId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, role: { anyOf: [{ enum: ["build", "test", "smoke", "lint", "verify"] }, { type: "string", pattern: "^custom\\.[a-z][a-z0-9-]{0,63}$" }] }, command: { type: "string", minLength: 1 }, requiresEnvironment: { type: "boolean" }, requiresSecrets: { type: "boolean" }, declaredBy: { type: "string", minLength: 1 }, declaredAt: { type: "string", minLength: 1 } } } } } }, { if: { properties: { kind: { const: "discovery.propose" } } }, then: { required: ["preconditions"], properties: { preconditions: { $ref: "#/properties/preconditions" }, payload: { type: "object", additionalProperties: !1, required: ["operationId", "proposal", "sourceIdAssignments", "scopeIdAssignments", "confirmedBy", "confirmedAt"], properties: { operationId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, proposal: { type: "object" }, sourceIdAssignments: { type: "array", items: { type: "object", additionalProperties: !1, required: ["sourceActionIndex", "sourceId"], properties: { sourceActionIndex: { type: "integer", minimum: 0 }, sourceId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" } } } }, scopeIdAssignments: { type: "array", items: { type: "object", additionalProperties: !1, required: ["scopeIndex", "scopeId", "guideGapId"], properties: { scopeIndex: { type: "integer", minimum: 0 }, scopeId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, guideGapId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" } } } }, confirmedBy: { type: "string", minLength: 1 }, confirmedAt: { type: "string", minLength: 1 } } } } } }, { if: { properties: { kind: { const: "guide.update" } } }, then: { properties: { payload: { type: "object", additionalProperties: !1, required: ["operationId", "scopeId", "guideKind", "action", "guideId", "proposedAt"], properties: { operationId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, scopeId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, guideKind: { enum: ["task", "test"] }, action: { enum: ["generate", "regenerate", "submit_review", "approve", "reject", "mark_stale"] }, guideId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, proposedAt: { type: "string", minLength: 1 }, document: { type: "object", additionalProperties: !1, required: ["sourceRefs", "openGaps"], properties: { sourceRefs: { type: "array" }, openGaps: { type: "array" }, workPackageTypes: { type: "array" }, taskTypes: { type: "array" }, requiredSections: { type: "array" }, requiredGateRefs: { type: "array" }, templateRefs: { type: "array" }, decompositionRules: { type: "array" }, automation: { type: "object" }, gatesByWorkPackageType: { type: "array" }, gatesByTaskType: { type: "array" }, commandRefs: { type: "array" }, evidenceRequirements: { type: "array" }, testData: { type: "array" }, executionContexts: { type: "array" }, environments: { type: "array" } } }, reason: { type: "string", minLength: 1 }, generationEvidence: { type: "object", additionalProperties: !1, required: ["generationMethod", "generatorVersion", "generatorFingerprint", "generationInputHash", "generationOutputHash"], properties: { generationMethod: { enum: ["generic", "custom", "manual"] }, generatorVersion: { type: "string", minLength: 1 }, generatorFingerprint: { type: ["string", "null"], pattern: "^[0-9a-f]{64}$" }, generationInputHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, generationOutputHash: { type: "string", pattern: "^[0-9a-f]{64}$" } } } }, allOf: [{ if: { properties: { action: { enum: ["generate", "regenerate"] } } }, then: { required: ["document", "generationEvidence"], properties: { document: { type: "object" }, generationEvidence: { type: "object", additionalProperties: !1, required: ["generationMethod", "generatorVersion", "generatorFingerprint", "generationInputHash", "generationOutputHash"], properties: { generationMethod: { enum: ["generic", "custom", "manual"] }, generatorVersion: { type: "string", minLength: 1 }, generatorFingerprint: { type: ["string", "null"], pattern: "^[0-9a-f]{64}$" }, generationInputHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, generationOutputHash: { type: "string", pattern: "^[0-9a-f]{64}$" } } } } }, else: { not: { anyOf: [{ required: ["document"] }, { required: ["generationEvidence"] }] } } }, { if: { properties: { action: { enum: ["reject", "mark_stale"] } } }, then: { required: ["reason"], properties: { reason: { type: "string" } } } }] } } } }, { if: { properties: { kind: { const: "scope.generator.set" } } }, then: { properties: { payload: { type: "object", additionalProperties: !1, required: ["operationId", "scopeId", "guideKind", "generator", "declaredBy", "declaredAt"], properties: { operationId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, scopeId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, guideKind: { enum: ["task", "test"] }, generator: { anyOf: [{ $ref: "https://shipping-mode.dev/schemas/scope.schema.json#/$defs/generator" }, { type: "null" }] }, declaredBy: { type: "string", minLength: 1 }, declaredAt: { type: "string", minLength: 1 } } } } } }, { if: { properties: { kind: { const: "release.policy.configure" } } }, then: { properties: { payload: { $ref: "#/$defs/releasePolicyConfigurePayload" } } } }, { if: { properties: { kind: { const: "release.scopeRefs.set" } } }, then: { properties: { payload: { $ref: "#/$defs/releaseScopeRefsSetPayload" } } } }, { if: { properties: { kind: { const: "release.operationalRefs.set" } } }, then: { properties: { payload: { $ref: "#/$defs/releaseOperationalRefsSetPayload" } } } }, { if: { properties: { kind: { const: "release.deployment.record" } } }, then: { properties: { payload: { $ref: "#/$defs/releaseDeploymentRecordPayload" } } } }, { if: { properties: { kind: { const: "release.finalization.complete" } } }, then: { properties: { payload: { $ref: "#/$defs/releaseFinalizationCompletePayload" } } } }], $defs: { uuid: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, releaseMutationCommon: { type: "object", additionalProperties: !1, required: ["operationId", "releaseId", "updatedAt", "updatedBy", "requestSnapshot", "idempotencyKey", "idempotencyRequestHash", "observedRevisions"], properties: { operationId: { $ref: "#/$defs/uuid" }, releaseId: { $ref: "#/$defs/uuid" }, updatedAt: { type: "string", minLength: 1 }, updatedBy: { type: "string", minLength: 1 }, requestSnapshot: { type: "object" }, idempotencyKey: { type: "string", minLength: 1, maxLength: 256 }, idempotencyRequestHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, observedRevisions: { type: "object" } } }, releasePolicyConfigurePayload: { type: "object", additionalProperties: !1, required: ["operationId", "releaseId", "updatedAt", "updatedBy", "requestSnapshot", "idempotencyKey", "idempotencyRequestHash", "observedRevisions", "laneId", "policy"], properties: { operationId: { $ref: "#/$defs/uuid" }, releaseId: { $ref: "#/$defs/uuid" }, updatedAt: { type: "string", minLength: 1 }, updatedBy: { type: "string", minLength: 1 }, requestSnapshot: { type: "object" }, idempotencyKey: { type: "string", minLength: 1, maxLength: 256 }, idempotencyRequestHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, observedRevisions: { type: "object" }, laneId: { type: "string", pattern: "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$" }, policy: { type: "object", additionalProperties: !1, required: ["mode", "previousReleaseRefs", "dependencyRefs"], properties: { mode: { enum: ["strict_sequence", "dependency_graph"] }, previousReleaseRefs: { type: "array", items: { $ref: "#/$defs/uuid" }, uniqueItems: !0 }, dependencyRefs: { type: "array", items: { $ref: "#/$defs/uuid" }, uniqueItems: !0 } } } } }, releaseScopeRefsSetPayload: { type: "object", additionalProperties: !1, required: ["operationId", "releaseId", "updatedAt", "updatedBy", "requestSnapshot", "idempotencyKey", "idempotencyRequestHash", "observedRevisions", "scopeRefs"], properties: { operationId: { $ref: "#/$defs/uuid" }, releaseId: { $ref: "#/$defs/uuid" }, updatedAt: { type: "string", minLength: 1 }, updatedBy: { type: "string", minLength: 1 }, requestSnapshot: { type: "object" }, idempotencyKey: { type: "string", minLength: 1, maxLength: 256 }, idempotencyRequestHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, observedRevisions: { type: "object" }, scopeRefs: { type: "array", items: { $ref: "https://shipping-mode.dev/schemas/release.schema.json#/properties/scopeRefs/items" } } } }, releaseOperationalRefsSetPayload: { type: "object", additionalProperties: !1, required: ["operationId", "releaseId", "updatedAt", "updatedBy", "requestSnapshot", "idempotencyKey", "idempotencyRequestHash", "observedRevisions", "executionContextRefs", "environmentRefs"], properties: { operationId: { $ref: "#/$defs/uuid" }, releaseId: { $ref: "#/$defs/uuid" }, updatedAt: { type: "string", minLength: 1 }, updatedBy: { type: "string", minLength: 1 }, requestSnapshot: { type: "object" }, idempotencyKey: { type: "string", minLength: 1, maxLength: 256 }, idempotencyRequestHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, observedRevisions: { type: "object" }, executionContextRefs: { type: "array", items: { $ref: "#/$defs/uuid" }, uniqueItems: !0 }, environmentRefs: { type: "array", items: { $ref: "#/$defs/uuid" }, uniqueItems: !0 } } }, releaseDeploymentRecordPayload: { type: "object", additionalProperties: !1, required: ["operationId", "releaseId", "updatedAt", "updatedBy", "requestSnapshot", "idempotencyKey", "idempotencyRequestHash", "observedRevisions", "deploymentEvent"], properties: { operationId: { $ref: "#/$defs/uuid" }, releaseId: { $ref: "#/$defs/uuid" }, updatedAt: { type: "string", minLength: 1 }, updatedBy: { type: "string", minLength: 1 }, requestSnapshot: { type: "object" }, idempotencyKey: { type: "string", minLength: 1, maxLength: 256 }, idempotencyRequestHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, observedRevisions: { type: "object" }, deploymentEvent: { $ref: "https://shipping-mode.dev/schemas/release.schema.json#/$defs/deploymentEvent" } } }, releaseFinalizationCompletePayload: { type: "object", additionalProperties: !1, required: ["operationId", "releaseId", "updatedAt", "updatedBy", "requestSnapshot", "idempotencyKey", "idempotencyRequestHash", "observedRevisions", "lifecycleStatus", "previousFinalization", "nextFinalization", "guardSummary", "guardSummaryHash"], properties: { operationId: { $ref: "#/$defs/uuid" }, releaseId: { $ref: "#/$defs/uuid" }, updatedAt: { type: "string", minLength: 1 }, updatedBy: { type: "string", minLength: 1 }, requestSnapshot: { type: "object", additionalProperties: !1, required: ["releaseRef", "retrospectiveStatus"], properties: { releaseRef: { type: "string", minLength: 1 }, retrospectiveStatus: { enum: ["not_started", "draft", "approved", "not_required"] } } }, idempotencyKey: { type: "string", minLength: 1, maxLength: 256 }, idempotencyRequestHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, observedRevisions: { type: "object" }, lifecycleStatus: { enum: ["DRAFT", "PLANNED", "ACTIVE", "VERIFYING", "RELEASED", "CANCELLED"] }, previousFinalization: { $ref: "https://shipping-mode.dev/schemas/release.schema.json#/properties/finalization" }, nextFinalization: { $ref: "https://shipping-mode.dev/schemas/release.schema.json#/properties/finalization" }, guardSummary: { type: "object", additionalProperties: !1, required: ["lifecycle", "releasable", "failedCurrentDimensions", "blockingFindingCodes", "unavailableFutureCapabilities", "unavailableCurrentDimensions", "healthRevision"], properties: { lifecycle: { enum: ["DRAFT", "PLANNED", "ACTIVE", "VERIFYING", "RELEASED", "CANCELLED"] }, releasable: { type: "boolean" }, failedCurrentDimensions: { type: "array", items: { type: "string", minLength: 1 } }, blockingFindingCodes: { type: "array", items: { type: "string", minLength: 1 } }, unavailableFutureCapabilities: { type: "array", items: { enum: ["release_items", "work_packages", "tasks", "gates"] } }, unavailableCurrentDimensions: { type: "array", items: { type: "string", minLength: 1 }, uniqueItems: !0 }, healthRevision: { type: "string", pattern: "^[0-9a-f]{64}$" } } }, guardSummaryHash: { type: "string", pattern: "^[0-9a-f]{64}$" } } }, mode: { enum: ["pause", "auto-approve"] }, confidence: { enum: ["low", "medium", "high"] }, sourceFamily: { enum: ["product-sources", "functional-sources", "technical-sources", "agent-repository-instructions", "project-module-manifests", "execution-commands", "quality-definitions", "local-runtime-environment", "public-data-contracts", "delivery-ci-deployment", "ownership", "decision-sources", "developer-guides", "engineering-standards", "repository-map", "evidence-contracts", "design-system", "prompt-sources", "custom-automation"] }, sourceAuthority: { type: "object", additionalProperties: !1, required: ["standing", "force"], properties: { standing: { enum: ["contextual", "supporting", "authoritative"] }, force: { enum: ["unknown", "informational", "advisory", "normative"] } } }, discoveryAutonomyPolicy: { type: "object", additionalProperties: !1, required: ["default", "scopeCommandConfidenceFloor", "sourceOverrides", "scopeCommand"], properties: { default: { $ref: "#/$defs/mode" }, scopeCommandConfidenceFloor: { $ref: "#/$defs/confidence" }, sourceOverrides: { type: "array", items: { type: "object", additionalProperties: !1, required: ["family", "mode"], properties: { family: { $ref: "#/$defs/sourceFamily" }, mode: { $ref: "#/$defs/mode" }, authorityCeiling: { $ref: "#/$defs/sourceAuthority" } }, allOf: [{ if: { required: ["mode"], properties: { mode: { const: "auto-approve" } } }, then: { required: ["authorityCeiling"], properties: { authorityCeiling: { $ref: "#/$defs/sourceAuthority" } } } }] } }, scopeCommand: { type: "object", additionalProperties: !1, required: ["mode"], properties: { mode: { $ref: "#/$defs/mode" } } } } } } };
+var func2 = __ucs2length, func4 = Object.prototype.hasOwnProperty, func0 = __deepEqual, pattern0 = new RegExp("^sha256:[0-9a-f]{64}$", "u"), pattern1 = new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$", "u"), pattern3 = new RegExp("^REL-([0-9A-HJKMNP-TV-Z]{8}|[0-9A-HJKMNP-TV-Z]{12}|[0-9A-HJKMNP-TV-Z]{16}|[0-9A-HJKMNP-TV-Z]{26}|[0-9A-HJKMNP-TV-Z]{52})$", "u"), pattern4 = new RegExp("^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$", "u"), pattern5 = new RegExp("^[a-z0-9]+(-[a-z0-9]+)*$", "u"), pattern6 = new RegExp("^[0-9a-f]{64}$", "u"), pattern36 = new RegExp("^custom\\.[a-z][a-z0-9-]{0,63}$", "u"), pattern60 = new RegExp("^(?!/)(?!.*\\.\\.).+$", "u"), pattern129 = new RegExp("^([0-9a-f]{64}|ABSENT)$", "u"), schema13 = { type: "object", additionalProperties: !1, required: ["enabled", "provider"], properties: { enabled: { type: "boolean" }, provider: { enum: ["github", "gitlab", "azure-devops", "none", "custom"] }, branches: { $ref: "#/$defs/gitBranches" }, work: { $ref: "#/$defs/gitWorkPolicy" }, worktrees: { $ref: "#/$defs/gitWorktreePolicy" }, commits: { $ref: "#/$defs/gitCommitPolicy" }, pull_requests: { $ref: "#/$defs/gitPullRequestPolicy" }, automation: { $ref: "#/$defs/gitAutomationPolicy" } }, allOf: [{ if: { properties: { enabled: { const: !1 } } }, then: { properties: { provider: { const: "none" } } } }] }, schema14 = { type: "object", additionalProperties: !1, properties: { work_base: { type: ["string", "null"], minLength: 1 }, integration: { type: ["string", "null"], minLength: 1 }, production: { type: ["string", "null"], minLength: 1 } } }, schema15 = { type: "object", additionalProperties: !1, required: ["branch_unit", "branch_pattern", "reuse"], properties: { branch_unit: { enum: ["task", "work_package", "release_item", "release", "manual"] }, branch_pattern: { type: "string", minLength: 1 }, reuse: { enum: ["within_task", "within_work_package", "never", "manual"] } } }, schema16 = { type: "object", additionalProperties: !1, required: ["mode", "unit", "cleanup"], properties: { mode: { enum: ["disabled", "optional", "required"] }, unit: { enum: ["task", "work_package", "release_item", "release", "manual"] }, cleanup: { enum: ["after_integration", "manual", "never"] } } }, schema17 = { type: "object", additionalProperties: !1, required: ["granularity", "message_policy"], properties: { granularity: { enum: ["task", "work_package", "release_item", "release", "manual"] }, message_policy: { enum: ["host_defined", "conventional", "custom"] } } }, schema18 = { type: "object", additionalProperties: !1, required: ["enabled", "work_target", "draft_by_default", "merge_strategy", "promotion"], properties: { enabled: { type: "boolean" }, work_target: { type: ["string", "null"], minLength: 1 }, draft_by_default: { type: "boolean" }, merge_strategy: { enum: ["merge", "squash", "rebase", "provider_default", "none"] }, promotion: { type: "object", additionalProperties: !1, required: ["source", "target"], properties: { source: { type: ["string", "null"], minLength: 1 }, target: { type: ["string", "null"], minLength: 1 } } } } }, schema19 = { type: "object", additionalProperties: !1, required: ["create_branch", "create_worktree", "commit", "push", "create_pr", "merge_pr"], properties: { create_branch: { enum: ["allowed", "approval_required", "forbidden"] }, create_worktree: { enum: ["allowed", "approval_required", "forbidden"] }, commit: { enum: ["allowed", "approval_required", "forbidden"] }, push: { enum: ["allowed", "approval_required", "forbidden"] }, create_pr: { enum: ["allowed", "approval_required", "forbidden"] }, merge_pr: { enum: ["allowed", "approval_required", "forbidden"] } } };
 function validate20(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
   let vErrors = null, errors = 0, _errs2 = errors, valid1 = !0, _errs3 = errors;
   if (data && typeof data == "object" && !Array.isArray(data) && data.enabled !== void 0 && data.enabled !== !1) {
@@ -8260,7 +8260,7 @@ function validate66(data, { instancePath = "", parentData, parentDataProperty, r
   }
   return validate66.errors = vErrors, errors === 0;
 }
-var schema116 = { type: "object", additionalProperties: !1, required: ["operationId", "releaseId", "updatedAt", "updatedBy", "requestSnapshot", "idempotencyKey", "idempotencyRequestHash", "observedRevisions", "lifecycleStatus", "previousFinalization", "nextFinalization", "guardSummary", "guardSummaryHash"], properties: { operationId: { $ref: "#/$defs/uuid" }, releaseId: { $ref: "#/$defs/uuid" }, updatedAt: { type: "string", minLength: 1 }, updatedBy: { type: "string", minLength: 1 }, requestSnapshot: { type: "object", additionalProperties: !1, required: ["releaseRef", "retrospectiveStatus"], properties: { releaseRef: { type: "string", minLength: 1 }, retrospectiveStatus: { enum: ["not_started", "draft", "approved", "not_required"] } } }, idempotencyKey: { type: "string", minLength: 1, maxLength: 256 }, idempotencyRequestHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, observedRevisions: { type: "object" }, lifecycleStatus: { enum: ["DRAFT", "PLANNED", "ACTIVE", "VERIFYING", "RELEASED", "CANCELLED"] }, previousFinalization: { $ref: "https://shipping-mode.dev/schemas/release.schema.json#/properties/finalization" }, nextFinalization: { $ref: "https://shipping-mode.dev/schemas/release.schema.json#/properties/finalization" }, guardSummary: { type: "object", additionalProperties: !1, required: ["lifecycle", "releasable", "failedCurrentDimensions", "blockingFindingCodes", "unavailableFutureCapabilities"], properties: { lifecycle: { enum: ["DRAFT", "PLANNED", "ACTIVE", "VERIFYING", "RELEASED", "CANCELLED"] }, releasable: { type: "boolean" }, failedCurrentDimensions: { type: "array", items: { type: "string", minLength: 1 } }, blockingFindingCodes: { type: "array", items: { type: "string", minLength: 1 } }, unavailableFutureCapabilities: { type: "array", items: { enum: ["release_items", "work_packages", "tasks", "gates"] } } } }, guardSummaryHash: { type: "string", pattern: "^[0-9a-f]{64}$" } } }, schema119 = { type: "object", additionalProperties: !1, required: ["completed", "completedAt", "completedBy", "retrospectiveStatus"], properties: { completed: { type: "boolean" }, completedAt: { type: ["string", "null"], minLength: 1 }, completedBy: { type: ["string", "null"], minLength: 1 }, retrospectiveStatus: { enum: ["not_started", "draft", "approved", "not_required"] } }, allOf: [{ if: { properties: { completed: { const: !0 } } }, then: { properties: { completedAt: { type: "string", minLength: 1 }, completedBy: { type: "string", minLength: 1 } } }, else: { properties: { completedAt: { type: "null" }, completedBy: { type: "null" } } } }] };
+var schema116 = { type: "object", additionalProperties: !1, required: ["operationId", "releaseId", "updatedAt", "updatedBy", "requestSnapshot", "idempotencyKey", "idempotencyRequestHash", "observedRevisions", "lifecycleStatus", "previousFinalization", "nextFinalization", "guardSummary", "guardSummaryHash"], properties: { operationId: { $ref: "#/$defs/uuid" }, releaseId: { $ref: "#/$defs/uuid" }, updatedAt: { type: "string", minLength: 1 }, updatedBy: { type: "string", minLength: 1 }, requestSnapshot: { type: "object", additionalProperties: !1, required: ["releaseRef", "retrospectiveStatus"], properties: { releaseRef: { type: "string", minLength: 1 }, retrospectiveStatus: { enum: ["not_started", "draft", "approved", "not_required"] } } }, idempotencyKey: { type: "string", minLength: 1, maxLength: 256 }, idempotencyRequestHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, observedRevisions: { type: "object" }, lifecycleStatus: { enum: ["DRAFT", "PLANNED", "ACTIVE", "VERIFYING", "RELEASED", "CANCELLED"] }, previousFinalization: { $ref: "https://shipping-mode.dev/schemas/release.schema.json#/properties/finalization" }, nextFinalization: { $ref: "https://shipping-mode.dev/schemas/release.schema.json#/properties/finalization" }, guardSummary: { type: "object", additionalProperties: !1, required: ["lifecycle", "releasable", "failedCurrentDimensions", "blockingFindingCodes", "unavailableFutureCapabilities", "unavailableCurrentDimensions", "healthRevision"], properties: { lifecycle: { enum: ["DRAFT", "PLANNED", "ACTIVE", "VERIFYING", "RELEASED", "CANCELLED"] }, releasable: { type: "boolean" }, failedCurrentDimensions: { type: "array", items: { type: "string", minLength: 1 } }, blockingFindingCodes: { type: "array", items: { type: "string", minLength: 1 } }, unavailableFutureCapabilities: { type: "array", items: { enum: ["release_items", "work_packages", "tasks", "gates"] } }, unavailableCurrentDimensions: { type: "array", items: { type: "string", minLength: 1 }, uniqueItems: !0 }, healthRevision: { type: "string", pattern: "^[0-9a-f]{64}$" } } }, guardSummaryHash: { type: "string", pattern: "^[0-9a-f]{64}$" } } }, schema119 = { type: "object", additionalProperties: !1, required: ["completed", "completedAt", "completedBy", "retrospectiveStatus"], properties: { completed: { type: "boolean" }, completedAt: { type: ["string", "null"], minLength: 1 }, completedBy: { type: ["string", "null"], minLength: 1 }, retrospectiveStatus: { enum: ["not_started", "draft", "approved", "not_required"] } }, allOf: [{ if: { properties: { completed: { const: !0 } } }, then: { properties: { completedAt: { type: "string", minLength: 1 }, completedBy: { type: "string", minLength: 1 } } }, else: { properties: { completedAt: { type: "null" }, completedBy: { type: "null" } } } }] };
 function validate70(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
   let vErrors = null, errors = 0;
   if (data && typeof data == "object" && !Array.isArray(data)) {
@@ -8710,21 +8710,29 @@ function validate70(data, { instancePath = "", parentData, parentDataProperty, r
           let err80 = { instancePath: instancePath + "/guardSummary", schemaPath: "#/properties/guardSummary/required", keyword: "required", params: { missingProperty: "unavailableFutureCapabilities" }, message: "must have required property 'unavailableFutureCapabilities'" };
           vErrors === null ? vErrors = [err80] : vErrors.push(err80), errors++;
         }
+        if (data31.unavailableCurrentDimensions === void 0) {
+          let err81 = { instancePath: instancePath + "/guardSummary", schemaPath: "#/properties/guardSummary/required", keyword: "required", params: { missingProperty: "unavailableCurrentDimensions" }, message: "must have required property 'unavailableCurrentDimensions'" };
+          vErrors === null ? vErrors = [err81] : vErrors.push(err81), errors++;
+        }
+        if (data31.healthRevision === void 0) {
+          let err82 = { instancePath: instancePath + "/guardSummary", schemaPath: "#/properties/guardSummary/required", keyword: "required", params: { missingProperty: "healthRevision" }, message: "must have required property 'healthRevision'" };
+          vErrors === null ? vErrors = [err82] : vErrors.push(err82), errors++;
+        }
         for (let key4 in data31)
-          if (!(key4 === "lifecycle" || key4 === "releasable" || key4 === "failedCurrentDimensions" || key4 === "blockingFindingCodes" || key4 === "unavailableFutureCapabilities")) {
-            let err81 = { instancePath: instancePath + "/guardSummary", schemaPath: "#/properties/guardSummary/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key4 }, message: "must NOT have additional properties" };
-            vErrors === null ? vErrors = [err81] : vErrors.push(err81), errors++;
+          if (!(key4 === "lifecycle" || key4 === "releasable" || key4 === "failedCurrentDimensions" || key4 === "blockingFindingCodes" || key4 === "unavailableFutureCapabilities" || key4 === "unavailableCurrentDimensions" || key4 === "healthRevision")) {
+            let err83 = { instancePath: instancePath + "/guardSummary", schemaPath: "#/properties/guardSummary/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key4 }, message: "must NOT have additional properties" };
+            vErrors === null ? vErrors = [err83] : vErrors.push(err83), errors++;
           }
         if (data31.lifecycle !== void 0) {
           let data32 = data31.lifecycle;
           if (!(data32 === "DRAFT" || data32 === "PLANNED" || data32 === "ACTIVE" || data32 === "VERIFYING" || data32 === "RELEASED" || data32 === "CANCELLED")) {
-            let err82 = { instancePath: instancePath + "/guardSummary/lifecycle", schemaPath: "#/properties/guardSummary/properties/lifecycle/enum", keyword: "enum", params: { allowedValues: schema116.properties.guardSummary.properties.lifecycle.enum }, message: "must be equal to one of the allowed values" };
-            vErrors === null ? vErrors = [err82] : vErrors.push(err82), errors++;
+            let err84 = { instancePath: instancePath + "/guardSummary/lifecycle", schemaPath: "#/properties/guardSummary/properties/lifecycle/enum", keyword: "enum", params: { allowedValues: schema116.properties.guardSummary.properties.lifecycle.enum }, message: "must be equal to one of the allowed values" };
+            vErrors === null ? vErrors = [err84] : vErrors.push(err84), errors++;
           }
         }
         if (data31.releasable !== void 0 && typeof data31.releasable != "boolean") {
-          let err83 = { instancePath: instancePath + "/guardSummary/releasable", schemaPath: "#/properties/guardSummary/properties/releasable/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
-          vErrors === null ? vErrors = [err83] : vErrors.push(err83), errors++;
+          let err85 = { instancePath: instancePath + "/guardSummary/releasable", schemaPath: "#/properties/guardSummary/properties/releasable/type", keyword: "type", params: { type: "boolean" }, message: "must be boolean" };
+          vErrors === null ? vErrors = [err85] : vErrors.push(err85), errors++;
         }
         if (data31.failedCurrentDimensions !== void 0) {
           let data34 = data31.failedCurrentDimensions;
@@ -8734,17 +8742,17 @@ function validate70(data, { instancePath = "", parentData, parentDataProperty, r
               let data35 = data34[i0];
               if (typeof data35 == "string") {
                 if (func2(data35) < 1) {
-                  let err84 = { instancePath: instancePath + "/guardSummary/failedCurrentDimensions/" + i0, schemaPath: "#/properties/guardSummary/properties/failedCurrentDimensions/items/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-                  vErrors === null ? vErrors = [err84] : vErrors.push(err84), errors++;
+                  let err86 = { instancePath: instancePath + "/guardSummary/failedCurrentDimensions/" + i0, schemaPath: "#/properties/guardSummary/properties/failedCurrentDimensions/items/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+                  vErrors === null ? vErrors = [err86] : vErrors.push(err86), errors++;
                 }
               } else {
-                let err85 = { instancePath: instancePath + "/guardSummary/failedCurrentDimensions/" + i0, schemaPath: "#/properties/guardSummary/properties/failedCurrentDimensions/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                vErrors === null ? vErrors = [err85] : vErrors.push(err85), errors++;
+                let err87 = { instancePath: instancePath + "/guardSummary/failedCurrentDimensions/" + i0, schemaPath: "#/properties/guardSummary/properties/failedCurrentDimensions/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                vErrors === null ? vErrors = [err87] : vErrors.push(err87), errors++;
               }
             }
           } else {
-            let err86 = { instancePath: instancePath + "/guardSummary/failedCurrentDimensions", schemaPath: "#/properties/guardSummary/properties/failedCurrentDimensions/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-            vErrors === null ? vErrors = [err86] : vErrors.push(err86), errors++;
+            let err88 = { instancePath: instancePath + "/guardSummary/failedCurrentDimensions", schemaPath: "#/properties/guardSummary/properties/failedCurrentDimensions/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+            vErrors === null ? vErrors = [err88] : vErrors.push(err88), errors++;
           }
         }
         if (data31.blockingFindingCodes !== void 0) {
@@ -8755,17 +8763,17 @@ function validate70(data, { instancePath = "", parentData, parentDataProperty, r
               let data37 = data36[i1];
               if (typeof data37 == "string") {
                 if (func2(data37) < 1) {
-                  let err87 = { instancePath: instancePath + "/guardSummary/blockingFindingCodes/" + i1, schemaPath: "#/properties/guardSummary/properties/blockingFindingCodes/items/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-                  vErrors === null ? vErrors = [err87] : vErrors.push(err87), errors++;
+                  let err89 = { instancePath: instancePath + "/guardSummary/blockingFindingCodes/" + i1, schemaPath: "#/properties/guardSummary/properties/blockingFindingCodes/items/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+                  vErrors === null ? vErrors = [err89] : vErrors.push(err89), errors++;
                 }
               } else {
-                let err88 = { instancePath: instancePath + "/guardSummary/blockingFindingCodes/" + i1, schemaPath: "#/properties/guardSummary/properties/blockingFindingCodes/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-                vErrors === null ? vErrors = [err88] : vErrors.push(err88), errors++;
+                let err90 = { instancePath: instancePath + "/guardSummary/blockingFindingCodes/" + i1, schemaPath: "#/properties/guardSummary/properties/blockingFindingCodes/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                vErrors === null ? vErrors = [err90] : vErrors.push(err90), errors++;
               }
             }
           } else {
-            let err89 = { instancePath: instancePath + "/guardSummary/blockingFindingCodes", schemaPath: "#/properties/guardSummary/properties/blockingFindingCodes/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-            vErrors === null ? vErrors = [err89] : vErrors.push(err89), errors++;
+            let err91 = { instancePath: instancePath + "/guardSummary/blockingFindingCodes", schemaPath: "#/properties/guardSummary/properties/blockingFindingCodes/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+            vErrors === null ? vErrors = [err91] : vErrors.push(err91), errors++;
           }
         }
         if (data31.unavailableFutureCapabilities !== void 0) {
@@ -8775,35 +8783,84 @@ function validate70(data, { instancePath = "", parentData, parentDataProperty, r
             for (let i2 = 0; i2 < len2; i2++) {
               let data39 = data38[i2];
               if (!(data39 === "release_items" || data39 === "work_packages" || data39 === "tasks" || data39 === "gates")) {
-                let err90 = { instancePath: instancePath + "/guardSummary/unavailableFutureCapabilities/" + i2, schemaPath: "#/properties/guardSummary/properties/unavailableFutureCapabilities/items/enum", keyword: "enum", params: { allowedValues: schema116.properties.guardSummary.properties.unavailableFutureCapabilities.items.enum }, message: "must be equal to one of the allowed values" };
-                vErrors === null ? vErrors = [err90] : vErrors.push(err90), errors++;
+                let err92 = { instancePath: instancePath + "/guardSummary/unavailableFutureCapabilities/" + i2, schemaPath: "#/properties/guardSummary/properties/unavailableFutureCapabilities/items/enum", keyword: "enum", params: { allowedValues: schema116.properties.guardSummary.properties.unavailableFutureCapabilities.items.enum }, message: "must be equal to one of the allowed values" };
+                vErrors === null ? vErrors = [err92] : vErrors.push(err92), errors++;
               }
             }
           } else {
-            let err91 = { instancePath: instancePath + "/guardSummary/unavailableFutureCapabilities", schemaPath: "#/properties/guardSummary/properties/unavailableFutureCapabilities/type", keyword: "type", params: { type: "array" }, message: "must be array" };
-            vErrors === null ? vErrors = [err91] : vErrors.push(err91), errors++;
+            let err93 = { instancePath: instancePath + "/guardSummary/unavailableFutureCapabilities", schemaPath: "#/properties/guardSummary/properties/unavailableFutureCapabilities/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+            vErrors === null ? vErrors = [err93] : vErrors.push(err93), errors++;
+          }
+        }
+        if (data31.unavailableCurrentDimensions !== void 0) {
+          let data40 = data31.unavailableCurrentDimensions;
+          if (Array.isArray(data40)) {
+            let len3 = data40.length;
+            for (let i3 = 0; i3 < len3; i3++) {
+              let data41 = data40[i3];
+              if (typeof data41 == "string") {
+                if (func2(data41) < 1) {
+                  let err94 = { instancePath: instancePath + "/guardSummary/unavailableCurrentDimensions/" + i3, schemaPath: "#/properties/guardSummary/properties/unavailableCurrentDimensions/items/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+                  vErrors === null ? vErrors = [err94] : vErrors.push(err94), errors++;
+                }
+              } else {
+                let err95 = { instancePath: instancePath + "/guardSummary/unavailableCurrentDimensions/" + i3, schemaPath: "#/properties/guardSummary/properties/unavailableCurrentDimensions/items/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+                vErrors === null ? vErrors = [err95] : vErrors.push(err95), errors++;
+              }
+            }
+            let i4 = data40.length, j0;
+            if (i4 > 1) {
+              let indices0 = {};
+              for (; i4--; ) {
+                let item0 = data40[i4];
+                if (typeof item0 == "string") {
+                  if (typeof indices0[item0] == "number") {
+                    j0 = indices0[item0];
+                    let err96 = { instancePath: instancePath + "/guardSummary/unavailableCurrentDimensions", schemaPath: "#/properties/guardSummary/properties/unavailableCurrentDimensions/uniqueItems", keyword: "uniqueItems", params: { i: i4, j: j0 }, message: "must NOT have duplicate items (items ## " + j0 + " and " + i4 + " are identical)" };
+                    vErrors === null ? vErrors = [err96] : vErrors.push(err96), errors++;
+                    break;
+                  }
+                  indices0[item0] = i4;
+                }
+              }
+            }
+          } else {
+            let err97 = { instancePath: instancePath + "/guardSummary/unavailableCurrentDimensions", schemaPath: "#/properties/guardSummary/properties/unavailableCurrentDimensions/type", keyword: "type", params: { type: "array" }, message: "must be array" };
+            vErrors === null ? vErrors = [err97] : vErrors.push(err97), errors++;
+          }
+        }
+        if (data31.healthRevision !== void 0) {
+          let data42 = data31.healthRevision;
+          if (typeof data42 == "string") {
+            if (!pattern6.test(data42)) {
+              let err98 = { instancePath: instancePath + "/guardSummary/healthRevision", schemaPath: "#/properties/guardSummary/properties/healthRevision/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
+              vErrors === null ? vErrors = [err98] : vErrors.push(err98), errors++;
+            }
+          } else {
+            let err99 = { instancePath: instancePath + "/guardSummary/healthRevision", schemaPath: "#/properties/guardSummary/properties/healthRevision/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+            vErrors === null ? vErrors = [err99] : vErrors.push(err99), errors++;
           }
         }
       } else {
-        let err92 = { instancePath: instancePath + "/guardSummary", schemaPath: "#/properties/guardSummary/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-        vErrors === null ? vErrors = [err92] : vErrors.push(err92), errors++;
+        let err100 = { instancePath: instancePath + "/guardSummary", schemaPath: "#/properties/guardSummary/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        vErrors === null ? vErrors = [err100] : vErrors.push(err100), errors++;
       }
     }
     if (data.guardSummaryHash !== void 0) {
-      let data40 = data.guardSummaryHash;
-      if (typeof data40 == "string") {
-        if (!pattern6.test(data40)) {
-          let err93 = { instancePath: instancePath + "/guardSummaryHash", schemaPath: "#/properties/guardSummaryHash/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
-          vErrors === null ? vErrors = [err93] : vErrors.push(err93), errors++;
+      let data43 = data.guardSummaryHash;
+      if (typeof data43 == "string") {
+        if (!pattern6.test(data43)) {
+          let err101 = { instancePath: instancePath + "/guardSummaryHash", schemaPath: "#/properties/guardSummaryHash/pattern", keyword: "pattern", params: { pattern: "^[0-9a-f]{64}$" }, message: 'must match pattern "^[0-9a-f]{64}$"' };
+          vErrors === null ? vErrors = [err101] : vErrors.push(err101), errors++;
         }
       } else {
-        let err94 = { instancePath: instancePath + "/guardSummaryHash", schemaPath: "#/properties/guardSummaryHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        vErrors === null ? vErrors = [err94] : vErrors.push(err94), errors++;
+        let err102 = { instancePath: instancePath + "/guardSummaryHash", schemaPath: "#/properties/guardSummaryHash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        vErrors === null ? vErrors = [err102] : vErrors.push(err102), errors++;
       }
     }
   } else {
-    let err95 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    vErrors === null ? vErrors = [err95] : vErrors.push(err95), errors++;
+    let err103 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    vErrors === null ? vErrors = [err103] : vErrors.push(err103), errors++;
   }
   return validate70.errors = vErrors, errors === 0;
 }
@@ -10829,7 +10886,7 @@ function validate10(data, { instancePath = "", parentData, parentDataProperty, r
             if (data153.revisionHash !== void 0) {
               let data154 = data153.revisionHash;
               if (typeof data154 == "string") {
-                if (!pattern128.test(data154)) {
+                if (!pattern129.test(data154)) {
                   let err353 = { instancePath: instancePath + "/baseRevisions/" + key20.replace(/~/g, "~0").replace(/\//g, "~1") + "/revisionHash", schemaPath: "#/properties/baseRevisions/additionalProperties/properties/revisionHash/pattern", keyword: "pattern", params: { pattern: "^([0-9a-f]{64}|ABSENT)$" }, message: 'must match pattern "^([0-9a-f]{64}|ABSENT)$"' };
                   vErrors === null ? vErrors = [err353] : vErrors.push(err353), errors++;
                 }
@@ -10841,7 +10898,7 @@ function validate10(data, { instancePath = "", parentData, parentDataProperty, r
             if (data153.contentHash !== void 0) {
               let data155 = data153.contentHash;
               if (typeof data155 == "string") {
-                if (!pattern128.test(data155)) {
+                if (!pattern129.test(data155)) {
                   let err355 = { instancePath: instancePath + "/baseRevisions/" + key20.replace(/~/g, "~0").replace(/\//g, "~1") + "/contentHash", schemaPath: "#/properties/baseRevisions/additionalProperties/properties/contentHash/pattern", keyword: "pattern", params: { pattern: "^([0-9a-f]{64}|ABSENT)$" }, message: 'must match pattern "^([0-9a-f]{64}|ABSENT)$"' };
                   vErrors === null ? vErrors = [err355] : vErrors.push(err355), errors++;
                 }
@@ -12611,7 +12668,7 @@ function validate11(data, { instancePath = "", parentData, parentDataProperty, r
   return validate11.errors = vErrors, errors === 0;
 }
 var validate_discovery_proposal = validate72;
-var schema124 = { type: "object", additionalProperties: !1, required: ["key", "label", "kind", "path"], properties: { key: { type: "string", pattern: "^[a-z0-9]+(-[a-z0-9]+)*$" }, label: { type: "string", minLength: 1 }, kind: { enum: ["code", "non_code"] }, path: { type: "string", minLength: 1 }, owner: { type: ["string", "null"] } } }, schema155 = { type: "object", additionalProperties: !1, required: ["code", "severity", "message"], properties: { code: { type: "string", minLength: 1, maxLength: 128, pattern: "^[a-z][a-z0-9_]*$" }, severity: { enum: ["info", "warning", "error"] }, message: { type: "string", minLength: 1, maxLength: 4096 }, itemRef: { type: "string", minLength: 1, maxLength: 512 }, details: { type: "object" } } }, pattern149 = new RegExp("^[a-z][a-z0-9_]*$", "u"), schema125 = { oneOf: [{ type: "object", additionalProperties: !1, required: ["action", "path", "family", "kind", "role", "authority", "availability", "observedFingerprint", "observedContentHash"], properties: { action: { const: "add" }, path: { type: "string", minLength: 1 }, family: { $ref: "#/$defs/sourceFamily" }, kind: { $ref: "#/$defs/sourceKind" }, role: { $ref: "#/$defs/sourceRole" }, authority: { $ref: "#/$defs/sourceAuthority" }, availability: { $ref: "#/$defs/sourceAvailability" }, observedFingerprint: { $ref: "#/$defs/fingerprint" }, observedContentHash: { $ref: "#/$defs/fingerprint" } } }, { type: "object", additionalProperties: !1, required: ["action", "sourceId", "observedFingerprint", "observedContentHash"], properties: { action: { const: "update" }, sourceId: { $ref: "#/$defs/uuid" }, family: { $ref: "#/$defs/sourceFamily" }, kind: { $ref: "#/$defs/sourceKind" }, role: { $ref: "#/$defs/sourceRole" }, authority: { $ref: "#/$defs/sourceAuthority" }, availability: { $ref: "#/$defs/sourceAvailability" }, observedFingerprint: { $ref: "#/$defs/fingerprint" }, observedContentHash: { $ref: "#/$defs/fingerprint" } } }, { type: "object", additionalProperties: !1, required: ["action", "sourceId", "fromPath", "path", "observedFingerprint", "observedContentHash"], properties: { action: { const: "move" }, sourceId: { $ref: "#/$defs/uuid" }, fromPath: { type: "string", minLength: 1 }, path: { type: "string", minLength: 1 }, observedFingerprint: { $ref: "#/$defs/fingerprint" }, observedContentHash: { $ref: "#/$defs/fingerprint" } } }, { type: "object", additionalProperties: !1, required: ["action", "sourceId"], properties: { action: { const: "remove" }, sourceId: { $ref: "#/$defs/uuid" } } }] }, schema126 = { enum: ["product-sources", "functional-sources", "technical-sources", "agent-repository-instructions", "project-module-manifests", "execution-commands", "quality-definitions", "local-runtime-environment", "public-data-contracts", "delivery-ci-deployment", "ownership", "decision-sources", "developer-guides", "engineering-standards", "repository-map", "evidence-contracts", "design-system", "prompt-sources", "custom-automation"] }, schema127 = { enum: ["product", "requirements", "architecture", "decision", "developer-guide", "engineering-standard", "agent-instructions", "repository-map", "api-contract", "data-contract", "database", "testing", "quality", "security", "observability", "design-system", "i18n", "runtime", "environment", "deployment", "ci", "ownership", "prompt", "generator", "evidence", "planning"] }, schema128 = { enum: ["canonical", "decision", "derived", "operational", "evidence", "generated", "historical", "reference"] }, schema129 = { type: "object", additionalProperties: !1, required: ["standing", "force"], properties: { standing: { enum: ["contextual", "supporting", "authoritative"] }, force: { enum: ["unknown", "informational", "advisory", "normative"] } } }, schema130 = { enum: ["implemented", "partial", "planned", "deprecated", "historical", "mixed", "unknown"] };
+var schema124 = { type: "object", additionalProperties: !1, required: ["key", "label", "kind", "path"], properties: { key: { type: "string", pattern: "^[a-z0-9]+(-[a-z0-9]+)*$" }, label: { type: "string", minLength: 1 }, kind: { enum: ["code", "non_code"] }, path: { type: "string", minLength: 1 }, owner: { type: ["string", "null"] } } }, schema155 = { type: "object", additionalProperties: !1, required: ["code", "severity", "message"], properties: { code: { type: "string", minLength: 1, maxLength: 128, pattern: "^[a-z][a-z0-9_]*$" }, severity: { enum: ["info", "warning", "error"] }, message: { type: "string", minLength: 1, maxLength: 4096 }, itemRef: { type: "string", minLength: 1, maxLength: 512 }, details: { type: "object" } } }, pattern150 = new RegExp("^[a-z][a-z0-9_]*$", "u"), schema125 = { oneOf: [{ type: "object", additionalProperties: !1, required: ["action", "path", "family", "kind", "role", "authority", "availability", "observedFingerprint", "observedContentHash"], properties: { action: { const: "add" }, path: { type: "string", minLength: 1 }, family: { $ref: "#/$defs/sourceFamily" }, kind: { $ref: "#/$defs/sourceKind" }, role: { $ref: "#/$defs/sourceRole" }, authority: { $ref: "#/$defs/sourceAuthority" }, availability: { $ref: "#/$defs/sourceAvailability" }, observedFingerprint: { $ref: "#/$defs/fingerprint" }, observedContentHash: { $ref: "#/$defs/fingerprint" } } }, { type: "object", additionalProperties: !1, required: ["action", "sourceId", "observedFingerprint", "observedContentHash"], properties: { action: { const: "update" }, sourceId: { $ref: "#/$defs/uuid" }, family: { $ref: "#/$defs/sourceFamily" }, kind: { $ref: "#/$defs/sourceKind" }, role: { $ref: "#/$defs/sourceRole" }, authority: { $ref: "#/$defs/sourceAuthority" }, availability: { $ref: "#/$defs/sourceAvailability" }, observedFingerprint: { $ref: "#/$defs/fingerprint" }, observedContentHash: { $ref: "#/$defs/fingerprint" } } }, { type: "object", additionalProperties: !1, required: ["action", "sourceId", "fromPath", "path", "observedFingerprint", "observedContentHash"], properties: { action: { const: "move" }, sourceId: { $ref: "#/$defs/uuid" }, fromPath: { type: "string", minLength: 1 }, path: { type: "string", minLength: 1 }, observedFingerprint: { $ref: "#/$defs/fingerprint" }, observedContentHash: { $ref: "#/$defs/fingerprint" } } }, { type: "object", additionalProperties: !1, required: ["action", "sourceId"], properties: { action: { const: "remove" }, sourceId: { $ref: "#/$defs/uuid" } } }] }, schema126 = { enum: ["product-sources", "functional-sources", "technical-sources", "agent-repository-instructions", "project-module-manifests", "execution-commands", "quality-definitions", "local-runtime-environment", "public-data-contracts", "delivery-ci-deployment", "ownership", "decision-sources", "developer-guides", "engineering-standards", "repository-map", "evidence-contracts", "design-system", "prompt-sources", "custom-automation"] }, schema127 = { enum: ["product", "requirements", "architecture", "decision", "developer-guide", "engineering-standard", "agent-instructions", "repository-map", "api-contract", "data-contract", "database", "testing", "quality", "security", "observability", "design-system", "i18n", "runtime", "environment", "deployment", "ci", "ownership", "prompt", "generator", "evidence", "planning"] }, schema128 = { enum: ["canonical", "decision", "derived", "operational", "evidence", "generated", "historical", "reference"] }, schema129 = { type: "object", additionalProperties: !1, required: ["standing", "force"], properties: { standing: { enum: ["contextual", "supporting", "authoritative"] }, force: { enum: ["unknown", "informational", "advisory", "normative"] } } }, schema130 = { enum: ["implemented", "partial", "planned", "deprecated", "historical", "mixed", "unknown"] };
 function validate73(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
   let vErrors = null, errors = 0, _errs0 = errors, valid0 = !1, passing0 = null, _errs1 = errors;
   if (data && typeof data == "object" && !Array.isArray(data)) {
@@ -13602,7 +13659,7 @@ function validate72(data, { instancePath = "", parentData, parentDataProperty, r
                   let err46 = { instancePath: instancePath + "/diagnostics/" + i3 + "/code", schemaPath: "#/$defs/diagnosticEntry/properties/code/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
                   vErrors === null ? vErrors = [err46] : vErrors.push(err46), errors++;
                 }
-                if (!pattern149.test(data20)) {
+                if (!pattern150.test(data20)) {
                   let err47 = { instancePath: instancePath + "/diagnostics/" + i3 + "/code", schemaPath: "#/$defs/diagnosticEntry/properties/code/pattern", keyword: "pattern", params: { pattern: "^[a-z][a-z0-9_]*$" }, message: 'must match pattern "^[a-z][a-z0-9_]*$"' };
                   vErrors === null ? vErrors = [err47] : vErrors.push(err47), errors++;
                 }
@@ -14032,7 +14089,7 @@ function validate84(data, { instancePath = "", parentData, parentDataProperty, r
 var validate_guide = validate85, schema159 = { $id: "https://shipping-mode.dev/schemas/guide.schema.json", type: "object", additionalProperties: !1, required: ["schemaVersion", "dslVersion", "id", "scopeId", "kind", "revision", "sourceRefs", "provenance", "openGaps"], properties: { schemaVersion: { const: 1 }, dslVersion: { const: 1 }, id: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, scopeId: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, kind: { enum: ["task", "test"] }, revision: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" }, sourceRefs: { $ref: "#/$defs/uuidList" }, provenance: { $ref: "#/$defs/provenance" }, openGaps: { type: "array", items: { $ref: "#/$defs/gap" }, uniqueItems: !0 }, workPackageTypes: { type: "array", items: { $ref: "#/$defs/workPackageType" }, uniqueItems: !0 }, taskTypes: { type: "array", items: { $ref: "#/$defs/taskType" }, uniqueItems: !0 }, requiredSections: { type: "array", items: { type: "string", pattern: "^[a-z][a-zA-Z0-9_.-]*$" }, uniqueItems: !0 }, requiredGateRefs: { type: "array", items: { type: "string", minLength: 1 }, uniqueItems: !0 }, templateRefs: { type: "array", items: { type: "string", minLength: 1 }, uniqueItems: !0 }, decompositionRules: { type: "array", items: { $ref: "#/$defs/decompositionRule" }, uniqueItems: !0 }, automation: { $ref: "#/$defs/automation" }, gatesByWorkPackageType: { type: "array", items: { $ref: "#/$defs/gateRule" }, uniqueItems: !0 }, gatesByTaskType: { type: "array", items: { $ref: "#/$defs/gateRule" }, uniqueItems: !0 }, commandRefs: { type: "array", items: { type: "string", minLength: 1 }, uniqueItems: !0 }, evidenceRequirements: { type: "array", items: { $ref: "#/$defs/evidenceRequirement" }, uniqueItems: !0 }, testData: { type: "array", items: { $ref: "#/$defs/testData" }, uniqueItems: !0 }, executionContexts: { type: "array", items: { type: "string", minLength: 1 }, uniqueItems: !0 }, environments: { type: "array", items: { type: "string", minLength: 1 }, uniqueItems: !0 } }, oneOf: [{ properties: { kind: { const: "task" }, workPackageTypes: {}, taskTypes: {}, requiredSections: {}, requiredGateRefs: {}, templateRefs: {}, decompositionRules: {}, automation: {} }, required: ["workPackageTypes", "taskTypes", "requiredSections", "requiredGateRefs", "templateRefs", "decompositionRules", "automation"], not: { anyOf: [{ required: ["gatesByWorkPackageType"], properties: { gatesByWorkPackageType: {} } }, { required: ["gatesByTaskType"], properties: { gatesByTaskType: {} } }, { required: ["commandRefs"], properties: { commandRefs: {} } }, { required: ["evidenceRequirements"], properties: { evidenceRequirements: {} } }, { required: ["testData"], properties: { testData: {} } }, { required: ["executionContexts"], properties: { executionContexts: {} } }, { required: ["environments"], properties: { environments: {} } }] } }, { properties: { kind: { const: "test" }, gatesByWorkPackageType: {}, gatesByTaskType: {}, commandRefs: {}, evidenceRequirements: {}, testData: {}, executionContexts: {}, environments: {} }, required: ["gatesByWorkPackageType", "gatesByTaskType", "commandRefs", "evidenceRequirements", "testData", "executionContexts", "environments"], not: { anyOf: [{ required: ["workPackageTypes"], properties: { workPackageTypes: {} } }, { required: ["taskTypes"], properties: { taskTypes: {} } }, { required: ["requiredSections"], properties: { requiredSections: {} } }, { required: ["requiredGateRefs"], properties: { requiredGateRefs: {} } }, { required: ["templateRefs"], properties: { templateRefs: {} } }, { required: ["decompositionRules"], properties: { decompositionRules: {} } }, { required: ["automation"], properties: { automation: {} } }] } }], $defs: { uuid: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, uuidList: { type: "array", items: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, minItems: 1, uniqueItems: !0 }, stringList: { type: "array", items: { type: "string", minLength: 1 }, uniqueItems: !0 }, fieldPath: { type: "string", pattern: "^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)*$" }, typedValue: { type: "object", additionalProperties: !1, required: ["type", "value"], properties: { type: { enum: ["date", "datetime"] }, value: { type: "string", minLength: 1 } }, allOf: [{ if: { properties: { type: { const: "date" } } }, then: { properties: { value: { pattern: "^\\d{4}-\\d{2}-\\d{2}$", type: "string" } } } }, { if: { properties: { type: { const: "datetime" } } }, then: { properties: { value: { pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$", type: "string" } } } }] }, value: { oneOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }, { type: "null" }, { $ref: "#/$defs/typedValue" }, { type: "array", items: { $ref: "#/$defs/value" } }, { type: "object", additionalProperties: { $ref: "#/$defs/value" }, not: { required: ["type", "value"], properties: { type: { enum: ["date", "datetime"] } } } }] }, regexPolicy: { type: "object", additionalProperties: !1, required: ["engine", "timeoutMs", "maxPatternBytes", "maxInputBytes"], properties: { engine: { const: "ecmascript-unicode" }, timeoutMs: { type: "integer", minimum: 1, maximum: 1e3 }, maxPatternBytes: { type: "integer", minimum: 1, maximum: 4096 }, maxInputBytes: { type: "integer", minimum: 1, maximum: 1048576 } } }, comparison: { oneOf: [{ type: "object", additionalProperties: !1, required: ["field", "op", "value"], properties: { field: { $ref: "#/$defs/fieldPath" }, op: { enum: ["equals", "not_equals", "contains", "exists", "in"] }, value: { $ref: "#/$defs/value" } } }, { type: "object", additionalProperties: !1, required: ["field", "op", "value", "regex"], properties: { field: { $ref: "#/$defs/fieldPath" }, op: { const: "matches" }, value: { type: "string" }, regex: { $ref: "#/$defs/regexPolicy" } } }] }, condition: { oneOf: [{ $ref: "#/$defs/comparison" }, { type: "object", additionalProperties: !1, required: ["all"], properties: { all: { type: "array", items: { $ref: "#/$defs/condition" }, minItems: 1 } } }, { type: "object", additionalProperties: !1, required: ["any"], properties: { any: { type: "array", items: { $ref: "#/$defs/condition" }, minItems: 1 } } }, { type: "object", additionalProperties: !1, required: ["not"], properties: { not: { $ref: "#/$defs/condition" } } }] }, gap: { type: "object", additionalProperties: !1, required: ["id", "description"], properties: { id: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, description: { type: "string", minLength: 1 }, category: { type: "string", minLength: 1 }, sourceRefs: { $ref: "#/$defs/uuidList" } } }, workPackageType: { type: "object", additionalProperties: !1, required: ["id", "appliesWhen", "requiredSections", "requiredGateRefs"], properties: { id: { type: "string", pattern: "^[a-z][a-z0-9-]*$" }, appliesWhen: { $ref: "#/$defs/condition" }, requiredSections: { type: "array", items: { type: "string", minLength: 1 }, uniqueItems: !0 }, requiredGateRefs: { type: "array", items: { type: "string", minLength: 1 }, uniqueItems: !0 } } }, taskType: { type: "object", additionalProperties: !1, required: ["id", "appliesWhen", "requiredSections"], properties: { id: { type: "string", pattern: "^[a-z][a-z0-9-]*$" }, appliesWhen: { $ref: "#/$defs/condition" }, requiredSections: { type: "array", items: { type: "string", minLength: 1 }, uniqueItems: !0 }, templateRef: { type: "string", minLength: 1 } } }, decompositionRule: { type: "object", additionalProperties: !1, required: ["id", "ordering"], properties: { id: { type: "string", pattern: "^[a-z][a-z0-9-]*$" }, ordering: { type: "object", additionalProperties: !1, required: ["predecessorType", "successorType"], properties: { predecessorType: { type: "string", minLength: 1 }, successorType: { type: "string", minLength: 1 } } } } }, automation: { type: "object", additionalProperties: !1, required: ["fallback"], properties: { generatorRef: { type: "string", minLength: 1 }, inputSchema: { type: "string", minLength: 1 }, fallback: { enum: ["markGaps", "referencesOnly"] } } }, gateRule: { type: "object", additionalProperties: !1, required: ["type", "requiredGateRefs"], properties: { type: { type: "string", minLength: 1 }, requiredGateRefs: { type: "array", items: { type: "string", minLength: 1 }, uniqueItems: !0 }, commandRefs: { type: "array", items: { type: "string", minLength: 1 }, uniqueItems: !0 }, evidenceRefs: { type: "array", items: { type: "string", minLength: 1 }, uniqueItems: !0 } } }, evidenceRequirement: { type: "object", additionalProperties: !1, required: ["id", "kind"], properties: { id: { type: "string", pattern: "^[a-z][a-z0-9-]*$" }, kind: { type: "string", minLength: 1 }, required: { type: "boolean" } } }, testData: { type: "object", additionalProperties: !1, required: ["id", "strategy"], properties: { id: { type: "string", pattern: "^[a-z][a-z0-9-]*$" }, strategy: { type: "string", minLength: 1 }, fixtureRef: { type: "string", minLength: 1 } } }, provenance: { type: "object", additionalProperties: !1, required: ["sourceMapRevision", "generationMethod", "generatorVersion", "generatorFingerprint", "generatedAt", "sourceFingerprints", "generationInputHash", "generationOutputHash"], properties: { sourceMapRevision: { type: "string", pattern: "^[0-9a-f]{64}$" }, generationMethod: { enum: ["generic", "custom", "manual"] }, generatorVersion: { type: "string", minLength: 1 }, generatorFingerprint: { type: ["string", "null"], pattern: "^[0-9a-f]{64}$" }, generationInputHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, generationOutputHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, generatedAt: { type: "string", minLength: 1 }, sourceFingerprints: { type: "object", additionalProperties: { type: "string", pattern: "^[0-9a-f]{64}$" } }, model: { type: ["string", "null"] }, promptVersion: { type: ["string", "null"] } } } } };
 var schema161 = { type: "object", additionalProperties: !1, required: ["sourceMapRevision", "generationMethod", "generatorVersion", "generatorFingerprint", "generatedAt", "sourceFingerprints", "generationInputHash", "generationOutputHash"], properties: { sourceMapRevision: { type: "string", pattern: "^[0-9a-f]{64}$" }, generationMethod: { enum: ["generic", "custom", "manual"] }, generatorVersion: { type: "string", minLength: 1 }, generatorFingerprint: { type: ["string", "null"], pattern: "^[0-9a-f]{64}$" }, generationInputHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, generationOutputHash: { type: "string", pattern: "^[0-9a-f]{64}$" }, generatedAt: { type: "string", minLength: 1 }, sourceFingerprints: { type: "object", additionalProperties: { type: "string", pattern: "^[0-9a-f]{64}$" } }, model: { type: ["string", "null"] }, promptVersion: { type: ["string", "null"] } } };
 var schema174 = { type: "object", additionalProperties: !1, required: ["fallback"], properties: { generatorRef: { type: "string", minLength: 1 }, inputSchema: { type: "string", minLength: 1 }, fallback: { enum: ["markGaps", "referencesOnly"] } } };
-var pattern174 = new RegExp("^[a-z][a-zA-Z0-9_.-]*$", "u"), pattern168 = new RegExp("^[a-z][a-z0-9-]*$", "u");
+var pattern175 = new RegExp("^[a-z][a-zA-Z0-9_.-]*$", "u"), pattern169 = new RegExp("^[a-z][a-z0-9-]*$", "u");
 function validate86(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
   let vErrors = null, errors = 0;
   if (data && typeof data == "object" && !Array.isArray(data)) {
@@ -14133,8 +14190,8 @@ function validate86(data, { instancePath = "", parentData, parentDataProperty, r
   return validate86.errors = vErrors, errors === 0;
 }
 var schema166 = { oneOf: [{ type: "object", additionalProperties: !1, required: ["field", "op", "value"], properties: { field: { $ref: "#/$defs/fieldPath" }, op: { enum: ["equals", "not_equals", "contains", "exists", "in"] }, value: { $ref: "#/$defs/value" } } }, { type: "object", additionalProperties: !1, required: ["field", "op", "value", "regex"], properties: { field: { $ref: "#/$defs/fieldPath" }, op: { const: "matches" }, value: { type: "string" }, regex: { $ref: "#/$defs/regexPolicy" } } }] };
-var pattern169 = new RegExp("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)*$", "u");
-var schema169 = { type: "object", additionalProperties: !1, required: ["type", "value"], properties: { type: { enum: ["date", "datetime"] }, value: { type: "string", minLength: 1 } }, allOf: [{ if: { properties: { type: { const: "date" } } }, then: { properties: { value: { pattern: "^\\d{4}-\\d{2}-\\d{2}$", type: "string" } } } }, { if: { properties: { type: { const: "datetime" } } }, then: { properties: { value: { pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$", type: "string" } } } }] }, pattern170 = new RegExp("^\\d{4}-\\d{2}-\\d{2}$", "u"), pattern171 = new RegExp("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$", "u"), wrapper0 = { validate: validate91 };
+var pattern170 = new RegExp("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)*$", "u");
+var schema169 = { type: "object", additionalProperties: !1, required: ["type", "value"], properties: { type: { enum: ["date", "datetime"] }, value: { type: "string", minLength: 1 } }, allOf: [{ if: { properties: { type: { const: "date" } } }, then: { properties: { value: { pattern: "^\\d{4}-\\d{2}-\\d{2}$", type: "string" } } } }, { if: { properties: { type: { const: "datetime" } } }, then: { properties: { value: { pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$", type: "string" } } } }] }, pattern171 = new RegExp("^\\d{4}-\\d{2}-\\d{2}$", "u"), pattern172 = new RegExp("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$", "u"), wrapper0 = { validate: validate91 };
 function validate91(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
   let vErrors = null, errors = 0, _errs0 = errors, valid0 = !1, passing0 = null, _errs1 = errors;
   if (typeof data != "string") {
@@ -14184,7 +14241,7 @@ function validate91(data, { instancePath = "", parentData, parentDataProperty, r
           if (data && typeof data == "object" && !Array.isArray(data) && data.value !== void 0) {
             let data1 = data.value;
             if (typeof data1 == "string") {
-              if (!pattern170.test(data1)) {
+              if (!pattern171.test(data1)) {
                 let err5 = { instancePath: instancePath + "/value", schemaPath: "#/$defs/typedValue/allOf/0/then/properties/value/pattern", keyword: "pattern", params: { pattern: "^\\d{4}-\\d{2}-\\d{2}$" }, message: 'must match pattern "^\\d{4}-\\d{2}-\\d{2}$"' };
                 vErrors === null ? vErrors = [err5] : vErrors.push(err5), errors++;
               }
@@ -14211,7 +14268,7 @@ function validate91(data, { instancePath = "", parentData, parentDataProperty, r
           if (data && typeof data == "object" && !Array.isArray(data) && data.value !== void 0) {
             let data3 = data.value;
             if (typeof data3 == "string") {
-              if (!pattern171.test(data3)) {
+              if (!pattern172.test(data3)) {
                 let err9 = { instancePath: instancePath + "/value", schemaPath: "#/$defs/typedValue/allOf/1/then/properties/value/pattern", keyword: "pattern", params: { pattern: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$" }, message: 'must match pattern "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$"' };
                 vErrors === null ? vErrors = [err9] : vErrors.push(err9), errors++;
               }
@@ -14348,7 +14405,7 @@ function validate90(data, { instancePath = "", parentData, parentDataProperty, r
     if (data.field !== void 0) {
       let data0 = data.field;
       if (typeof data0 == "string") {
-        if (!pattern169.test(data0)) {
+        if (!pattern170.test(data0)) {
           let err4 = { instancePath: instancePath + "/field", schemaPath: "#/$defs/fieldPath/pattern", keyword: "pattern", params: { pattern: "^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)*$" }, message: 'must match pattern "^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)*$"' };
           vErrors === null ? vErrors = [err4] : vErrors.push(err4), errors++;
         }
@@ -14397,7 +14454,7 @@ function validate90(data, { instancePath = "", parentData, parentDataProperty, r
     if (data.field !== void 0) {
       let data3 = data.field;
       if (typeof data3 == "string") {
-        if (!pattern169.test(data3)) {
+        if (!pattern170.test(data3)) {
           let err13 = { instancePath: instancePath + "/field", schemaPath: "#/$defs/fieldPath/pattern", keyword: "pattern", params: { pattern: "^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)*$" }, message: 'must match pattern "^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)*$"' };
           vErrors === null ? vErrors = [err13] : vErrors.push(err13), errors++;
         }
@@ -14642,7 +14699,7 @@ function validate88(data, { instancePath = "", parentData, parentDataProperty, r
     if (data.id !== void 0) {
       let data0 = data.id;
       if (typeof data0 == "string") {
-        if (!pattern168.test(data0)) {
+        if (!pattern169.test(data0)) {
           let err5 = { instancePath: instancePath + "/id", schemaPath: "#/properties/id/pattern", keyword: "pattern", params: { pattern: "^[a-z][a-z0-9-]*$" }, message: 'must match pattern "^[a-z][a-z0-9-]*$"' };
           vErrors === null ? vErrors = [err5] : vErrors.push(err5), errors++;
         }
@@ -14754,7 +14811,7 @@ function validate96(data, { instancePath = "", parentData, parentDataProperty, r
     if (data.id !== void 0) {
       let data0 = data.id;
       if (typeof data0 == "string") {
-        if (!pattern168.test(data0)) {
+        if (!pattern169.test(data0)) {
           let err4 = { instancePath: instancePath + "/id", schemaPath: "#/properties/id/pattern", keyword: "pattern", params: { pattern: "^[a-z][a-z0-9-]*$" }, message: 'must match pattern "^[a-z][a-z0-9-]*$"' };
           vErrors === null ? vErrors = [err4] : vErrors.push(err4), errors++;
         }
@@ -15433,7 +15490,7 @@ function validate85(data, { instancePath = "", parentData, parentDataProperty, r
         for (let i8 = 0; i8 < len4; i8++) {
           let data29 = data28[i8];
           if (typeof data29 == "string") {
-            if (!pattern174.test(data29)) {
+            if (!pattern175.test(data29)) {
               let err93 = { instancePath: instancePath + "/requiredSections/" + i8, schemaPath: "#/properties/requiredSections/items/pattern", keyword: "pattern", params: { pattern: "^[a-z][a-zA-Z0-9_.-]*$" }, message: 'must match pattern "^[a-z][a-zA-Z0-9_.-]*$"' };
               vErrors === null ? vErrors = [err93] : vErrors.push(err93), errors++;
             }
@@ -15560,7 +15617,7 @@ function validate85(data, { instancePath = "", parentData, parentDataProperty, r
             if (data35.id !== void 0) {
               let data36 = data35.id;
               if (typeof data36 == "string") {
-                if (!pattern168.test(data36)) {
+                if (!pattern169.test(data36)) {
                   let err108 = { instancePath: instancePath + "/decompositionRules/" + i14 + "/id", schemaPath: "#/$defs/decompositionRule/properties/id/pattern", keyword: "pattern", params: { pattern: "^[a-z][a-z0-9-]*$" }, message: 'must match pattern "^[a-z][a-z0-9-]*$"' };
                   vErrors === null ? vErrors = [err108] : vErrors.push(err108), errors++;
                 }
@@ -16068,7 +16125,7 @@ function validate85(data, { instancePath = "", parentData, parentDataProperty, r
             if (data65.id !== void 0) {
               let data66 = data65.id;
               if (typeof data66 == "string") {
-                if (!pattern168.test(data66)) {
+                if (!pattern169.test(data66)) {
                   let err176 = { instancePath: instancePath + "/evidenceRequirements/" + i34 + "/id", schemaPath: "#/$defs/evidenceRequirement/properties/id/pattern", keyword: "pattern", params: { pattern: "^[a-z][a-z0-9-]*$" }, message: 'must match pattern "^[a-z][a-z0-9-]*$"' };
                   vErrors === null ? vErrors = [err176] : vErrors.push(err176), errors++;
                 }
@@ -16136,7 +16193,7 @@ function validate85(data, { instancePath = "", parentData, parentDataProperty, r
             if (data70.id !== void 0) {
               let data71 = data70.id;
               if (typeof data71 == "string") {
-                if (!pattern168.test(data71)) {
+                if (!pattern169.test(data71)) {
                   let err187 = { instancePath: instancePath + "/testData/" + i36 + "/id", schemaPath: "#/$defs/testData/properties/id/pattern", keyword: "pattern", params: { pattern: "^[a-z][a-z0-9-]*$" }, message: 'must match pattern "^[a-z][a-z0-9-]*$"' };
                   vErrors === null ? vErrors = [err187] : vErrors.push(err187), errors++;
                 }
@@ -17243,7 +17300,7 @@ function validate99(data, { instancePath = "", parentData, parentDataProperty, r
             if (data63.beforeContentHash !== void 0) {
               let data76 = data63.beforeContentHash;
               if (typeof data76 == "string") {
-                if (!pattern128.test(data76)) {
+                if (!pattern129.test(data76)) {
                   let err166 = { instancePath: instancePath + "/filePlan/" + i4 + "/beforeContentHash", schemaPath: "#/properties/filePlan/items/properties/beforeContentHash/pattern", keyword: "pattern", params: { pattern: "^([0-9a-f]{64}|ABSENT)$" }, message: 'must match pattern "^([0-9a-f]{64}|ABSENT)$"' };
                   vErrors === null ? vErrors = [err166] : vErrors.push(err166), errors++;
                 }
@@ -17255,7 +17312,7 @@ function validate99(data, { instancePath = "", parentData, parentDataProperty, r
             if (data63.beforeRevisionHash !== void 0) {
               let data77 = data63.beforeRevisionHash;
               if (typeof data77 == "string") {
-                if (!pattern128.test(data77)) {
+                if (!pattern129.test(data77)) {
                   let err168 = { instancePath: instancePath + "/filePlan/" + i4 + "/beforeRevisionHash", schemaPath: "#/properties/filePlan/items/properties/beforeRevisionHash/pattern", keyword: "pattern", params: { pattern: "^([0-9a-f]{64}|ABSENT)$" }, message: 'must match pattern "^([0-9a-f]{64}|ABSENT)$"' };
                   vErrors === null ? vErrors = [err168] : vErrors.push(err168), errors++;
                 }
@@ -17267,7 +17324,7 @@ function validate99(data, { instancePath = "", parentData, parentDataProperty, r
             if (data63.stagedContentHash !== void 0) {
               let data78 = data63.stagedContentHash;
               if (typeof data78 == "string") {
-                if (!pattern128.test(data78)) {
+                if (!pattern129.test(data78)) {
                   let err170 = { instancePath: instancePath + "/filePlan/" + i4 + "/stagedContentHash", schemaPath: "#/properties/filePlan/items/properties/stagedContentHash/pattern", keyword: "pattern", params: { pattern: "^([0-9a-f]{64}|ABSENT)$" }, message: 'must match pattern "^([0-9a-f]{64}|ABSENT)$"' };
                   vErrors === null ? vErrors = [err170] : vErrors.push(err170), errors++;
                 }
@@ -17279,7 +17336,7 @@ function validate99(data, { instancePath = "", parentData, parentDataProperty, r
             if (data63.stagedRevisionHash !== void 0) {
               let data79 = data63.stagedRevisionHash;
               if (typeof data79 == "string") {
-                if (!pattern128.test(data79)) {
+                if (!pattern129.test(data79)) {
                   let err172 = { instancePath: instancePath + "/filePlan/" + i4 + "/stagedRevisionHash", schemaPath: "#/properties/filePlan/items/properties/stagedRevisionHash/pattern", keyword: "pattern", params: { pattern: "^([0-9a-f]{64}|ABSENT)$" }, message: 'must match pattern "^([0-9a-f]{64}|ABSENT)$"' };
                   vErrors === null ? vErrors = [err172] : vErrors.push(err172), errors++;
                 }
@@ -17452,7 +17509,7 @@ function validate99(data, { instancePath = "", parentData, parentDataProperty, r
   return validate99.errors = vErrors, errors === 0;
 }
 var validate_plugin_lock = validate100;
-var pattern200 = new RegExp("^\\.planning/vendor/template-packs/sha256-[0-9a-f]{64}$", "u");
+var pattern201 = new RegExp("^\\.planning/vendor/template-packs/sha256-[0-9a-f]{64}$", "u");
 function validate100(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
   let vErrors = null, errors = 0;
   if (data && typeof data == "object" && !Array.isArray(data)) {
@@ -17604,7 +17661,7 @@ function validate100(data, { instancePath = "", parentData, parentDataProperty, 
             if (data6.vendorSnapshot !== void 0) {
               let data10 = data6.vendorSnapshot;
               if (typeof data10 == "string") {
-                if (!pattern200.test(data10)) {
+                if (!pattern201.test(data10)) {
                   let err28 = { instancePath: instancePath + "/plugin/templatePack/vendorSnapshot", schemaPath: "#/properties/plugin/properties/templatePack/properties/vendorSnapshot/pattern", keyword: "pattern", params: { pattern: "^\\.planning/vendor/template-packs/sha256-[0-9a-f]{64}$" }, message: 'must match pattern "^\\.planning/vendor/template-packs/sha256-[0-9a-f]{64}$"' };
                   vErrors === null ? vErrors = [err28] : vErrors.push(err28), errors++;
                 }
@@ -19126,7 +19183,7 @@ function validate101(data, { instancePath = "", parentData, parentDataProperty, 
             if (data2.contentHash !== void 0) {
               let data7 = data2.contentHash;
               if (typeof data7 == "string") {
-                if (!pattern128.test(data7)) {
+                if (!pattern129.test(data7)) {
                   let err14 = { instancePath: instancePath + "/files/" + i0 + "/contentHash", schemaPath: "#/properties/files/items/properties/contentHash/pattern", keyword: "pattern", params: { pattern: "^([0-9a-f]{64}|ABSENT)$" }, message: 'must match pattern "^([0-9a-f]{64}|ABSENT)$"' };
                   vErrors === null ? vErrors = [err14] : vErrors.push(err14), errors++;
                 }
@@ -21508,6 +21565,9 @@ function scanReleaseRecords(planningRoot, { includeInvalid = !1, requireIntegrit
 function listReleaseDocuments(planningRoot, options = {}) {
   return scanReleaseRecords(planningRoot, options).filter((record) => record.release).map((record) => record.release);
 }
+function listReleaseRecords(planningRoot, options = {}) {
+  return scanReleaseRecords(planningRoot, options).map((record) => ({ ...record, findings: [...record.findings] }));
+}
 function listReservedReleaseDocuments(operationsRoot) {
   if (!fs11.existsSync(operationsRoot)) return [];
   let reserved = [];
@@ -22343,9 +22403,14 @@ function dimension(id, status, summary, findings = [], evidence = {}) {
   return { id, status, summary, evidence, findings };
 }
 function readConfig2(planningRoot) {
-  let relativePath = "config.yml", configPath = confineWritePath(planningRoot, relativePath);
+  let relativePath = "config.yml", configPath;
+  try {
+    configPath = confineWritePath(planningRoot, relativePath);
+  } catch (error2) {
+    return { status: "corrupt", config: null, revision: null, findings: [finding2({ code: RELEASE_HEALTH_FINDING_CODES.CATALOG_CORRUPT, dimension: "lane", message: `Project Context config.yml path is unsafe: ${error2.message}`, evidence: { relativePath } })] };
+  }
   if (!fs16.existsSync(configPath))
-    return { status: "missing", config: null, revision: null, findings: [finding2({ code: RELEASE_HEALTH_FINDING_CODES.CAPABILITY_UNAVAILABLE, dimension: "lane", message: "Project Context config.yml is missing", evidence: { relativePath } })] };
+    return { status: "missing", config: null, revision: null, findings: [finding2({ code: RELEASE_HEALTH_FINDING_CODES.CATALOG_CORRUPT, dimension: "lane", message: "Project Context config.yml is missing", evidence: { relativePath } })] };
   let stat = fs16.lstatSync(configPath);
   if (!stat.isFile() || stat.isSymbolicLink())
     return { status: "corrupt", config: null, revision: null, findings: [finding2({ code: RELEASE_HEALTH_FINDING_CODES.CATALOG_CORRUPT, dimension: "lane", message: "Project Context config.yml must be a real file", evidence: { relativePath } })] };
@@ -22396,7 +22461,7 @@ function structuralDimensions(release, directoryId) {
   return release.audit.revision !== expectedRevision ? dimensions.push(dimension("revision", "invalid", "Release audit revision does not match canonical content", [finding2({ code: RELEASE_HEALTH_FINDING_CODES.REVISION_INVALID, dimension: "revision", message: "audit.revision does not match canonical release content", evidence: { expectedRevision, actualRevision: release.audit.revision } })], { expectedRevision, actualRevision: release.audit.revision })) : dimensions.push(dimension("revision", "valid", "Release audit revision matches canonical content", [], { revision: release.audit.revision })), dimensions;
 }
 function laneDimension(configRead, release) {
-  if (configRead.status !== "found") return dimension("lane", configRead.status === "missing" ? "unavailable" : "invalid", "Release lane cannot be evaluated without a valid Project Context", configRead.findings, {});
+  if (configRead.status !== "found") return dimension("lane", "invalid", "Release lane cannot be evaluated without a valid Project Context", configRead.findings, {});
   let findings = laneConfigFindings(configRead.config, release.lane.id).map((entry) => finding2({ code: entry.code, dimension: "lane", message: entry.message, evidence: { laneId: release.lane.id } }));
   return findings.length === 0 ? dimension("lane", "valid", "Release lane is configured", [], { laneId: release.lane.id, configRevision: configRead.revision }) : dimension("lane", "failed", "Release lane is not configured consistently", findings, { laneId: release.lane.id, configRevision: configRead.revision });
 }
@@ -22412,47 +22477,87 @@ function policyDimension(planningRoot, release) {
 function scopeDimension(planningRoot, release) {
   if (release.scopeRefs.length === 0) {
     let f = finding2({ code: RELEASE_HEALTH_FINDING_CODES.INVALID_REFERENCE, dimension: "scope", message: "Release has no scopeRefs; an empty list is not completion evidence", evidence: { scopeRefCount: 0 } });
-    return dimension("scope", "failed", "No Release scope evidence is selected", [f], { scopeRefCount: 0 });
+    return dimension("scope", "failed", "No Release scope evidence is selected", [f], { scopeRefCount: 0, evidenceByScope: {} });
   }
-  let findings = [];
-  for (let scopeRef of release.scopeRefs) {
-    let scopePath = path14.join("scopes", scopeRef.scopeId, "scope.yml"), absolute = confineWritePath(planningRoot, scopePath);
-    if (!fs16.existsSync(absolute)) {
-      findings.push(finding2({ code: RELEASE_HEALTH_FINDING_CODES.INVALID_REFERENCE, dimension: "scope", message: `scopeRef ${scopeRef.scopeId} does not resolve`, evidence: { scopeId: scopeRef.scopeId, relativePath: scopePath } }));
-      continue;
+  let findings = [], evidenceByScope = {};
+  for (let scopeRef of [...release.scopeRefs].sort((left, right) => left.scopeId.localeCompare(right.scopeId)))
+    try {
+      let current = buildScopeRefsEvidence({
+        planningRoot,
+        workspaceRoot: path14.dirname(planningRoot),
+        scopeIds: [scopeRef.scopeId],
+        evaluatedAt: scopeRef.evaluatedAt,
+        policyMode: scopeRef.readiness.policyMode
+      }), currentRef = current.refs[0], persistedEvidenceRevision = revisionHash(scopeRef), currentEvidenceRevision = revisionHash(currentRef);
+      evidenceByScope[scopeRef.scopeId] = {
+        persistedEvidenceRevision,
+        currentEvidenceRevision,
+        observedRevisions: current.observedRevisions
+      }, persistedEvidenceRevision !== currentEvidenceRevision && findings.push(finding2({
+        code: RELEASE_HEALTH_FINDING_CODES.GUIDE_EVIDENCE_STALE,
+        dimension: "scope",
+        message: `scopeRef ${scopeRef.scopeId} guide evidence is stale`,
+        evidence: { scopeId: scopeRef.scopeId, persistedEvidenceRevision, currentEvidenceRevision, observedRevisions: current.observedRevisions }
+      })), currentRef.readiness.ready || findings.push(finding2({
+        code: RELEASE_HEALTH_FINDING_CODES.SCOPE_NOT_READY,
+        dimension: "scope",
+        message: `scopeRef ${scopeRef.scopeId} is not currently ready`,
+        evidence: { scopeId: scopeRef.scopeId, findings: currentRef.findings }
+      }));
+    } catch (error2) {
+      let corrupt = /schema-invalid|failed to parse|real file|catalog|unsafe/i.test(error2.message);
+      findings.push(finding2({
+        code: corrupt ? RELEASE_HEALTH_FINDING_CODES.CATALOG_CORRUPT : RELEASE_HEALTH_FINDING_CODES.INVALID_REFERENCE,
+        dimension: "scope",
+        message: `scopeRef ${scopeRef.scopeId} cannot be reevaluated: ${error2.message}`,
+        evidence: { scopeId: scopeRef.scopeId }
+      }));
     }
-    scopeRef.readiness.ready || findings.push(finding2({ code: RELEASE_HEALTH_FINDING_CODES.SCOPE_NOT_READY, dimension: "scope", message: `scopeRef ${scopeRef.scopeId} is not ready`, evidence: { scopeId: scopeRef.scopeId, findings: scopeRef.findings } }));
-  }
-  return findings.length === 0 ? dimension("scope", "valid", "Release scope evidence is present and ready", [], { scopeRefCount: release.scopeRefs.length }) : dimension("scope", "failed", "Release scope evidence is missing or not ready", findings, { scopeRefCount: release.scopeRefs.length });
+  let invalid = findings.some((entry) => entry.code === RELEASE_HEALTH_FINDING_CODES.CATALOG_CORRUPT);
+  return findings.length === 0 ? dimension("scope", "valid", "Release scope evidence is current and ready", [], { scopeRefCount: release.scopeRefs.length, evidenceByScope }) : dimension("scope", invalid ? "invalid" : "failed", "Release scope evidence is stale, missing or not ready", findings, { scopeRefCount: release.scopeRefs.length, evidenceByScope });
 }
 function refsDimension(planningRoot, release) {
-  let findings = [];
-  for (let id of release.executionContextRefs || []) {
-    let result = readCatalogEntry(planningRoot, "executionContext", id);
-    result.status !== "FOUND" && findings.push(...result.findings.map((entry) => finding2({ code: entry.code, dimension: "refs", message: entry.message, evidence: { executionContextRef: id } })));
-  }
-  for (let id of release.environmentRefs || []) {
-    let result = readCatalogEntry(planningRoot, "environment", id);
-    result.status !== "FOUND" ? findings.push(...result.findings.map((entry) => finding2({ code: entry.code, dimension: "refs", message: entry.message, evidence: { environmentRef: id } }))) : Array.isArray(result.entry.laneRefs) && result.entry.laneRefs.length > 0 && !result.entry.laneRefs.includes(release.lane.id) && findings.push(finding2({ code: RELEASE_HEALTH_FINDING_CODES.POLICY_VIOLATION, dimension: "refs", message: `environment ${id} is not compatible with lane ${release.lane.id}`, evidence: { environmentRef: id, laneId: release.lane.id } }));
-  }
-  return (release.executionContextRefs || []).length === 0 && (release.environmentRefs || []).length === 0 ? dimension("refs", "unavailable", "No operational refs are selected for this Release", [finding2({ code: RELEASE_HEALTH_FINDING_CODES.CAPABILITY_UNAVAILABLE, severity: "warning", dimension: "refs", message: "Execution Context and Environment refs are empty; operational evidence cannot be fully evaluated" })], { executionContextRefCount: 0, environmentRefCount: 0 }) : findings.length === 0 ? dimension("refs", "valid", "Release operational refs resolve", [], { executionContextRefCount: release.executionContextRefs.length, environmentRefCount: release.environmentRefs.length }) : dimension("refs", findings.some((entry) => entry.code === RELEASE_HEALTH_FINDING_CODES.CATALOG_CORRUPT) ? "invalid" : "failed", "Release operational refs have findings", findings, { executionContextRefCount: release.executionContextRefs.length, environmentRefCount: release.environmentRefs.length });
+  let findings = [], revisions = { executionContexts: {}, environments: {} };
+  for (let id of [...release.executionContextRefs || []].sort())
+    try {
+      let result = readCatalogEntry(planningRoot, "executionContext", id);
+      result.status !== "FOUND" ? findings.push(...result.findings.map((entry) => finding2({ code: entry.code, dimension: "refs", message: entry.message, evidence: { executionContextRef: id } }))) : revisions.executionContexts[id] = result.revision;
+    } catch (error2) {
+      findings.push(finding2({ code: RELEASE_HEALTH_FINDING_CODES.CATALOG_CORRUPT, dimension: "refs", message: `executionContext ${id} cannot be read: ${error2.message}`, evidence: { executionContextRef: id } }));
+    }
+  for (let id of [...release.environmentRefs || []].sort())
+    try {
+      let result = readCatalogEntry(planningRoot, "environment", id);
+      result.status !== "FOUND" ? findings.push(...result.findings.map((entry) => finding2({ code: entry.code, dimension: "refs", message: entry.message, evidence: { environmentRef: id } }))) : (revisions.environments[id] = result.revision, Array.isArray(result.entry.laneRefs) && result.entry.laneRefs.length > 0 && !result.entry.laneRefs.includes(release.lane.id) && findings.push(finding2({ code: RELEASE_HEALTH_FINDING_CODES.POLICY_VIOLATION, dimension: "refs", message: `environment ${id} is not compatible with lane ${release.lane.id}`, evidence: { environmentRef: id, laneId: release.lane.id } })));
+    } catch (error2) {
+      findings.push(finding2({ code: RELEASE_HEALTH_FINDING_CODES.CATALOG_CORRUPT, dimension: "refs", message: `environment ${id} cannot be read: ${error2.message}`, evidence: { environmentRef: id } }));
+    }
+  return (release.executionContextRefs || []).length === 0 && (release.environmentRefs || []).length === 0 ? dimension("refs", "unavailable", "No operational refs are selected for this Release", [finding2({ code: RELEASE_HEALTH_FINDING_CODES.CAPABILITY_UNAVAILABLE, severity: "warning", dimension: "refs", message: "Execution Context and Environment refs are empty; operational evidence cannot be fully evaluated" })], { executionContextRefCount: 0, environmentRefCount: 0, revisions }) : findings.length === 0 ? dimension("refs", "valid", "Release operational refs resolve", [], { executionContextRefCount: release.executionContextRefs.length, environmentRefCount: release.environmentRefs.length, revisions }) : dimension("refs", findings.some((entry) => entry.code === RELEASE_HEALTH_FINDING_CODES.CATALOG_CORRUPT) ? "invalid" : "failed", "Release operational refs have findings", findings, { executionContextRefCount: release.executionContextRefs.length, environmentRefCount: release.environmentRefs.length, revisions });
 }
 function deploymentDimension(planningRoot, release) {
   if (release.deploymentEvents.length === 0) {
     let f = finding2({ code: RELEASE_HEALTH_FINDING_CODES.DEPLOYMENT_EVIDENCE_MISSING, dimension: "deployment", message: "Release has no deployment evidence", evidence: { deploymentEventCount: 0 } });
-    return dimension("deployment", "failed", "No deployment evidence is recorded", [f], { deploymentEventCount: 0 });
+    return dimension("deployment", "failed", "No deployment evidence is recorded", [f], { deploymentEventCount: 0, revisions: { executionContexts: {}, environments: {} } });
   }
-  let findings = [], succeededWithEvidence = !1;
-  for (let event of release.deploymentEvents) {
+  let findings = [], revisions = { executionContexts: {}, environments: {} }, succeededWithEvidence = !1;
+  for (let event of [...release.deploymentEvents].sort((left, right) => left.id.localeCompare(right.id))) {
     event.releaseId !== release.id && findings.push(finding2({ code: RELEASE_HEALTH_FINDING_CODES.DEPLOYMENT_EVIDENCE_INVALID, dimension: "deployment", message: `deployment event ${event.id} releaseId does not match Release`, evidence: { eventId: event.id, releaseId: event.releaseId } }));
-    let environment = readCatalogEntry(planningRoot, "environment", event.environmentRef);
-    if (environment.status !== "FOUND" && findings.push(...environment.findings.map((entry) => finding2({ code: entry.code, dimension: "deployment", message: entry.message, evidence: { eventId: event.id, environmentRef: event.environmentRef } }))), event.executionContextRef) {
-      let executionContext = readCatalogEntry(planningRoot, "executionContext", event.executionContextRef);
-      executionContext.status !== "FOUND" && findings.push(...executionContext.findings.map((entry) => finding2({ code: entry.code, dimension: "deployment", message: entry.message, evidence: { eventId: event.id, executionContextRef: event.executionContextRef } })));
+    try {
+      let environment = readCatalogEntry(planningRoot, "environment", event.environmentRef);
+      environment.status !== "FOUND" ? findings.push(...environment.findings.map((entry) => finding2({ code: entry.code, dimension: "deployment", message: entry.message, evidence: { eventId: event.id, environmentRef: event.environmentRef } }))) : (revisions.environments[event.environmentRef] = environment.revision, Array.isArray(environment.entry.laneRefs) && environment.entry.laneRefs.length > 0 && !environment.entry.laneRefs.includes(release.lane.id) && findings.push(finding2({ code: RELEASE_HEALTH_FINDING_CODES.POLICY_VIOLATION, dimension: "deployment", message: `deployment event ${event.id} environment ${event.environmentRef} is not compatible with lane ${release.lane.id}`, evidence: { eventId: event.id, environmentRef: event.environmentRef, laneId: release.lane.id } })));
+    } catch (error2) {
+      findings.push(finding2({ code: RELEASE_HEALTH_FINDING_CODES.CATALOG_CORRUPT, dimension: "deployment", message: `deployment event ${event.id} environment cannot be read: ${error2.message}`, evidence: { eventId: event.id, environmentRef: event.environmentRef } }));
     }
+    if (event.executionContextRef)
+      try {
+        let executionContext = readCatalogEntry(planningRoot, "executionContext", event.executionContextRef);
+        executionContext.status !== "FOUND" ? findings.push(...executionContext.findings.map((entry) => finding2({ code: entry.code, dimension: "deployment", message: entry.message, evidence: { eventId: event.id, executionContextRef: event.executionContextRef } }))) : revisions.executionContexts[event.executionContextRef] = executionContext.revision;
+      } catch (error2) {
+        findings.push(finding2({ code: RELEASE_HEALTH_FINDING_CODES.CATALOG_CORRUPT, dimension: "deployment", message: `deployment event ${event.id} execution context cannot be read: ${error2.message}`, evidence: { eventId: event.id, executionContextRef: event.executionContextRef } }));
+      }
     event.status === "succeeded" && ((event.evidenceRefs || []).length > 0 || (event.artifactRefs || []).length > 0) && (succeededWithEvidence = !0);
   }
-  return succeededWithEvidence || findings.push(finding2({ code: RELEASE_HEALTH_FINDING_CODES.DEPLOYMENT_EVIDENCE_MISSING, dimension: "deployment", message: "Release has no succeeded deployment event with artifactRefs or evidenceRefs", evidence: { deploymentEventCount: release.deploymentEvents.length } })), findings.length === 0 ? dimension("deployment", "valid", "Release has succeeded deployment evidence", [], { deploymentEventCount: release.deploymentEvents.length }) : dimension("deployment", findings.some((entry) => entry.code === RELEASE_HEALTH_FINDING_CODES.CATALOG_CORRUPT) ? "invalid" : "failed", "Release deployment evidence has findings", findings, { deploymentEventCount: release.deploymentEvents.length });
+  return succeededWithEvidence || findings.push(finding2({ code: RELEASE_HEALTH_FINDING_CODES.DEPLOYMENT_EVIDENCE_MISSING, dimension: "deployment", message: "Release has no succeeded deployment event with artifactRefs or evidenceRefs", evidence: { deploymentEventCount: release.deploymentEvents.length } })), findings.length === 0 ? dimension("deployment", "valid", "Release has succeeded deployment evidence", [], { deploymentEventCount: release.deploymentEvents.length, revisions }) : dimension("deployment", findings.some((entry) => entry.code === RELEASE_HEALTH_FINDING_CODES.CATALOG_CORRUPT) ? "invalid" : "failed", "Release deployment evidence has findings", findings, { deploymentEventCount: release.deploymentEvents.length, revisions });
 }
 function blockerRiskDimension(release) {
   let openBlockers = (release.blockers || []).filter((blocker) => !blocker.resolvedAt), risks = release.risks || [], findings = [
@@ -22470,21 +22575,23 @@ function futureCapabilityDimension(release) {
   return release.itemRefs.length > 0 ? dimension("futureCapabilities", "unavailable", "Release item references exist but Release Item capability is not implemented in Corte 2", findings, { unavailableCapabilities: FUTURE_CAPABILITIES, itemRefCount: release.itemRefs.length }) : dimension("futureCapabilities", "unavailable", "Corte 3+ completion capabilities are not available; empty itemRefs is not completion evidence", findings, { unavailableCapabilities: FUTURE_CAPABILITIES, itemRefCount: 0 });
 }
 function summarize(dimensions) {
-  let blocking = dimensions.flatMap((entry) => entry.findings.filter((f) => f.severity !== "info" && f.severity !== "warning")), invalid = dimensions.some((entry) => entry.status === "invalid"), failed = dimensions.some((entry) => entry.status === "failed"), unavailable = dimensions.some((entry) => entry.status === "unavailable");
+  let blocking = dimensions.flatMap((entry) => entry.findings.filter((f) => f.severity !== "info" && f.severity !== "warning")), invalid = dimensions.some((entry) => entry.status === "invalid"), failed = dimensions.some((entry) => entry.status === "failed"), unavailable = dimensions.filter((entry) => entry.status === "unavailable"), unavailableCurrent = unavailable.filter((entry) => entry.id !== "futureCapabilities");
   return {
-    status: invalid ? "invalid" : failed ? "failed" : unavailable ? "partial" : "valid",
-    valid: !invalid && !failed,
+    status: invalid ? "invalid" : failed ? "failed" : unavailable.length > 0 ? "partial" : "valid",
+    valid: !invalid && !failed && unavailableCurrent.length === 0,
     blockingFindingCount: blocking.length,
-    unavailableDimensionCount: dimensions.filter((entry) => entry.status === "unavailable").length
+    unavailableDimensionCount: unavailable.length,
+    unavailableCurrentDimensionCount: unavailableCurrent.length
   };
 }
 function readiness(dimensions, release) {
-  let blocking = dimensions.flatMap((entry) => entry.findings.filter((f) => f.severity !== "info" && f.severity !== "warning")), currentFailures = dimensions.filter((entry) => ["invalid", "failed"].includes(entry.status)).map((entry) => entry.id);
+  let blocking = dimensions.flatMap((entry) => entry.findings.filter((f) => f.severity !== "info" && f.severity !== "warning")), failedCurrent = dimensions.filter((entry) => ["invalid", "failed"].includes(entry.status)).map((entry) => entry.id), unavailableCurrent = dimensions.filter((entry) => entry.status === "unavailable" && entry.id !== "futureCapabilities").map((entry) => entry.id), blockedDimensions = [.../* @__PURE__ */ new Set([...failedCurrent, ...unavailableCurrent])].sort();
   return {
-    status: currentFailures.length > 0 ? "blocked" : "available",
-    releasable: currentFailures.length === 0,
+    status: failedCurrent.length > 0 ? "blocked" : unavailableCurrent.length > 0 ? "unavailable" : "available",
+    releasable: blockedDimensions.length === 0,
     lifecycle: release.status,
-    blockedDimensions: currentFailures,
+    blockedDimensions,
+    unavailableDimensions: unavailableCurrent.sort(),
     blockingFindings: blocking.map((entry) => entry.code),
     unavailableFutureCapabilities: FUTURE_CAPABILITIES
   };
@@ -22529,13 +22636,15 @@ function evaluateReleaseHealth({ planningRoot, release, directoryId = null }) {
   };
 }
 function releaseFinalizationGuardSummary(health, release) {
-  let failedCurrentDimensions = health.dimensions.filter((entry) => ["invalid", "failed"].includes(entry.status)).map((entry) => entry.id).sort();
+  let failedCurrentDimensions = health.dimensions.filter((entry) => ["invalid", "failed"].includes(entry.status)).map((entry) => entry.id).sort(), unavailableCurrentDimensions = health.dimensions.filter((entry) => entry.status === "unavailable" && entry.id !== "futureCapabilities").map((entry) => entry.id).sort(), guardDimensions = health.dimensions.filter((entry) => entry.id !== "futureCapabilities").map((entry) => ({ id: entry.id, status: entry.status, evidence: entry.evidence, findings: entry.findings })).sort((left, right) => left.id.localeCompare(right.id));
   return {
     lifecycle: release.status,
     releasable: health.readiness.releasable,
     failedCurrentDimensions,
+    unavailableCurrentDimensions,
     blockingFindingCodes: health.findings.filter((entry) => entry.severity !== "info" && entry.severity !== "warning").map((entry) => entry.code).sort(),
-    unavailableFutureCapabilities: FUTURE_CAPABILITIES
+    unavailableFutureCapabilities: FUTURE_CAPABILITIES,
+    healthRevision: revisionHash({ dimensions: guardDimensions, completion: health.completion, readiness: health.readiness })
   };
 }
 function assertReleaseCanFinalize({ health, release }) {
@@ -22548,6 +22657,11 @@ function assertReleaseCanFinalize({ health, release }) {
   if (failed.length > 0) {
     let error2 = new Error(`POLICY_VIOLATION: release finalization guard failed: ${failed.join(", ")}`);
     throw error2.code = "INVALID", error2.guardSummary = guardSummary, error2;
+  }
+  let unavailable = guardSummary.unavailableCurrentDimensions.filter((id) => id !== "finalization");
+  if (unavailable.length > 0) {
+    let error2 = new Error(`CAPABILITY_UNAVAILABLE: release finalization guard cannot evaluate: ${unavailable.join(", ")}`);
+    throw error2.code = "CAPABILITY_UNAVAILABLE", error2.guardSummary = guardSummary, error2;
   }
   if (release.finalization.completed) {
     let error2 = new Error("POLICY_VIOLATION: release is already finalized");
@@ -22861,12 +22975,12 @@ function renderReleaseMutation(kind, payload, { planningRoot, workspaceRoot, cur
     if (assertValidLaneConfig(config, release.lane.id), assertCatalogRefsValid({ planningRoot, kind: "environment", ids: [payload.deploymentEvent.environmentRef], laneId: release.lane.id, expectedRevisions: payload.observedRevisions.environmentRefs }), payload.deploymentEvent.executionContextRef && assertCatalogRefsValid({ planningRoot, kind: "executionContext", ids: [payload.deploymentEvent.executionContextRef], expectedRevisions: payload.observedRevisions.executionContextRefs }), release.deploymentEvents.some((event) => event.id === payload.deploymentEvent.id)) throw new Error(`DUPLICATE_REFERENCE: deployment event already exists: ${payload.deploymentEvent.id}`);
     nextRelease = { ...nextRelease, deploymentEvents: [...release.deploymentEvents, payload.deploymentEvent] };
   } else if (kind === "release.finalization.complete") {
-    let health = evaluateReleaseHealth({ planningRoot, release, directoryId: release.id }), guardSummary = assertReleaseCanFinalize({ health, release });
-    if (releasePolicyRequestHash({ actor: "system:release-health", requestSnapshot: guardSummary }) !== payload.guardSummaryHash) {
+    let health = evaluateReleaseHealth({ planningRoot, release, directoryId: release.id }), currentGuardSummary = releaseFinalizationGuardSummary(health, release);
+    if (releasePolicyRequestHash({ actor: "system:release-health", requestSnapshot: currentGuardSummary }) !== payload.guardSummaryHash) {
       let error2 = new Error("REFERENCE_STALE: release finalization guard summary changed since propose");
       throw error2.code = "STALE", error2;
     }
-    if (revisionHash(release.finalization) !== revisionHash(payload.previousFinalization)) {
+    if (assertReleaseCanFinalize({ health, release }), revisionHash(release.finalization) !== revisionHash(payload.previousFinalization)) {
       let error2 = new Error("REFERENCE_STALE: finalization metadata changed since propose");
       throw error2.code = "STALE", error2;
     }
@@ -24595,15 +24709,19 @@ function checkSchema({ planningRoot }) {
     }
   return { status: findings.length > 0 ? "FAIL" : pendingOperations.length > 0 ? "RECOVERY_REQUIRED" : "PASS", findings, pendingOperations };
 }
-function checkReleaseDocument(planningRoot, release) {
-  let health = evaluateReleaseHealth({ planningRoot, release, directoryId: release.id });
+function checkReleaseDocument(planningRoot, record) {
+  let release = record.release, directoryId = record.directoryId ?? release?.id ?? null, health = evaluateReleaseHealth({ planningRoot, release, directoryId });
+  if (!release && record.findings.length > 0) {
+    let structure = health.dimensions.find((entry) => entry.id === "structure"), parseFindings = record.findings.map((message) => ({ code: "RELEASE_SCHEMA_INVALID", severity: "error", dimension: "structure", message: `releases/${directoryId}/release.yml: ${message}`, evidence: { directoryId } }));
+    structure && (structure.findings.push(...parseFindings), structure.findings.sort((left, right) => `${left.code}:${left.message}`.localeCompare(`${right.code}:${right.message}`))), health.findings.push(...parseFindings), health.findings.sort((left, right) => `${left.dimension}:${left.code}:${left.message}`.localeCompare(`${right.dimension}:${right.code}:${right.message}`)), health.aggregate = { ...health.aggregate, status: "invalid", valid: !1, blockingFindingCount: health.aggregate.blockingFindingCount + parseFindings.length };
+  }
   return {
     release: {
-      id: release.id,
-      displayId: release.displayId,
-      lifecycle: release.status,
-      laneId: release.lane?.id ?? null,
-      policyMode: release.policy?.mode ?? null
+      id: typeof release?.id == "string" ? release.id : directoryId,
+      displayId: typeof release?.displayId == "string" ? release.displayId : null,
+      lifecycle: typeof release?.status == "string" ? release.status : null,
+      laneId: typeof release?.lane?.id == "string" ? release.lane.id : null,
+      policyMode: typeof release?.policy?.mode == "string" ? release.policy.mode : null
     },
     derivedHealth: health,
     completion: health.completion,
@@ -24624,7 +24742,7 @@ function checkRelease({ planningRoot, reference = null }) {
     let resolution = resolveReleaseReference(planningRoot, reference);
     if (resolution.status !== "FOUND")
       return { status: resolution.status, scope: "single", releases: [], findings: resolution.findings, matches: resolution.matches || [] };
-    let entry = checkReleaseDocument(planningRoot, resolution.release);
+    let entry = checkReleaseDocument(planningRoot, { directoryId: resolution.release.id, release: resolution.release, invalid: !1, findings: [] });
     return {
       status: releaseCheckStatus([entry]),
       scope: "single",
@@ -24633,13 +24751,13 @@ function checkRelease({ planningRoot, reference = null }) {
       pendingOperations: []
     };
   }
-  let releases;
+  let records;
   try {
-    releases = listReleaseDocuments(planningRoot, { includeInvalid: !0, requireIntegrity: !1 });
+    records = listReleaseRecords(planningRoot, { includeInvalid: !0, requireIntegrity: !1 });
   } catch (error2) {
     return { status: "FAIL", scope: "catalog", releases: [], findings: [`release catalog is invalid: ${error2.message}`], pendingOperations: [] };
   }
-  let entries = releases.sort((left, right) => left.id.localeCompare(right.id)).map((release) => checkReleaseDocument(planningRoot, release)), findings = entries.flatMap((entry) => entry.findings.map((finding3) => `${entry.release.id}: ${finding3.code}: ${finding3.message}`));
+  let entries = records.sort((left, right) => left.directoryId.localeCompare(right.directoryId)).map((record) => checkReleaseDocument(planningRoot, record)), findings = entries.flatMap((entry) => entry.findings.map((finding3) => `${entry.release.id}: ${finding3.code}: ${finding3.message}`));
   return entries.length === 0 && findings.push("release catalog is empty"), {
     status: entries.length === 0 ? "FAIL" : releaseCheckStatus(entries),
     scope: "catalog",
@@ -25200,6 +25318,22 @@ function argsToOptions(args) {
   }
   return options;
 }
+function parseCheckReleaseArgs(args) {
+  let reference = null;
+  for (let index = 0; index < args.length; index += 1) {
+    let value = args[index];
+    if (value === "--format") {
+      let format = args[++index];
+      if (!format || format.startsWith("--")) throw new UsageError("check release --format requires json");
+      if (format !== "json") throw new UsageError("check release --format must be json");
+      continue;
+    }
+    if (value.startsWith("--")) throw new UsageError(`check release does not support option ${value}`);
+    if (reference !== null) throw new UsageError("check release accepts at most one id-or-display-id");
+    reference = value;
+  }
+  return reference;
+}
 function requireOperationId(value) {
   if (!isUuidV7(value)) throw new UsageError(`invalid operation id: ${value}`);
   return value;
@@ -25369,7 +25503,7 @@ function dispatch(command, args, cwd, runtimeContext = null) {
   if (command === "check") {
     let [stage, ...rest] = args;
     if (stage === "schema") return checkSchema({ planningRoot });
-    if (stage === "release") return checkRelease({ planningRoot, reference: rest[0] || null });
+    if (stage === "release") return checkRelease({ planningRoot, reference: parseCheckReleaseArgs(rest) });
     if (stage === "guides") {
       let options = argsToOptions(rest);
       return checkGuides({ planningRoot, workspaceRoot: cwd, scopeId: options.scope_id || null, policyMode: options.mode || "strict" });
