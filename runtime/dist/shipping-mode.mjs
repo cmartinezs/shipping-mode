@@ -32636,8 +32636,7 @@ function normalizeNamedTextArray(value, field) {
 function normalizeRiskArray(value) {
   if (value == null) return [];
   if (!Array.isArray(value)) throw new Error("risks must be an array");
-  let allowed = /* @__PURE__ */ new Set(["id", "level", "summary"]);
-  return value.map((risk, index) => {
+  let allowed = /* @__PURE__ */ new Set(["id", "level", "summary"]), normalized = value.map((risk, index) => {
     requireObject3(risk, `risks[${index}]`);
     for (let key of Object.keys(risk)) if (!allowed.has(key)) throw new Error(`risks[${index}] contains unsupported field: ${key}`);
     let level = requireString3(risk.level, `risks[${index}].level`);
@@ -32645,12 +32644,13 @@ function normalizeRiskArray(value) {
     if (!isUuidV7(risk.id)) throw new Error(`risks[${index}].id must be UUIDv7`);
     return { id: risk.id, level, summary: requireString3(risk.summary, `risks[${index}].summary`) };
   }).sort((left, right) => left.id.localeCompare(right.id));
+  if (new Set(normalized.map((risk) => risk.id)).size !== normalized.length) throw new Error("risks cannot contain duplicate ids");
+  return normalized;
 }
 function normalizeBlockerArray(value) {
   if (value == null) return [];
   if (!Array.isArray(value)) throw new Error("blockers must be an array");
-  let allowed = /* @__PURE__ */ new Set(["id", "severity", "summary"]);
-  return value.map((blocker, index) => {
+  let allowed = /* @__PURE__ */ new Set(["id", "severity", "summary"]), normalized = value.map((blocker, index) => {
     requireObject3(blocker, `blockers[${index}]`);
     for (let key of Object.keys(blocker)) if (!allowed.has(key)) throw new Error(`blockers[${index}] contains unsupported field: ${key}`);
     let severity = requireString3(blocker.severity, `blockers[${index}].severity`);
@@ -32658,6 +32658,8 @@ function normalizeBlockerArray(value) {
     if (!isUuidV7(blocker.id)) throw new Error(`blockers[${index}].id must be UUIDv7`);
     return { id: blocker.id, severity, summary: requireString3(blocker.summary, `blockers[${index}].summary`) };
   }).sort((left, right) => left.id.localeCompare(right.id));
+  if (new Set(normalized.map((blocker) => blocker.id)).size !== normalized.length) throw new Error("blockers cannot contain duplicate ids");
+  return normalized;
 }
 function rejectServerOwned3(rawPayload) {
   for (let field of Object.keys(rawPayload)) {
