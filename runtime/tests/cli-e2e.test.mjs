@@ -195,6 +195,32 @@ function fullyInit(cwd) {
   const byDisplay = run(["release", "status", release.json.displayId], cwd);
   assert.equal(byDisplay.code, 0);
   assert.equal(byDisplay.json.release.id, release.json.releaseId);
+  const item = run([
+    "item", "create", release.json.displayId,
+    "--kind", "user_story",
+    "--title", "CLI Release Item",
+    "--item-actor", "teacher",
+    "--need", "query item status",
+    "--value", "confidence",
+    "--acceptance-criteria", "item status works",
+    "--idempotency-key", "cli-release-item",
+    "--actor", "carlos"
+  ], cwd);
+  assert.equal(item.code, 0);
+  assert.match(item.json.displayId, /^RI-[0-9A-HJKMNP-TV-Z]{8}$/);
+  assert.equal(fs.existsSync(path.join(cwd, ".planning", "releases", release.json.releaseId, "items", item.json.itemId, "release-item.yml")), false, "item create must not write canonical state");
+  run(["changeset", "validate", item.json.operationId], cwd);
+  run(["changeset", "approve", item.json.operationId, "--actor", "carlos", "--allow-self-approval"], cwd);
+  assert.equal(run(["changeset", "apply", item.json.operationId, "--actor", "carlos"], cwd).code, 0);
+  const itemStatus = run(["item", "status", release.json.releaseId, item.json.displayId], cwd);
+  assert.equal(itemStatus.code, 0);
+  assert.equal(itemStatus.json.status, "FOUND");
+  assert.equal(itemStatus.json.item.id, item.json.itemId);
+  const checkItem = run(["check", "item", release.json.displayId, item.json.itemId, "--format", "json"], cwd);
+  assert.equal(checkItem.code, 0);
+  assert.equal(checkItem.json.status, "FOUND");
+  const releaseWithItems = run(["release", "status", release.json.releaseId], cwd);
+  assert.deepEqual(releaseWithItems.json.refs.canonicalItemIds, [item.json.itemId]);
   const bySlug = run(["release", "status", "release-core"], cwd);
   assert.equal(bySlug.code, 1);
   assert.equal(bySlug.json.status, "NOT_FOUND");
@@ -397,7 +423,7 @@ function fullyInit(cwd) {
   fullyInit(cwd);
   const cases = [
     { args: ["release", "plan"], command: "release plan" },
-    { args: ["item", "--name", "I1"], command: "item" },
+    { args: ["item", "--name", "I1"], command: "item --name" },
     { args: ["work-package", "--name", "W1"], command: "work-package" },
     { args: ["task", "--name", "T1"], command: "task" },
     { args: ["report"], command: "report" },
