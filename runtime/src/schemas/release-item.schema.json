@@ -532,7 +532,8 @@
           "properties": {
             "provider": {
               "const": "local_repository"
-            }
+            },
+            "path": {}
           },
           "required": [
             "provider",
@@ -544,12 +545,20 @@
                 {
                   "required": [
                     "contentRevision"
-                  ]
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "contentRevision": {}
+                  }
                 },
                 {
                   "required": [
                     "fingerprint"
-                  ]
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "fingerprint": {}
+                  }
                 }
               ]
             },
@@ -559,22 +568,35 @@
                   {
                     "required": [
                       "externalId"
-                    ]
+                    ],
+                    "type": "object",
+                    "properties": {
+                      "externalId": {}
+                    }
                   },
                   {
                     "required": [
                       "externalUrl"
-                    ]
+                    ],
+                    "type": "object",
+                    "properties": {
+                      "externalUrl": {}
+                    }
                   },
                   {
                     "required": [
                       "externalRevision"
-                    ]
+                    ],
+                    "type": "object",
+                    "properties": {
+                      "externalRevision": {}
+                    }
                   }
                 ]
               }
             }
-          ]
+          ],
+          "type": "object"
         },
         {
           "properties": {
@@ -585,7 +607,8 @@
                 "azure_boards",
                 "linear"
               ]
-            }
+            },
+            "externalId": {}
           },
           "required": [
             "provider",
@@ -597,12 +620,20 @@
                 {
                   "required": [
                     "externalRevision"
-                  ]
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "externalRevision": {}
+                  }
                 },
                 {
                   "required": [
                     "fingerprint"
-                  ]
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "fingerprint": {}
+                  }
                 }
               ]
             },
@@ -612,23 +643,33 @@
                   {
                     "required": [
                       "path"
-                    ]
+                    ],
+                    "type": "object",
+                    "properties": {
+                      "path": {}
+                    }
                   },
                   {
                     "required": [
                       "contentRevision"
-                    ]
+                    ],
+                    "type": "object",
+                    "properties": {
+                      "contentRevision": {}
+                    }
                   }
                 ]
               }
             }
-          ]
+          ],
+          "type": "object"
         },
         {
           "properties": {
             "provider": {
               "const": "custom"
-            }
+            },
+            "path": {}
           },
           "required": [
             "provider",
@@ -640,12 +681,20 @@
                 {
                   "required": [
                     "contentRevision"
-                  ]
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "contentRevision": {}
+                  }
                 },
                 {
                   "required": [
                     "fingerprint"
-                  ]
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "fingerprint": {}
+                  }
                 }
               ]
             },
@@ -655,28 +704,42 @@
                   {
                     "required": [
                       "externalId"
-                    ]
+                    ],
+                    "type": "object",
+                    "properties": {
+                      "externalId": {}
+                    }
                   },
                   {
                     "required": [
                       "externalUrl"
-                    ]
+                    ],
+                    "type": "object",
+                    "properties": {
+                      "externalUrl": {}
+                    }
                   },
                   {
                     "required": [
                       "externalRevision"
-                    ]
+                    ],
+                    "type": "object",
+                    "properties": {
+                      "externalRevision": {}
+                    }
                   }
                 ]
               }
             }
-          ]
+          ],
+          "type": "object"
         },
         {
           "properties": {
             "provider": {
               "const": "custom"
-            }
+            },
+            "externalId": {}
           },
           "required": [
             "provider",
@@ -688,12 +751,20 @@
                 {
                   "required": [
                     "externalRevision"
-                  ]
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "externalRevision": {}
+                  }
                 },
                 {
                   "required": [
                     "fingerprint"
-                  ]
+                  ],
+                  "type": "object",
+                  "properties": {
+                    "fingerprint": {}
+                  }
                 }
               ]
             },
@@ -703,17 +774,26 @@
                   {
                     "required": [
                       "path"
-                    ]
+                    ],
+                    "type": "object",
+                    "properties": {
+                      "path": {}
+                    }
                   },
                   {
                     "required": [
                       "contentRevision"
-                    ]
+                    ],
+                    "type": "object",
+                    "properties": {
+                      "contentRevision": {}
+                    }
                   }
                 ]
               }
             }
-          ]
+          ],
+          "type": "object"
         }
       ]
     },
