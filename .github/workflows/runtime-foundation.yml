@@ -1,8 +1,9 @@
 name: Runtime Foundation
 
 on:
-  push:
-    branches: [agent/corte-3-plan-3-work-source-foundation]
+  pull_request:
+    branches: [develop]
+    types: [reopened]
 
 permissions:
   contents: write
