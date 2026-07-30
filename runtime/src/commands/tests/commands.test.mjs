@@ -79,7 +79,7 @@ function persistApprovedManualGuides({ workspace, planningRoot, scopeId }) {
       contentHash: hash,
       sourceRefs: guide.sourceRefs,
       provenance: guide.provenance,
-      approval: { actor: "reviewer", approvedAt: "2026-07-29T00:00:00.000Z", revision: guide.revision, contentHash: hash }
+      approval: { actor: "reviewer", approvedAt: "2026-07-29T00:00:00.000Z", changeSetHash: revisionHash({ scopeId, kind, guideId }), revision: guide.revision, contentHash: hash }
     };
     fs.writeFileSync(path.join(planningRoot, "scopes", scopeId, `${kind}-guide.yml`), bytes);
     fs.writeFileSync(path.join(planningRoot, "scopes", scopeId, `${kind}-guide.md`), renderGuideMarkdown(guide));
