@@ -33,4 +33,4 @@ jobs:
           npm run build:schemas
           node runtime/src/commands/tests/commands.test.mjs
 
-# Registered after creation.
+# Execute after workflow registration.
