@@ -4,7 +4,7 @@ name: Runtime Foundation
 on:
   pull_request:
     branches: [develop]
-    types: [ready_for_review]
+    types: [reopened]
 
 permissions:
   contents: write
