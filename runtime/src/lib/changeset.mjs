@@ -19,6 +19,8 @@ import { listReleaseDocuments } from "./releaseStore.mjs";
 import { releaseMutationInvariantFindings } from "./releaseMutations.mjs";
 import { releaseItemCreateInvariantFindings } from "./releaseItemCreate.mjs";
 import { listReleaseItemDocuments } from "./releaseItemStore.mjs";
+import { workPackageCreateInvariantFindings } from "./workPackageCreate.mjs";
+import { listWorkPackageDocuments } from "./workPackageStore.mjs";
 
 export function readFileState(planningRoot, relativePath) {
   const absolutePath = confineRuntimeWritePath(planningRoot, relativePath);
@@ -61,7 +63,8 @@ export function eventTypeFor(kind) {
     "release.operationalRefs.set": "release.operationalRefs.set",
     "release.deployment.record": "release.deployment.recorded",
     "release.finalization.complete": "release.finalization.completed",
-    "release-item.create": "release-item.created"
+    "release-item.create": "release-item.created",
+    "work-package.create": "work-package.created"
   }[kind];
 }
 
@@ -163,6 +166,7 @@ function schemaNameForRenderedPath(relativePath) {
   if (/^scopes\/[^/]+\/(task|test)-guide\.yml$/.test(relativePath)) return "guide";
   if (/^releases\/[^/]+\/release\.yml$/.test(relativePath)) return "release";
   if (/^releases\/[^/]+\/items\/[^/]+\/release-item\.yml$/.test(relativePath)) return "release-item";
+  if (/^releases\/[^/]+\/items\/[^/]+\/work-packages\/[^/]+\/work-package\.yml$/.test(relativePath)) return "work-package";
   return null;
 }
 
@@ -240,6 +244,27 @@ function checkKindInvariants(changeSet, operation = null, planningRoot = null) {
       }
     }
   }
+  if (changeSet.kind === "work-package.create") {
+    let existingPackages = [];
+    try {
+      existingPackages = listWorkPackageDocuments(planningRoot);
+    } catch (error) {
+      errors.push(`work-package.create cannot verify display ID uniqueness: ${error.message}`);
+    }
+    errors.push(...workPackageCreateInvariantFindings(changeSet, operation, existingPackages));
+    const packagePath = `releases/${changeSet.payload.releaseId}/items/${changeSet.payload.releaseItemId}/work-packages/${changeSet.payload.id}/work-package.yml`;
+    const readmePath = `releases/${changeSet.payload.releaseId}/items/${changeSet.payload.releaseItemId}/work-packages/${changeSet.payload.id}/README.md`;
+    const actualPaths = new Set(Object.keys(changeSet.baseRevisions));
+    if (actualPaths.size !== 2 || !actualPaths.has(packagePath) || !actualPaths.has(readmePath)) {
+      errors.push("work-package.create baseRevisions must contain exactly work-package.yml and README.md for the UUIDv7 Work Package directory");
+    }
+    for (const relativePath of [packagePath, readmePath]) {
+      const entry = changeSet.baseRevisions[relativePath];
+      if (!entry || entry.revisionHash !== ABSENT || entry.contentHash !== ABSENT) {
+        errors.push(`${relativePath} must be ABSENT for work-package.create`);
+      }
+    }
+  }
   if (["release.policy.configure", "release.scopeRefs.set", "release.operationalRefs.set", "release.deployment.record", "release.finalization.complete"].includes(changeSet.kind)) {
     const releaseId = changeSet.payload.releaseId;
     const releasePath = `releases/${releaseId}/release.yml`;
@@ -271,6 +296,13 @@ function checkKindInvariants(changeSet, operation = null, planningRoot = null) {
   }
   if (changeSet.kind === "release-item.create" && operation?.proposalHash && operation.proposalHash !== changeSet.hash) {
     errors.push("release-item.create ChangeSet no longer matches the server-owned proposal hash");
+  }
+  if (changeSet.kind === "work-package.create" && operation?.requestBinding) {
+    if (changeSet.payload?.idempotencyKey !== operation.requestBinding.key) errors.push("work-package.create idempotencyKey must match the server-owned Operation request binding");
+    if (changeSet.payload?.idempotencyRequestHash !== operation.requestBinding.requestHash) errors.push("work-package.create idempotencyRequestHash must match the server-owned Operation request binding");
+  }
+  if (changeSet.kind === "work-package.create" && operation?.proposalHash && operation.proposalHash !== changeSet.hash) {
+    errors.push("work-package.create ChangeSet no longer matches the server-owned proposal hash");
   }
   return errors;
 }
@@ -569,6 +601,36 @@ function prepareApply({ operationsRoot, planningRoot, operationId, render, actor
               status: item.status,
               dependencyRefs: item.dependencies,
               sourceRefSummary: item.sourceRefs.map((ref) => ({ sourceId: ref.sourceId, provider: ref.provider, role: ref.role, mappingVersion: ref.mappingVersion })).sort((left, right) => `${left.role}:${left.provider}:${left.sourceId}`.localeCompare(`${right.role}:${right.provider}:${right.sourceId}`))
+            }
+          });
+        }
+        if (changeSet.kind === "work-package.create") {
+          const packagePath = `releases/${changeSet.payload.releaseId}/items/${changeSet.payload.releaseItemId}/work-packages/${changeSet.payload.id}/work-package.yml`;
+          const workPackage = parseYaml(rendered.get(packagePath));
+          return buildExpectedEvent({
+            eventId: reserved.eventId,
+            type: reserved.type,
+            aggregate: { type: "work-package", id: workPackage.id },
+            actor,
+            operationId,
+            idempotencyKey: changeSet.payload.idempotencyKey,
+            payload: {
+              workPackageId: workPackage.id,
+              displayId: workPackage.displayId,
+              releaseId: workPackage.releaseId,
+              releaseItemId: workPackage.releaseItemId,
+              scopeId: workPackage.scopeId,
+              commitment: workPackage.commitment,
+              status: workPackage.status,
+              dependencyRefs: workPackage.dependencies,
+              guideRevisionSummary: workPackage.guideRefs.map((ref) => ({ kind: ref.kind, id: ref.id, revision: ref.revision, contentHash: ref.contentHash, state: ref.state })).sort((left, right) => left.kind.localeCompare(right.kind)),
+              gateRequirementSummary: workPackage.gateRequirements.map((gate) => ({ id: gate.id, required: gate.required, source: gate.source })).sort((left, right) => left.id.localeCompare(right.id)),
+              actor,
+              operationId,
+              idempotencyKey: changeSet.payload.idempotencyKey,
+              changeSetHash: recomputedHash,
+              revisionAfter: workPackage.audit.revision,
+              createdAt: workPackage.audit.createdAt
             }
           });
         }

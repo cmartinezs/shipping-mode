@@ -6,6 +6,8 @@ import { readChangeSet, readOperation } from "../lib/operationStore.mjs";
 import { normalizeReleaseItemCreateRequest, prepareReleaseItemCreate } from "../lib/releaseItemCreate.mjs";
 import { resolveReleaseReference } from "../lib/releaseStore.mjs";
 import { resolveReleaseItemReference, evaluateReleaseItemHealth } from "../lib/releaseItemStore.mjs";
+import { normalizeWorkPackageCreateRequest, prepareWorkPackageCreate } from "../lib/workPackageCreate.mjs";
+import { resolveWorkPackageReference, evaluateWorkPackageHealth } from "../lib/workPackageStore.mjs";
 import { pendingRecovery } from "./release.mjs";
 
 export function proposeReleaseItemCreate({ planningRoot, releaseRef, rawPayload, actor, itemId = null }) {
@@ -81,6 +83,75 @@ export function runItemCreate({ planningRoot, releaseRef, args }) {
   });
 }
 
+export function proposeWorkPackageCreate({ planningRoot, releaseRef, itemRef, rawPayload, actor, packageId = null }) {
+  const operationsRoot = path.join(planningRoot, "operations");
+  const candidateOperationId = generateUuidV7();
+  const proposedAt = new Date().toISOString();
+  const releaseResolution = resolveReleaseReference(planningRoot, releaseRef);
+  if (releaseResolution.status !== "FOUND") throw new Error(`release reference failed: ${releaseResolution.status}: ${releaseResolution.findings.join("; ")}`);
+  const canonicalReleaseId = releaseResolution.release.id;
+  const itemResolution = resolveReleaseItemReference(planningRoot, canonicalReleaseId, itemRef);
+  if (itemResolution.status !== "FOUND") throw new Error(`release item reference failed: ${itemResolution.status}: ${itemResolution.findings.join("; ")}`);
+  const canonicalItemId = itemResolution.item.id;
+  const canonicalScopeId = rawPayload.scopeId;
+  const packageRequest = normalizeWorkPackageCreateRequest(rawPayload, { actor, defaultIdempotencyKey: candidateOperationId, releaseId: canonicalReleaseId, releaseItemId: canonicalItemId, scopeId: canonicalScopeId });
+  const persistedOperationId = propose({
+    operationsRoot,
+    planningRoot,
+    kind: "work-package.create",
+    target: null,
+    payload: null,
+    targetFiles: null,
+    actor,
+    operationId: candidateOperationId,
+    proposedAt,
+    idempotency: { key: packageRequest.idempotencyKey, requestHash: packageRequest.idempotencyRequestHash },
+    prepareUnderLock: () => prepareWorkPackageCreate(rawPayload, {
+      planningRoot,
+      operationsRoot,
+      operationId: candidateOperationId,
+      actor,
+      proposedAt,
+      releaseRef,
+      itemRef,
+      packageRequest,
+      packageId,
+      expectedReleaseId: canonicalReleaseId,
+      expectedReleaseItemId: canonicalItemId,
+      expectedScopeId: canonicalScopeId
+    })
+  });
+  const persistedChangeSet = readChangeSet(operationsRoot, persistedOperationId);
+  const operation = readOperation(operationsRoot, persistedOperationId);
+  return {
+    operationId: persistedOperationId,
+    releaseId: persistedChangeSet.payload.releaseId,
+    itemId: persistedChangeSet.payload.releaseItemId,
+    packageId: persistedChangeSet.payload.id,
+    displayId: persistedChangeSet.payload.displayId,
+    operationStatus: operation.status,
+    idempotent: persistedOperationId !== candidateOperationId
+  };
+}
+
+export function runItemPackageAdd({ planningRoot, releaseRef, itemRef, args }) {
+  return proposeWorkPackageCreate({
+    planningRoot,
+    releaseRef,
+    itemRef,
+    rawPayload: {
+      scopeId: args.scopeId,
+      title: args.title,
+      ...(args.description !== undefined ? { description: args.description } : {}),
+      commitment: args.commitment,
+      ...(args.design !== undefined ? { design: args.design } : {}),
+      ...(args.dependencyRefs !== undefined ? { dependencyRefs: args.dependencyRefs } : {}),
+      ...(args.idempotencyKey ? { idempotencyKey: args.idempotencyKey } : {})
+    },
+    actor: args.commandActor
+  });
+}
+
 export function runItemStatus({ planningRoot, releaseRef, itemRef }) {
   const pending = pendingRecovery(planningRoot);
   if (pending.length > 0) return { status: "RECOVERY_REQUIRED", release: null, item: null, derivedHealth: null, findings: ["workspace has pending or recovery-required operations"], pendingOperations: pending };
@@ -97,6 +168,30 @@ export function runItemStatus({ planningRoot, releaseRef, itemRef }) {
     item: { id: item.id, displayId: item.displayId, releaseId: item.releaseId, kind: item.kind, status: item.status, title: item.title, slug: item.slug },
     derivedHealth: health,
     completion: health.completion,
+    readiness: health.readiness,
+    findings: health.findings.map((finding) => `${finding.code}: ${finding.message}`)
+  };
+}
+
+export function runItemPackageStatus({ planningRoot, releaseRef, itemRef, packageRef }) {
+  const pending = pendingRecovery(planningRoot);
+  if (pending.length > 0) return { status: "RECOVERY_REQUIRED", release: null, item: null, workPackage: null, derivedHealth: null, findings: ["workspace has pending or recovery-required operations"], pendingOperations: pending };
+  if (!fs.existsSync(planningRoot)) return { status: "NOT_FOUND", release: null, item: null, workPackage: null, derivedHealth: null, findings: ["workspace is not initialized: .planning/ does not exist"] };
+  const releaseResolution = resolveReleaseReference(planningRoot, releaseRef);
+  if (releaseResolution.status !== "FOUND") return { status: releaseResolution.status, release: null, item: null, workPackage: null, derivedHealth: null, findings: releaseResolution.findings, matches: releaseResolution.matches || [] };
+  const itemResolution = resolveReleaseItemReference(planningRoot, releaseResolution.release.id, itemRef);
+  if (itemResolution.status !== "FOUND") return { status: itemResolution.status, release: { id: releaseResolution.release.id, displayId: releaseResolution.release.displayId }, item: null, workPackage: null, derivedHealth: null, findings: itemResolution.findings, matches: itemResolution.matches || [] };
+  const packageResolution = resolveWorkPackageReference(planningRoot, releaseResolution.release.id, itemResolution.item.id, packageRef);
+  if (packageResolution.status !== "FOUND") return { status: packageResolution.status, release: { id: releaseResolution.release.id, displayId: releaseResolution.release.displayId }, item: { id: itemResolution.item.id, displayId: itemResolution.item.displayId }, workPackage: null, derivedHealth: null, findings: packageResolution.findings, matches: packageResolution.matches || [] };
+  const workPackage = packageResolution.workPackage;
+  const health = evaluateWorkPackageHealth({ planningRoot, release: releaseResolution.release, item: itemResolution.item, workPackage, directoryId: workPackage.id });
+  return {
+    status: "FOUND",
+    release: { id: releaseResolution.release.id, displayId: releaseResolution.release.displayId, lifecycle: releaseResolution.release.status },
+    item: { id: itemResolution.item.id, displayId: itemResolution.item.displayId, status: itemResolution.item.status, title: itemResolution.item.title },
+    workPackage: { id: workPackage.id, displayId: workPackage.displayId, releaseId: workPackage.releaseId, releaseItemId: workPackage.releaseItemId, scopeId: workPackage.scopeId, status: workPackage.status, commitment: workPackage.commitment, title: workPackage.title },
+    derivedHealth: health,
+    completionContribution: health.completionContribution,
     readiness: health.readiness,
     findings: health.findings.map((finding) => `${finding.code}: ${finding.message}`)
   };
@@ -120,6 +215,29 @@ export function runCheckItem({ planningRoot, releaseRef, itemRef }) {
     status: status.derivedHealth.aggregate.valid ? "PASS" : "FAIL",
     scope: "single",
     items: [entry],
+    findings: status.derivedHealth.findings.map((finding) => `${finding.code}: ${finding.message}`),
+    pendingOperations: []
+  };
+}
+
+export function runCheckWorkPackage({ planningRoot, releaseRef, itemRef, packageRef }) {
+  const status = runItemPackageStatus({ planningRoot, releaseRef, itemRef, packageRef });
+  if (status.status !== "FOUND") {
+    return { ...status, scope: "single", workPackages: [], pendingOperations: status.pendingOperations || [] };
+  }
+  const entry = {
+    release: status.release,
+    item: status.item,
+    workPackage: status.workPackage,
+    derivedHealth: status.derivedHealth,
+    completionContribution: status.completionContribution,
+    readiness: status.readiness,
+    findings: status.derivedHealth.findings
+  };
+  return {
+    status: status.derivedHealth.aggregate.valid ? "PASS" : "FAIL",
+    scope: "single",
+    workPackages: [entry],
     findings: status.derivedHealth.findings.map((finding) => `${finding.code}: ${finding.message}`),
     pendingOperations: []
   };

@@ -106,8 +106,8 @@ function tamperChangeSet(operationsRoot, operationId, mutate) {
   const status = runItemStatus({ planningRoot, releaseRef: release.displayId, itemRef: proposal.displayId });
   assert.equal(status.status, "FOUND");
   assert.equal(status.item.id, proposal.itemId);
-  assert.equal(status.derivedHealth.completion.status, "unavailable");
-  assert.equal(runCheckItem({ planningRoot, releaseRef: release.displayId, itemRef: proposal.displayId }).status, "PASS");
+  assert.equal(status.derivedHealth.completion.status, "incomplete");
+  assert.equal(runCheckItem({ planningRoot, releaseRef: release.displayId, itemRef: proposal.displayId }).status, "FAIL", "empty Work Package catalog is not completion evidence after Plan 2");
   const itemReadmePath = path.join(planningRoot, "releases", release.releaseId, "items", proposal.itemId, "README.md");
   fs.appendFileSync(itemReadmePath, "drift\n");
   assert.equal(runItemStatus({ planningRoot, releaseRef: release.releaseId, itemRef: proposal.itemId }).status, "FOUND", "status resolution remains FOUND when live health fails");
@@ -119,7 +119,7 @@ function tamperChangeSet(operationsRoot, operationId, mutate) {
   checkSchema({ planningRoot });
   assert.equal(fs.readdirSync(path.join(planningRoot, "operations")).length, operationsBefore, "item status and checks must be query-only");
   const releaseCheck = checkRelease({ planningRoot, reference: release.releaseId });
-  assert.equal(releaseCheck.releases[0].derivedHealth.dimensions.find((entry) => entry.id === "releaseItems").status, "valid");
+  assert.equal(releaseCheck.releases[0].derivedHealth.dimensions.find((entry) => entry.id === "releaseItems").status, "failed", "Release health must not pass an item with no Work Packages");
   assert.equal(releaseCheck.releases[0].completion.complete, false);
 }
 
@@ -152,7 +152,7 @@ function tamperChangeSet(operationsRoot, operationId, mutate) {
   const { planningRoot, operationsRoot, release } = initializedWorkspace();
   const first = createStory(planningRoot, operationsRoot, release.releaseId, "first");
   const second = createStory(planningRoot, operationsRoot, release.releaseId, "second", first.itemId);
-  assert.equal(runItemStatus({ planningRoot, releaseRef: release.releaseId, itemRef: second.displayId }).derivedHealth.aggregate.valid, true);
+  assert.equal(runItemStatus({ planningRoot, releaseRef: release.releaseId, itemRef: second.displayId }).derivedHealth.aggregate.valid, false, "dependency-valid item remains incomplete until Work Packages exist");
   assert.throws(
     () => runItemCreate({ planningRoot, releaseRef: release.releaseId, args: { kind: "user_story", title: "bad dep", commandActor: "carlos", actor: "teacher", need: "n", value: "v", acceptanceCriteria: ["a"], dependencyRefs: generateUuidV7(), idempotencyKey: "bad-dep" } }),
     /dependency .* does not resolve/

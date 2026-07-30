@@ -7,6 +7,7 @@ const exportNameByPublicName = {
   guide: "validate_guide",
   release: "validate_release",
   "release-item": "validate_release_item",
+  "work-package": "validate_work_package",
   "execution-context": "validate_execution_context",
   environment: "validate_environment",
   source: "validate_source",

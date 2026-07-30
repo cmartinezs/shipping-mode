@@ -5,7 +5,7 @@ import { runChangesetPropose, runChangesetValidate, runChangesetApprove, runChan
 import { checkSchema, checkRelease } from "./commands/check.mjs";
 import { checkGuides } from "./commands/checkGuides.mjs";
 import { runReleaseNew, runReleaseStatus, runReleasePolicyConfigure, runReleaseScopeSet, runReleaseRefsSet, runReleaseDeploymentRecord, runReleaseFinalize } from "./commands/release.mjs";
-import { runCheckItem, runItemCreate, runItemStatus } from "./commands/item.mjs";
+import { runCheckItem, runCheckWorkPackage, runItemCreate, runItemPackageAdd, runItemPackageStatus, runItemStatus } from "./commands/item.mjs";
 import { runDiscoverScan, runDiscoverValidate } from "./commands/discover.mjs";
 import { runDiscoveryPropose } from "./commands/discoveryChangeSet.mjs";
 import { isUuidV7 } from "./lib/ids.mjs";
@@ -19,7 +19,7 @@ import { evaluateGuideHealth, evaluateGuideReadiness } from "./lib/guideHealth.m
 
 export { UsageError, StateError, StaleError, RecoveryRequiredError, LockHeldError, PathConfinementError, evaluateCondition, renderGuideMarkdown, compareGuideProjection, evaluateGuideHealth, evaluateGuideReadiness };
 
-const IN_SCOPE_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "scope.generator.set", "guide.update", "release.create", "release.policy.configure", "release.scopeRefs.set", "release.operationalRefs.set", "release.deployment.record", "release.finalization.complete", "release-item.create"]);
+const IN_SCOPE_KINDS = new Set(["workspace.init", "config.update", "config.autonomy.set", "scope.add", "scope.command.set", "scope.generator.set", "guide.update", "release.create", "release.policy.configure", "release.scopeRefs.set", "release.operationalRefs.set", "release.deployment.record", "release.finalization.complete", "release-item.create", "work-package.create"]);
 const PROJECT_TYPES = new Set(["software", "non_software", "mixed", "unknown"]);
 
 function requireProjectType(value) {
@@ -87,6 +87,23 @@ function parseCheckItemArgs(args) {
   }
   if (positional.length !== 2) throw new UsageError("check item requires <release-id-or-display-id> <item-id-or-display-id>");
   return { releaseRef: positional[0], itemRef: positional[1] };
+}
+
+function parseCheckWorkPackageArgs(args) {
+  const positional = [];
+  for (let index = 0; index < args.length; index += 1) {
+    const value = args[index];
+    if (value === "--format") {
+      const format = args[++index];
+      if (!format || format.startsWith("--")) throw new UsageError("check work-package --format requires json");
+      if (format !== "json") throw new UsageError("check work-package --format must be json");
+      continue;
+    }
+    if (value.startsWith("--")) throw new UsageError(`check work-package does not support option ${value}`);
+    positional.push(value);
+  }
+  if (positional.length !== 3) throw new UsageError("check work-package requires <release-id-or-display-id> <item-id-or-display-id> <work-package-id-or-display-id>");
+  return { releaseRef: positional[0], itemRef: positional[1], packageRef: positional[2] };
 }
 
 function requireOperationId(value) {
@@ -318,6 +335,36 @@ export function dispatch(command, args, cwd, runtimeContext = null) {
         }
       });
     }
+    if (stage === "package" && rest[0] === "add") {
+      const releaseRef = rest[1];
+      const itemRef = rest[2];
+      const options = argsToOptions(rest.slice(3));
+      if (!releaseRef || !itemRef || !options.scope_id || !options.commitment || !options.title || !options.actor) {
+        throw new UsageError("item package add requires <release-id-or-display-id> <item-id-or-display-id>, --scope-id, --commitment, --title and --actor");
+      }
+      return runItemPackageAdd({
+        planningRoot,
+        releaseRef,
+        itemRef,
+        args: {
+          scopeId: options.scope_id,
+          commitment: options.commitment,
+          title: options.title,
+          description: options.description,
+          design: options.design,
+          dependencyRefs: options.dependencies,
+          idempotencyKey: options.idempotency_key,
+          commandActor: options.actor
+        }
+      });
+    }
+    if (stage === "package" && rest[0] === "status") {
+      const releaseRef = rest[1];
+      const itemRef = rest[2];
+      const packageRef = rest[3];
+      if (!releaseRef || !itemRef || !packageRef) throw new UsageError("item package status requires <release-id-or-display-id> <item-id-or-display-id> <work-package-id-or-display-id>");
+      return runItemPackageStatus({ planningRoot, releaseRef, itemRef, packageRef });
+    }
     if (stage === "status") {
       const releaseRef = rest[0];
       const itemRef = rest[1];
@@ -334,6 +381,10 @@ export function dispatch(command, args, cwd, runtimeContext = null) {
     if (stage === "item") {
       const parsed = parseCheckItemArgs(rest);
       return runCheckItem({ planningRoot, releaseRef: parsed.releaseRef, itemRef: parsed.itemRef });
+    }
+    if (stage === "work-package") {
+      const parsed = parseCheckWorkPackageArgs(rest);
+      return runCheckWorkPackage({ planningRoot, releaseRef: parsed.releaseRef, itemRef: parsed.itemRef, packageRef: parsed.packageRef });
     }
     if (stage === "guides") {
       const options = argsToOptions(rest);

@@ -32,7 +32,8 @@
         "release.operationalRefs.set",
         "release.deployment.record",
         "release.finalization.complete",
-        "release-item.create"
+        "release-item.create",
+        "work-package.create"
       ]
     },
     "status": {

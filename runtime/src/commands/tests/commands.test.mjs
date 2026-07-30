@@ -6,7 +6,7 @@ import { runInit, runConfigSet, runConfigScopeAdd } from "../init.mjs";
 import { runChangesetPropose, runChangesetValidate, runChangesetApprove, runChangesetApply } from "../changesetCommand.mjs";
 import { checkRelease } from "../check.mjs";
 import { runReleaseNew, runReleaseStatus, runReleasePolicyConfigure, runReleaseScopeSet, runReleaseRefsSet, runReleaseDeploymentRecord, runReleaseFinalize } from "../release.mjs";
-import { runItemCreate } from "../item.mjs";
+import { runItemCreate, runItemPackageAdd } from "../item.mjs";
 import { readOperation, readChangeSet, writeChangeSet } from "../../lib/operationStore.mjs";
 import { computePersistedChangeSetHash } from "../../lib/changeset.mjs";
 import { parseYaml, stringifyYaml } from "../../lib/yaml.mjs";
@@ -14,6 +14,8 @@ import { contentHash, revisionHash } from "../../lib/canonical.mjs";
 import { generateUuidV7, isUuidV7 } from "../../lib/ids.mjs";
 import { updateReleaseRevision } from "../../lib/releaseMutations.mjs";
 import { renderReleaseReadme } from "../../lib/releaseProjection.mjs";
+import { renderWorkPackageReadme } from "../../lib/workPackageProjection.mjs";
+import { updateWorkPackageRevision } from "../../lib/workPackageStore.mjs";
 import { renderGuideMarkdown } from "../../lib/guideProjection.mjs";
 import { computeSourceFingerprint } from "../../lib/fingerprint.mjs";
 import { DEFAULT_MAX_SOURCE_BYTES } from "../../lib/discoverScan.mjs";
@@ -86,6 +88,27 @@ function persistApprovedManualGuides({ workspace, planningRoot, scopeId }) {
     fs.writeFileSync(path.join(planningRoot, "scopes", scopeId, `${kind}-guide.md`), renderGuideMarkdown(guide));
   }
   fs.writeFileSync(scopePath, stringifyYaml({ ...scope, guides }));
+}
+
+function completeWorkPackageFixture(planningRoot, releaseId, itemId, packageId) {
+  const filePath = path.join(planningRoot, "releases", releaseId, "items", itemId, "work-packages", packageId, "work-package.yml");
+  const pkg = parseYaml(fs.readFileSync(filePath, "utf8"));
+  const done = updateWorkPackageRevision({
+    ...pkg,
+    status: "DONE",
+    resolution: {
+      type: "DONE",
+      reason: "Completed fixture",
+      approvedBy: "reviewer",
+      approvedAt: "2026-07-29T00:00:00.000Z",
+      riskAccepted: false,
+      replacementId: null,
+      operationId: pkg.audit.operationId,
+      evidence: [{ id: "review", summary: "Reviewed fixture", detail: null }]
+    }
+  });
+  fs.writeFileSync(filePath, stringifyYaml(done));
+  fs.writeFileSync(path.join(path.dirname(filePath), "README.md"), renderWorkPackageReadme(done));
 }
 
 const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "commands-"));
@@ -364,6 +387,24 @@ assert.equal(checkReleaseResult.scope, "single");
   runChangesetApprove({ operationsRoot, planningRoot, operationId: finalizationItem.operationId, actor: "carlos", allowSelfApproval: true });
   runChangesetApply({ planningRoot, operationsRoot, operationId: finalizationItem.operationId, actor: "carlos" });
 
+persistApprovedManualGuides({ workspace, planningRoot, scopeId: scopeResult.scopeId });
+const finalizationPackage = runItemPackageAdd({
+  planningRoot,
+  releaseRef: releaseCreate.releaseId,
+  itemRef: finalizationItem.itemId,
+  args: {
+    scopeId: scopeResult.scopeId,
+    commitment: "required",
+    title: "Finalization package",
+    idempotencyKey: "finalization-package-plan3-regression",
+    commandActor: "carlos"
+  }
+});
+assert.equal(runChangesetValidate({ planningRoot, operationsRoot, operationId: finalizationPackage.operationId }).status, "VALIDATED");
+runChangesetApprove({ operationsRoot, planningRoot, operationId: finalizationPackage.operationId, actor: "carlos", allowSelfApproval: true });
+runChangesetApply({ planningRoot, operationsRoot, operationId: finalizationPackage.operationId, actor: "carlos" });
+completeWorkPackageFixture(planningRoot, releaseCreate.releaseId, finalizationItem.itemId, finalizationPackage.packageId);
+
   let releasableFixture = parseYaml(fs.readFileSync(releaseYmlPath, "utf8"));
 releasableFixture = {
   ...releasableFixture,
@@ -378,7 +419,6 @@ assert.throws(() => runReleaseFinalize({
   args: { releaseRef: releaseCreate.displayId, retrospectiveStatus: "not_required", idempotencyKey: "finalize-stale-scope-plan3", actor: "carlos" }
 }), /scope|GUIDE_EVIDENCE_STALE/, "caller-edited readiness cannot replace live Scope/Guide evaluation");
 
-persistApprovedManualGuides({ workspace, planningRoot, scopeId: scopeResult.scopeId });
 const currentScopeEvidence = runReleaseScopeSet({
   planningRoot,
   args: { releaseRef: releaseCreate.releaseId, scopeIds: scopeResult.scopeId, policyMode: "strict", idempotencyKey: "scope-refs-current-plan3", actor: "carlos" }
