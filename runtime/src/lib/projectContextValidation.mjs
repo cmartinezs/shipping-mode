@@ -79,11 +79,14 @@ export function projectContextConsistencyFindings(config, { knownSourceIds = nul
     if (ids.has(source.id)) findings.push(`config.yml: duplicate work source id ${source.id}`);
     ids.add(source.id);
 
-    if (source.provider === "local_repository" && source.transport && source.transport !== "filesystem") {
-      findings.push(`config.yml: local_repository work source ${source.id} must use filesystem transport`);
+    if (source.import_policy !== "import_snapshot") {
+      findings.push(`config.yml: work source ${source.id} import_policy must be import_snapshot in Plan 3`);
     }
-    if (source.provider !== "local_repository" && source.transport === "filesystem") {
-      findings.push(`config.yml: non-local work source ${source.id} cannot use filesystem transport`);
+    if (source.sync_mode !== "import_only") {
+      findings.push(`config.yml: work source ${source.id} sync_mode must be import_only in Plan 3`);
+    }
+    if (!Number.isInteger(source.mapping_version) || source.mapping_version < 1) {
+      findings.push(`config.yml: work source ${source.id} mapping_version must be a positive integer`);
     }
     for (const root of source.roots || []) {
       const segments = root.split(/[\\/]+/);
@@ -91,14 +94,13 @@ export function projectContextConsistencyFindings(config, { knownSourceIds = nul
         findings.push(`config.yml: work source ${source.id} root must remain inside the workspace`);
       }
     }
-    if (source.transport === "mcp" && !source.mcp_connection_ref) {
-      findings.push(`config.yml: MCP work source ${source.id} requires an opaque mcp_connection_ref`);
+    if (source.provider !== "local_repository") {
+      findings.push(`config.yml: work source ${source.id} provider ${source.provider} is deferred to Plan 4`);
     }
-    if (source.mcp_connection_ref && source.transport !== "mcp") {
-      findings.push(`config.yml: work source ${source.id} mcp_connection_ref requires mcp transport`);
-    }
-    if (source.mcp_connection_ref && !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(source.mcp_connection_ref)) {
-      findings.push(`config.yml: work source ${source.id} has an invalid opaque connection reference`);
+    for (const capability of source.capabilities || []) {
+      if (!["discover", "search", "get", "create", "update", "transition", "comment"].includes(capability)) {
+        findings.push(`config.yml: work source ${source.id} declares unknown capability ${capability}`);
+      }
     }
   }
 

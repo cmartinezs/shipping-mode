@@ -1,0 +1,122 @@
+{
+  "$id": "https://shipping-mode.dev/schemas/normalized-work-source-item.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "sourceId", "provider", "itemId", "type", "title", "description", "acceptanceCriteria", "status", "priority", "labels", "relationships", "dependencies", "assignee", "owner", "revision", "mappingVersion", "metadata", "trace"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "sourceId": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$" },
+    "provider": { "enum": ["local_repository", "github_issues", "azure_boards", "linear", "custom"] },
+    "itemId": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "path": { "type": "string", "minLength": 1, "maxLength": 1024 },
+    "url": { "type": "string", "minLength": 1, "maxLength": 2048 },
+    "type": { "enum": ["user_story", "capability", "defect", "enabler", "spike", "compliance", "migration", "operational"] },
+    "title": { "type": "string", "minLength": 1, "maxLength": 512 },
+    "description": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "text"],
+      "properties": {
+        "format": { "enum": ["plain", "markdown"] },
+        "text": { "type": "string", "minLength": 1, "maxLength": 32768 }
+      }
+    },
+    "acceptanceCriteria": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "text"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+          "text": { "type": "string", "minLength": 1, "maxLength": 4096 }
+        }
+      }
+    },
+    "status": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["normalized", "providerStatus"],
+      "properties": {
+        "normalized": { "enum": ["todo", "in_progress", "done", "cancelled", "unknown"] },
+        "providerStatus": { "type": ["string", "null"], "minLength": 1, "maxLength": 256 }
+      }
+    },
+    "priority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["normalized", "providerPriority"],
+      "properties": {
+        "normalized": { "enum": ["critical", "high", "medium", "low", "none"] },
+        "providerPriority": { "type": ["string", "null"], "minLength": 1, "maxLength": 256 }
+      }
+    },
+    "labels": {
+      "type": "array",
+      "maxItems": 128,
+      "items": { "type": "string", "minLength": 1, "maxLength": 128 },
+      "uniqueItems": true
+    },
+    "relationships": {
+      "type": "array",
+      "maxItems": 128,
+      "items": { "$ref": "#/$defs/typedRef" }
+    },
+    "dependencies": {
+      "type": "array",
+      "maxItems": 128,
+      "items": { "$ref": "#/$defs/typedRef" }
+    },
+    "assignee": { "type": ["string", "null"], "minLength": 1, "maxLength": 256 },
+    "owner": { "type": ["string", "null"], "minLength": 1, "maxLength": 256 },
+    "revision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contentRevision", "fingerprint", "updatedAt"],
+      "properties": {
+        "externalRevision": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "contentRevision": { "$ref": "#/$defs/hash" },
+        "fingerprint": { "$ref": "#/$defs/hash" },
+        "updatedAt": { "type": ["string", "null"], "minLength": 1 }
+      }
+    },
+    "mappingVersion": { "type": "integer", "minimum": 1 },
+    "metadata": { "type": "object" },
+    "trace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observedPath", "observedBytes", "observedContentHash"],
+      "properties": {
+        "observedPath": { "type": ["string", "null"], "minLength": 1 },
+        "observedBytes": { "type": "integer", "minimum": 0 },
+        "observedContentHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    }
+  },
+  "oneOf": [
+    {
+      "properties": { "path": {}, "url": {} },
+      "required": ["path"],
+      "not": { "required": ["url"], "properties": { "url": {} } }
+    },
+    {
+      "properties": { "path": {}, "url": {} },
+      "required": ["url"],
+      "not": { "required": ["path"], "properties": { "path": {} } }
+    }
+  ],
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "typedRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "target"],
+      "properties": {
+        "type": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "target": { "type": "string", "minLength": 1, "maxLength": 512 }
+      }
+    }
+  }
+}

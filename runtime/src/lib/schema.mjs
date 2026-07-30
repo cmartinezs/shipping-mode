@@ -11,6 +11,7 @@ const exportNameByPublicName = {
   "execution-context": "validate_execution_context",
   environment: "validate_environment",
   source: "validate_source",
+  "normalized-work-source-item": "validate_normalized_work_source_item",
   "change-set": "validate_change_set",
   "discovery-proposal": "validate_discovery_proposal",
   operation: "validate_operation",

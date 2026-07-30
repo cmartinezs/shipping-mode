@@ -36,7 +36,8 @@
         "release.deployment.record",
         "release.finalization.complete",
         "release-item.create",
-        "work-package.create"
+        "work-package.create",
+        "work-source.import"
       ]
     },
     "target": {
@@ -638,6 +639,64 @@
                     "uniqueItems": true
                   }
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "work-source.import"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": true,
+            "required": [
+              "operationId",
+              "id",
+              "displayId",
+              "displayIdStatus",
+              "releaseId",
+              "parentRevision",
+              "proposedAt",
+              "actor",
+              "source",
+              "normalizedItem",
+              "requestSnapshot",
+              "idempotencyKey",
+              "idempotencyRequestHash",
+              "targetPaths"
+            ],
+            "properties": {
+              "operationId": { "$ref": "#/properties/operationId" },
+              "id": { "$ref": "#/properties/operationId" },
+              "displayId": {
+                "type": "string",
+                "pattern": "^RI-([0-9A-HJKMNP-TV-Z]{8}|[0-9A-HJKMNP-TV-Z]{12}|[0-9A-HJKMNP-TV-Z]{16}|[0-9A-HJKMNP-TV-Z]{26}|[0-9A-HJKMNP-TV-Z]{52})$"
+              },
+              "displayIdStatus": { "const": "ACTIVE" },
+              "releaseId": { "$ref": "#/properties/operationId" },
+              "parentRevision": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+              "proposedAt": { "type": "string", "minLength": 1 },
+              "actor": { "type": "string", "minLength": 1 },
+              "source": { "type": "object" },
+              "normalizedItem": { "$ref": "https://shipping-mode.dev/schemas/normalized-work-source-item.schema.json" },
+              "requestSnapshot": { "type": "object" },
+              "idempotencyKey": { "type": "string", "minLength": 1, "maxLength": 256 },
+              "idempotencyRequestHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+              "targetPaths": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": { "type": "string", "minLength": 1 },
+                "uniqueItems": true
               }
             }
           }

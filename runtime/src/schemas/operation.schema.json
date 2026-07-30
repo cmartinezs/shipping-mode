@@ -33,7 +33,8 @@
         "release.deployment.record",
         "release.finalization.complete",
         "release-item.create",
-        "work-package.create"
+        "work-package.create",
+        "work-source.import"
       ]
     },
     "status": {

@@ -127,8 +127,8 @@ const validGitPolicy = {
   }
 };
 const validWorkSources = [
-  { id: "local-backlog", provider: "local_repository", enabled: true, roots: ["docs/backlog/"], source_policy: "import_snapshot", sync_mode: "import_only" },
-  { id: "jira-gradeops", provider: "jira", enabled: false, transport: "mcp", source_policy: "external_authoritative", sync_mode: "pull", mcp_connection_ref: "atlassian" }
+  { id: "local-backlog", provider: "local_repository", enabled: true, roots: ["docs/backlog/"], import_policy: "import_snapshot", sync_mode: "import_only", mapping_version: 1, capabilities: ["discover", "search", "get"], options: {} },
+  { id: "local-disabled", provider: "local_repository", enabled: false, roots: ["docs/requirements/"], import_policy: "import_snapshot", sync_mode: "import_only", mapping_version: 1, capabilities: ["discover", "search", "get"], options: { file_globs: ["*.work-source.yml"] } }
 ];
 const validDocumentation = {
   source_refs: ["018f0000-0000-7000-8000-000000000010"],
@@ -139,7 +139,7 @@ assert.equal(validate("config", { ...cases.config.valid, documentation: validDoc
 assert.equal(validate("config", { ...cases.config.valid, documentation: { source_refs: [], gaps: [{ ...validDocumentation.gaps[0], owner: "unapproved" }] } }).valid, false, "documentation gaps must remain closed");
 assert.equal(validate("config", { ...cases.config.valid, git: { enabled: false, provider: "github" } }).valid, false, "disabled Git cannot use a provider");
 assert.equal(validate("config", { ...cases.config.valid, work_sources: [{ ...validWorkSources[0], api_token: "secret" }] }).valid, false, "Work Source secrets must be rejected");
-assert.equal(validate("config", { ...cases.config.valid, work_sources: [{ ...validWorkSources[1], mcp_connection_ref: "bad ref" }] }).valid, false, "connection refs must be opaque identifiers");
+assert.equal(validate("config", { ...cases.config.valid, work_sources: [{ ...validWorkSources[0], options: { api_token: "secret" } }] }).valid, false, "Work Source options must remain closed and secret-free");
 const missingGit = structuredClone(cases.config.valid);
 delete missingGit.git;
 assert.equal(validate("config", missingGit).valid, false, "git is canonical and required");
