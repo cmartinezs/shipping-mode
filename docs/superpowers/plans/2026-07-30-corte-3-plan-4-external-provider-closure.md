@@ -1,76 +1,92 @@
-# Corte 3 Plan 4 - External Provider and Corte 3 Closure
+# Corte 3 Plan 4 — External Provider and Corte 3 Closure
 
-## 1. Auditoria exacta de `develop`
+## 1. Auditoría exacta de `develop`
 
-Preparacion local requerida para este plan:
+Base verificada:
 
 ```text
-branch base: develop
-HEAD verificado: 8da8dd7cd9ee08afe4abfe1534a614bc59acb66e
-merge verificado: PR #26, Corte 3 Plan 3 Work Source foundation
+branch: develop
+HEAD al iniciar el plan: 8da8dd7cd9ee08afe4abfe1534a614bc59acb66e
+merge incluido: PR #26 — Corte 3 Plan 3 Work Source Foundation
 rama documental: plan/corte-3-plan-4-external-provider-closure
 ```
 
-La auditoria de `develop` muestra que PR #24, PR #25 y PR #26 ya estan
-incorporados. El runtime real ya contiene:
+PR #24, PR #25 y PR #26 están incorporados. El runtime real ya contiene:
 
-- `ReleaseItem` separado bajo `.planning/releases/<release-id>/items/<item-id>/`.
-- `WorkPackage` separado bajo `items/<item-id>/work-packages/<package-id>/`.
-- `work-source.import` como unico ChangeSet de import desde Work Sources.
-- `LocalRepositoryWorkSource` con capabilities `discover`, `search`, `get`.
-- `NormalizedWorkSourceItem` schema-closed y reusable por providers externos.
-- `check work-sources --format json`, query-only.
-- `sourceRefs` server-owned para imports, incluido `itemId` local estable.
-- hash de configuracion de Work Source ligado al ChangeSet de import.
-- revalidacion de provider/config/item durante validate/apply.
-- contract harness inicial en `evaluateWorkSourceProviderContract`.
+- `ReleaseItem` y `WorkPackage` como agregados separados.
+- `work-source.import` como ChangeSet de import.
+- `LocalRepositoryWorkSource` con `discover`, `search` y `get`.
+- provider registry y contract harness inicial.
+- `NormalizedWorkSourceItem`.
+- `sourceRefs` server-owned.
+- config hash, revision binding, optimistic locking, idempotencia y recovery.
+- `check work-sources`, query-only.
+- `dispatch(command, args, cwd, runtimeContext = null)`.
 
-El runtime real todavia no contiene:
+La auditoría también detecta cuatro restricciones que condicionan Plan 4:
 
-- `JiraMcpWorkSource`.
-- frontera runtime-host-MCP ejecutable.
-- `transport: mcp` ni `connection_ref` en `config.yml.work_sources[]`.
-- `external_authoritative` ni `pull` como policy/sync mode aceptados.
-- baseline de sync persistida mas alla de revision/source ref.
-- `work-source.refresh`, `item refresh` o `check source-drift`.
-- matriz de drift/conflict suficiente para refresh/pull.
-- traceability query reutilizable Work Source -> Scope.
+1. **No existe un bridge productivo hacia Atlassian MCP.**  
+   `bin/shipping-mode.mjs` llama `dispatch(...)` sin `runtimeContext`. La skill
+   `item` ejecuta el binario y tampoco inyecta un transport. Un objeto fake
+   inyectado en tests no demuestra integración productiva.
 
-Esta brecha es deliberada: Plan 3 cerro import seguro local; Plan 4 debe cerrar
-la fuente externa real y la evaluacion de drift sin adelantar Tasks, write-back
-ni reportes publicos de Corte 5.
+2. **`NormalizedWorkSourceItem` aún no es plenamente external-provider-ready.**  
+   Su `trace` obligatorio contiene campos locales (`observedPath`,
+   `observedBytes`, `observedContentHash`); `description` y
+   `acceptanceCriteria` están sobre-restringidos; y cada kind exige campos
+   canónicos que Jira no entrega por defecto.
+
+3. **Los items importados por Plan 3 no tienen baseline de sync.**  
+   Agregar `sourceSync` como requisito inmediato invalidaría documentos
+   actualmente válidos.
+
+4. **La semántica de drift debe separar campos source-managed de campos locales.**  
+   Comparar hashes completos del Release Item produciría falsos conflictos y
+   podría sobrescribir estado, dependencias o decisiones locales.
+
+Estas restricciones no son detalles de implementación. Son gates de arquitectura
+que este plan debe resolver antes de declarar que Jira es un provider productivo.
 
 ## 2. Boundary incluido
 
-Plan 4 implementa exclusivamente este vertical slice:
+Plan 4 busca cerrar:
 
 ```text
 configured Jira Work Source
-  -> host-owned Atlassian MCP transport
+  -> proven host-owned transport bridge
   -> JiraMcpWorkSource
   -> NormalizedWorkSourceItem
-  -> work-source.import / work-source.refresh ChangeSets
+  -> work-source.import / work-source.refresh
   -> canonical Release Item
-  -> source drift and conflict evaluation
+  -> persisted sync baseline
+  -> query-only drift evaluation
   -> Corte 3 final DoD
 ```
 
-El core sigue provider-agnostic. Fuera de `jiraMcpWorkSource.mjs`, fixtures Jira
-y fake transport tests no pueden aparecer conceptos como `JiraIssue`,
-`JiraTransition`, `AtlassianClient`, `JiraStatus` o `JiraProject`.
+El core continúa provider-agnostic. Fuera del adapter Jira, fixtures y host
+adapter no pueden aparecer tipos como:
 
-El dominio generico solo puede conocer:
+```text
+JiraIssue
+JiraTransition
+AtlassianClient
+JiraStatus
+JiraProject
+```
+
+El core conoce únicamente:
 
 ```text
 WorkSourceProvider
+WorkSourceTransportPort
 NormalizedWorkSourceItem
 source refs
+sync baselines
+mapping profiles
 capabilities
 policies
 revisions
-mappings
-drift
-conflicts
+drift states
 ChangeSets
 findings normalizados
 ```
@@ -79,127 +95,172 @@ findings normalizados
 
 Plan 4 no implementa:
 
-- Tasks, `task.yml` o task lifecycle.
-- gate execution, shell/build/test execution o Git task lifecycle.
-- write-back a Jira.
-- comentarios, transiciones, creacion o actualizacion externa.
-- push, bidirectional sync o external mutation sagas.
-- GitHub Issues, Azure Boards, Linear o providers adicionales.
-- auto-repair desde checks.
-- sistema completo de `report` de Corte 5.
-- release notes publicas derivadas de Work Sources.
-- documentacion final de producto de Corte 6.
+- Tasks, `task.yml` ni task lifecycle.
+- gate execution, shell/build/test execution ni Git task lifecycle.
+- create/update/transition/comment externos.
+- push, bidirectional sync o write-back.
+- sagas de mutación externa.
+- GitHub Issues, Azure Boards, Linear u otros providers.
+- auto-repair.
+- sistema público completo de `report`.
+- release notes públicas.
+- documentación final de producto.
 
-Capabilities excluidas deben fallar explicitamente como
-`CAPABILITY_UNAVAILABLE` o `SOURCE_CAPABILITY_MISSING`; no debe existir
-comportamiento parcial silencioso.
+Las capacidades excluidas deben responder `CAPABILITY_UNAVAILABLE` o
+`SOURCE_CAPABILITY_MISSING`; no deben existir stubs que aparenten soporte real.
 
-## 4. Decisiones de arquitectura
+## 4. Gate crítico P4-0 — demostrar el bridge host–MCP
 
-1. `work-source.import` se conserva para crear Release Items desde cualquier
-   provider de lectura.
-2. El nuevo ChangeSet canonico de pull sera `work-source.refresh`.
-3. El comando publico sera:
+### 4.1 Problema
+
+El runtime Node standalone no puede invocar una herramienta MCP del host. El
+bridge siguiente es solo una intención mientras no exista evidencia ejecutable:
+
+```text
+runtime provider port
+  <- host adapter
+      <- Atlassian MCP
+```
+
+`runtimeContext` existe en `dispatch`, pero el launcher actual no lo suministra.
+Por lo tanto, Plan 4 queda **bloqueado para implementación productiva** hasta que
+un spike demuestre un bridge real en el host objetivo.
+
+### 4.2 Opciones admisibles
+
+El spike debe probar exactamente una de estas opciones:
+
+1. **Embedding in-process confiable**  
+   El host carga el bundle, construye un `WorkSourceTransportRegistry` y llama
+   `dispatch(..., runtimeContext)` dentro del mismo proceso o de un proceso hijo
+   con un canal autenticado por el host.
+
+2. **Envelope firmado o autenticado por el host**  
+   El runtime genera una solicitud canónica; el host ejecuta MCP y devuelve un
+   envelope cuya autenticidad puede verificarse sin confiar en JSON arbitrario
+   entregado por el caller.
+
+Una secuencia skill → MCP → archivo/stdin sin autenticación puede existir solo
+como guardrail cooperativo. No puede presentarse como trust boundary fuerte ni
+como provenance server-owned.
+
+### 4.3 Criterios de aceptación del spike
+
+El spike es crítico y no waivable. Debe demostrar:
+
+- invocación real desde una skill/plugin instalada, no solo unit tests;
+- conexión ausente → `SOURCE_UNAVAILABLE`;
+- request/response binding;
+- respuesta MCP no confundible con payload CLI arbitrario;
+- ningún secreto dentro de `.planning`;
+- cancelación y timeout;
+- límites de tamaño;
+- error normalization;
+- test fake determinista;
+- smoke read-only opcional con conexión real;
+- standalone CLI sin bridge permanece fail-closed.
+
+Resultado permitido:
+
+```text
+PASSED
+FAILED
+INCONCLUSIVE
+```
+
+Si el resultado no es `PASSED`, se detiene la implementación de Jira productivo.
+Puede implementarse el provider contract con fake transport, pero Corte 3 no se
+marca completo.
+
+## 5. Decisiones de arquitectura
+
+1. `work-source.import` continúa creando Release Items.
+2. `work-source.refresh` será el ChangeSet de pull local.
+3. Comando público previsto:
 
 ```text
 shipping-mode item refresh <release-ref> <item-ref> --actor <actor>
 ```
 
-4. `refresh` representa el boundary correcto: consulta la fuente primaria,
-   evalua drift/conflict y propone una actualizacion local via ChangeSet. No
-   implica push, bidirectional sync ni mutacion externa.
-5. `check source-drift [release-ref] --format json` sera query-only y nunca
-   creara ChangeSets.
-6. No se agrega `check sync` en Plan 4: con `pull` solamente, `check
-   source-drift` ya cubre disponibilidad, config, mapping, revision, baseline y
-   recomendacion de `item refresh`. `check sync` queda diferido hasta que exista
-   una segunda direccion real en Corte 4.
-7. `connectivity` no se agrega a `WORK_SOURCE_CAPABILITIES`. La disponibilidad
-   del transport se prueba como parte del contract harness para providers
-   externos, pero las capabilities de dominio de Plan 4 siguen siendo
-   `discover`, `search` y `get`.
+4. `refresh` nunca escribe en Jira.
+5. `check source-drift [release-ref] --format json` será query-only.
+6. No se agrega `check sync`; no existe una segunda dirección.
+7. `connectivity` no se agrega al vocabulario de capabilities. Es una condición
+   de activación del transport.
+8. El standalone CLI puede operar providers locales. Para Jira debe recibir un
+   bridge host probado; sin él falla cerrado.
+9. Solo se publica `work-source.refreshed`. Los conflictos detectados por checks
+   o durante proposal son findings, no eventos.
+10. No se materializan links Jira como `ReleaseItem.dependencies` de forma
+    automática. Las dependencias canónicas requieren UUIDv7 internos.
 
-## 5. Frontera runtime-host-MCP
+## 6. Frontera runtime–host–MCP
 
-El runtime Node no debe asumir que puede invocar una herramienta MCP de Claude
-Code directamente. La frontera ejecutable sera:
+Después de aprobar P4-0, se implementan tres componentes separados:
 
 ```text
-runtime provider port
-  <- host transport adapter injected by launcher/skill runtimeContext
-      <- Atlassian MCP tool owned by the host
+WorkSourceTransportPort       # contrato provider-neutral
+HostWorkSourceTransport       # integración del host aprobada por el spike
+FakeWorkSourceTransport       # fixtures deterministas
 ```
 
-Responsabilidades:
-
-- Shipping Mode runtime construye requests canonicos y valida responses.
-- `JiraMcpWorkSource` consume un `WorkSourceTransportPort` inyectado.
-- El host adapter invoca Atlassian MCP con credenciales ya configuradas fuera
-  de Shipping Mode.
-- `.planning` guarda solo `connection_ref`, nunca secretos.
-- CLI sin host transport devuelve `SOURCE_UNAVAILABLE`.
-- CI usa fake transport determinista, nunca una cuenta Atlassian real.
-
-Contrato request:
+Request canónico:
 
 ```yaml
 schemaVersion: 1
+requestId: <uuidv7>
 provider: jira
 transport: mcp
 connectionRef: atlassian
 sourceId: jira-gradeops
 operation: discover | search | get
-requestId: <uuidv7>
-requestHash: <sha256 canonical request>
-mappingVersion: 1
-configHash: <sha256 work source config snapshot>
 capability: discover | search | get
+mappingVersion: 1
+configHash: sha256:...
 params:
   projectKeys: [GRADE]
-  itemRef: GRADE-142        # get only
-  queryText: "assessment"   # search only, bounded plain text, not raw JQL
+  itemRef: GRADE-142
+  queryText: assessment
   limit: 50
+  requestedFieldIds: [...]
+requestHash: sha256:...
 ```
 
-Contrato response:
+Response seguro:
 
 ```yaml
 schemaVersion: 1
+requestId: <same uuidv7>
+requestHash: <same hash>
 provider: jira
 transport: mcp
 connectionRef: atlassian
 sourceId: jira-gradeops
-requestId: <same uuidv7>
-requestHash: <same sha256>
 status: OK | NOT_FOUND | UNAVAILABLE | MISCONFIGURED | MALFORMED
-items: []                  # discover/search
-item: null                 # get
+items: []
+item: null
 findings: []
 observedAt: <host timestamp>
-responseHash: <sha256 canonical safe response>
+responseFingerprint: sha256:...
 ```
 
-El response puede contener una lista acotada de DTOs Jira seguros para el
-adapter, no payload Jira raw. `JiraMcpWorkSource` valida schema, requestHash,
-sourceId, provider, connectionRef, operation y limites antes de normalizar.
+El DTO de respuesta es schema-closed y bounded. Contiene solo campos permitidos
+por el mapping profile. No contiene payload Jira raw.
 
-Autenticacion:
+El runtime valida:
 
-- La autenticacion vive en el host Atlassian MCP.
-- Shipping Mode solo referencia `connection_ref: atlassian`.
-- El runtime no lee variables secretas del dominio, no almacena tokens y no
-  acepta headers/cookies/URLs con credenciales.
+- request ID y hash;
+- source/provider/transport/connection;
+- operation y capability;
+- límite de items y bytes;
+- field IDs solicitados;
+- response fingerprint;
+- ausencia de claves secret-like;
+- ausencia de propiedades desconocidas.
 
-Cuando el host no tiene Atlassian MCP conectado:
+## 7. Configuración segura
 
-- `check work-sources` reporta `SOURCE_UNAVAILABLE`.
-- `check source-drift` reporta `SOURCE_UNAVAILABLE`.
-- `item import` o `item refresh` fallan antes de proponer o quedan `STALE`
-  durante validate/apply si la desconexion ocurre despues de propose.
-
-## 6. Configuracion segura
-
-Extension minima de `config.yml.work_sources[]`:
+Extensión prevista:
 
 ```yaml
 work_sources:
@@ -209,678 +270,726 @@ work_sources:
     enabled: true
     connection_ref: atlassian
     mapping_version: 1
+    mapping_profile: jira-gradeops-v1
     import_policy: external_authoritative
     sync_mode: pull
-    capabilities:
-      - discover
-      - search
-      - get
+    capabilities: [discover, search, get]
     options:
-      project_keys:
-        - GRADE
+      project_keys: [GRADE]
       query_scope:
         mode: project_keys_and_text
         max_results: 50
-        allowed_issue_types:
-          - Story
-          - Bug
-          - Epic
-          - Spike
-          - Enabler
-          - Compliance
-          - Migration
-          - Operational
+      allowed_issue_types: [Story, Bug, Epic, Spike]
+      field_map:
+        Story:
+          kind: user_story
+          actor: customfield_10101
+          need: customfield_10102
+          value: customfield_10103
+          acceptanceCriteria: customfield_10104
+        Bug:
+          kind: defect
+          observedBehavior: customfield_10201
+          expectedBehavior: customfield_10202
+          reproduction: customfield_10203
+          severity: priority
 ```
 
-Invariantes:
+Reglas:
 
-- `provider: local_repository` requiere `roots`, no admite `transport` ni
-  `connection_ref`, y sigue limitado a `import_snapshot/import_only` en Plan 4.
-- `provider: jira` requiere `transport: mcp`, `connection_ref`, `options.project_keys`
-  y `mapping_version: 1`.
-- `provider: jira` no admite `roots`.
-- `transport: mcp` no admite URLs, headers, tokens, cookies, comandos ni raw
-  payloads en config.
-- `sync_mode: pull` requiere `import_policy: external_authoritative`.
-- `capabilities` para Jira en Plan 4 solo puede contener `discover`, `search`,
-  `get`.
-- `options.query_scope` no puede aceptar JQL arbitrario; solo filtros cerrados
-  y limites.
-- `connection_ref` es opaco, estable y no secreto.
+- `local_repository` conserva roots e `import_snapshot/import_only`.
+- `jira` requiere `transport: mcp`, `connection_ref`, `mapping_profile`,
+  project keys y field map cerrado.
+- Jira no admite roots.
+- `pull` requiere `external_authoritative`.
+- solo `discover/search/get`.
+- no JQL arbitrario.
+- no tokens, cookies, headers, URLs con credenciales, comandos ni payloads raw.
+- field selectors son IDs/nombres limitados, no expresiones ejecutables.
+- el config hash incluye transport, connection ref, mapping profile, field map,
+  capabilities, policy, mode y options.
 
-## 7. Provider contract
+## 8. NormalizedWorkSourceItem external-compatible
 
-El contrato compartido se amplia sin cambiar el vocabulario del core:
+Plan 4 debe corregir el schema antes de implementar Jira:
 
-- `discover({ source, transport })` devuelve items deterministas dentro del
-  scope configurado.
-- `search({ source, query, transport })` usa texto/filtros cerrados, no JQL raw.
-- `get({ source, itemRef, transport })` devuelve un item unico o finding
-  normalizado.
-- Todos devuelven `NormalizedWorkSourceItem` validado o findings
-  provider-neutral.
-- Errors externos se normalizan a `SOURCE_UNAVAILABLE`,
-  `SOURCE_MISCONFIGURED`, `SOURCE_CAPABILITY_MISSING`, `SOURCE_NOT_FOUND` o
-  `MAPPING_OBSOLETE`.
-- Un provider activo que declara una capability y falla contract tests no puede
-  activarse.
+- `trace` pasa a una unión cerrada:
+  - variante local compatible con Plan 3;
+  - variante external con `externalId`, `observedAt`,
+    `responseFingerprint` y evidencia bounded.
+- `description` puede ser `null`; no se fabrican descripciones.
+- `acceptanceCriteria`:
+  - al menos una para `user_story` y `capability`;
+  - puede ser vacía para los demás kinds.
+- `fields` continúa siendo condicional y exacto por kind.
+- revision externa robusta prevalece sobre timestamps.
+- ninguna variante permite raw payload.
 
-Operaciones `create`, `update`, `transition`, `comment`, `push` y
-`bidirectional` siguen no disponibles.
+Los documentos/Operations Plan 3 con trace local siguen siendo válidos. La
+evolución debe ser aditiva o mediante unión compatible; no se invalida recovery
+histórico.
 
-## 8. Jira adapter y mapping v1
+## 9. Jira adapter y mapping v1
 
-Archivos nuevos previstos:
+Archivos previstos:
 
 ```text
 runtime/src/lib/jiraMcpWorkSource.mjs
 runtime/src/lib/workSourceTransportPort.mjs
+runtime/src/lib/workSourceMapping.mjs
 runtime/src/lib/tests/fixtures/jira-mcp/v1/*.json
-runtime/src/lib/tests/fakes/fakeJiraMcpTransport.mjs
+runtime/src/lib/tests/fakes/fakeWorkSourceTransport.mjs
 ```
 
-Mapping Jira v1 normaliza, cuando existan:
+Campos comunes:
 
-- issue key estable -> `itemId` y `sourceRef.externalId`.
-- URL -> `url` y `sourceRef.externalUrl`.
-- issue type -> `type` y `metadata.issueType`.
-- summary -> `title`.
-- description -> `description`.
-- acceptance criteria -> `acceptanceCriteria`.
-- status original y normalizado.
-- priority original y normalizada.
-- labels ordenados.
-- parent/epic -> `relationships`.
-- issue links/dependencies -> `relationships` y `dependencies`.
-- assignee -> `assignee`.
-- owner/custom owner -> `owner`.
-- revision robusta -> `revision.externalRevision` si el MCP entrega version
-  robusta; si no, fingerprint de snapshot seguro y `updatedAt` como evidencia
-  secundaria.
-- metadata minima: `projectKey`, `issueType`, `statusCategory`, `priorityName`,
-  `parentKey`, `linkCount`, `mappingFixtureVersion`.
+- key estable → `itemId`;
+- URL segura → `url`;
+- issue type;
+- summary → title;
+- description nullable;
+- status y priority originales/normalizados;
+- labels;
+- parent/epic e issue links como relaciones externas;
+- assignee/owner;
+- external revision o fingerprint seguro;
+- metadata mínima y bounded.
 
-El payload Jira raw nunca llega al dominio ni se persiste.
+Los campos canónicos específicos del kind se obtienen únicamente mediante el
+`field_map` configurado y validado. No se infieren mediante LLM, regex ambigua ni
+placeholders.
 
-Issue type -> `ReleaseItem.kind`:
+Si falta un campo requerido:
 
-| Jira issue type | ReleaseItem.kind |
-|---|---|
-| Story, User Story | `user_story` |
-| Bug, Defect | `defect` |
-| Epic, Feature, Capability | `capability` |
-| Enabler | `enabler` |
-| Spike | `spike` |
-| Compliance | `compliance` |
-| Migration | `migration` |
-| Operational, Operations, Runbook | `operational` |
+```text
+SOURCE_MISCONFIGURED
+reason: REQUIRED_MAPPING_FIELD_MISSING
+```
 
-Tipos no mapeados, incluidos `Task` y `Sub-task`, fallan cerrado con finding
-explicito `SOURCE_MISCONFIGURED` y evidencia `mapping=unsupported_issue_type`.
-No se convierten silenciosamente en `user_story`.
+Tipos sin mapping fallan cerrado. `Task` y `Sub-task` no se convierten
+silenciosamente.
 
-## 9. Baseline de sync
+Links/dependencies Jira permanecen como relaciones externas normalizadas. Plan 4
+no los convierte automáticamente a UUIDs internos.
 
-No basta `externalRevision` en `sourceRefs`. Plan 4 agrega una estructura
-server-owned separada dentro de `release-item.yml`:
+## 10. Source refs y baseline de sync
+
+`sourceRefs` continúa siendo provenance compacta. Se agrega `sourceSync` como
+estructura **opcional y compatible**:
 
 ```yaml
 sourceSync:
   schemaVersion: 1
   baselines:
-    - id: <uuidv7>
+    - baselineId: <uuidv7>
+      sourceRefIdentityHash: sha256:...
       role: primary
       sourceId: jira-gradeops
       provider: jira
       locator:
         externalId: GRADE-142
-        externalUrl: https://example.atlassian.net/browse/GRADE-142
       sourceRevision: "10042"
       mappingVersion: 1
-      configHash: <sha256>
+      mappingProfile: jira-gradeops-v1
+      configHash: sha256:...
+      managedFields:
+        - /kind
+        - /title
+        - /description
+        - /actor
+        - /need
+        - /value
+        - /acceptanceCriteria
+      managedSnapshot: {}
+      managedSnapshotHash: sha256:...
+      aggregateRevisionAtSync: sha256:...
       syncedAt: <server time>
       syncedBy: <actor>
-      normalizedSnapshotHash: <sha256>
-      mappedSnapshotHash: <sha256>
-      localProjectionHash: <sha256>
-      sourceRefHash: <sha256>
-      normalizedSnapshot: <NormalizedWorkSourceItem bounded>
-      mappedSnapshot: <ReleaseItem requestSnapshot bounded>
 ```
 
-`sourceRefs` remains the compact provenance/locator surface. `sourceSync`
-stores bounded server-owned snapshots needed for deterministic drift. The two
-structures are validated together:
+No se persiste el `NormalizedWorkSourceItem` completo. Se guarda únicamente la
+proyección canónica de campos source-managed necesaria para drift.
 
-- every primary source ref imported by Work Source must have exactly one primary
-  baseline;
-- source ref locator/revision/mapping must match the baseline;
-- baseline hashes must match snapshots;
-- snapshots must be schema-valid and provider-neutral;
-- no raw Jira payload is persisted.
+Invariantes:
 
-`work-source.import` must start writing the initial baseline. `work-source.refresh`
-must update Release Item fields, source ref revision and baseline atomically.
-Updating only source revision without updating baseline is invalid.
+- como máximo una baseline primary por source ref primary;
+- identity, locator, revision y mapping coinciden con sourceRef;
+- `managedFields` pertenece al mapping profile;
+- hash coincide con snapshot;
+- baseline y sourceRef se actualizan atómicamente;
+- `importedAt` nunca cambia durante refresh;
+- `syncedAt` vive en baseline;
+- no raw provider payload.
 
-## 10. State/finding matrix
+## 11. Compatibilidad con imports Plan 3
+
+Items importados antes de Plan 4 pueden tener primary sourceRef sin `sourceSync`.
+Deben permanecer schema-valid.
+
+Estado interno:
+
+```text
+BASELINE_MISSING
+```
+
+Comportamiento:
+
+- `check source-drift` consulta la fuente.
+- si el remote mapped snapshot coincide exactamente con la proyección managed
+  actual, recomienda `work-source.refresh` en modo `capture_baseline`;
+- si no coincide, devuelve `SOURCE_CONFLICT`;
+- nunca inventa una baseline histórica;
+- nunca actualiza contenido desde check.
+
+Imports nuevos escriben baseline desde el inicio para providers locales y Jira.
+
+## 12. Field ownership y drift
+
+Cada mapping profile declara `managedFields`. Todos los demás campos del
+Release Item son local-owned y se preservan.
+
+No forman parte del snapshot managed:
+
+- `id`, `displayId`, `releaseId`;
+- status/resolution;
+- audit;
+- dependencies internas;
+- source refs y sync metadata;
+- Work Packages;
+- cualquier campo no declarado por el profile.
 
 Inputs:
 
-- `Bns`: baseline normalized source snapshot.
-- `Bri`: baseline mapped Release Item snapshot.
-- `Rns`: current remote normalized source snapshot.
-- `Cli`: current canonical Release Item projection to source-owned fields.
-- `M`: current mapping version.
-- `C`: current Work Source config hash.
+```text
+B = baseline managed snapshot
+R = current remote mapped managed snapshot
+L = current local managed projection
+A0 = aggregate revision at sync
+A1 = current aggregate revision
+```
 
-State matrix:
+Matriz:
 
-| Condition | State | Finding | Recommendation |
+| Condición | Estado | Finding | Acción |
 |---|---|---|---|
-| provider unavailable | `SOURCE_UNAVAILABLE` | `SOURCE_UNAVAILABLE` | retry when host connection exists |
-| source config invalid/missing | `SOURCE_MISCONFIGURED` | `SOURCE_MISCONFIGURED` | fix config |
-| declared capability absent | `SOURCE_CAPABILITY_MISSING` | `SOURCE_CAPABILITY_MISSING` | disable or fix provider |
-| source item not found | `SOURCE_NOT_FOUND` | `SOURCE_NOT_FOUND` | operator decision, no auto-delete |
-| mapping version unsupported or baseline older than active mapping | `MAPPING_OBSOLETE` | `MAPPING_OBSOLETE` | re-import/remap under explicit ChangeSet |
-| `Rns == Bns` and `Cli == Bri` | `UNCHANGED` | none | no-op |
-| `Rns != Bns` and `Cli == Bri` | `REMOTE_CHANGED` | `SYNC_REQUIRED` | propose `item refresh` |
-| `Rns == Bns` and `Cli != Bri` | `LOCAL_CHANGED` | `SOURCE_STALE` | review local changes, no overwrite |
-| disjoint source-owned/provider-owned fields changed compatibly | `BOTH_CHANGED_COMPATIBLE` | `SYNC_REQUIRED` | propose compatible refresh preserving local-owned fields |
-| same source-owned field changed locally and remotely | `SOURCE_CONFLICT` | `SOURCE_CONFLICT` | manual resolution |
-| config hash differs from baseline but schema-valid | `SOURCE_STALE` | `SOURCE_STALE` | re-evaluate before refresh |
+| provider/transport unavailable | `SOURCE_UNAVAILABLE` | `SOURCE_UNAVAILABLE` | retry |
+| config inválida | `SOURCE_MISCONFIGURED` | `SOURCE_MISCONFIGURED` | fix config |
+| capability ausente | `SOURCE_CAPABILITY_MISSING` | mismo | fix/disable |
+| source ausente | `SOURCE_NOT_FOUND` | mismo | decisión humana |
+| baseline ausente y `R == L` | `BASELINE_MISSING_SAFE` | `SYNC_REQUIRED` | capture baseline |
+| baseline ausente y `R != L` | `BASELINE_MISSING_CONFLICT` | `SOURCE_CONFLICT` | decisión humana |
+| mapping/profile no activo | `MAPPING_OBSOLETE` | mismo | explicit remap |
+| `R == B` y `L == B` y `A1 == A0` | `UNCHANGED` | ninguno | no-op |
+| `R == B` y `L == B` y `A1 != A0` | `LOCAL_UNMANAGED_CHANGED` | ninguno | no-op |
+| `R != B` y `L == B` y `A1 == A0` | `REMOTE_CHANGED` | `SYNC_REQUIRED` | refresh |
+| `R != B` y `L == B` y `A1 != A0` | `BOTH_CHANGED_COMPATIBLE` | `SYNC_REQUIRED` | refresh preservando local-owned |
+| `L != B` y `R == B` | `LOCAL_MANAGED_CHANGED` | `SOURCE_CONFLICT` | decisión humana |
+| `L != B` y `R != B` | `SOURCE_CONFLICT` | mismo | decisión humana |
+| config hash cambió | `CONFIG_CHANGED` | `SOURCE_STALE` | reevaluar/re-proponer |
 
-Terminology:
+`SOURCE_STALE` se reserva para cambios de config/revision/baseline entre
+propose–validate–apply. Un cambio local en campos managed no se etiqueta como
+source stale: es conflicto bajo `external_authoritative`.
 
-- transactional staleness is propose/validate/apply drift and returns operation
-  status `STALE`;
-- persistent drift is query-time divergence after import and returns findings;
-- conflict is incompatible local/external changes relative to the last baseline;
-- mapping obsolete means the stored mapping cannot be trusted for current
-  provider rules;
-- unavailable means host/provider could not be queried.
+No hay merge automático de dos modificaciones sobre campos managed.
 
-## 11. ChangeSet y comandos publicos
+## 13. ChangeSet y comando refresh
 
-Canonical ChangeSet:
+ChangeSet:
 
 ```text
 work-source.refresh
 ```
 
-Public command:
+Comando:
 
 ```text
-shipping-mode item refresh <release-ref> <item-ref> --actor <actor> [--idempotency-key <key>]
+shipping-mode item refresh <release-ref> <item-ref> \
+  --actor <actor> [--idempotency-key <key>]
 ```
 
-Flow:
+Resultados de proposal:
 
-1. resolve Release by UUIDv7 or `REL-*`;
-2. resolve Release Item by UUIDv7 or `RI-*`;
-3. require exactly one primary source ref;
-4. resolve source config/provider/capability `get`;
-5. require `sync_mode: pull` and `import_policy: external_authoritative`;
-6. fetch and normalize current source item;
-7. evaluate drift matrix against baseline;
-8. if unchanged, return deterministic no-op proposal result without writing;
-9. if resolvable, propose `work-source.refresh`;
-10. record base revisions: parent Release, target Release Item, config hash,
-    source revision, mapping version, baseline hashes;
-11. require approval;
-12. validate by re-fetching source and re-evaluating drift;
-13. apply by atomically rewriting `release-item.yml`, README, sourceRef and
-    `sourceSync` baseline;
-14. verify post-write projection and baseline hashes;
-15. publish one bounded event;
-16. recover idempotently after every durable boundary;
-17. prevent duplicate refreshes for same item/source/base request hash.
+```text
+PROPOSED
+NO_CHANGES
+CONFLICT
+UNAVAILABLE
+```
 
-`check` never refreshes, never updates revisions and never creates ChangeSets.
+Flujo:
 
-## 12. Trust boundaries
+1. resolver Release e Item canónicos;
+2. exigir primary source ref única para refresh;
+3. resolver source, mapping profile, provider y transport;
+4. fetch/normalize/map;
+5. evaluar baseline y drift;
+6. no crear Operation para `NO_CHANGES`, conflict o unavailable;
+7. crear `work-source.refresh` solo para `REMOTE_CHANGED`,
+   `BOTH_CHANGED_COMPATIBLE` o `BASELINE_MISSING_SAFE`;
+8. bind de Release/Item revision, source revision, config hash, mapping profile,
+   baseline ID/hash, managed fields/snapshot y target paths;
+9. approval normal;
+10. validate re-fetches y recalcula todo;
+11. apply reescribe YAML/README/sourceRef/sourceSync atómicamente;
+12. verify compara schema, projection y hashes;
+13. publicar `work-source.refreshed`;
+14. recovery idempotente.
 
-Server-owned fields for import and refresh:
+`capture_baseline` no modifica campos managed cuando `R == L`.
 
-- source ID and provider resolution;
-- secure connection ref;
-- external item ID/path and URL;
-- external/content revision;
-- normalized source item;
-- mapping version;
-- config hash;
-- baseline hashes;
-- mapped snapshot;
-- source refs and imported/refreshed timestamps;
-- parent Release;
-- target Release Item;
-- target paths;
-- Operation ID;
-- event ID;
-- actor and proposedAt;
-- idempotency request hash;
-- base revisions.
+## 14. Idempotencia y concurrencia
 
-Validation must reject tampering even if `change-set.json.hash` is recalculated.
-
-## 13. Idempotencia y optimistic locking
-
-`work-source.refresh` idempotency request hash includes:
+El request hash incluye:
 
 ```text
 actor
 releaseId
 itemId
-sourceId
-provider
+source identity
 connectionRef
-externalId/itemId/path
-baselineId
-baseline normalizedSnapshotHash
-baseline mappedSnapshotHash
-current source revision
-current normalizedSnapshotHash
-mappingVersion
-configHash
-targetPaths
+mapping profile/version
+config hash
+baseline ID/hash or BASELINE_MISSING
+remote revision
+remote managed snapshot hash
+local managed snapshot hash
+aggregate revision
+target paths
+mode refresh|capture_baseline
 ```
 
-Concurrent behavior:
+Semántica:
 
-- two refreshes with same baseline/source revision return the same Operation;
-- two refreshes with different source revision cannot share idempotency;
-- refresh after local edit becomes `SOURCE_CONFLICT` or `SOURCE_STALE`;
-- refresh after config/mapping drift becomes `STALE` during validate/apply;
-- applied ChangeSet replay is idempotent and never emits a second event.
+- misma idempotency key explícita + mismo request hash → misma Operation;
+- misma key + distinto hash → error;
+- sin key explícita no se promete reutilizar el mismo Operation;
+- una reserva por target item + baseline impide dos refresh pendientes;
+- el segundo intento concurrente devuelve la Operation reservada o conflicto
+  determinista según la primitive existente;
+- replay aplicado no duplica evento;
+- cambio local/remoto/config/mapping convierte validate/apply en `STALE`.
 
-## 14. Crash recovery
+## 15. Trust boundaries
 
-Crash boundaries to test:
+Server-owned:
 
-- after operation manifest;
-- after staged `release-item.yml`;
-- after staged README;
-- after first rename;
-- after result write;
-- after event write;
-- after operation status remains pending with canonical files present;
-- after result written but operation not finalized;
-- after event written but result pending;
-- workspace starts with recovery pending.
+- source/provider/transport/connection resolution;
+- external locator y revision;
+- normalized DTO;
+- mapping profile/version;
+- managed fields;
+- managed snapshot y hashes;
+- baseline;
+- config hash;
+- sourceRef;
+- Release/Item IDs;
+- target paths;
+- operation/event IDs;
+- actor/proposedAt;
+- idempotency request hash;
+- base revisions.
 
-Recovery rules:
+La validación semántica debe detectar tampering aun si se recalcula el hash
+público del ChangeSet.
 
-- no false success;
-- no partial Release Item write;
-- no duplicate event;
-- no duplicate baseline;
-- no source revision update without matching baseline update;
-- no local changes lost after stale/concurrent detection.
+La fuerza de la provenance del transport depende del resultado P4-0. Un envelope
+cooperativo sin autenticación no se documentará como protección contra caller
+malicioso.
 
-## 15. Contract-test harness
+## 16. Contract-test harness
 
-Extend `runtime/src/lib/workSourceContract.mjs` into a shared harness that
-drives capabilities declared by each source:
+El harness compartido cubre:
 
-- availability for external transport or local roots;
+- availability;
 - discover determinism;
 - search determinism;
 - get normalization;
 - revision detection;
 - mapping correctness;
+- missing required mapped fields;
 - error normalization;
 - stale detection;
-- safe retry only where applicable.
+- safe retry read-only;
+- bounded output;
+- no secret/raw leakage.
 
-The same harness must run for:
+Se ejecuta para:
 
 ```text
 LocalRepositoryWorkSource
-JiraMcpWorkSource with FakeJiraMcpTransport
+JiraMcpWorkSource + FakeWorkSourceTransport
 ```
 
-CI never uses a real Atlassian account. Fake transport fixtures must cover:
+Un provider activo que falla una capability declarada queda inactivo.
 
-- missing connection;
-- unavailable connection;
-- malformed response;
-- unknown issue type;
-- mapping v1;
-- revision changes;
-- source deleted;
-- source key ambiguity;
-- no raw payload leakage;
-- no secret leakage.
+## 17. Checks query-only
 
-## 16. Checks query-only
-
-Plan 4 implements conceptually:
+Comandos:
 
 ```text
 shipping-mode check work-sources --format json
 shipping-mode check source-drift [release-ref] --format json
 ```
 
-`check work-sources` extends current behavior with Jira transport availability,
-config invariants, provider activation status and contract-test results.
-
 `check source-drift`:
 
-- scans Release Items with source refs;
-- optionally narrows to one Release;
-- resolves provider and primary source ref;
-- fetches current external normalized state;
-- compares baseline;
-- detects mapping obsolete;
-- emits deterministic findings and recommendation;
-- does not write;
-- does not refresh;
-- does not mutate revisions;
-- does not create ChangeSets.
+- respeta recovery pending;
+- filtra opcionalmente por Release;
+- inspecciona items con primary sourceRef;
+- resuelve source/provider/transport;
+- fetch/normalize/map;
+- evalúa baseline y mapping;
+- devuelve estado, finding y recomendación;
+- no escribe, no crea Operation, no emite evento.
 
-## 17. Traceability
+Sin host bridge, Jira aparece `SOURCE_UNAVAILABLE`; el check no acepta una
+respuesta externa arbitraria como argumento confiable.
 
-Plan 4 closes the reusable internal query:
+## 18. Traceability
+
+Query interna:
 
 ```text
 Work Source
-  -> normalized item
-  -> source ref
+  -> sourceRef/baseline
   -> Release Item
   -> Work Package
   -> Scope
 ```
 
-Add a provider-neutral query library that can feed JSON output from checks.
-Do not implement the public Corte 5 report catalog. Corte 5 can later use this
-query to build `report source-status`, `report traceability` and release notes.
+No requiere fetch remoto para producir trazabilidad canónica. Puede incluir el
+estado de drift solo cuando el caller suministra un transport host válido.
 
-## 18. Eventos
+No se implementa el catálogo público de reports de Corte 5.
 
-Events allowed in Plan 4:
+## 19. Eventos
+
+Único evento nuevo:
 
 ```text
 work-source.refreshed
-work-source.sync-conflict-detected
 ```
 
-`work-source.refreshed` is emitted only after an applied `work-source.refresh`.
-Payload is bounded: release ID, item ID/display ID, source ID/provider,
-external item ID/path, old/new source revision, mapping version, config hash,
-operation ID, idempotency key, ChangeSet hash, actor and refreshed revision.
+Se emite solo después de apply verificado. Payload bounded:
 
-`work-source.sync-conflict-detected` is optional and only for approved/attempted
-refresh that reaches conflict evaluation during mutation flow. Query-only
-findings from `check source-drift` are sufficient and must not emit events.
+- Release/Item IDs;
+- source/provider;
+- external/local item identity;
+- old/new source revision;
+- mapping profile/version;
+- config hash;
+- baseline ID;
+- Operation/idempotency/ChangeSet hashes;
+- actor;
+- nueva revision del Release Item.
 
-Events never include raw provider payloads, secrets, headers, cookies, URLs with
-credentials or unbounded metadata.
+Los conflictos query-only o pre-proposal no emiten eventos.
 
-## 19. Cambios de schemas
+## 20. Crash recovery
 
-Required schema changes:
+Fault matrix:
 
-- `config.schema.json`: add conditional Jira MCP config and external
-  `external_authoritative/pull`.
-- `normalized-work-source-item.schema.json`: keep provider-neutral shape; add
-  only bounded Jira-safe trace fields if required by tests.
-- `release-item.schema.json`: add closed `sourceSync` baseline structure and
-  optional baseline id binding on source refs if needed.
-- `change-set.schema.json`: add `work-source.refresh` payload.
-- `operation.schema.json`: add `work-source.refresh` to allowed kinds.
-- `event.schema.json`: add `work-source.refreshed` and optional conflict event.
+- manifest;
+- staged YAML;
+- staged README;
+- first rename;
+- both renames;
+- result;
+- event;
+- operation finalization;
+- source changes durante recovery;
+- config/mapping changes;
+- workspace con recovery pending.
 
-Generated validators and bundles must be regenerated by `npm run build:schemas`
-and `npm run build:runtime`.
+Invariantes:
 
-## 20. Cambios archivo por archivo
+- no false success;
+- no partial baseline;
+- no sourceRef revision sin baseline correspondiente;
+- no duplicate event;
+- no overwrite de cambios locales;
+- no re-fetch destructivo durante replay de un apply ya durable;
+- divergencia se marca recovery-required.
 
-### TDD task 1 - Jira config schema
+## 21. Cambios de schemas
 
-File: `runtime/src/schemas/config.schema.json`
-Function/schema: `$defs.workSource`
-Test first: `runtime/src/lib/tests/schema-fixtures.test.mjs`
-Behavior: valid Jira MCP config passes; tokens, headers, URLs, raw payloads,
-commands, roots, arbitrary JQL and unsupported capabilities fail.
-Errors: schema invalid; `SOURCE_MISCONFIGURED` via config normalization.
-Validation: `npm run build:schemas && npm run test:unit`
-Recommended commit: `test/schema: define secure jira mcp work source config`
+- `config.schema.json`: Jira MCP + field map cerrado.
+- `normalized-work-source-item.schema.json`: trace union external-compatible,
+  description nullable y acceptance criteria condicional.
+- `release-item.schema.json`: `sourceSync` opcional y cerrado.
+- `change-set.schema.json`: payload `work-source.refresh`.
+- `operation.schema.json`: kind refresh.
+- `event.schema.json`: `work-source.refreshed`.
 
-### TDD task 2 - config normalization
+No se obliga a documentos Plan 3 existentes a contener baseline.
 
-File: `runtime/src/lib/workSourceImport.mjs`
-Function/schema: `normalizeWorkSourceConfig`, `workSourceConfigSnapshot`
-Test first: `runtime/src/lib/tests/work-source-foundation.test.mjs`
-Behavior: accept `jira/mcp/external_authoritative/pull`; reject invalid
-provider/transport/policy combinations; hash includes transport and
-connectionRef.
-Errors: unsupported policy, missing connection ref, incompatible capability.
-Validation: `npm run test:unit`
-Recommended commit: `feat(work-sources): normalize jira mcp source config`
+## 22. Plan archivo por archivo y TDD
 
-### TDD task 3 - transport port
+### Task 0 — host transport spike
 
-File: `runtime/src/lib/workSourceTransportPort.mjs`
-Function/schema: request/response validators
-Test first: `runtime/src/lib/tests/work-source-transport-port.test.mjs`
-Behavior: build canonical requests, validate responses, bind requestHash and
-connectionRef, normalize transport errors.
-Errors: missing connection, unavailable, malformed response, hash mismatch.
-Validation: `npm run test:unit`
-Recommended commit: `feat(work-sources): add host transport port contract`
+Files:
 
-### TDD task 4 - fake Jira MCP transport
+```text
+spikes/host-work-source-transport/**
+docs/plugin-redesign-release-flow/decisions/**
+```
 
-File: `runtime/src/lib/tests/fakes/fakeJiraMcpTransport.mjs`
-Function/schema: deterministic fake transport
-Test first: `runtime/src/lib/tests/jira-mcp-work-source.test.mjs`
-Behavior: replay fixtures deterministically; simulate missing connection,
-unavailable connection, malformed response, deleted source and ambiguity.
-Errors: normalized provider findings only.
-Validation: `npm run test:unit`
-Recommended commit: `test(work-sources): add deterministic fake jira mcp transport`
+Test/evidence first: plugin instalada, conexión missing y fake bridge.
 
-### TDD task 5 - Jira mapping fixtures
+DoD: P4-0 `PASSED`.  
+Commit: `spike(host): prove work source transport bridge`.
 
-File: `runtime/src/lib/tests/fixtures/jira-mcp/v1/*.json`
-Function/schema: fixture corpus
-Test first: `runtime/src/lib/tests/jira-mcp-work-source.test.mjs`
-Behavior: cover mapped issue types, unknown issue type, links, parent/epic,
-acceptance criteria, assignee/owner, revision, raw/secret leakage.
-Errors: unsupported issue type fails closed.
-Validation: `npm run test:unit`
-Recommended commit: `test(work-sources): fixture jira mapping v1`
+### Task 1 — schema compatibility tests
 
-### TDD task 6 - JiraMcpWorkSource
+Files:
 
-File: `runtime/src/lib/jiraMcpWorkSource.mjs`
-Function/schema: `discover`, `search`, `get`, mapping v1 helpers
-Test first: `runtime/src/lib/tests/jira-mcp-work-source.test.mjs`
-Behavior: normalize Jira fixture DTOs to `NormalizedWorkSourceItem`; never leak
-raw payload; map statuses/priorities/types deterministically.
-Errors: `SOURCE_NOT_FOUND`, `SOURCE_MISCONFIGURED`, `SOURCE_UNAVAILABLE`.
-Validation: `npm run test:unit`
-Recommended commit: `feat(work-sources): add jira mcp read provider`
+```text
+runtime/src/schemas/normalized-work-source-item.schema.json
+runtime/src/lib/tests/schema-fixtures.test.mjs
+runtime/src/lib/tests/work-source-foundation.test.mjs
+```
 
-### TDD task 7 - provider registry injection
+Test first:
 
-File: `runtime/src/lib/workSourceProvider.mjs`
-Function/schema: registry factory and provider descriptors
-Test first: `runtime/src/lib/tests/work-source-foundation.test.mjs`
-Behavior: registry accepts provider factories requiring host transport; disabled
-Jira source can be inspected; enabled source without transport is unavailable.
-Errors: capability missing, unknown provider, unavailable transport.
-Validation: `npm run test:unit`
-Recommended commit: `feat(work-sources): inject external provider transports`
+- legacy local trace remains valid;
+- external trace valid;
+- nullable description;
+- conditional acceptance criteria;
+- raw fields rejected.
 
-### TDD task 8 - source sync baseline schema
+Commit: `test(schema): define external normalized item compatibility`.
 
-File: `runtime/src/schemas/release-item.schema.json`
-Function/schema: `sourceSync`
-Test first: `runtime/src/lib/tests/release-item-schema.test.mjs`
-Behavior: closed bounded baseline accepts normalized/mapped snapshots and
-hashes; rejects raw payload, secrets, stale/mismatched hashes and duplicate
-primary baselines.
-Errors: schema invalid and semantic health findings.
-Validation: `npm run build:schemas && npm run test:unit`
-Recommended commit: `feat(items): add server-owned source sync baseline schema`
+### Task 2 — secure Jira config
 
-### TDD task 9 - import baseline write
+Files:
 
-File: `runtime/src/lib/workSourceImport.mjs`
-Function/schema: `prepareWorkSourceImport`, `renderWorkSourceImport`,
-`workSourceImportInvariantFindings`
-Test first: `runtime/src/lib/tests/work-source-foundation.test.mjs`
-Behavior: `work-source.import` writes initial sourceSync baseline for local and
-Jira imports; tampering is rejected.
-Errors: invalid baseline hash, sourceRef/baseline mismatch.
-Validation: `npm run test:unit`
-Recommended commit: `feat(work-sources): persist import sync baseline`
+```text
+runtime/src/schemas/config.schema.json
+runtime/src/lib/workSourceImport.mjs
+runtime/src/lib/tests/work-source-foundation.test.mjs
+```
 
-### TDD task 10 - drift evaluator
+Test first: valid mapping profile; secrets/JQL/roots/missing field map rejected.  
+Commit: `feat(work-sources): define secure jira mapping config`.
 
-File: `runtime/src/lib/workSourceDrift.mjs`
-Function/schema: `evaluateSourceDrift`
-Test first: `runtime/src/lib/tests/work-source-drift.test.mjs`
-Behavior: produce all states in the matrix deterministically.
-Errors: missing baseline, mapping obsolete, config stale, source unavailable,
-conflict.
-Validation: `npm run test:unit`
-Recommended commit: `feat(work-sources): evaluate source drift matrix`
+### Task 3 — transport port
 
-### TDD task 11 - refresh proposal
+Files:
 
-File: `runtime/src/lib/workSourceRefresh.mjs`
-Function/schema: `prepareWorkSourceRefresh`, `renderWorkSourceRefresh`,
-invariant findings
-Test first: `runtime/src/lib/tests/work-source-refresh.test.mjs`
-Behavior: propose/update only when drift is resolvable; preserve local-owned
-fields; bind baseline, config, mapping, source revision and target paths.
-Errors: no primary source, missing baseline, source conflict, source not found,
-stale local/remote/config/mapping.
-Validation: `npm run test:unit`
-Recommended commit: `feat(work-sources): add refresh changeset`
+```text
+runtime/src/lib/workSourceTransportPort.mjs
+runtime/src/lib/tests/work-source-transport-port.test.mjs
+```
 
-### TDD task 12 - CLI item refresh
+Test first: request/response binding, limits, malformed/unavailable.  
+Commit: `feat(work-sources): add transport port contract`.
 
-File: `runtime/src/commands/item.mjs`, `runtime/src/index.mjs`,
-`bin/shipping-mode.mjs`, `skills/item/SKILL.md`
-Function/schema: `runItemRefresh`, dispatch parser, help text
-Test first: `runtime/src/commands/tests/work-source-refresh-commands.test.mjs`
-Behavior: `item refresh <release-ref> <item-ref> --actor` only proposes a
-ChangeSet; no direct item write.
-Errors: usage errors, not found, conflict, unavailable provider.
-Validation: `npm run test:unit && npm run test:cli-e2e`
-Recommended commit: `feat(cli): expose item refresh proposal command`
+### Task 4 — fake transport and Jira fixtures
 
-### TDD task 13 - source drift check
+Files:
 
-File: `runtime/src/commands/check.mjs`, `runtime/src/index.mjs`,
-`bin/shipping-mode.mjs`, `skills/check/SKILL.md`
-Function/schema: `checkSourceDrift`
-Test first: `runtime/src/commands/tests/check-source-drift.test.mjs`
-Behavior: query-only scan, optional release filter, deterministic findings and
-recommended operation.
-Errors: recovery pending, missing source, provider unavailable, mapping obsolete.
-Validation: `npm run test:unit && npm run test:cli-e2e`
-Recommended commit: `feat(check): add query-only source drift check`
+```text
+runtime/src/lib/tests/fakes/fakeWorkSourceTransport.mjs
+runtime/src/lib/tests/fixtures/jira-mcp/v1/**
+```
 
-### TDD task 14 - contract harness expansion
+Test first: deterministic replay and error fixtures.  
+Commit: `test(work-sources): add jira transport fixtures`.
 
-File: `runtime/src/lib/workSourceContract.mjs`
-Function/schema: `evaluateWorkSourceProviderContract`
-Test first: `runtime/src/lib/tests/work-source-contract.test.mjs`
-Behavior: run availability, discover/search/get determinism, revision,
-mapping, error normalization and safe retry according to declared capabilities.
-Errors: provider activation false on any declared capability failure.
-Validation: `npm run test:unit`
-Recommended commit: `test(work-sources): harden shared provider contract`
+### Task 5 — Jira mapping profile
 
-### TDD task 15 - traceability query
+Files:
 
-File: `runtime/src/lib/sourceTraceability.mjs`
-Function/schema: `querySourceTraceability`
-Test first: `runtime/src/lib/tests/source-traceability.test.mjs`
-Behavior: return Work Source -> normalized item/source ref -> Release Item ->
-Work Package -> Scope projection without writing reports.
-Errors: missing parent, invalid source ref, missing scope.
-Validation: `npm run test:unit`
-Recommended commit: `feat(work-sources): add internal source traceability query`
+```text
+runtime/src/lib/workSourceMapping.mjs
+runtime/src/lib/tests/jira-mcp-work-source.test.mjs
+```
 
-### TDD task 16 - events and recovery
+Test first: each kind, missing required field, unknown type, no dependency UUID
+fabrication.  
+Commit: `feat(work-sources): map jira through closed profiles`.
 
-File: `runtime/src/lib/changeset.mjs`, `runtime/src/lib/workSourceRefresh.mjs`,
-`runtime/src/schemas/event.schema.json`
-Function/schema: event reservation/publication for refresh
-Test first: `runtime/src/lib/tests/work-source-refresh-crash-recovery.test.mjs`
-Behavior: one `work-source.refreshed` event after apply; no duplicate event or
-partial baseline after recovery.
-Errors: event/result/operation divergence recovered or marked pending.
-Validation: `npm run test:unit && npm run test:real-crash-e2e`
-Recommended commit: `feat(work-sources): publish refresh event with recovery`
+### Task 6 — Jira provider
 
-### TDD task 17 - generated artifacts and host integration
+Files:
 
-File: `runtime/dist/shipping-mode.mjs`, `runtime/src/generated/validators.mjs`,
-`spikes/host-integration/tests/host-integration.test.mjs`
-Function/schema: generated bundle/help expectations
-Test first: host integration fixture expectation updates
-Behavior: bundle includes new commands, schemas and ChangeSet kind.
-Errors: stale generated validators or help output.
-Validation: `npm run build:schemas && npm run build:runtime && npm run build:test-bundle && npm run test:host-integration && npm run verify:artifacts && npm run verify:next-generation`
-Recommended commit: `build(runtime): regenerate plan 4 artifacts`
+```text
+runtime/src/lib/jiraMcpWorkSource.mjs
+runtime/src/lib/workSourceProvider.mjs
+```
 
-## 21. Plan TDD incremental
+Test first: discover/search/get, no transport, bad response, deterministic output.  
+Commit: `feat(work-sources): add jira read provider`.
 
-Implementation order:
+### Task 7 — host bridge integration
 
-1. schema tests fail for Jira config.
-2. config normalization tests pass.
-3. transport port and fake transport tests pass.
-4. Jira mapping fixture tests pass.
-5. Jira provider contract tests pass.
-6. sourceSync schema and import baseline tests pass.
-7. drift evaluator matrix tests pass.
-8. refresh ChangeSet tests pass.
-9. CLI refresh/check tests pass.
-10. crash recovery tests pass.
-11. host integration and generated artifact verification pass.
+Files depend on P4-0 result and must be named in the accepted ADR.
 
-Each step must keep previous Corte 0, Corte 1, Corte 2 and Corte 3 tests green.
+Test first: real plugin invocation path and standalone fail-closed.  
+Commit: `feat(host): connect approved work source transport bridge`.
 
-## 22. Matriz adversarial
+### Task 8 — sourceSync schema and compatibility
 
-Required adversarial cases:
+Files:
 
-- fake Jira MCP transport deterministic.
-- missing connection.
-- connection unavailable.
-- malformed provider response.
-- raw payload leakage.
-- secret leakage.
-- unknown issue type.
-- mapping v1.
-- mapping obsolete.
-- external revision changes.
-- source deleted.
-- source key ambiguity.
-- remote-only drift.
-- local-only drift.
-- concurrent conflicting drift.
-- compatible changes.
-- refresh idempotency.
-- stale config.
-- stale mapping.
-- stale parent.
-- ChangeSet tampering.
-- crash recovery at each durable boundary.
-- deterministic local/Jira contract tests.
-- query-only checks.
-- no external writes.
+```text
+runtime/src/schemas/release-item.schema.json
+runtime/src/lib/tests/release-item-schema.test.mjs
+runtime/src/lib/releaseItemStore.mjs
+```
 
-## 23. Validacion completa
+Test first: existing item without baseline valid; compact baseline valid; hash and
+identity mismatches invalid.  
+Commit: `feat(items): add compatible source sync baseline`.
 
-Future PR minimum validation:
+### Task 9 — import baseline
+
+Files:
+
+```text
+runtime/src/lib/workSourceImport.mjs
+runtime/src/lib/tests/work-source-foundation.test.mjs
+```
+
+Test first: new local/Jira imports include baseline; legacy items unaffected.  
+Commit: `feat(work-sources): persist import baseline`.
+
+### Task 10 — drift evaluator
+
+Files:
+
+```text
+runtime/src/lib/workSourceDrift.mjs
+runtime/src/lib/tests/work-source-drift.test.mjs
+```
+
+Test first: every state in Section 12.  
+Commit: `feat(work-sources): evaluate managed-field drift`.
+
+### Task 11 — refresh ChangeSet
+
+Files:
+
+```text
+runtime/src/lib/workSourceRefresh.mjs
+runtime/src/schemas/change-set.schema.json
+runtime/src/schemas/operation.schema.json
+runtime/src/lib/changeset.mjs
+runtime/src/lib/tests/work-source-refresh.test.mjs
+```
+
+Test first: no-op, capture baseline, remote refresh, conflict, tampering, stale.  
+Commit: `feat(work-sources): add refresh changeset`.
+
+### Task 12 — CLI and runtime context propagation
+
+Files:
+
+```text
+runtime/src/index.mjs
+runtime/src/commands/item.mjs
+bin/shipping-mode.mjs
+skills/item/SKILL.md
+```
+
+Test first: runtime context reaches provider only through approved bridge;
+standalone external request fails closed.  
+Commit: `feat(cli): expose safe item refresh`.
+
+### Task 13 — source drift check
+
+Files:
+
+```text
+runtime/src/commands/check.mjs
+runtime/src/index.mjs
+skills/check/SKILL.md
+runtime/src/commands/tests/check-source-drift.test.mjs
+```
+
+Test first: query-only and deterministic.  
+Commit: `feat(check): add source drift query`.
+
+### Task 14 — provider contract expansion
+
+Files:
+
+```text
+runtime/src/lib/workSourceContract.mjs
+runtime/src/lib/tests/work-source-contract.test.mjs
+```
+
+Test first: local and Jira share same harness.  
+Commit: `test(work-sources): harden provider contract`.
+
+### Task 15 — traceability query
+
+Files:
+
+```text
+runtime/src/lib/sourceTraceability.mjs
+runtime/src/lib/tests/source-traceability.test.mjs
+```
+
+Test first: missing source/item/package/scope and deterministic ordering.  
+Commit: `feat(work-sources): add traceability query`.
+
+### Task 16 — event and recovery
+
+Files:
+
+```text
+runtime/src/schemas/event.schema.json
+runtime/src/lib/changeset.mjs
+runtime/src/lib/tests/work-source-refresh-crash-recovery.test.mjs
+```
+
+Test first: durable-boundary matrix and no duplicate event.  
+Commit: `feat(work-sources): recover refresh atomically`.
+
+### Task 17 — generated artifacts and closure
+
+Files:
+
+```text
+runtime/src/generated/validators.mjs
+runtime/dist/shipping-mode.mjs
+bin/shipping-mode.mjs
+spikes/host-integration/tests/host-integration.test.mjs
+docs/superpowers/plans/2026-07-29-corte-3-INDEX.md
+```
+
+Commit: `build(runtime): close Corte 3 Plan 4`.
+
+## 23. Matriz adversarial
+
+- bridge ausente/no autenticado;
+- standalone CLI con payload externo forjado;
+- connection missing/unavailable;
+- timeout/cancel;
+- response hash/request mismatch;
+- oversized/malformed response;
+- secret/raw leakage;
+- unknown issue type;
+- required canonical mapping field missing;
+- local trace legacy;
+- baseline missing safe/conflict;
+- remote-only drift;
+- local unmanaged change;
+- local managed change;
+- both compatible/conflict;
+- mapping/config stale;
+- source deleted/ambiguous;
+- explicit idempotency reuse/mismatch;
+- concurrent refresh reservation;
+- target/path/baseline tampering;
+- recovery en cada durable boundary;
+- no external writes;
+- query-only checks;
+- deterministic local/Jira provider contracts.
+
+## 24. Validación completa
 
 ```bash
 npm ci
@@ -899,64 +1008,54 @@ git diff --check
 git status --short
 ```
 
-No real Atlassian account is allowed in CI. Any optional manual smoke against a
-real host connection must be documented as non-blocking evidence and must not
-write external data.
+CI usa fake transport. Un smoke real es read-only, opcional y no reemplaza los
+tests. P4-0 sí debe producir evidencia de host integration real o declarar el
+bloqueo.
 
-## 24. Definition of Done de Plan 4
+## 25. Definition of Done
 
-Plan 4 is done when:
+Plan 4 está completo solo si:
 
-- Jira MCP source config is closed and secret-free.
-- Runtime-host-MCP boundary is explicit, injectable and fakeable.
-- `JiraMcpWorkSource` implements only `discover`, `search`, `get`.
-- Jira mapping v1 is fixture-backed and fail-closed.
-- `work-source.import` writes sourceSync baseline.
-- `work-source.refresh` proposes/applies pull updates via ChangeSet only.
-- Drift/conflict matrix is deterministic.
-- `check work-sources` and `check source-drift` are query-only.
-- Contract harness gates both local and Jira providers.
-- No Jira types leak into core.
-- No Tasks, external writes or Corte 5 report system are introduced.
-- Full validation suite passes.
+- P4-0 pasó;
+- el bridge productivo es ejecutable y documentado;
+- standalone CLI falla cerrado para external providers sin bridge;
+- Jira config y mapping profiles son cerrados;
+- normalized schema admite external provider sin romper Plan 3;
+- Jira implementa únicamente discover/search/get;
+- imports nuevos escriben baseline;
+- items Plan 3 sin baseline siguen válidos;
+- refresh/capture baseline son ChangeSet-only;
+- drift usa campos managed;
+- checks son query-only;
+- local y Jira pasan el mismo harness;
+- no existen Tasks, reports completos ni writes externos;
+- suite completa y workflow oficial pasan.
 
-## 25. Definition of Done final de Corte 3
+Corte 3 se marca completo únicamente después de merge de Plan 4 con toda la
+evidencia anterior.
 
-Corte 3 can be marked complete only after Plan 4 is implemented, reviewed and
-merged. Final Corte 3 evidence:
-
-- Plan 1 Release Item core complete, PR #24 merged.
-- Plan 2 Work Package core complete, PR #25 merged.
-- Plan 3 Work Source foundation complete, PR #26 merged.
-- Plan 4 external provider/closure complete and merged.
-- Release Items, Work Packages and Work Sources are all implemented as separate
-  provider-agnostic contracts.
-- Local and Jira Work Sources share the same provider contract and
-  NormalizedWorkSourceItem.
-- Import, refresh, drift checks, source refs and traceability query are all
-  covered by TDD, recovery and security tests.
-- Corte 4-only and Corte 5-only capabilities remain explicitly unavailable.
-
-## 26. Riesgos residuales trasladados a Cortes 4 y 5
+## 26. Riesgos residuales
 
 Corte 4:
 
-- Task aggregate and task lifecycle.
-- gate execution and structured command execution.
-- Git task lifecycle.
-- optional write-back to external Work Sources.
-- external mutation sagas with prepare/execute/verify/record.
+- Task aggregate y lifecycle;
+- gate/command execution;
+- Git lifecycle;
+- write-back y mutaciones externas;
+- sagas y compensación.
 
 Corte 5:
 
-- public `report source-status`.
-- public `report traceability`.
-- release notes from Work Source provenance.
-- consolidated check/report UX if `check sync` gains real semantics.
+- reports públicos;
+- source status/traceability UI;
+- release notes;
+- UX consolidada de checks.
 
-Residual implementation blocker before coding:
+Bloqueo actual:
 
-- Productive Jira access depends on a host Atlassian MCP connection being
-  available at runtime. This is not a blocker for implementation because the
-  runtime boundary and fake transport make CI deterministic, but it is a
-  blocker for real manual provider smoke until the host connection exists.
+```text
+P4-0 — productive host-to-MCP transport bridge is unproven
+```
+
+Hasta que P4-0 pase, el plan está aprobado como diseño documental, pero no está
+autorizado a declarar Jira productivo ni cerrar Corte 3.
