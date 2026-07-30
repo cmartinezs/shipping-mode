@@ -93,6 +93,7 @@ export function projectContextConsistencyFindings(config, { knownSourceIds = nul
       if (path.posix.isAbsolute(root) || path.win32.isAbsolute(root) || segments.includes("..")) {
         findings.push(`config.yml: work source ${source.id} root must remain inside the workspace`);
       }
+      if (segments[0] === ".planning" || segments[0] === ".git") findings.push(`config.yml: work source ${source.id} root cannot use reserved runtime or VCS directories`);
     }
     if (source.provider !== "local_repository") {
       findings.push(`config.yml: work source ${source.id} provider ${source.provider} is deferred to Plan 4`);

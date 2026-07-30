@@ -525,6 +525,11 @@
         "importedAt": {
           "type": "string",
           "minLength": 1
+        },
+        "itemId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
         }
       },
       "oneOf": [
@@ -533,11 +538,13 @@
             "provider": {
               "const": "local_repository"
             },
-            "path": {}
+            "path": {},
+            "itemId": {}
           },
           "required": [
             "provider",
-            "path"
+            "path",
+            "itemId"
           ],
           "allOf": [
             {

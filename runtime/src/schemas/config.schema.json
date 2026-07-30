@@ -422,7 +422,10 @@
     "documentationContext": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source_refs", "gaps"],
+      "required": [
+        "source_refs",
+        "gaps"
+      ],
       "properties": {
         "source_refs": {
           "type": "array",
@@ -435,14 +438,21 @@
         "gaps": {
           "type": "array",
           "uniqueItems": true,
-          "items": {"$ref": "#/$defs/documentationGap"}
+          "items": {
+            "$ref": "#/$defs/documentationGap"
+          }
         }
       }
     },
     "documentationGap": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "concern", "status", "description"],
+      "required": [
+        "id",
+        "concern",
+        "status",
+        "description"
+      ],
       "properties": {
         "id": {
           "type": "string",
@@ -453,7 +463,13 @@
           "pattern": "^[a-z][a-z0-9._-]*$"
         },
         "status": {
-          "enum": ["known", "missing", "unknown", "conflicting", "deferred"]
+          "enum": [
+            "known",
+            "missing",
+            "unknown",
+            "conflicting",
+            "deferred"
+          ]
         },
         "description": {
           "type": "string",
@@ -802,7 +818,7 @@
           "items": {
             "type": "string",
             "minLength": 1,
-            "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!\\.planning(?:/|$)).+"
+            "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!\\.planning(?:/|$))(?!\\.git(?:/|$)).+"
           }
         },
         "import_policy": {
@@ -822,7 +838,15 @@
         "capabilities": {
           "type": "array",
           "items": {
-            "enum": ["discover", "search", "get", "create", "update", "transition", "comment"]
+            "enum": [
+              "discover",
+              "search",
+              "get",
+              "create",
+              "update",
+              "transition",
+              "comment"
+            ]
           },
           "uniqueItems": true
         },
@@ -832,7 +856,11 @@
           "properties": {
             "file_globs": {
               "type": "array",
-              "items": { "type": "string", "minLength": 1, "maxLength": 128 },
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
               "uniqueItems": true
             },
             "max_item_bytes": {

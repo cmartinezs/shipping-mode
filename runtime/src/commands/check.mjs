@@ -19,7 +19,8 @@ import { workPackageCatalogFindings, workPackageIntegrityFindings } from "../lib
 import { readCatalogEntry } from "../lib/operationalCatalog.mjs";
 import { releaseCatalogPolicyFindings } from "../lib/releasePolicy.mjs";
 import { evaluateReleaseHealth } from "../lib/releaseHealth.mjs";
-import { defaultWorkSourceRegistry, normalizeWorkSourceConfig } from "../lib/workSourceImport.mjs";
+import { defaultWorkSourceRegistry, normalizeWorkSourceConfig, readValidatedWorkSourceConfig } from "../lib/workSourceImport.mjs";
+import { evaluateWorkSourceProviderContract } from "../lib/workSourceContract.mjs";
 import { pendingRecovery } from "./release.mjs";
 
 function checkRequiredFile(planningRoot, relativePath, schemaName, findings) {
@@ -563,35 +564,29 @@ export function checkSchema({ planningRoot }) {
 }
 
 export function checkWorkSources({ planningRoot, workspaceRoot = path.dirname(planningRoot) }) {
-  if (!fs.existsSync(planningRoot)) {
-    return { status: "NOT_INITIALIZED", sources: [], findings: ["workspace is not initialized: .planning/ does not exist"], pendingOperations: [] };
-  }
+  if (!fs.existsSync(planningRoot)) return { status: "NOT_INITIALIZED", sources: [], findings: ["workspace is not initialized: .planning/ does not exist"], pendingOperations: [] };
   const pending = pendingRecovery(planningRoot);
-  if (pending.length > 0) {
-    return { status: "RECOVERY_REQUIRED", sources: [], findings: ["workspace has pending or recovery-required operations"], pendingOperations: pending };
-  }
-  const configPath = path.join(planningRoot, "config.yml");
-  if (!fs.existsSync(configPath)) {
-    return { status: "FAIL", sources: [], findings: ["config.yml: required file is missing"], pendingOperations: [] };
-  }
-  const config = parseYaml(fs.readFileSync(configPath, "utf8"));
-  const entries = [];
-  const findings = [];
-  let sources = [];
+  if (pending.length > 0) return { status: "RECOVERY_REQUIRED", sources: [], findings: ["workspace has pending or recovery-required operations"], pendingOperations: pending };
+  let config;
+  let sources;
   try {
+    config = readValidatedWorkSourceConfig(planningRoot);
     sources = normalizeWorkSourceConfig({ config, workspaceRoot });
   } catch (error) {
     return { status: "FAIL", sources: [], findings: [`SOURCE_MISCONFIGURED: ${error.message}`], pendingOperations: [] };
   }
-  let registry = null;
+  let registry;
   try {
     registry = defaultWorkSourceRegistry({ planningRoot });
   } catch (error) {
-    findings.push(`SOURCE_MISCONFIGURED: ${error.message}`);
+    return { status: "FAIL", sources: [], findings: [`SOURCE_MISCONFIGURED: ${error.message}`], pendingOperations: [] };
   }
+  const entries = [];
+  const findings = [];
   for (const source of sources) {
     const entryFindings = [];
-    const capabilities = source.capabilities.map((capability) => ({ name: capability, declared: true, implemented: ["discover", "search", "get"].includes(capability) && source.provider === "local_repository" }));
+    const descriptor = registry.inspect(source.id);
+    const capabilities = source.capabilities.map((capability) => ({ name: capability, declared: true, implemented: descriptor.providerCapabilities.includes(capability) }));
     for (const capability of capabilities) {
       if (!capability.implemented) entryFindings.push({ code: "SOURCE_CAPABILITY_MISSING", severity: "error", message: `capability ${capability.name} is not implemented by ${source.provider}` });
     }
@@ -606,24 +601,18 @@ export function checkWorkSources({ planningRoot, workspaceRoot = path.dirname(pl
       if (source.enabled && !available) entryFindings.push({ code: "SOURCE_UNAVAILABLE", severity: "error", message: `root unavailable: ${root.relativePath}` });
       return { path: root.relativePath, available };
     });
-    if (source.enabled && registry) {
-      for (const required of ["discover", "get"]) {
-        try {
-          registry.resolve(source.id, required);
-        } catch (error) {
-          entryFindings.push({ code: error.code || "SOURCE_CAPABILITY_MISSING", severity: "error", message: error.message });
-        }
-      }
-    }
+    const contract = evaluateWorkSourceProviderContract({ registry, source });
+    entryFindings.push(...contract.findings);
+    const orderedFindings = entryFindings.sort((left, right) => `${left.code}:${left.message}`.localeCompare(`${right.code}:${right.message}`));
     entries.push({
       sourceId: source.id,
       provider: source.provider,
       enabled: source.enabled,
       capabilities,
-      configuration: { valid: entryFindings.length === 0, mappingVersion: source.mappingVersion, importPolicy: source.importPolicy, syncMode: source.syncMode },
+      configuration: { valid: orderedFindings.length === 0, mappingVersion: source.mappingVersion, importPolicy: source.importPolicy, syncMode: source.syncMode },
       roots,
-      contractTests: { active: source.enabled && entryFindings.length === 0, provider: source.provider },
-      findings: entryFindings.sort((left, right) => `${left.code}:${left.message}`.localeCompare(`${right.code}:${right.message}`))
+      contractTests: { active: contract.active, status: contract.status, contractVersion: contract.contractVersion, checks: contract.checks, itemCount: contract.itemCount },
+      findings: orderedFindings
     });
   }
   for (const entry of entries) findings.push(...entry.findings.map((finding) => `${finding.code}: ${finding.message}`));

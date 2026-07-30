@@ -180,3 +180,19 @@ completa está verde.
 Plan 4 debe conectar providers externos reales al mismo harness, enriquecer
 drift/conflict/sync, decidir políticas de múltiples primary incompatibles,
 proyectar traceability global y derivar release notes desde Work Sources.
+
+
+## Auditoría post-review de PR #26
+
+La revisión adversarial cerró gaps que no estaban cubiertos por la implementación inicial:
+
+- `release-item.create` ya no acepta `sourceRefs` proporcionadas por caller; la provenance de import es exclusivamente server-owned.
+- El payload de `work-source.import`, `source` y `requestSnapshot` son schemas cerrados.
+- `normalizedItem`, source resolution, source ref y Release Item mapping quedan ligados semánticamente, no solo por el hash público del ChangeSet.
+- La configuración completa de la Work Source queda fijada mediante hash; cambios de roots, options, capabilities, policy o sync mode producen `STALE`.
+- `config.yml` se lee como archivo real, schema-valid e íntegro antes de activar el registry.
+- Roots con componentes symlink son rechazados y discovery excluye siempre `.planning` y `.git`, incluso desde roots amplios.
+- El provider contract tiene versión explícita y `check work-sources` ejecuta probes deterministas de discover/search/get.
+- La normalización exige campos canónicos específicos por kind; no se fabrican valores `unspecified` ni se infieren campos obligatorios ambiguos.
+- Source refs locales conservan `itemId` estable además de path, por lo que un movimiento de archivo no permite duplicar el mismo primary item.
+- El schema normalizado admite providers externos sin exigir fingerprints locales, preservando la compatibilidad prevista para Plan 4.

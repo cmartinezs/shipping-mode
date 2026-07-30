@@ -1,47 +1,61 @@
 import fs from "node:fs";
 import path from "node:path";
 import { parseYaml } from "./yaml.mjs";
-import { computeFileFingerprint, FingerprintError } from "./fingerprint.mjs";
+import { computeFileFingerprint } from "./fingerprint.mjs";
 import { contentHash } from "./canonical.mjs";
 import { validateNormalizedWorkSourceItem, assertSafeMetadata } from "./workSourceImport.mjs";
 
 const LOCAL_FILE_EXTENSIONS = new Set([".yml", ".yaml", ".json"]);
 const DEFAULT_MAX_ITEM_BYTES = 1024 * 1024;
+const COMMON_DOCUMENT_FIELDS = new Set(["schemaVersion", "id", "type", "title", "description", "acceptanceCriteria", "status", "priority", "labels", "relationships", "dependencies", "assignee", "owner", "metadata"]);
+const KIND_FIELDS = {
+  user_story: ["actor", "need", "value"],
+  capability: ["outcome", "behavior"],
+  defect: ["observedBehavior", "expectedBehavior", "reproduction", "severity"],
+  enabler: ["technicalOutcome", "unlockedCapabilities"],
+  spike: ["question", "timebox", "expectedDecision"],
+  compliance: ["obligation", "authority", "deadline", "evidence"],
+  migration: ["sourceState", "targetState", "rollback"],
+  operational: ["procedure", "owner", "evidence"]
+};
 
 function normalizeError(error, code = null) {
-  return {
-    code: code || error.code || "SOURCE_UNAVAILABLE",
-    severity: "error",
-    message: error.message
-  };
+  return { code: code || error.code || "SOURCE_UNAVAILABLE", severity: "error", message: error.message };
 }
 
-function compareUtf8(a, b) {
-  return Buffer.compare(Buffer.from(a, "utf8"), Buffer.from(b, "utf8"));
+function compareUtf8(left, right) {
+  return Buffer.compare(Buffer.from(left, "utf8"), Buffer.from(right, "utf8"));
 }
 
-function readStructuredFile(absolutePath, maxBytes) {
-  const stat = fs.lstatSync(absolutePath);
-  if (stat.isSymbolicLink()) {
-    const error = new Error(`SOURCE_MISCONFIGURED: symlink entries are not permitted: ${absolutePath}`);
-    error.code = "SOURCE_MISCONFIGURED";
-    throw error;
+function isWithin(target, root) {
+  const relative = path.relative(root, target);
+  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+}
+
+function excludedDirectory(workspaceRoot, absolutePath) {
+  return [".planning", ".git"].some((name) => isWithin(absolutePath, path.join(workspaceRoot, name)));
+}
+
+function readStructuredFile(absolutePath, relativePath, maxBytes) {
+  let descriptor = null;
+  try {
+    descriptor = fs.openSync(absolutePath, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW || 0));
+    const stat = fs.fstatSync(descriptor);
+    if (!stat.isFile()) throw new Error(`Work Source item must be a regular file: ${relativePath}`);
+    if (stat.size > maxBytes) throw new Error(`Work Source item exceeds size limit: ${relativePath}`);
+    const bytes = fs.readFileSync(descriptor);
+    const text = bytes.toString("utf8");
+    const extension = path.extname(absolutePath);
+    const document = extension === ".json" ? JSON.parse(text) : parseYaml(text);
+    const fingerprint = computeFileFingerprint(absolutePath, { maxBytes, statFn: () => stat, readFn: () => bytes });
+    return { document, bytes, fingerprint };
+  } catch (error) {
+    const wrapped = new Error(`SOURCE_MISCONFIGURED: cannot read ${relativePath}: ${error.message}`);
+    wrapped.code = "SOURCE_MISCONFIGURED";
+    throw wrapped;
+  } finally {
+    if (descriptor !== null) fs.closeSync(descriptor);
   }
-  if (!stat.isFile()) {
-    const error = new Error(`SOURCE_MISCONFIGURED: Work Source item must be a regular file: ${absolutePath}`);
-    error.code = "SOURCE_MISCONFIGURED";
-    throw error;
-  }
-  if (stat.size > maxBytes) {
-    const error = new Error(`SOURCE_MISCONFIGURED: Work Source item exceeds size limit: ${absolutePath}`);
-    error.code = "SOURCE_MISCONFIGURED";
-    throw error;
-  }
-  const bytes = fs.readFileSync(absolutePath);
-  const text = bytes.toString("utf8");
-  const extension = path.extname(absolutePath);
-  const document = extension === ".json" ? JSON.parse(text) : parseYaml(text);
-  return { document, bytes };
 }
 
 function sourceRootEntries(source) {
@@ -59,6 +73,7 @@ function globMatches(relativePath, globs) {
 
 export class LocalRepositoryWorkSource {
   provider = "local_repository";
+  contractVersion = 1;
   capabilities = ["discover", "search", "get"];
 
   constructor({ workspaceRoot }) {
@@ -71,7 +86,8 @@ export class LocalRepositoryWorkSource {
     for (const root of sourceRootEntries(source)) {
       try {
         const rootStat = fs.lstatSync(root.absoluteRoot);
-        if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) throw new Error(`root must be a real directory: ${root.relativePath}`);
+        if (rootStat.isSymbolicLink() || !rootStat.isDirectory()) throw new Error(`root must be a real directory: ${root.root.relativePath}`);
+        if (excludedDirectory(this.workspaceRoot, root.absoluteRoot)) throw new Error(`root is reserved and cannot be used as a Work Source: ${root.root.relativePath}`);
         const stack = [root.absoluteRoot];
         while (stack.length > 0) {
           const current = stack.pop();
@@ -83,6 +99,7 @@ export class LocalRepositoryWorkSource {
               continue;
             }
             if (stat.isDirectory()) {
+              if (excludedDirectory(this.workspaceRoot, absolute)) continue;
               stack.push(absolute);
               stack.sort(compareUtf8).reverse();
               continue;
@@ -90,15 +107,14 @@ export class LocalRepositoryWorkSource {
             if (!stat.isFile() || !LOCAL_FILE_EXTENSIONS.has(path.extname(name))) continue;
             const relativePath = path.relative(this.workspaceRoot, absolute).split(path.sep).join("/");
             if (!globMatches(path.relative(root.absoluteRoot, absolute).split(path.sep).join("/"), source.options.file_globs)) continue;
-            const item = this.#readItem({ source, absolutePath: absolute, relativePath });
-            items.push(item);
+            items.push(this.#readItem({ source, absolutePath: absolute, relativePath }));
           }
         }
       } catch (error) {
         findings.push(normalizeError(error, error.code || "SOURCE_UNAVAILABLE"));
       }
     }
-    items.sort((left, right) => `${left.itemId}:${left.path}`.localeCompare(`${right.itemId}:${right.path}`));
+    items.sort((left, right) => compareUtf8(`${left.itemId}:${left.path}`, `${right.itemId}:${right.path}`));
     const seen = new Set();
     for (const item of items) {
       if (seen.has(item.itemId)) findings.push({ code: "SOURCE_MISCONFIGURED", severity: "error", message: `duplicate local Work Source item id ${item.itemId}` });
@@ -110,10 +126,7 @@ export class LocalRepositoryWorkSource {
   search({ source, query }) {
     const normalizedQuery = String(query || "").trim().toLowerCase();
     const discovered = this.discover({ source });
-    return {
-      ...discovered,
-      items: discovered.items.filter((item) => normalizedQuery.length === 0 || `${item.itemId} ${item.title} ${item.description.text}`.toLowerCase().includes(normalizedQuery))
-    };
+    return { ...discovered, items: discovered.items.filter((item) => normalizedQuery.length === 0 || `${item.itemId} ${item.title} ${item.description.text}`.toLowerCase().includes(normalizedQuery)) };
   }
 
   get({ source, itemRef }) {
@@ -127,8 +140,7 @@ export class LocalRepositoryWorkSource {
 
   #readItem({ source, absolutePath, relativePath }) {
     const maxBytes = source.options.max_item_bytes || DEFAULT_MAX_ITEM_BYTES;
-    const { document, bytes } = readStructuredFile(absolutePath, maxBytes);
-    const fingerprint = computeFileFingerprint(absolutePath, { maxBytes });
+    const { document, bytes, fingerprint } = readStructuredFile(absolutePath, relativePath, maxBytes);
     return normalizeLocalDocument({ source, document, relativePath, bytes, fingerprint });
   }
 }
@@ -139,7 +151,7 @@ function requireString(value, field) {
 }
 
 function normalizeDescription(value) {
-  if (typeof value === "string") return { format: "plain", text: value };
+  if (typeof value === "string") return { format: "plain", text: requireString(value, "description") };
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("description must be a string or object");
   const format = value.format === undefined ? "plain" : requireString(value.format, "description.format");
   if (!["plain", "markdown"].includes(format)) throw new Error("description.format must be plain or markdown");
@@ -159,12 +171,19 @@ function normalizeAcceptanceCriteria(value) {
   });
 }
 
+function normalizeStringList(value, field) {
+  if (!Array.isArray(value) || value.length === 0) throw new Error(`${field} must be a non-empty array`);
+  const normalized = value.map((entry) => requireString(entry, field));
+  if (new Set(normalized).size !== normalized.length) throw new Error(`${field} cannot contain duplicates`);
+  return normalized;
+}
+
 function normalizeLabels(value) {
   const labels = value === undefined ? [] : value;
   if (!Array.isArray(labels)) throw new Error("labels must be an array");
   const normalized = labels.map((entry) => requireString(entry, "labels"));
   if (new Set(normalized).size !== normalized.length) throw new Error("labels cannot contain duplicates");
-  return normalized.sort();
+  return normalized.sort(compareUtf8);
 }
 
 function normalizeTypedRefs(value, field) {
@@ -172,20 +191,40 @@ function normalizeTypedRefs(value, field) {
   if (!Array.isArray(refs)) throw new Error(`${field} must be an array`);
   const identities = new Set();
   return refs.map((entry, index) => {
-    const normalized = {
-      type: requireString(entry?.type, `${field}[${index}].type`),
-      target: requireString(entry?.target, `${field}[${index}].target`)
-    };
+    const normalized = { type: requireString(entry?.type, `${field}[${index}].type`), target: requireString(entry?.target, `${field}[${index}].target`) };
     const key = `${normalized.type}:${normalized.target}`;
     if (identities.has(key)) throw new Error(`${field} cannot contain duplicate ${key}`);
     identities.add(key);
     return normalized;
-  }).sort((left, right) => `${left.type}:${left.target}`.localeCompare(`${right.type}:${right.target}`));
+  }).sort((left, right) => compareUtf8(`${left.type}:${left.target}`, `${right.type}:${right.target}`));
+}
+
+function normalizeKindFields(document, type) {
+  const names = KIND_FIELDS[type];
+  if (!names) throw new Error(`unsupported Work Source item type: ${type}`);
+  const allowed = new Set([...COMMON_DOCUMENT_FIELDS, ...names]);
+  for (const key of Object.keys(document)) {
+    if (!allowed.has(key)) throw new Error(`local Work Source item contains unsupported field: ${key}`);
+  }
+  if (type === "user_story") return { actor: requireString(document.actor, "actor"), need: requireString(document.need, "need"), value: requireString(document.value, "value") };
+  if (type === "capability") return { outcome: requireString(document.outcome, "outcome"), behavior: requireString(document.behavior, "behavior") };
+  if (type === "defect") {
+    const severity = requireString(document.severity, "severity");
+    if (!["low", "medium", "high", "critical"].includes(severity)) throw new Error("severity is invalid");
+    return { observedBehavior: requireString(document.observedBehavior, "observedBehavior"), expectedBehavior: requireString(document.expectedBehavior, "expectedBehavior"), reproduction: requireString(document.reproduction, "reproduction"), severity };
+  }
+  if (type === "enabler") return { technicalOutcome: requireString(document.technicalOutcome, "technicalOutcome"), unlockedCapabilities: normalizeStringList(document.unlockedCapabilities, "unlockedCapabilities") };
+  if (type === "spike") return { question: requireString(document.question, "question"), timebox: requireString(document.timebox, "timebox"), expectedDecision: requireString(document.expectedDecision, "expectedDecision") };
+  if (type === "compliance") return { obligation: requireString(document.obligation, "obligation"), authority: requireString(document.authority, "authority"), deadline: requireString(document.deadline, "deadline"), evidence: normalizeStringList(document.evidence, "evidence") };
+  if (type === "migration") return { sourceState: requireString(document.sourceState, "sourceState"), targetState: requireString(document.targetState, "targetState"), rollback: requireString(document.rollback, "rollback") };
+  if (type === "operational") return { procedure: requireString(document.procedure, "procedure"), owner: requireString(document.owner, "owner"), evidence: normalizeStringList(document.evidence, "evidence") };
+  throw new Error(`unsupported Work Source item type: ${type}`);
 }
 
 function normalizeLocalDocument({ source, document, relativePath, bytes, fingerprint }) {
   if (!document || typeof document !== "object" || Array.isArray(document)) throw new Error("local Work Source item must be an object");
-  if (document.rawPayload !== undefined || document.providerMetadata !== undefined) throw new Error("raw provider payload fields are not accepted");
+  if (document.schemaVersion !== 1) throw new Error("local Work Source item schemaVersion must be 1");
+  const type = requireString(document.type, "type");
   const metadata = document.metadata === undefined ? {} : document.metadata;
   assertSafeMetadata(metadata);
   const item = {
@@ -194,35 +233,22 @@ function normalizeLocalDocument({ source, document, relativePath, bytes, fingerp
     provider: "local_repository",
     itemId: requireString(document.id, "id"),
     path: relativePath,
-    type: requireString(document.type, "type"),
+    type,
     title: requireString(document.title, "title"),
     description: normalizeDescription(document.description),
     acceptanceCriteria: normalizeAcceptanceCriteria(document.acceptanceCriteria),
-    status: {
-      normalized: normalizeStatus(document.status),
-      providerStatus: document.status === undefined ? null : requireString(document.status, "status")
-    },
-    priority: {
-      normalized: normalizePriority(document.priority),
-      providerPriority: document.priority === undefined ? null : requireString(document.priority, "priority")
-    },
+    status: { normalized: normalizeStatus(document.status), providerStatus: document.status === undefined ? null : requireString(document.status, "status") },
+    priority: { normalized: normalizePriority(document.priority), providerPriority: document.priority === undefined ? null : requireString(document.priority, "priority") },
     labels: normalizeLabels(document.labels),
     relationships: normalizeTypedRefs(document.relationships, "relationships"),
     dependencies: normalizeTypedRefs(document.dependencies, "dependencies"),
     assignee: document.assignee === undefined ? null : requireString(document.assignee, "assignee"),
     owner: document.owner === undefined ? null : requireString(document.owner, "owner"),
-    revision: {
-      contentRevision: `sha256:${fingerprint.contentHash}`,
-      fingerprint: `sha256:${fingerprint.fingerprint}`,
-      updatedAt: null
-    },
+    fields: normalizeKindFields(document, type),
+    revision: { contentRevision: `sha256:${fingerprint.contentHash}`, fingerprint: `sha256:${fingerprint.fingerprint}`, updatedAt: null },
     mappingVersion: source.mappingVersion,
     metadata,
-    trace: {
-      observedPath: relativePath,
-      observedBytes: bytes.length,
-      observedContentHash: contentHash(bytes)
-    }
+    trace: { observedPath: relativePath, observedBytes: bytes.length, observedContentHash: contentHash(bytes) }
   };
   const result = validateNormalizedWorkSourceItem(item);
   if (!result.valid) throw new Error(`invalid normalized Work Source item: ${result.errors.join("; ")}`);

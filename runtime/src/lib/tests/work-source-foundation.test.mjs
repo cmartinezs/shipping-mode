@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { runInit } from "../../commands/init.mjs";
 import { runReleaseNew } from "../../commands/release.mjs";
-import { runItemImport } from "../../commands/item.mjs";
+import { proposeReleaseItemCreate, runItemImport } from "../../commands/item.mjs";
 import { checkWorkSources } from "../../commands/check.mjs";
 import { runChangesetApply, runChangesetApprove, runChangesetValidate } from "../../commands/changesetCommand.mjs";
 import { readChangeSet, readOperation, writeChangeSet } from "../operationStore.mjs";
@@ -13,6 +13,7 @@ import { parseYaml, stringifyYaml } from "../yaml.mjs";
 import { buildWorkSourceRegistry } from "../workSourceProvider.mjs";
 import { LocalRepositoryWorkSource } from "../localRepositoryWorkSource.mjs";
 import { normalizeWorkSourceConfig, validateNormalizedWorkSourceItem } from "../workSourceImport.mjs";
+import { validate } from "../schema.mjs";
 
 function initializedWorkspace() {
   const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "work-source-foundation-"));
@@ -57,6 +58,9 @@ function writeLocalItem(workspaceRoot, fileName = "story.work-source.yml", overr
     type: "user_story",
     title: "Import assessment brief",
     description: { format: "markdown", text: "As a teacher I need an assessment brief." },
+    actor: "teacher",
+    need: "an assessment brief",
+    value: "consistent evaluation instructions",
     acceptanceCriteria: [{ id: "ac-1", text: "The brief is persisted." }],
     status: "todo",
     priority: "high",
@@ -73,11 +77,11 @@ function writeLocalItem(workspaceRoot, fileName = "story.work-source.yml", overr
 
 {
   assert.throws(
-    () => buildWorkSourceRegistry({ providerFactories: [() => ({ provider: "local_repository", capabilities: ["discover"], discover() {} }), () => ({ provider: "local_repository", capabilities: ["discover"], discover() {} })], sources: [] }),
+    () => buildWorkSourceRegistry({ providerFactories: [() => ({ provider: "local_repository", contractVersion: 1, capabilities: ["discover"], discover() {} }), () => ({ provider: "local_repository", contractVersion: 1, capabilities: ["discover"], discover() {} })], sources: [] }),
     /duplicate Work Source provider/
   );
   assert.throws(
-    () => buildWorkSourceRegistry({ providerFactories: [() => ({ provider: "broken", capabilities: ["discover", "create"], discover() {} })], sources: [{ id: "source-a", provider: "broken", enabled: true, capabilities: ["create"], mapping_version: 1, import_policy: "import_snapshot", sync_mode: "import_only", options: {} }] }),
+    () => buildWorkSourceRegistry({ providerFactories: [() => ({ provider: "broken", contractVersion: 1, capabilities: ["discover", "create"], discover() {} })], sources: [{ id: "source-a", provider: "broken", enabled: true, capabilities: ["create"], mapping_version: 1, import_policy: "import_snapshot", sync_mode: "import_only", options: {} }] }),
     /declares capability create without implementation/
   );
 }
@@ -179,6 +183,112 @@ function writeLocalItem(workspaceRoot, fileName = "story.work-source.yml", overr
   assert.equal(result.status, "PASS");
   assert.equal(result.sources[0].enabled, false);
   assert.equal(fs.readdirSync(path.join(planningRoot, "operations")).length, before, "check work-sources must be query-only");
+}
+
+
+{
+  const { workspaceRoot, planningRoot, release } = initializedWorkspace();
+  configureLocalSource(planningRoot);
+  writeLocalItem(workspaceRoot);
+  assert.throws(() => proposeReleaseItemCreate({
+    planningRoot,
+    releaseRef: release.releaseId,
+    actor: "carlos",
+    rawPayload: {
+      kind: "user_story",
+      title: "Forged provenance",
+      actor: "teacher",
+      need: "traceability",
+      value: "trust",
+      acceptanceCriteria: ["provenance is genuine"],
+      sourceRefs: [{ sourceId: "forged", provider: "local_repository", role: "primary", itemId: "forged-1", path: "forged.yml", contentRevision: `sha256:${"a".repeat(64)}`, mappingVersion: 1 }]
+    }
+  }), /server-owned: sourceRefs/);
+}
+
+{
+  const { workspaceRoot, planningRoot, operationsRoot, release } = initializedWorkspace();
+  configureLocalSource(planningRoot);
+  writeLocalItem(workspaceRoot);
+  const proposed = runItemImport({ planningRoot, releaseRef: release.releaseId, args: { sourceRef: "local-backlog:story-1", idempotencyKey: "closed-schema", commandActor: "carlos" } });
+  const changeSet = readChangeSet(operationsRoot, proposed.operationId);
+  changeSet.payload.untrusted = true;
+  assert.equal(validate("change-set", changeSet).valid, false, "work-source.import payload must remain closed");
+}
+
+{
+  const { workspaceRoot, planningRoot, operationsRoot, release } = initializedWorkspace();
+  configureLocalSource(planningRoot);
+  writeLocalItem(workspaceRoot);
+  const proposed = runItemImport({ planningRoot, releaseRef: release.releaseId, args: { sourceRef: "local-backlog:story-1", idempotencyKey: "config-stale", commandActor: "carlos" } });
+  const configPath = path.join(planningRoot, "config.yml");
+  const config = parseYaml(fs.readFileSync(configPath, "utf8"));
+  config.work_sources[0].options.max_item_bytes = 65535;
+  fs.writeFileSync(configPath, stringifyYaml(config));
+  assert.equal(runChangesetValidate({ planningRoot, operationsRoot, operationId: proposed.operationId }).status, "STALE", "any Work Source configuration drift must stale the proposal");
+}
+
+{
+  const { workspaceRoot, planningRoot } = initializedWorkspace();
+  fs.mkdirSync(path.join(workspaceRoot, "real-backlog"), { recursive: true });
+  fs.symlinkSync(path.join(workspaceRoot, "real-backlog"), path.join(workspaceRoot, "linked-backlog"), "dir");
+  configureLocalSource(planningRoot, { roots: ["linked-backlog"] });
+  assert.throws(() => normalizeWorkSourceConfig({ config: parseYaml(fs.readFileSync(path.join(planningRoot, "config.yml"), "utf8")), workspaceRoot }), /symlink component rejected/);
+}
+
+{
+  const { workspaceRoot, planningRoot } = initializedWorkspace();
+  configureLocalSource(planningRoot, { roots: ["."], options: { file_globs: ["*"], max_item_bytes: 65536 } });
+  writeLocalItem(workspaceRoot);
+  fs.writeFileSync(path.join(planningRoot, "internal.work-source.yml"), stringifyYaml({
+    schemaVersion: 1, id: "internal", type: "user_story", title: "Internal", description: "must be ignored", actor: "runtime", need: "privacy", value: "isolation", acceptanceCriteria: ["ignored"], status: "todo", priority: "low"
+  }));
+  const result = checkWorkSources({ planningRoot, workspaceRoot });
+  assert.equal(result.status, "FAIL", "the workspace root is rejected before provider discovery");
+  assert.match(result.findings.join("\n"), /SOURCE_MISCONFIGURED/);
+}
+
+{
+  const { workspaceRoot, planningRoot } = initializedWorkspace();
+  configureLocalSource(planningRoot);
+  writeLocalItem(workspaceRoot, "invalid.work-source.yml", { actor: undefined });
+  const result = checkWorkSources({ planningRoot, workspaceRoot });
+  assert.equal(result.status, "FAIL", "check work-sources must execute provider discovery and expose invalid source items");
+  assert.match(result.findings.join("\n"), /actor must be a non-blank string/);
+}
+
+{
+  const { workspaceRoot, planningRoot, operationsRoot, release } = initializedWorkspace();
+  configureLocalSource(planningRoot);
+  writeLocalItem(workspaceRoot);
+  const imported = runItemImport({ planningRoot, releaseRef: release.releaseId, args: { sourceRef: "local-backlog:story-1", idempotencyKey: "move-1", commandActor: "carlos" } });
+  runChangesetValidate({ planningRoot, operationsRoot, operationId: imported.operationId });
+  runChangesetApprove({ planningRoot, operationsRoot, operationId: imported.operationId, actor: "carlos", allowSelfApproval: true });
+  runChangesetApply({ planningRoot, operationsRoot, operationId: imported.operationId, actor: "carlos" });
+  fs.renameSync(path.join(workspaceRoot, "backlog", "story.work-source.yml"), path.join(workspaceRoot, "backlog", "moved.work-source.yml"));
+  assert.throws(() => runItemImport({ planningRoot, releaseRef: release.releaseId, args: { sourceRef: "local-backlog:story-1", idempotencyKey: "move-2", commandActor: "carlos" } }), /already imported as primary/, "stable local item id must survive path moves");
+}
+
+{
+  const external = {
+    schemaVersion: 1,
+    sourceId: "jira-gradeops",
+    provider: "jira",
+    itemId: "GRADE-142",
+    url: "https://example.invalid/browse/GRADE-142",
+    type: "capability",
+    title: "External capability",
+    description: { format: "plain", text: "External normalized item" },
+    acceptanceCriteria: [{ id: "ac-1", text: "It imports" }],
+    status: { normalized: "todo", providerStatus: "To Do" },
+    priority: { normalized: "high", providerPriority: "High" },
+    labels: [], relationships: [], dependencies: [], assignee: null, owner: null,
+    fields: { outcome: "Imported capability", behavior: "Preserve provider-neutral semantics" },
+    revision: { externalRevision: "10042", updatedAt: "2026-07-30T00:00:00Z" },
+    mappingVersion: 1, metadata: {},
+    trace: { observedPath: null, observedBytes: 0, observedContentHash: "a".repeat(64) }
+  };
+  assert.equal(validateNormalizedWorkSourceItem(external).valid, true, "normalized schema must remain usable by the future Jira adapter without local revision fields");
 }
 
 console.log("work-source-foundation: registry, local provider, import, stale detection and checks pass");

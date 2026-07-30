@@ -3,7 +3,7 @@ import path from "node:path";
 import { generateUuidV7, isUuidV7 } from "./ids.mjs";
 import { revisionHash } from "./canonical.mjs";
 import { validate } from "./schema.mjs";
-import { confineScopePath } from "./paths.mjs";
+import { confineRuntimeWritePath, confineScopePath, confineWritePath } from "./paths.mjs";
 import { resolveReleaseReference, readReleaseFile } from "./releaseStore.mjs";
 import { deriveUniqueReleaseItemDisplayId, isReleaseItemDisplayIdForUuid } from "./releaseItemIdentity.mjs";
 import { releaseItemCreateRequestHash, renderReleaseItemCreate } from "./releaseItemCreate.mjs";
@@ -11,6 +11,7 @@ import { assertReleaseParentCanAcceptItem, listReleaseItemDocuments, listReserve
 import { buildWorkSourceRegistry, WORK_SOURCE_CAPABILITIES } from "./workSourceProvider.mjs";
 import { LocalRepositoryWorkSource } from "./localRepositoryWorkSource.mjs";
 import { parseYaml } from "./yaml.mjs";
+import { assertProjectContextConsistency } from "./projectContextValidation.mjs";
 
 const SECRET_KEY_PATTERN = /(token|secret|password|cookie|credential|authorization|auth|api[-_]?key|refresh)/i;
 const SUPPORTED_MAPPINGS = new Set([1]);
@@ -21,10 +22,16 @@ function requireString(value, field) {
   return value.trim();
 }
 
-function readConfig(planningRoot) {
-  const configPath = path.join(planningRoot, "config.yml");
+export function readValidatedWorkSourceConfig(planningRoot) {
+  const configPath = confineRuntimeWritePath(planningRoot, "config.yml");
   if (!fs.existsSync(configPath)) throw new Error("workspace config.yml not found");
-  return parseYaml(fs.readFileSync(configPath, "utf8"));
+  const stat = fs.lstatSync(configPath);
+  if (!stat.isFile() || stat.isSymbolicLink()) throw new Error("config.yml must be a real file");
+  const config = parseYaml(fs.readFileSync(configPath, "utf8"));
+  const schema = validate("config", config);
+  if (!schema.valid) throw new Error(`config.yml is schema-invalid: ${schema.errors.map((entry) => `${entry.path} ${entry.message}`).join("; ")}`);
+  assertProjectContextConsistency(config);
+  return config;
 }
 
 function normalizeCapabilityList(value, field) {
@@ -44,6 +51,7 @@ function normalizeRoot(workspaceRoot, sourceId, root, { enabled }) {
   if (path.posix.isAbsolute(normalized) || path.win32.isAbsolute(normalized) || normalized.split("/").includes("..")) {
     throw new Error(`work source ${sourceId} root must remain inside the workspace`);
   }
+  confineWritePath(workspaceRoot, normalized);
   const absolutePath = confineScopePath(workspaceRoot, normalized);
   if (!fs.existsSync(absolutePath)) {
     if (!enabled) return { relativePath: normalized, absolutePath };
@@ -81,6 +89,24 @@ function normalizePositiveInteger(value, field) {
   return number;
 }
 
+export function workSourceConfigSnapshot(source) {
+  return {
+    id: source.id,
+    provider: source.provider,
+    enabled: source.enabled,
+    roots: source.roots.map((root) => root.relativePath),
+    mappingVersion: source.mappingVersion,
+    importPolicy: source.importPolicy,
+    syncMode: source.syncMode,
+    capabilities: [...source.capabilities],
+    options: { ...source.options, ...(source.options.file_globs ? { file_globs: [...source.options.file_globs] } : {}) }
+  };
+}
+
+export function workSourceConfigHash(source) {
+  return revisionHash(workSourceConfigSnapshot(source));
+}
+
 export function normalizeWorkSourceConfig({ config, workspaceRoot }) {
   const sourceIds = new Set();
   return (config.work_sources || []).map((source) => {
@@ -113,7 +139,7 @@ export function normalizeWorkSourceConfig({ config, workspaceRoot }) {
 
 export function defaultWorkSourceRegistry({ planningRoot }) {
   const workspaceRoot = path.dirname(planningRoot);
-  const config = readConfig(planningRoot);
+  const config = readValidatedWorkSourceConfig(planningRoot);
   const sources = normalizeWorkSourceConfig({ config, workspaceRoot });
   return buildWorkSourceRegistry({
     providerFactories: [() => new LocalRepositoryWorkSource({ workspaceRoot })],
@@ -121,14 +147,22 @@ export function defaultWorkSourceRegistry({ planningRoot }) {
   });
 }
 
-export function assertSafeMetadata(value, { depth = 0, bytes = { value: 0 } } = {}) {
-  bytes.value += Buffer.byteLength(JSON.stringify(value ?? null), "utf8");
-  if (bytes.value > 8192) throw new Error("metadata exceeds safe size limit");
+export function assertSafeMetadata(value, { depth = 0, measuredBytes = null } = {}) {
+  if (measuredBytes === null) {
+    let serialized;
+    try {
+      serialized = JSON.stringify(value ?? null);
+    } catch {
+      throw new Error("metadata must be JSON-safe");
+    }
+    if (Buffer.byteLength(serialized, "utf8") > 8192) throw new Error("metadata exceeds safe size limit");
+    measuredBytes = Buffer.byteLength(serialized, "utf8");
+  }
   if (depth > 4) throw new Error("metadata exceeds safe depth limit");
   if (value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean") return;
   if (Array.isArray(value)) {
     if (value.length > 32) throw new Error("metadata array exceeds safe length limit");
-    for (const entry of value) assertSafeMetadata(entry, { depth: depth + 1, bytes });
+    for (const entry of value) assertSafeMetadata(entry, { depth: depth + 1, measuredBytes });
     return;
   }
   if (typeof value !== "object") throw new Error("metadata must be JSON-safe");
@@ -136,7 +170,7 @@ export function assertSafeMetadata(value, { depth = 0, bytes = { value: 0 } } = 
   if (keys.length > 32) throw new Error("metadata object exceeds safe key limit");
   for (const key of keys) {
     if (SECRET_KEY_PATTERN.test(key)) throw new Error(`metadata key is not allowed: ${key}`);
-    assertSafeMetadata(value[key], { depth: depth + 1, bytes });
+    assertSafeMetadata(value[key], { depth: depth + 1, measuredBytes });
   }
 }
 
@@ -168,10 +202,8 @@ export function parseSourceRef(value) {
 }
 
 function normalizeImportIntent(rawPayload, { actor, defaultIdempotencyKey, releaseId, source, normalizedItem, role = "primary" }) {
-  const callerIntent = {
-    sourceRef: `${source.id}:${normalizedItem.itemId}`,
-    role
-  };
+  const configHash = workSourceConfigHash(source);
+  const callerIntent = { sourceRef: `${source.id}:${normalizedItem.itemId}`, role };
   const requestSnapshot = {
     actor,
     releaseId,
@@ -179,6 +211,7 @@ function normalizeImportIntent(rawPayload, { actor, defaultIdempotencyKey, relea
     provider: source.provider,
     itemId: normalizedItem.itemId,
     mappingVersion: source.mappingVersion,
+    sourceConfigHash: configHash,
     sourceRevision: normalizedItem.revision.contentRevision || normalizedItem.revision.externalRevision || normalizedItem.revision.fingerprint,
     role,
     callerIntent
@@ -194,6 +227,7 @@ function normalizeImportIntent(rawPayload, { actor, defaultIdempotencyKey, relea
       provider: source.provider,
       itemId: normalizedItem.itemId,
       mappingVersion: source.mappingVersion,
+      sourceConfigHash: configHash,
       observedRevision: requestSnapshot.sourceRevision,
       role
     })
@@ -211,14 +245,15 @@ function mappedReleaseItemSnapshot(normalizedItem, sourceRef) {
     sourceRefs: [sourceRef]
   };
   const criteria = normalizedItem.acceptanceCriteria.map((entry) => entry.text);
-  if (normalizedItem.type === "user_story") return { ...base, actor: normalizedItem.assignee || normalizedItem.owner || "user", need: normalizedItem.description.text, value: normalizedItem.title, acceptanceCriteria: criteria };
-  if (normalizedItem.type === "capability") return { ...base, outcome: normalizedItem.title, behavior: normalizedItem.description.text, acceptanceCriteria: criteria };
-  if (normalizedItem.type === "defect") return { ...base, observedBehavior: normalizedItem.description.text, expectedBehavior: normalizedItem.title, reproduction: normalizedItem.description.text, severity: normalizedItem.priority.normalized === "critical" ? "critical" : normalizedItem.priority.normalized === "high" ? "high" : "medium" };
-  if (normalizedItem.type === "enabler") return { ...base, technicalOutcome: normalizedItem.description.text, unlockedCapabilities: [normalizedItem.title] };
-  if (normalizedItem.type === "spike") return { ...base, question: normalizedItem.title, timebox: "unspecified", expectedDecision: normalizedItem.description.text };
-  if (normalizedItem.type === "compliance") return { ...base, obligation: normalizedItem.description.text, authority: normalizedItem.owner || "unspecified", deadline: "unspecified", evidence: criteria };
-  if (normalizedItem.type === "migration") return { ...base, sourceState: normalizedItem.description.text, targetState: normalizedItem.title, rollback: "unspecified" };
-  if (normalizedItem.type === "operational") return { ...base, procedure: normalizedItem.description.text, owner: normalizedItem.owner || "unspecified", evidence: criteria };
+  const fields = normalizedItem.fields;
+  if (normalizedItem.type === "user_story") return { ...base, actor: fields.actor, need: fields.need, value: fields.value, acceptanceCriteria: criteria };
+  if (normalizedItem.type === "capability") return { ...base, outcome: fields.outcome, behavior: fields.behavior, acceptanceCriteria: criteria };
+  if (normalizedItem.type === "defect") return { ...base, observedBehavior: fields.observedBehavior, expectedBehavior: fields.expectedBehavior, reproduction: fields.reproduction, severity: fields.severity };
+  if (normalizedItem.type === "enabler") return { ...base, technicalOutcome: fields.technicalOutcome, unlockedCapabilities: fields.unlockedCapabilities };
+  if (normalizedItem.type === "spike") return { ...base, question: fields.question, timebox: fields.timebox, expectedDecision: fields.expectedDecision };
+  if (normalizedItem.type === "compliance") return { ...base, obligation: fields.obligation, authority: fields.authority, deadline: fields.deadline, evidence: fields.evidence };
+  if (normalizedItem.type === "migration") return { ...base, sourceState: fields.sourceState, targetState: fields.targetState, rollback: fields.rollback };
+  if (normalizedItem.type === "operational") return { ...base, procedure: fields.procedure, owner: fields.owner, evidence: fields.evidence };
   throw new Error(`unsupported Work Source item type: ${normalizedItem.type}`);
 }
 
@@ -228,6 +263,7 @@ function deriveSourceRef({ source, normalizedItem, importedAt, role = "primary" 
       sourceId: source.id,
       provider: source.provider,
       role,
+      itemId: normalizedItem.itemId,
       path: normalizedItem.path,
       contentRevision: normalizedItem.revision.contentRevision,
       fingerprint: normalizedItem.revision.fingerprint,
@@ -249,15 +285,13 @@ function deriveSourceRef({ source, normalizedItem, importedAt, role = "primary" 
 }
 
 function existingPrimarySourceItem(planningRoot, operationsRoot, { releaseId, sourceId, provider, normalizedItem, excludeItemId = null }) {
-  const key = `${provider}:${sourceId}:${normalizedItem.itemId}:${normalizedItem.path || ""}`;
   const current = listReleaseItemDocuments(planningRoot, { releaseId });
   const reserved = listReservedReleaseItemDocuments(operationsRoot).filter((item) => item.releaseId === releaseId);
   for (const item of [...current, ...reserved]) {
     if (excludeItemId && item.id === excludeItemId) continue;
     for (const ref of item.sourceRefs || []) {
       if (ref.role !== "primary" || ref.provider !== provider || ref.sourceId !== sourceId) continue;
-      const candidateKey = `${ref.provider}:${ref.sourceId}:${normalizedItem.itemId}:${ref.path || ""}`;
-      if (candidateKey === key || (ref.path && ref.path === normalizedItem.path)) return item;
+      if ((ref.itemId && ref.itemId === normalizedItem.itemId) || (ref.externalId && ref.externalId === normalizedItem.itemId) || (ref.path && ref.path === normalizedItem.path)) return item;
     }
   }
   return null;
@@ -370,6 +404,7 @@ export function prepareWorkSourceImport(rawPayload, {
         path: normalizedItem.path || null,
         observedRevision: sourceRevision,
         mappingVersion: source.mappingVersion,
+        configHash: workSourceConfigHash(source),
         role: "primary"
       },
       normalizedItem,
@@ -386,7 +421,7 @@ export function prepareWorkSourceImport(rawPayload, {
 export function renderWorkSourceImport(payload, { planningRoot }) {
   const registry = defaultWorkSourceRegistry({ planningRoot });
   const source = registry.getSource(payload.source.sourceId);
-  if (source.provider !== payload.source.provider || source.mappingVersion !== payload.source.mappingVersion) {
+  if (source.provider !== payload.source.provider || source.mappingVersion !== payload.source.mappingVersion || workSourceConfigHash(source) !== payload.source.configHash) {
     const error = new Error("SOURCE_STALE: Work Source configuration changed since propose");
     error.code = "STALE";
     throw error;
@@ -438,9 +473,9 @@ export function renderWorkSourceImport(payload, { planningRoot }) {
   return item;
 }
 
-export function workSourceImportRequestHash({ actor, releaseId, sourceId, provider, itemId, mappingVersion, observedRevision, role }) {
+export function workSourceImportRequestHash({ actor, releaseId, sourceId, provider, itemId, mappingVersion, sourceConfigHash, observedRevision, role }) {
   if (!isUuidV7(releaseId)) throw new Error(`invalid Work Source import parent release id: ${releaseId}`);
-  return revisionHash({ actor, releaseId, sourceId, provider, itemId, mappingVersion, observedRevision, role });
+  return revisionHash({ actor, releaseId, sourceId, provider, itemId, mappingVersion, sourceConfigHash, observedRevision, role });
 }
 
 export function workSourceImportInvariantFindings(changeSet, operation = null, existingItems = []) {
@@ -457,11 +492,23 @@ export function workSourceImportInvariantFindings(changeSet, operation = null, e
   if (!payload.normalizedItem || typeof payload.normalizedItem !== "object") findings.push("work-source.import normalizedItem must be recorded");
   if (!payload.requestSnapshot || typeof payload.requestSnapshot !== "object") findings.push("work-source.import requestSnapshot must be a normalized object");
   else if (!Array.isArray(payload.requestSnapshot.sourceRefs) || payload.requestSnapshot.sourceRefs.length !== 1 || payload.requestSnapshot.sourceRefs[0].role !== "primary") findings.push("work-source.import must derive exactly one primary sourceRef");
-  if (payload.requestSnapshot?.sourceRefs?.[0]?.sourceId !== payload.source?.sourceId) findings.push("work-source.import sourceRef sourceId must match resolved source");
-  if (payload.requestSnapshot?.sourceRefs?.[0]?.provider !== payload.source?.provider) findings.push("work-source.import sourceRef provider must match resolved provider");
-  if (payload.requestSnapshot?.sourceRefs?.[0]?.mappingVersion !== payload.source?.mappingVersion) findings.push("work-source.import sourceRef mappingVersion must match resolved mapping");
-  if (payload.requestSnapshot?.sourceRefs?.[0]?.contentRevision && payload.requestSnapshot.sourceRefs[0].contentRevision !== payload.source?.observedRevision) findings.push("work-source.import sourceRef revision must match observed revision");
-  if (revisionHash(payload.normalizedItem || {}) !== revisionHash(payload.normalizedItem || {})) findings.push("work-source.import normalizedItem is not canonical");
+  const normalizedValidation = validateNormalizedWorkSourceItem(payload.normalizedItem || {});
+  if (!normalizedValidation.valid) findings.push(`work-source.import normalizedItem is invalid: ${normalizedValidation.errors.join("; ")}`);
+  const observedRevision = payload.normalizedItem?.revision?.contentRevision || payload.normalizedItem?.revision?.externalRevision || payload.normalizedItem?.revision?.fingerprint;
+  if (payload.normalizedItem?.sourceId !== payload.source?.sourceId) findings.push("work-source.import normalizedItem sourceId must match resolved source");
+  if (payload.normalizedItem?.provider !== payload.source?.provider) findings.push("work-source.import normalizedItem provider must match resolved provider");
+  if (payload.normalizedItem?.itemId !== payload.source?.itemId) findings.push("work-source.import normalizedItem itemId must match resolved item");
+  if ((payload.normalizedItem?.path || null) !== (payload.source?.path || null)) findings.push("work-source.import normalizedItem path must match resolved locator");
+  if (payload.normalizedItem?.mappingVersion !== payload.source?.mappingVersion) findings.push("work-source.import normalizedItem mappingVersion must match resolved mapping");
+  if (observedRevision !== payload.source?.observedRevision) findings.push("work-source.import normalizedItem revision must match observed revision");
+  try {
+    const expectedSourceRef = deriveSourceRef({ source: { id: payload.source.sourceId, provider: payload.source.provider, mappingVersion: payload.source.mappingVersion }, normalizedItem: payload.normalizedItem, importedAt: payload.proposedAt, role: payload.source.role });
+    if (revisionHash(expectedSourceRef) !== revisionHash(payload.requestSnapshot?.sourceRefs?.[0] || null)) findings.push("work-source.import sourceRef must be derived from the normalized source item");
+    const expectedSnapshot = mappedReleaseItemSnapshot(payload.normalizedItem, expectedSourceRef);
+    if (revisionHash(expectedSnapshot) !== revisionHash(payload.requestSnapshot || null)) findings.push("work-source.import requestSnapshot must be derived from the normalized source item");
+  } catch (error) {
+    findings.push(`work-source.import cannot derive canonical snapshot: ${error.message}`);
+  }
   const expectedHash = workSourceImportRequestHash({
     actor: payload.actor,
     releaseId: payload.releaseId,
@@ -469,6 +516,7 @@ export function workSourceImportInvariantFindings(changeSet, operation = null, e
     provider: payload.source?.provider,
     itemId: payload.source?.itemId,
     mappingVersion: payload.source?.mappingVersion,
+    sourceConfigHash: payload.source?.configHash,
     observedRevision: payload.source?.observedRevision,
     role: payload.source?.role
   });

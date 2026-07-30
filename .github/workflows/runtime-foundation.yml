@@ -1,94 +1,41 @@
 name: Runtime Foundation
 
-# Temporary PR #26 correction runner; restored from develop before commit.
 on:
   pull_request:
     branches: [develop]
-    types: [closed]
+  push:
+    branches: [feat/corte-0-runtime-foundation]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: agent/corte-3-plan-3-work-source-foundation
-          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-      - name: Apply PR 26 review corrections
+      - run: npm ci --silent
+      - name: Build review artifacts outside the source tree
+        run: node scripts/build-runtime.mjs --out "$RUNNER_TEMP/generated" --bundle-out "$RUNNER_TEMP/shipping-mode.mjs"
+      - name: Stage review artifacts
+        if: always()
         run: |
-          python - <<'PY'
-          from pathlib import Path
-          helper = Path("scripts/pr26-review-fix.py")
-          text = helper.read_text()
-          start = text.index("# Config roots cannot be Git internals either.")
-          end = text.index('replace_once("runtime/src/lib/projectContextValidation.mjs"', start)
-          replacement = '''# Config roots cannot be Git internals either.\nconfig_path = ROOT / "runtime/src/schemas/config.schema.json"\nconfig_schema = json.loads(config_path.read_text(encoding="utf-8"))\nconfig_schema["$defs"]["workSource"]["properties"]["roots"]["items"]["pattern"] = r"^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!\\.planning(?:/|$))(?!\\.git(?:/|$)).+"\nconfig_path.write_text(json.dumps(config_schema, indent=2) + "\\n", encoding="utf-8")\n'''
-          text = text[:start] + replacement + text[end:]
-          text = text.replace('local_variant = source_ref["oneOf"][0]\nif "itemId" not in local_variant["required"]:', 'local_variant = source_ref["oneOf"][0]\nlocal_variant.setdefault("properties", {})["itemId"] = {}\nif "itemId" not in local_variant["required"]:')
-          text = text.replace('"anyOf": [{"required": ["externalRevision"]}, {"required": ["contentRevision"]}, {"required": ["fingerprint"]}]', '"anyOf": [{"type": "object", "required": ["externalRevision"], "properties": {"externalRevision": {}}}, {"type": "object", "required": ["contentRevision"], "properties": {"contentRevision": {}}}, {"type": "object", "required": ["fingerprint"], "properties": {"fingerprint": {}}}]')
-          text = text.replace('normalized_schema["allOf"].append({"if": {"type": "object", "required": ["provider"], "properties": {"provider": {"const": "local_repository"}}}, "then": {"type": "object", "required": ["path"], "not": {"required": ["url"]}}, "else": {"type": "object", "not": {"required": ["path"]}}})', 'normalized_schema["allOf"].append({"if": {"type": "object", "required": ["provider"], "properties": {"provider": {"const": "local_repository"}}}, "then": {"type": "object", "required": ["path"], "properties": {"path": {}}, "not": {"type": "object", "required": ["url"], "properties": {"url": {}}}}, "else": {"type": "object", "not": {"type": "object", "required": ["path"], "properties": {"path": {}}}}})')
-          text = text.replace('"then": {"type": "object", "properties": {"fields": {"type": "object", "required": fields}}}})', '"then": {"type": "object", "properties": {"fields": {"type": "object", "required": fields, "properties": {field: {} for field in fields}}}}})')
-          helper.write_text(text)
-          PY
-          python scripts/pr26-review-fix.py
-          python - <<'PY'
-          from pathlib import Path
-          schema_test = Path("runtime/src/lib/tests/release-item-schema.test.mjs")
-          text = schema_test.read_text()
-          text = text.replace('const localRef = { sourceId: "local-backlog", provider: "local_repository", role: "primary", path: "docs/backlog.md",', 'const localRef = { sourceId: "local-backlog", provider: "local_repository", role: "primary", itemId: "local-story-1", path: "docs/backlog.md",')
-          start = text.index('const sourceRequest = {')
-          end = text.index('\n\nconsole.log(', start)
-          text = text[:start] + '''const sourceRequest = { kind: "spike", title: "Source", question: "Q", timebox: "1d", expectedDecision: "D", sourceRefs: [localRef], idempotencyKey: "source" };\nassert.throws(() => normalizeReleaseItemCreateRequest(sourceRequest, { actor: "carlos", defaultIdempotencyKey: "default", releaseId }), /server-owned: sourceRefs/, "manual Release Item creation cannot forge source provenance");''' + text[end:]
-          schema_test.write_text(text)
-
-          foundation_test = Path("runtime/src/lib/tests/work-source-foundation.test.mjs")
-          text = foundation_test.read_text().replace('/sourceRefs.*server-owned/', '/server-owned: sourceRefs/')
-          text = text.replace('''  const result = checkWorkSources({ planningRoot, workspaceRoot });
-  assert.equal(result.status, "PASS");
-  assert.equal(result.sources[0].contractTests.itemCount, 1, ".planning must never be traversed by a broad local root");
-}''', '''  const result = checkWorkSources({ planningRoot, workspaceRoot });
-  assert.equal(result.status, "FAIL", "the workspace root is rejected before provider discovery");
-  assert.match(result.findings.join("\\n"), /SOURCE_MISCONFIGURED/);
-}''')
-          foundation_test.write_text(text)
-          PY
-          git checkout origin/develop -- .github/workflows/runtime-foundation.yml
-          rm scripts/pr26-review-fix.py
-          rm .pr26-review-trigger
-      - name: Commit corrective source changes
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "fix(work-sources): close provider and import boundaries"
-      - name: Build and verify
-        run: |
-          npm ci --silent
-          npm run build:schemas
-          npm run build:runtime
-          npm run build:test-bundle
-          npm run test:unit
-          npm run test:cli-e2e
-          npm run test:real-crash-e2e
-          npm run test:security-e2e
-          npm run test:bundle
-          npm run test:host-integration
-          npm run verify:artifacts
-          npm run verify:next-generation
-          git diff --check
-      - name: Commit generated artifacts
-        run: |
-          git add runtime/src/generated runtime/dist/shipping-mode.mjs bin/shipping-mode.mjs
-          if ! git diff --cached --quiet; then
-            git commit -m "build(runtime): regenerate Work Source artifacts"
-          fi
-      - name: Push corrections
-        run: git push origin HEAD:agent/corte-3-plan-3-work-source-foundation
+          mkdir -p ci-artifacts/runtime/src/generated ci-artifacts/runtime/dist
+          cp "$RUNNER_TEMP/generated/validators.mjs" ci-artifacts/runtime/src/generated/validators.mjs
+          cp "$RUNNER_TEMP/generated/build-meta.mjs" ci-artifacts/runtime/src/generated/build-meta.mjs
+          cp "$RUNNER_TEMP/shipping-mode.mjs" ci-artifacts/runtime/dist/shipping-mode.mjs
+      - name: Upload generated runtime for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-foundation-generated
+          path: ci-artifacts
+          if-no-files-found: error
+      - run: npm run verify:next-generation
+      - name: Prove verification leaves committed artifacts unchanged
+        run: git diff --exit-code -- runtime/src/generated runtime/dist/shipping-mode.mjs

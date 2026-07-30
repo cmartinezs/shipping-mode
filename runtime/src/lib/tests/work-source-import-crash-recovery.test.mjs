@@ -44,6 +44,9 @@ function approvedImportOperation() {
     type: "user_story",
     title: "Crash import",
     description: { format: "plain", text: "Import must recover." },
+    actor: "operator",
+    need: "recoverable imports",
+    value: "durable provenance",
     acceptanceCriteria: [{ id: "ac-1", text: "No duplicate event." }],
     status: "todo",
     priority: "medium"
