@@ -31113,12 +31113,39 @@ function updateWorkPackageRevision(pkgWithoutRevision) {
   let withoutRevision = { ...pkgWithoutRevision, audit: { ...pkgWithoutRevision.audit } };
   return delete withoutRevision.audit.revision, { ...withoutRevision, audit: { ...withoutRevision.audit, revision: `sha256:${revisionHash(withoutRevision)}` } };
 }
+function duplicateValues(values) {
+  let counts = /* @__PURE__ */ new Map();
+  for (let value of values) counts.set(value, (counts.get(value) || 0) + 1);
+  return [...counts.entries()].filter(([, count]) => count > 1).map(([value]) => value).sort();
+}
+function terminalResolutionMatches(pkg) {
+  return ["DONE", "CANCELLED", "SUPERSEDED"].includes(pkg.status) && pkg.resolution?.type === pkg.status;
+}
 function workPackageIntegrityFindings(pkg, { releaseId = null, itemId = null, directoryId = null } = {}) {
   let findings = [], schemaResult = validate("work-package", pkg);
   if (!schemaResult.valid) {
     for (let error2 of schemaResult.errors) findings.push(`work-package.yml${error2.path}: ${error2.message}`);
     return { schemaValid: !1, findings };
   }
+  for (let [label, values] of [
+    ["interfaces", pkg.interfaces.map((entry) => entry.id)],
+    ["contracts", pkg.contracts.map((entry) => entry.id)],
+    ["guideRefs", pkg.guideRefs.map((entry) => entry.kind)],
+    ["gateRequirements", pkg.gateRequirements.map((entry) => entry.id)],
+    ["risks", pkg.risks.map((entry) => entry.id)],
+    ["blockers", pkg.blockers.map((entry) => entry.id)]
+  ])
+    for (let duplicate of duplicateValues(values)) findings.push(`${label} contains duplicate identity ${duplicate}`);
+  let guideKinds = pkg.guideRefs.map((entry) => entry.kind).sort();
+  (guideKinds.length !== 2 || guideKinds[0] !== "task" || guideKinds[1] !== "test") && findings.push("guideRefs must contain exactly one task Guide and one test Guide");
+  for (let ref of pkg.guideRefs)
+    ref.scopeId !== pkg.scopeId && findings.push(`guideRef ${ref.kind} scopeId ${ref.scopeId} does not match Work Package scopeId ${pkg.scopeId}`);
+  for (let gate of pkg.gateRequirements) {
+    let guide = pkg.guideRefs.find((ref) => ref.kind === gate.source.guideKind);
+    (gate.source.scopeId !== pkg.scopeId || !guide || gate.source.guideId !== guide.id || gate.source.revision !== guide.revision) && findings.push(`gateRequirement ${gate.id} source does not match the captured ${gate.source.guideKind} Guide revision`);
+  }
+  for (let blocker of pkg.blockers)
+    [blocker.resolvedAt, blocker.resolvedBy].filter((value) => value != null).length === 1 && findings.push(`blocker ${blocker.id} must set resolvedAt and resolvedBy together`);
   directoryId && pkg.id !== directoryId && findings.push(`workPackage.id ${pkg.id} does not match directory ${directoryId}`), releaseId && pkg.releaseId !== releaseId && findings.push(`workPackage.releaseId ${pkg.releaseId} does not match parent release directory ${releaseId}`), itemId && pkg.releaseItemId !== itemId && findings.push(`workPackage.releaseItemId ${pkg.releaseItemId} does not match parent item directory ${itemId}`), isWorkPackageDisplayIdForUuid(pkg.id, pkg.displayId) || findings.push(`displayId ${pkg.displayId} is not derived from Work Package UUIDv7 ${pkg.id}`);
   let revisionless = { ...pkg, audit: { ...pkg.audit } };
   delete revisionless.audit.revision;
@@ -31248,9 +31275,12 @@ function resolveWorkPackageReference(planningRoot, releaseId, itemId, reference)
   return match.invalid || integrity.findings.length > 0 ? { status: "INVALID", reference, workPackage: match.workPackage, findings: [.../* @__PURE__ */ new Set([...match.findings, ...integrity.findings])] } : { status: "FOUND", reference, workPackage: match.workPackage, findings: [] };
 }
 function workPackageCatalogFindings(packages, { releaseId }) {
-  let findings = [], byId = /* @__PURE__ */ new Map();
-  for (let pkg of packages)
-    byId.set(pkg.id, pkg), pkg.releaseId !== releaseId && findings.push({ code: "WORK_PACKAGE_PARENT_MISMATCH", severity: "error", packageId: pkg.id, message: `Work Package ${pkg.id} belongs to ${pkg.releaseId}, not ${releaseId}` });
+  let findings = [], byId = /* @__PURE__ */ new Map(), displayOwners = /* @__PURE__ */ new Map();
+  for (let pkg of packages) {
+    byId.has(pkg.id) ? findings.push({ code: "WORK_PACKAGE_ID_DUPLICATE", severity: "error", packageId: pkg.id, message: `Work Package ID ${pkg.id} appears more than once in Release ${releaseId}` }) : byId.set(pkg.id, pkg);
+    let displayOwner = displayOwners.get(pkg.displayId);
+    displayOwner && displayOwner !== pkg.id ? findings.push({ code: "WORK_PACKAGE_DISPLAY_ID_DUPLICATE", severity: "error", packageId: pkg.id, message: `Work Package display ID ${pkg.displayId} is owned by both ${displayOwner} and ${pkg.id}` }) : displayOwners.set(pkg.displayId, pkg.id), pkg.releaseId !== releaseId && findings.push({ code: "WORK_PACKAGE_PARENT_MISMATCH", severity: "error", packageId: pkg.id, message: `Work Package ${pkg.id} belongs to ${pkg.releaseId}, not ${releaseId}` });
+  }
   for (let pkg of packages) {
     let deps = [...pkg.dependencies].sort();
     (deps.length !== pkg.dependencies.length || new Set(deps).size !== deps.length) && findings.push({ code: "WORK_PACKAGE_DEPENDENCY_INVALID", severity: "error", packageId: pkg.id, message: `Work Package ${pkg.id} dependencies must be unique and sorted` });
@@ -31319,7 +31349,12 @@ function evaluateWorkPackageHealth({ planningRoot, release, item, workPackage, d
   dimensions.push(dimension("scope", scopeFindings.length === 0 ? "valid" : scopeFindings.some((entry) => entry.code === "WORK_PACKAGE_SCOPE_INVALID") ? "invalid" : "failed", "Scope owner and captured Guide revisions", scopeFindings, { scopeId: workPackage.scopeId, guideRefCount: workPackage.guideRefs.length }));
   let dependencyFindings = [];
   try {
-    dependencyFindings = workPackageCatalogFindings(listWorkPackageDocuments(planningRoot, { releaseId: release.id }), { releaseId: release.id }).filter((entry) => !entry.packageId || entry.packageId === workPackage.id || workPackage.dependencies.includes(entry.packageId)).map((entry) => finding2({ code: entry.code, severity: entry.severity, dimension: "dependencies", message: entry.message, evidence: { packageId: workPackage.id } }));
+    let catalogPackages = listWorkPackageDocuments(planningRoot, { releaseId: release.id });
+    dependencyFindings = workPackageCatalogFindings(catalogPackages, { releaseId: release.id }).filter((entry) => !entry.packageId || entry.packageId === workPackage.id || workPackage.dependencies.includes(entry.packageId)).map((entry) => finding2({ code: entry.code, severity: entry.severity, dimension: "dependencies", message: entry.message, evidence: { packageId: workPackage.id } }));
+    for (let dependencyId of workPackage.dependencies) {
+      let target = catalogPackages.find((candidate) => candidate.id === dependencyId);
+      target && !terminalResolutionMatches(target) && dependencyFindings.push(finding2({ code: "WORK_PACKAGE_DEPENDENCY_UNSATISFIED", dimension: "dependencies", message: `dependency ${dependencyId} is not terminally resolved`, evidence: { packageId: workPackage.id, dependencyId, dependencyStatus: target.status } }));
+    }
   } catch (error2) {
     dependencyFindings = [finding2({ code: "WORK_PACKAGE_CATALOG_CORRUPT", dimension: "dependencies", message: `Work Package catalog cannot be evaluated: ${error2.message}`, evidence: { releaseId: release.id } })];
   }
@@ -31329,11 +31364,11 @@ function evaluateWorkPackageHealth({ planningRoot, release, item, workPackage, d
   let openBlockers = (workPackage.blockers || []).filter((blocker) => !blocker.resolvedAt), blockerFindings = openBlockers.map((blocker) => finding2({ code: "WORK_PACKAGE_BLOCKER_OPEN", dimension: "blockers", message: `open ${blocker.severity} blocker: ${blocker.summary}`, evidence: { blockerId: blocker.id } })), riskFindings = (workPackage.risks || []).map((risk) => finding2({ code: "WORK_PACKAGE_RISK_OPEN", severity: "warning", dimension: "blockers", message: `${risk.level} risk: ${risk.summary}`, evidence: { riskId: risk.id } }));
   dimensions.push(dimension("blockers", blockerFindings.length === 0 ? "valid" : "failed", "Blockers and risks", [...blockerFindings, ...riskFindings], { openBlockerCount: openBlockers.length, riskCount: workPackage.risks.length })), dimensions.push(dimension("tasks", "unavailable", "Task capability is deferred", [finding2({ code: "CAPABILITY_UNAVAILABLE", severity: "info", dimension: "tasks", message: "Task capability is deferred to Plan 3", evidence: { capability: "tasks" } })], { unavailableCapabilities: ["tasks"] }));
   for (let entry of dimensions) findings.push(...entry.findings);
-  let blocking = findings.filter((entry) => entry.severity !== "info" && entry.severity !== "warning"), invalid = dimensions.some((entry) => entry.status === "invalid"), failed = dimensions.some((entry) => entry.status === "failed"), unavailable = dimensions.some((entry) => entry.status === "unavailable" && entry.id !== "tasks"), structurallyComplete = ["DONE", "CANCELLED", "SUPERSEDED"].includes(workPackage.status) && workPackage.resolution !== null;
+  let blocking = findings.filter((entry) => entry.severity !== "info" && entry.severity !== "warning"), invalid = dimensions.some((entry) => entry.status === "invalid"), failed = dimensions.some((entry) => entry.status === "failed"), unavailable = dimensions.some((entry) => entry.status === "unavailable" && entry.id !== "tasks"), structurallyComplete = terminalResolutionMatches(workPackage), complete = !invalid && !failed && !unavailable && structurallyComplete;
   return {
     aggregate: { status: invalid ? "invalid" : failed ? "failed" : unavailable ? "unavailable" : "partial", valid: !invalid && !failed && !unavailable, blockingFindingCount: blocking.length },
     dimensions: dimensions.sort((left, right) => left.id.localeCompare(right.id)),
-    completionContribution: { status: invalid ? "invalid" : unavailable ? "unavailable" : structurallyComplete ? "complete" : "incomplete", complete: !invalid && !unavailable && structurallyComplete, evaluable: !invalid },
+    completionContribution: { status: invalid ? "invalid" : unavailable ? "unavailable" : complete ? "complete" : "incomplete", complete, evaluable: !invalid && !unavailable },
     readiness: { status: blocking.length > 0 ? "blocked" : unavailable ? "unavailable" : "available", releasable: !1, blockedDimensions: [...new Set(blocking.map((entry) => entry.dimension))].sort(), unavailableFutureCapabilities: ["tasks", "gate_execution"] },
     findings: findings.sort((left, right) => `${left.dimension}:${left.code}:${left.message}`.localeCompare(`${right.dimension}:${right.code}:${right.message}`))
   };
@@ -31352,7 +31387,7 @@ function deriveReleaseItemCompletionFromWorkPackages({ planningRoot, release, it
       continue;
     }
     let health = evaluateWorkPackageHealth({ planningRoot, release, item, workPackage: record.workPackage, directoryId: record.directoryId });
-    packages.push({ workPackage: record.workPackage, health }), health.aggregate.status === "invalid" && invalidPackageIds.push(record.workPackage.id), record.workPackage.commitment === "required" && !health.completionContribution.complete && blockingPackageIds.push(record.workPackage.id);
+    packages.push({ workPackage: record.workPackage, health }), health.aggregate.status === "invalid" && invalidPackageIds.push(record.workPackage.id), record.workPackage.commitment === "required" && !health.completionContribution.complete && blockingPackageIds.push(record.workPackage.id), findings.push(...health.findings.filter((entry) => entry.severity !== "info" && entry.severity !== "warning").map((entry) => ({ ...entry, dimension: "children", message: `${record.workPackage.id}: ${entry.message}`, evidence: { ...entry.evidence, itemId: item.id, packageId: record.workPackage.id } })));
     for (let entry of health.findings)
       entry.code === "CAPABILITY_UNAVAILABLE" && unavailableCapabilities.add(entry.evidence.capability || entry.dimension);
   }
@@ -31360,7 +31395,7 @@ function deriveReleaseItemCompletionFromWorkPackages({ planningRoot, release, it
   return {
     status: invalidPackageIds.length > 0 ? "invalid" : hasUnavailableRequired ? "unavailable" : complete ? "complete" : "incomplete",
     complete,
-    evaluable: invalidPackageIds.length === 0,
+    evaluable: invalidPackageIds.length === 0 && !hasUnavailableRequired,
     packageCount: packages.length + invalidPackageIds.length,
     requiredCount: required.length,
     requiredCompletedCount: requiredCompleted.length,
@@ -32735,8 +32770,11 @@ function prepareWorkPackageCreate(rawPayload, {
     ...listWorkPackageDocuments(planningRoot),
     ...listReservedWorkPackageDocuments(operationsRoot)
   ], id = packageId ?? generateUuidV7(), display = deriveUniqueWorkPackageDisplayId(id, existingPackages), dependencies = normalized.requestSnapshot.dependencies;
-  for (let dep of dependencies)
-    if (!existingPackages.find((pkg) => pkg.id === dep && pkg.releaseId === release.id)) throw new Error(`INVALID_REFERENCE: dependency ${dep} does not resolve to a Work Package in ${release.id}`);
+  for (let dep of dependencies) {
+    let target = existingPackages.find((pkg) => pkg.id === dep);
+    if (!target) throw new Error(`INVALID_REFERENCE: dependency ${dep} does not resolve to a Work Package`);
+    if (target.releaseId !== release.id) throw new Error(`INVALID_REFERENCE: dependency ${dep} belongs to another Release ${target.releaseId}`);
+  }
   if (dependencies.includes(id)) throw new Error("INVALID_REFERENCE: Work Package cannot depend on itself");
   let materialized = updateWorkPackageRevision({
     schemaVersion: 1,
