@@ -7,9 +7,9 @@ import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const manifest = JSON.parse(fs.readFileSync(path.join(root, ".claude-plugin/plugin.json"), "utf8"));
-// Corte 2 Plan 3 extends the Release/check surface. Item, task,
+// Corte 3 Plan 1 adds the Release Item surface. Work Package, task,
 // report, decision, and update remain deferred.
-const skillNames = ["init", "config", "release", "check"];
+const skillNames = ["init", "config", "release", "item", "check"];
 
 assert.equal(manifest.name, "shipping-mode", "manifest-name");
 assert.equal(manifest.version, "1.0.0", "manifest-version");
@@ -35,7 +35,7 @@ assert.deepEqual(help.commands, [
   "init --name <name> [--project-type software|non_software|mixed|unknown] [--base-branch <b>] [--vcs git|none] --actor <actor>",
   "config set --name <name> --actor <actor>",
   "config scope add --key <slug> --label <label> --kind code|non_code --path <path> [--owner <o>] --actor <actor>",
-  "changeset propose --kind <workspace.init|config.update|scope.add|scope.generator.set|guide.update|release.create|release.policy.configure|release.scopeRefs.set|release.operationalRefs.set|release.deployment.record|release.finalization.complete> --payload-file <file|-> --actor <actor>",
+  "changeset propose --kind <workspace.init|config.update|scope.add|scope.generator.set|guide.update|release.create|release.policy.configure|release.scopeRefs.set|release.operationalRefs.set|release.deployment.record|release.finalization.complete|release-item.create> --payload-file <file|-> --actor <actor>",
   "changeset validate <operation-id>",
   "changeset approve <operation-id> --actor <actor> [--allow-self-approval]",
   "changeset apply <operation-id> --actor <actor>",
@@ -46,8 +46,11 @@ assert.deepEqual(help.commands, [
   "release refs set <id-or-display-id> [--execution-context-refs <uuid,...>] [--environment-refs <uuid,...>] [--idempotency-key <key>] --actor <actor>",
   "release deployment record <id-or-display-id> --environment-ref <uuid> [--execution-context-ref <uuid>] --status planned|started|succeeded|failed|cancelled [--artifact-refs <ref,...>] [--evidence-refs <ref,...>] [--idempotency-key <key>] --actor <actor>",
   "release finalize <id-or-display-id> [--retrospective-status not_started|draft|approved|not_required] [--idempotency-key <key>] --actor <actor>",
+  "item create <release-id-or-display-id> --kind <kind> --title <title> [kind-specific options] [--dependency-refs <uuid,...>] [--slug <slug>] [--idempotency-key <key>] --actor <actor>",
+  "item status <release-id-or-display-id> <item-id-or-display-id>",
   "check schema",
   "check release [id-or-display-id]",
+  "check item <release-id-or-display-id> <item-id-or-display-id> --format json",
   "check guides [--scope-id <uuid>] [--mode strict|advisory]",
   "--help", "--version"
 ]);

@@ -17,6 +17,8 @@ import { DIRECTORY_CONTENT_HASH, isDirectoryRenderEntry } from "./bootstrapTopol
 import { releaseCreateInvariantFindings } from "./releaseCreate.mjs";
 import { listReleaseDocuments } from "./releaseStore.mjs";
 import { releaseMutationInvariantFindings } from "./releaseMutations.mjs";
+import { releaseItemCreateInvariantFindings } from "./releaseItemCreate.mjs";
+import { listReleaseItemDocuments } from "./releaseItemStore.mjs";
 
 export function readFileState(planningRoot, relativePath) {
   const absolutePath = confineRuntimeWritePath(planningRoot, relativePath);
@@ -58,7 +60,8 @@ export function eventTypeFor(kind) {
     "release.scopeRefs.set": "release.scopeRefs.set",
     "release.operationalRefs.set": "release.operationalRefs.set",
     "release.deployment.record": "release.deployment.recorded",
-    "release.finalization.complete": "release.finalization.completed"
+    "release.finalization.complete": "release.finalization.completed",
+    "release-item.create": "release-item.created"
   }[kind];
 }
 
@@ -159,6 +162,7 @@ function schemaNameForRenderedPath(relativePath) {
   if (/^scopes\/[^/]+\/scope\.yml$/.test(relativePath)) return "scope";
   if (/^scopes\/[^/]+\/(task|test)-guide\.yml$/.test(relativePath)) return "guide";
   if (/^releases\/[^/]+\/release\.yml$/.test(relativePath)) return "release";
+  if (/^releases\/[^/]+\/items\/[^/]+\/release-item\.yml$/.test(relativePath)) return "release-item";
   return null;
 }
 
@@ -215,6 +219,27 @@ function checkKindInvariants(changeSet, operation = null, planningRoot = null) {
       }
     }
   }
+  if (changeSet.kind === "release-item.create") {
+    let existingItems = [];
+    try {
+      existingItems = listReleaseItemDocuments(planningRoot);
+    } catch (error) {
+      errors.push(`release-item.create cannot verify display ID uniqueness: ${error.message}`);
+    }
+    errors.push(...releaseItemCreateInvariantFindings(changeSet, operation, existingItems));
+    const itemPath = `releases/${changeSet.payload.releaseId}/items/${changeSet.payload.id}/release-item.yml`;
+    const readmePath = `releases/${changeSet.payload.releaseId}/items/${changeSet.payload.id}/README.md`;
+    const actualPaths = new Set(Object.keys(changeSet.baseRevisions));
+    if (actualPaths.size !== 2 || !actualPaths.has(itemPath) || !actualPaths.has(readmePath)) {
+      errors.push("release-item.create baseRevisions must contain exactly release-item.yml and README.md for the UUIDv7 Release Item directory");
+    }
+    for (const relativePath of [itemPath, readmePath]) {
+      const entry = changeSet.baseRevisions[relativePath];
+      if (!entry || entry.revisionHash !== ABSENT || entry.contentHash !== ABSENT) {
+        errors.push(`${relativePath} must be ABSENT for release-item.create`);
+      }
+    }
+  }
   if (["release.policy.configure", "release.scopeRefs.set", "release.operationalRefs.set", "release.deployment.record", "release.finalization.complete"].includes(changeSet.kind)) {
     const releaseId = changeSet.payload.releaseId;
     const releasePath = `releases/${releaseId}/release.yml`;
@@ -239,6 +264,13 @@ function checkKindInvariants(changeSet, operation = null, planningRoot = null) {
   }
   if (changeSet.kind.startsWith("release.") && operation?.proposalHash && operation.proposalHash !== changeSet.hash) {
     errors.push(`${changeSet.kind} ChangeSet no longer matches the server-owned proposal hash`);
+  }
+  if (changeSet.kind === "release-item.create" && operation?.requestBinding) {
+    if (changeSet.payload?.idempotencyKey !== operation.requestBinding.key) errors.push("release-item.create idempotencyKey must match the server-owned Operation request binding");
+    if (changeSet.payload?.idempotencyRequestHash !== operation.requestBinding.requestHash) errors.push("release-item.create idempotencyRequestHash must match the server-owned Operation request binding");
+  }
+  if (changeSet.kind === "release-item.create" && operation?.proposalHash && operation.proposalHash !== changeSet.hash) {
+    errors.push("release-item.create ChangeSet no longer matches the server-owned proposal hash");
   }
   return errors;
 }
@@ -514,6 +546,32 @@ function prepareApply({ operationsRoot, planningRoot, operationId, render, actor
         return expectedEvent;
       })
     : operation.reservedEvents.map((reserved) => {
+        if (changeSet.kind === "release-item.create") {
+          const itemPath = `releases/${changeSet.payload.releaseId}/items/${changeSet.payload.id}/release-item.yml`;
+          const item = parseYaml(rendered.get(itemPath));
+          return buildExpectedEvent({
+            eventId: reserved.eventId,
+            type: reserved.type,
+            aggregate: { type: "release-item", id: item.id },
+            actor,
+            operationId,
+            idempotencyKey: changeSet.payload.idempotencyKey,
+            payload: {
+              releaseItemId: item.id,
+              displayId: item.displayId,
+              releaseId: item.releaseId,
+              operationId,
+              actor,
+              idempotencyKey: changeSet.payload.idempotencyKey,
+              changeSetHash: recomputedHash,
+              revisionAfter: item.audit.revision,
+              kind: item.kind,
+              status: item.status,
+              dependencyRefs: item.dependencies,
+              sourceRefSummary: item.sourceRefs.map((ref) => ({ sourceId: ref.sourceId, provider: ref.provider, role: ref.role, mappingVersion: ref.mappingVersion })).sort((left, right) => `${left.role}:${left.provider}:${left.sourceId}`.localeCompare(`${right.role}:${right.provider}:${right.sourceId}`))
+            }
+          });
+        }
         if (changeSet.kind.startsWith("release.")) {
           const releaseId = changeSet.kind === "release.create" ? changeSet.payload.id : changeSet.payload.releaseId;
           const releasePath = `releases/${releaseId}/release.yml`;

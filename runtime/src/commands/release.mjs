@@ -10,6 +10,7 @@ import { parseYaml } from "../lib/yaml.mjs";
 import { prepareReleaseMutation, normalizeReleaseMutationRequest } from "../lib/releaseMutations.mjs";
 import { revisionHash } from "../lib/canonical.mjs";
 import { evaluateReleaseHealth } from "../lib/releaseHealth.mjs";
+import { listReleaseItemDocuments } from "../lib/releaseItemStore.mjs";
 
 function readCurrentConfig(planningRoot) {
   const configPath = confineWritePath(planningRoot, "config.yml");
@@ -206,6 +207,7 @@ export function runReleaseStatus({ planningRoot, reference }) {
   if (resolution.status !== "FOUND") return { status: resolution.status, release: null, derivedHealth: null, refs: null, findings: resolution.findings, matches: resolution.matches || [] };
   const release = resolution.release;
   const health = evaluateReleaseHealth({ planningRoot, release, directoryId: release.id });
+  const canonicalItems = listReleaseItemDocuments(planningRoot, { releaseId: release.id });
   const findings = health.findings.map((entry) => `${entry.code}: ${entry.message}`);
   return {
     status: "FOUND",
@@ -232,6 +234,7 @@ export function runReleaseStatus({ planningRoot, reference }) {
       executionContextRefs: release.executionContextRefs,
       environmentRefs: release.environmentRefs,
       itemRefs: release.itemRefs,
+      canonicalItemIds: canonicalItems.map((item) => item.id).sort(),
       previousReleaseRefs: release.policy.previousReleaseRefs,
       dependencyRefs: release.policy.dependencyRefs
     },

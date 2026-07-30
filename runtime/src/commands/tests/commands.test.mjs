@@ -6,6 +6,7 @@ import { runInit, runConfigSet, runConfigScopeAdd } from "../init.mjs";
 import { runChangesetPropose, runChangesetValidate, runChangesetApprove, runChangesetApply } from "../changesetCommand.mjs";
 import { checkRelease } from "../check.mjs";
 import { runReleaseNew, runReleaseStatus, runReleasePolicyConfigure, runReleaseScopeSet, runReleaseRefsSet, runReleaseDeploymentRecord, runReleaseFinalize } from "../release.mjs";
+import { runItemCreate } from "../item.mjs";
 import { readOperation, readChangeSet, writeChangeSet } from "../../lib/operationStore.mjs";
 import { computePersistedChangeSetHash } from "../../lib/changeset.mjs";
 import { parseYaml, stringifyYaml } from "../../lib/yaml.mjs";
@@ -343,10 +344,27 @@ assert.throws(() => runReleaseFinalize({
 }), /requires lifecycle RELEASED/, "non-RELEASED lifecycles must fail closed for finalization");
 const checkReleaseResult = checkRelease({ planningRoot, reference: releaseCreate.displayId });
 assert.equal(checkReleaseResult.scope, "single");
-assert.equal(checkReleaseResult.releases[0].release.id, releaseCreate.releaseId);
-assert.equal(checkRelease({ planningRoot, reference: "ignored-for-identity" }).status, "NOT_FOUND", "check release must not resolve slugs");
+  assert.equal(checkReleaseResult.releases[0].release.id, releaseCreate.releaseId);
+  assert.equal(checkRelease({ planningRoot, reference: "ignored-for-identity" }).status, "NOT_FOUND", "check release must not resolve slugs");
 
-let releasableFixture = parseYaml(fs.readFileSync(releaseYmlPath, "utf8"));
+  const finalizationItem = runItemCreate({
+    planningRoot,
+    releaseRef: releaseCreate.releaseId,
+    args: {
+      kind: "spike",
+      title: "Finalization scope item",
+      question: "Can Release health discover items?",
+      timebox: "1d",
+      expectedDecision: "Release Item catalog is evaluable",
+      idempotencyKey: "finalization-item-plan3-regression",
+      commandActor: "carlos"
+    }
+  });
+  assert.equal(runChangesetValidate({ planningRoot, operationsRoot, operationId: finalizationItem.operationId }).status, "VALIDATED");
+  runChangesetApprove({ operationsRoot, planningRoot, operationId: finalizationItem.operationId, actor: "carlos", allowSelfApproval: true });
+  runChangesetApply({ planningRoot, operationsRoot, operationId: finalizationItem.operationId, actor: "carlos" });
+
+  let releasableFixture = parseYaml(fs.readFileSync(releaseYmlPath, "utf8"));
 releasableFixture = {
   ...releasableFixture,
   status: "RELEASED",

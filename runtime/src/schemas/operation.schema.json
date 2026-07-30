@@ -31,7 +31,8 @@
         "release.scopeRefs.set",
         "release.operationalRefs.set",
         "release.deployment.record",
-        "release.finalization.complete"
+        "release.finalization.complete",
+        "release-item.create"
       ]
     },
     "status": {
