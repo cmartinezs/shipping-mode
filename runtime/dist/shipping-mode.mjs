@@ -6801,7 +6801,7 @@ function validate24(data, { instancePath = "", parentData, parentDataProperty, r
   }
   return validate24.errors = vErrors, errors === 0;
 }
-var schema60 = { type: "object", additionalProperties: !1, required: ["sourceId", "provider", "role", "mappingVersion"], properties: { sourceId: { type: "string", minLength: 1 }, provider: { enum: ["local_repository", "jira", "github_issues", "azure_boards", "linear", "custom"] }, role: { enum: ["primary", "supporting", "derived_from", "supersedes", "related"] }, externalId: { type: "string", minLength: 1 }, externalUrl: { type: "string", minLength: 1 }, externalRevision: { type: "string", minLength: 1 }, path: { type: "string", minLength: 1 }, contentRevision: { $ref: "#/$defs/hash" }, fingerprint: { $ref: "#/$defs/hash" }, mappingVersion: { type: "integer", minimum: 1 }, importedAt: { type: "string", minLength: 1 }, itemId: { type: "string", minLength: 1, maxLength: 256 } }, oneOf: [{ properties: { provider: { const: "local_repository" }, path: {}, itemId: {} }, required: ["provider", "path", "itemId"], allOf: [{ anyOf: [{ required: ["contentRevision"], type: "object", properties: { contentRevision: {} } }, { required: ["fingerprint"], type: "object", properties: { fingerprint: {} } }] }, { not: { anyOf: [{ required: ["externalId"], type: "object", properties: { externalId: {} } }, { required: ["externalUrl"], type: "object", properties: { externalUrl: {} } }, { required: ["externalRevision"], type: "object", properties: { externalRevision: {} } }] } }], type: "object" }, { properties: { provider: { enum: ["jira", "github_issues", "azure_boards", "linear"] }, externalId: {} }, required: ["provider", "externalId"], allOf: [{ anyOf: [{ required: ["externalRevision"], type: "object", properties: { externalRevision: {} } }, { required: ["fingerprint"], type: "object", properties: { fingerprint: {} } }] }, { not: { anyOf: [{ required: ["path"], type: "object", properties: { path: {} } }, { required: ["contentRevision"], type: "object", properties: { contentRevision: {} } }] } }], type: "object" }, { properties: { provider: { const: "custom" }, path: {} }, required: ["provider", "path"], allOf: [{ anyOf: [{ required: ["contentRevision"], type: "object", properties: { contentRevision: {} } }, { required: ["fingerprint"], type: "object", properties: { fingerprint: {} } }] }, { not: { anyOf: [{ required: ["externalId"], type: "object", properties: { externalId: {} } }, { required: ["externalUrl"], type: "object", properties: { externalUrl: {} } }, { required: ["externalRevision"], type: "object", properties: { externalRevision: {} } }] } }], type: "object" }, { properties: { provider: { const: "custom" }, externalId: {} }, required: ["provider", "externalId"], allOf: [{ anyOf: [{ required: ["externalRevision"], type: "object", properties: { externalRevision: {} } }, { required: ["fingerprint"], type: "object", properties: { fingerprint: {} } }] }, { not: { anyOf: [{ required: ["path"], type: "object", properties: { path: {} } }, { required: ["contentRevision"], type: "object", properties: { contentRevision: {} } }] } }], type: "object" }] };
+var schema60 = { type: "object", additionalProperties: !1, required: ["sourceId", "provider", "role", "mappingVersion", "importedAt"], properties: { sourceId: { type: "string", minLength: 1 }, provider: { enum: ["local_repository", "jira", "github_issues", "azure_boards", "linear", "custom"] }, role: { enum: ["primary", "supporting", "derived_from", "supersedes", "related"] }, externalId: { type: "string", minLength: 1 }, externalUrl: { type: "string", minLength: 1 }, externalRevision: { type: "string", minLength: 1 }, path: { type: "string", minLength: 1 }, contentRevision: { $ref: "#/$defs/hash" }, fingerprint: { $ref: "#/$defs/hash" }, mappingVersion: { type: "integer", minimum: 1 }, importedAt: { type: "string", minLength: 1 }, itemId: { type: "string", minLength: 1, maxLength: 256 } }, oneOf: [{ properties: { provider: { const: "local_repository" }, path: {}, itemId: {} }, required: ["provider", "path", "itemId"], allOf: [{ anyOf: [{ required: ["contentRevision"], type: "object", properties: { contentRevision: {} } }, { required: ["fingerprint"], type: "object", properties: { fingerprint: {} } }] }, { not: { anyOf: [{ required: ["externalId"], type: "object", properties: { externalId: {} } }, { required: ["externalUrl"], type: "object", properties: { externalUrl: {} } }, { required: ["externalRevision"], type: "object", properties: { externalRevision: {} } }] } }], type: "object" }, { properties: { provider: { enum: ["jira", "github_issues", "azure_boards", "linear"] }, externalId: {} }, required: ["provider", "externalId"], allOf: [{ anyOf: [{ required: ["externalRevision"], type: "object", properties: { externalRevision: {} } }, { required: ["fingerprint"], type: "object", properties: { fingerprint: {} } }] }, { not: { anyOf: [{ required: ["path"], type: "object", properties: { path: {} } }, { required: ["contentRevision"], type: "object", properties: { contentRevision: {} } }, { type: "object", required: ["itemId"], properties: { itemId: {} } }] } }], type: "object" }, { properties: { provider: { const: "custom" }, path: {} }, required: ["provider", "path"], allOf: [{ anyOf: [{ required: ["contentRevision"], type: "object", properties: { contentRevision: {} } }, { required: ["fingerprint"], type: "object", properties: { fingerprint: {} } }] }, { not: { anyOf: [{ required: ["externalId"], type: "object", properties: { externalId: {} } }, { required: ["externalUrl"], type: "object", properties: { externalUrl: {} } }, { required: ["externalRevision"], type: "object", properties: { externalRevision: {} } }] } }], type: "object" }, { properties: { provider: { const: "custom" }, externalId: {} }, required: ["provider", "externalId"], allOf: [{ anyOf: [{ required: ["externalRevision"], type: "object", properties: { externalRevision: {} } }, { required: ["fingerprint"], type: "object", properties: { fingerprint: {} } }] }, { not: { anyOf: [{ required: ["path"], type: "object", properties: { path: {} } }, { required: ["contentRevision"], type: "object", properties: { contentRevision: {} } }, { type: "object", required: ["itemId"], properties: { itemId: {} } }] } }], type: "object" }] };
 function validate29(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
   let vErrors = null, errors = 0, _errs1 = errors, valid0 = !1, passing0 = null, _errs2 = errors, _errs5 = errors, valid2 = !1, _errs6 = errors;
   if (data && typeof data == "object" && !Array.isArray(data)) {
@@ -6971,415 +6971,449 @@ function validate29(data, { instancePath = "", parentData, parentDataProperty, r
         vErrors === null ? vErrors = [err26] : vErrors.push(err26), errors++;
       }
     var _valid4 = _errs35 === errors;
-    valid9 = valid9 || _valid4;
+    if (valid9 = valid9 || _valid4, !valid9) {
+      let _errs37 = errors;
+      if (errors === _errs37)
+        if (data && typeof data == "object" && !Array.isArray(data)) {
+          let missing5;
+          if (data.itemId === void 0 && (missing5 = "itemId")) {
+            let err27 = {};
+            vErrors === null ? vErrors = [err27] : vErrors.push(err27), errors++;
+          }
+        } else {
+          let err28 = {};
+          vErrors === null ? vErrors = [err28] : vErrors.push(err28), errors++;
+        }
+      var _valid4 = _errs37 === errors;
+      valid9 = valid9 || _valid4;
+    }
   }
   if (valid9)
     errors = _errs32, vErrors !== null && (_errs32 ? vErrors.length = _errs32 : vErrors = null);
   else {
-    let err27 = {};
-    vErrors === null ? vErrors = [err27] : vErrors.push(err27), errors++;
+    let err29 = {};
+    vErrors === null ? vErrors = [err29] : vErrors.push(err29), errors++;
   }
   var valid8 = _errs31 === errors;
   if (valid8) {
-    let err28 = { instancePath, schemaPath: "#/oneOf/1/allOf/1/not", keyword: "not", params: {}, message: "must NOT be valid" };
-    vErrors === null ? vErrors = [err28] : vErrors.push(err28), errors++;
+    let err30 = { instancePath, schemaPath: "#/oneOf/1/allOf/1/not", keyword: "not", params: {}, message: "must NOT be valid" };
+    vErrors === null ? vErrors = [err30] : vErrors.push(err30), errors++;
   } else
     errors = _errs30, vErrors !== null && (_errs30 ? vErrors.length = _errs30 : vErrors = null);
   if (data && typeof data == "object" && !Array.isArray(data)) {
     if (data.provider === void 0) {
-      let err29 = { instancePath, schemaPath: "#/oneOf/1/required", keyword: "required", params: { missingProperty: "provider" }, message: "must have required property 'provider'" };
-      vErrors === null ? vErrors = [err29] : vErrors.push(err29), errors++;
+      let err31 = { instancePath, schemaPath: "#/oneOf/1/required", keyword: "required", params: { missingProperty: "provider" }, message: "must have required property 'provider'" };
+      vErrors === null ? vErrors = [err31] : vErrors.push(err31), errors++;
     }
     if (data.externalId === void 0) {
-      let err30 = { instancePath, schemaPath: "#/oneOf/1/required", keyword: "required", params: { missingProperty: "externalId" }, message: "must have required property 'externalId'" };
-      vErrors === null ? vErrors = [err30] : vErrors.push(err30), errors++;
+      let err32 = { instancePath, schemaPath: "#/oneOf/1/required", keyword: "required", params: { missingProperty: "externalId" }, message: "must have required property 'externalId'" };
+      vErrors === null ? vErrors = [err32] : vErrors.push(err32), errors++;
     }
     if (data.provider !== void 0) {
       let data1 = data.provider;
       if (!(data1 === "jira" || data1 === "github_issues" || data1 === "azure_boards" || data1 === "linear")) {
-        let err31 = { instancePath: instancePath + "/provider", schemaPath: "#/oneOf/1/properties/provider/enum", keyword: "enum", params: { allowedValues: schema60.oneOf[1].properties.provider.enum }, message: "must be equal to one of the allowed values" };
-        vErrors === null ? vErrors = [err31] : vErrors.push(err31), errors++;
+        let err33 = { instancePath: instancePath + "/provider", schemaPath: "#/oneOf/1/properties/provider/enum", keyword: "enum", params: { allowedValues: schema60.oneOf[1].properties.provider.enum }, message: "must be equal to one of the allowed values" };
+        vErrors === null ? vErrors = [err33] : vErrors.push(err33), errors++;
       }
     }
   } else {
-    let err32 = { instancePath, schemaPath: "#/oneOf/1/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    vErrors === null ? vErrors = [err32] : vErrors.push(err32), errors++;
+    let err34 = { instancePath, schemaPath: "#/oneOf/1/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    vErrors === null ? vErrors = [err34] : vErrors.push(err34), errors++;
   }
   var _valid0 = _errs21 === errors;
   if (_valid0 && valid0)
     valid0 = !1, passing0 = [passing0, 1];
   else {
     _valid0 && (valid0 = !0, passing0 = 1);
-    let _errs38 = errors, _errs41 = errors, valid12 = !1, _errs42 = errors;
+    let _errs40 = errors, _errs43 = errors, valid12 = !1, _errs44 = errors;
     if (data && typeof data == "object" && !Array.isArray(data)) {
       if (data.contentRevision === void 0) {
-        let err33 = { instancePath, schemaPath: "#/oneOf/2/allOf/0/anyOf/0/required", keyword: "required", params: { missingProperty: "contentRevision" }, message: "must have required property 'contentRevision'" };
-        vErrors === null ? vErrors = [err33] : vErrors.push(err33), errors++;
+        let err35 = { instancePath, schemaPath: "#/oneOf/2/allOf/0/anyOf/0/required", keyword: "required", params: { missingProperty: "contentRevision" }, message: "must have required property 'contentRevision'" };
+        vErrors === null ? vErrors = [err35] : vErrors.push(err35), errors++;
       }
     } else {
-      let err34 = { instancePath, schemaPath: "#/oneOf/2/allOf/0/anyOf/0/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-      vErrors === null ? vErrors = [err34] : vErrors.push(err34), errors++;
+      let err36 = { instancePath, schemaPath: "#/oneOf/2/allOf/0/anyOf/0/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+      vErrors === null ? vErrors = [err36] : vErrors.push(err36), errors++;
     }
-    var _valid5 = _errs42 === errors;
+    var _valid5 = _errs44 === errors;
     if (valid12 = valid12 || _valid5, !valid12) {
-      let _errs44 = errors;
+      let _errs46 = errors;
       if (data && typeof data == "object" && !Array.isArray(data)) {
         if (data.fingerprint === void 0) {
-          let err35 = { instancePath, schemaPath: "#/oneOf/2/allOf/0/anyOf/1/required", keyword: "required", params: { missingProperty: "fingerprint" }, message: "must have required property 'fingerprint'" };
-          vErrors === null ? vErrors = [err35] : vErrors.push(err35), errors++;
+          let err37 = { instancePath, schemaPath: "#/oneOf/2/allOf/0/anyOf/1/required", keyword: "required", params: { missingProperty: "fingerprint" }, message: "must have required property 'fingerprint'" };
+          vErrors === null ? vErrors = [err37] : vErrors.push(err37), errors++;
         }
       } else {
-        let err36 = { instancePath, schemaPath: "#/oneOf/2/allOf/0/anyOf/1/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-        vErrors === null ? vErrors = [err36] : vErrors.push(err36), errors++;
+        let err38 = { instancePath, schemaPath: "#/oneOf/2/allOf/0/anyOf/1/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        vErrors === null ? vErrors = [err38] : vErrors.push(err38), errors++;
       }
-      var _valid5 = _errs44 === errors;
+      var _valid5 = _errs46 === errors;
       valid12 = valid12 || _valid5;
     }
     if (valid12)
-      errors = _errs41, vErrors !== null && (_errs41 ? vErrors.length = _errs41 : vErrors = null);
+      errors = _errs43, vErrors !== null && (_errs43 ? vErrors.length = _errs43 : vErrors = null);
     else {
-      let err37 = { instancePath, schemaPath: "#/oneOf/2/allOf/0/anyOf", keyword: "anyOf", params: {}, message: "must match a schema in anyOf" };
-      vErrors === null ? vErrors = [err37] : vErrors.push(err37), errors++;
+      let err39 = { instancePath, schemaPath: "#/oneOf/2/allOf/0/anyOf", keyword: "anyOf", params: {}, message: "must match a schema in anyOf" };
+      vErrors === null ? vErrors = [err39] : vErrors.push(err39), errors++;
     }
-    let _errs47 = errors, _errs48 = errors, _errs49 = errors, valid14 = !1, _errs50 = errors;
-    if (errors === _errs50)
+    let _errs49 = errors, _errs50 = errors, _errs51 = errors, valid14 = !1, _errs52 = errors;
+    if (errors === _errs52)
       if (data && typeof data == "object" && !Array.isArray(data)) {
-        let missing5;
-        if (data.externalId === void 0 && (missing5 = "externalId")) {
-          let err38 = {};
-          vErrors === null ? vErrors = [err38] : vErrors.push(err38), errors++;
+        let missing6;
+        if (data.externalId === void 0 && (missing6 = "externalId")) {
+          let err40 = {};
+          vErrors === null ? vErrors = [err40] : vErrors.push(err40), errors++;
         }
       } else {
-        let err39 = {};
-        vErrors === null ? vErrors = [err39] : vErrors.push(err39), errors++;
+        let err41 = {};
+        vErrors === null ? vErrors = [err41] : vErrors.push(err41), errors++;
       }
-    var _valid6 = _errs50 === errors;
+    var _valid6 = _errs52 === errors;
     if (valid14 = valid14 || _valid6, !valid14) {
-      let _errs52 = errors;
-      if (errors === _errs52)
+      let _errs54 = errors;
+      if (errors === _errs54)
         if (data && typeof data == "object" && !Array.isArray(data)) {
-          let missing6;
-          if (data.externalUrl === void 0 && (missing6 = "externalUrl")) {
-            let err40 = {};
-            vErrors === null ? vErrors = [err40] : vErrors.push(err40), errors++;
+          let missing7;
+          if (data.externalUrl === void 0 && (missing7 = "externalUrl")) {
+            let err42 = {};
+            vErrors === null ? vErrors = [err42] : vErrors.push(err42), errors++;
           }
         } else {
-          let err41 = {};
-          vErrors === null ? vErrors = [err41] : vErrors.push(err41), errors++;
+          let err43 = {};
+          vErrors === null ? vErrors = [err43] : vErrors.push(err43), errors++;
         }
-      var _valid6 = _errs52 === errors;
+      var _valid6 = _errs54 === errors;
       if (valid14 = valid14 || _valid6, !valid14) {
-        let _errs54 = errors;
-        if (errors === _errs54)
+        let _errs56 = errors;
+        if (errors === _errs56)
           if (data && typeof data == "object" && !Array.isArray(data)) {
-            let missing7;
-            if (data.externalRevision === void 0 && (missing7 = "externalRevision")) {
-              let err42 = {};
-              vErrors === null ? vErrors = [err42] : vErrors.push(err42), errors++;
+            let missing8;
+            if (data.externalRevision === void 0 && (missing8 = "externalRevision")) {
+              let err44 = {};
+              vErrors === null ? vErrors = [err44] : vErrors.push(err44), errors++;
             }
           } else {
-            let err43 = {};
-            vErrors === null ? vErrors = [err43] : vErrors.push(err43), errors++;
+            let err45 = {};
+            vErrors === null ? vErrors = [err45] : vErrors.push(err45), errors++;
           }
-        var _valid6 = _errs54 === errors;
+        var _valid6 = _errs56 === errors;
         valid14 = valid14 || _valid6;
       }
     }
     if (valid14)
-      errors = _errs49, vErrors !== null && (_errs49 ? vErrors.length = _errs49 : vErrors = null);
+      errors = _errs51, vErrors !== null && (_errs51 ? vErrors.length = _errs51 : vErrors = null);
     else {
-      let err44 = {};
-      vErrors === null ? vErrors = [err44] : vErrors.push(err44), errors++;
+      let err46 = {};
+      vErrors === null ? vErrors = [err46] : vErrors.push(err46), errors++;
     }
-    var valid13 = _errs48 === errors;
+    var valid13 = _errs50 === errors;
     if (valid13) {
-      let err45 = { instancePath, schemaPath: "#/oneOf/2/allOf/1/not", keyword: "not", params: {}, message: "must NOT be valid" };
-      vErrors === null ? vErrors = [err45] : vErrors.push(err45), errors++;
+      let err47 = { instancePath, schemaPath: "#/oneOf/2/allOf/1/not", keyword: "not", params: {}, message: "must NOT be valid" };
+      vErrors === null ? vErrors = [err47] : vErrors.push(err47), errors++;
     } else
-      errors = _errs47, vErrors !== null && (_errs47 ? vErrors.length = _errs47 : vErrors = null);
+      errors = _errs49, vErrors !== null && (_errs49 ? vErrors.length = _errs49 : vErrors = null);
     if (data && typeof data == "object" && !Array.isArray(data)) {
       if (data.provider === void 0) {
-        let err46 = { instancePath, schemaPath: "#/oneOf/2/required", keyword: "required", params: { missingProperty: "provider" }, message: "must have required property 'provider'" };
-        vErrors === null ? vErrors = [err46] : vErrors.push(err46), errors++;
-      }
-      if (data.path === void 0) {
-        let err47 = { instancePath, schemaPath: "#/oneOf/2/required", keyword: "required", params: { missingProperty: "path" }, message: "must have required property 'path'" };
-        vErrors === null ? vErrors = [err47] : vErrors.push(err47), errors++;
-      }
-      if (data.provider !== void 0 && data.provider !== "custom") {
-        let err48 = { instancePath: instancePath + "/provider", schemaPath: "#/oneOf/2/properties/provider/const", keyword: "const", params: { allowedValue: "custom" }, message: "must be equal to constant" };
+        let err48 = { instancePath, schemaPath: "#/oneOf/2/required", keyword: "required", params: { missingProperty: "provider" }, message: "must have required property 'provider'" };
         vErrors === null ? vErrors = [err48] : vErrors.push(err48), errors++;
       }
+      if (data.path === void 0) {
+        let err49 = { instancePath, schemaPath: "#/oneOf/2/required", keyword: "required", params: { missingProperty: "path" }, message: "must have required property 'path'" };
+        vErrors === null ? vErrors = [err49] : vErrors.push(err49), errors++;
+      }
+      if (data.provider !== void 0 && data.provider !== "custom") {
+        let err50 = { instancePath: instancePath + "/provider", schemaPath: "#/oneOf/2/properties/provider/const", keyword: "const", params: { allowedValue: "custom" }, message: "must be equal to constant" };
+        vErrors === null ? vErrors = [err50] : vErrors.push(err50), errors++;
+      }
     } else {
-      let err49 = { instancePath, schemaPath: "#/oneOf/2/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-      vErrors === null ? vErrors = [err49] : vErrors.push(err49), errors++;
+      let err51 = { instancePath, schemaPath: "#/oneOf/2/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+      vErrors === null ? vErrors = [err51] : vErrors.push(err51), errors++;
     }
-    var _valid0 = _errs38 === errors;
+    var _valid0 = _errs40 === errors;
     if (_valid0 && valid0)
       valid0 = !1, passing0 = [passing0, 2];
     else {
       _valid0 && (valid0 = !0, passing0 = 2);
-      let _errs57 = errors, _errs60 = errors, valid17 = !1, _errs61 = errors;
+      let _errs59 = errors, _errs62 = errors, valid17 = !1, _errs63 = errors;
       if (data && typeof data == "object" && !Array.isArray(data)) {
         if (data.externalRevision === void 0) {
-          let err50 = { instancePath, schemaPath: "#/oneOf/3/allOf/0/anyOf/0/required", keyword: "required", params: { missingProperty: "externalRevision" }, message: "must have required property 'externalRevision'" };
-          vErrors === null ? vErrors = [err50] : vErrors.push(err50), errors++;
+          let err52 = { instancePath, schemaPath: "#/oneOf/3/allOf/0/anyOf/0/required", keyword: "required", params: { missingProperty: "externalRevision" }, message: "must have required property 'externalRevision'" };
+          vErrors === null ? vErrors = [err52] : vErrors.push(err52), errors++;
         }
       } else {
-        let err51 = { instancePath, schemaPath: "#/oneOf/3/allOf/0/anyOf/0/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-        vErrors === null ? vErrors = [err51] : vErrors.push(err51), errors++;
+        let err53 = { instancePath, schemaPath: "#/oneOf/3/allOf/0/anyOf/0/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        vErrors === null ? vErrors = [err53] : vErrors.push(err53), errors++;
       }
-      var _valid7 = _errs61 === errors;
+      var _valid7 = _errs63 === errors;
       if (valid17 = valid17 || _valid7, !valid17) {
-        let _errs63 = errors;
+        let _errs65 = errors;
         if (data && typeof data == "object" && !Array.isArray(data)) {
           if (data.fingerprint === void 0) {
-            let err52 = { instancePath, schemaPath: "#/oneOf/3/allOf/0/anyOf/1/required", keyword: "required", params: { missingProperty: "fingerprint" }, message: "must have required property 'fingerprint'" };
-            vErrors === null ? vErrors = [err52] : vErrors.push(err52), errors++;
+            let err54 = { instancePath, schemaPath: "#/oneOf/3/allOf/0/anyOf/1/required", keyword: "required", params: { missingProperty: "fingerprint" }, message: "must have required property 'fingerprint'" };
+            vErrors === null ? vErrors = [err54] : vErrors.push(err54), errors++;
           }
         } else {
-          let err53 = { instancePath, schemaPath: "#/oneOf/3/allOf/0/anyOf/1/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-          vErrors === null ? vErrors = [err53] : vErrors.push(err53), errors++;
+          let err55 = { instancePath, schemaPath: "#/oneOf/3/allOf/0/anyOf/1/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+          vErrors === null ? vErrors = [err55] : vErrors.push(err55), errors++;
         }
-        var _valid7 = _errs63 === errors;
+        var _valid7 = _errs65 === errors;
         valid17 = valid17 || _valid7;
       }
       if (valid17)
-        errors = _errs60, vErrors !== null && (_errs60 ? vErrors.length = _errs60 : vErrors = null);
+        errors = _errs62, vErrors !== null && (_errs62 ? vErrors.length = _errs62 : vErrors = null);
       else {
-        let err54 = { instancePath, schemaPath: "#/oneOf/3/allOf/0/anyOf", keyword: "anyOf", params: {}, message: "must match a schema in anyOf" };
-        vErrors === null ? vErrors = [err54] : vErrors.push(err54), errors++;
+        let err56 = { instancePath, schemaPath: "#/oneOf/3/allOf/0/anyOf", keyword: "anyOf", params: {}, message: "must match a schema in anyOf" };
+        vErrors === null ? vErrors = [err56] : vErrors.push(err56), errors++;
       }
-      let _errs66 = errors, _errs67 = errors, _errs68 = errors, valid19 = !1, _errs69 = errors;
-      if (errors === _errs69)
+      let _errs68 = errors, _errs69 = errors, _errs70 = errors, valid19 = !1, _errs71 = errors;
+      if (errors === _errs71)
         if (data && typeof data == "object" && !Array.isArray(data)) {
-          let missing8;
-          if (data.path === void 0 && (missing8 = "path")) {
-            let err55 = {};
-            vErrors === null ? vErrors = [err55] : vErrors.push(err55), errors++;
+          let missing9;
+          if (data.path === void 0 && (missing9 = "path")) {
+            let err57 = {};
+            vErrors === null ? vErrors = [err57] : vErrors.push(err57), errors++;
           }
         } else {
-          let err56 = {};
-          vErrors === null ? vErrors = [err56] : vErrors.push(err56), errors++;
+          let err58 = {};
+          vErrors === null ? vErrors = [err58] : vErrors.push(err58), errors++;
         }
-      var _valid8 = _errs69 === errors;
+      var _valid8 = _errs71 === errors;
       if (valid19 = valid19 || _valid8, !valid19) {
-        let _errs71 = errors;
-        if (errors === _errs71)
+        let _errs73 = errors;
+        if (errors === _errs73)
           if (data && typeof data == "object" && !Array.isArray(data)) {
-            let missing9;
-            if (data.contentRevision === void 0 && (missing9 = "contentRevision")) {
-              let err57 = {};
-              vErrors === null ? vErrors = [err57] : vErrors.push(err57), errors++;
+            let missing10;
+            if (data.contentRevision === void 0 && (missing10 = "contentRevision")) {
+              let err59 = {};
+              vErrors === null ? vErrors = [err59] : vErrors.push(err59), errors++;
             }
           } else {
-            let err58 = {};
-            vErrors === null ? vErrors = [err58] : vErrors.push(err58), errors++;
+            let err60 = {};
+            vErrors === null ? vErrors = [err60] : vErrors.push(err60), errors++;
           }
-        var _valid8 = _errs71 === errors;
-        valid19 = valid19 || _valid8;
+        var _valid8 = _errs73 === errors;
+        if (valid19 = valid19 || _valid8, !valid19) {
+          let _errs75 = errors;
+          if (errors === _errs75)
+            if (data && typeof data == "object" && !Array.isArray(data)) {
+              let missing11;
+              if (data.itemId === void 0 && (missing11 = "itemId")) {
+                let err61 = {};
+                vErrors === null ? vErrors = [err61] : vErrors.push(err61), errors++;
+              }
+            } else {
+              let err62 = {};
+              vErrors === null ? vErrors = [err62] : vErrors.push(err62), errors++;
+            }
+          var _valid8 = _errs75 === errors;
+          valid19 = valid19 || _valid8;
+        }
       }
       if (valid19)
-        errors = _errs68, vErrors !== null && (_errs68 ? vErrors.length = _errs68 : vErrors = null);
+        errors = _errs70, vErrors !== null && (_errs70 ? vErrors.length = _errs70 : vErrors = null);
       else {
-        let err59 = {};
-        vErrors === null ? vErrors = [err59] : vErrors.push(err59), errors++;
+        let err63 = {};
+        vErrors === null ? vErrors = [err63] : vErrors.push(err63), errors++;
       }
-      var valid18 = _errs67 === errors;
+      var valid18 = _errs69 === errors;
       if (valid18) {
-        let err60 = { instancePath, schemaPath: "#/oneOf/3/allOf/1/not", keyword: "not", params: {}, message: "must NOT be valid" };
-        vErrors === null ? vErrors = [err60] : vErrors.push(err60), errors++;
+        let err64 = { instancePath, schemaPath: "#/oneOf/3/allOf/1/not", keyword: "not", params: {}, message: "must NOT be valid" };
+        vErrors === null ? vErrors = [err64] : vErrors.push(err64), errors++;
       } else
-        errors = _errs66, vErrors !== null && (_errs66 ? vErrors.length = _errs66 : vErrors = null);
+        errors = _errs68, vErrors !== null && (_errs68 ? vErrors.length = _errs68 : vErrors = null);
       if (data && typeof data == "object" && !Array.isArray(data)) {
         if (data.provider === void 0) {
-          let err61 = { instancePath, schemaPath: "#/oneOf/3/required", keyword: "required", params: { missingProperty: "provider" }, message: "must have required property 'provider'" };
-          vErrors === null ? vErrors = [err61] : vErrors.push(err61), errors++;
+          let err65 = { instancePath, schemaPath: "#/oneOf/3/required", keyword: "required", params: { missingProperty: "provider" }, message: "must have required property 'provider'" };
+          vErrors === null ? vErrors = [err65] : vErrors.push(err65), errors++;
         }
         if (data.externalId === void 0) {
-          let err62 = { instancePath, schemaPath: "#/oneOf/3/required", keyword: "required", params: { missingProperty: "externalId" }, message: "must have required property 'externalId'" };
-          vErrors === null ? vErrors = [err62] : vErrors.push(err62), errors++;
+          let err66 = { instancePath, schemaPath: "#/oneOf/3/required", keyword: "required", params: { missingProperty: "externalId" }, message: "must have required property 'externalId'" };
+          vErrors === null ? vErrors = [err66] : vErrors.push(err66), errors++;
         }
         if (data.provider !== void 0 && data.provider !== "custom") {
-          let err63 = { instancePath: instancePath + "/provider", schemaPath: "#/oneOf/3/properties/provider/const", keyword: "const", params: { allowedValue: "custom" }, message: "must be equal to constant" };
-          vErrors === null ? vErrors = [err63] : vErrors.push(err63), errors++;
+          let err67 = { instancePath: instancePath + "/provider", schemaPath: "#/oneOf/3/properties/provider/const", keyword: "const", params: { allowedValue: "custom" }, message: "must be equal to constant" };
+          vErrors === null ? vErrors = [err67] : vErrors.push(err67), errors++;
         }
       } else {
-        let err64 = { instancePath, schemaPath: "#/oneOf/3/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-        vErrors === null ? vErrors = [err64] : vErrors.push(err64), errors++;
+        let err68 = { instancePath, schemaPath: "#/oneOf/3/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        vErrors === null ? vErrors = [err68] : vErrors.push(err68), errors++;
       }
-      var _valid0 = _errs57 === errors;
+      var _valid0 = _errs59 === errors;
       _valid0 && valid0 ? (valid0 = !1, passing0 = [passing0, 3]) : _valid0 && (valid0 = !0, passing0 = 3);
     }
   }
   if (valid0)
     errors = _errs1, vErrors !== null && (_errs1 ? vErrors.length = _errs1 : vErrors = null);
   else {
-    let err65 = { instancePath, schemaPath: "#/oneOf", keyword: "oneOf", params: { passingSchemas: passing0 }, message: "must match exactly one schema in oneOf" };
-    vErrors === null ? vErrors = [err65] : vErrors.push(err65), errors++;
+    let err69 = { instancePath, schemaPath: "#/oneOf", keyword: "oneOf", params: { passingSchemas: passing0 }, message: "must match exactly one schema in oneOf" };
+    vErrors === null ? vErrors = [err69] : vErrors.push(err69), errors++;
   }
   if (data && typeof data == "object" && !Array.isArray(data)) {
     if (data.sourceId === void 0) {
-      let err66 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "sourceId" }, message: "must have required property 'sourceId'" };
-      vErrors === null ? vErrors = [err66] : vErrors.push(err66), errors++;
+      let err70 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "sourceId" }, message: "must have required property 'sourceId'" };
+      vErrors === null ? vErrors = [err70] : vErrors.push(err70), errors++;
     }
     if (data.provider === void 0) {
-      let err67 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "provider" }, message: "must have required property 'provider'" };
-      vErrors === null ? vErrors = [err67] : vErrors.push(err67), errors++;
+      let err71 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "provider" }, message: "must have required property 'provider'" };
+      vErrors === null ? vErrors = [err71] : vErrors.push(err71), errors++;
     }
     if (data.role === void 0) {
-      let err68 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "role" }, message: "must have required property 'role'" };
-      vErrors === null ? vErrors = [err68] : vErrors.push(err68), errors++;
+      let err72 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "role" }, message: "must have required property 'role'" };
+      vErrors === null ? vErrors = [err72] : vErrors.push(err72), errors++;
     }
     if (data.mappingVersion === void 0) {
-      let err69 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "mappingVersion" }, message: "must have required property 'mappingVersion'" };
-      vErrors === null ? vErrors = [err69] : vErrors.push(err69), errors++;
+      let err73 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "mappingVersion" }, message: "must have required property 'mappingVersion'" };
+      vErrors === null ? vErrors = [err73] : vErrors.push(err73), errors++;
+    }
+    if (data.importedAt === void 0) {
+      let err74 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "importedAt" }, message: "must have required property 'importedAt'" };
+      vErrors === null ? vErrors = [err74] : vErrors.push(err74), errors++;
     }
     for (let key0 in data)
       if (!func4.call(schema60.properties, key0)) {
-        let err70 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
-        vErrors === null ? vErrors = [err70] : vErrors.push(err70), errors++;
+        let err75 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
+        vErrors === null ? vErrors = [err75] : vErrors.push(err75), errors++;
       }
     if (data.sourceId !== void 0) {
       let data4 = data.sourceId;
       if (typeof data4 == "string") {
         if (func2(data4) < 1) {
-          let err71 = { instancePath: instancePath + "/sourceId", schemaPath: "#/properties/sourceId/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-          vErrors === null ? vErrors = [err71] : vErrors.push(err71), errors++;
+          let err76 = { instancePath: instancePath + "/sourceId", schemaPath: "#/properties/sourceId/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+          vErrors === null ? vErrors = [err76] : vErrors.push(err76), errors++;
         }
       } else {
-        let err72 = { instancePath: instancePath + "/sourceId", schemaPath: "#/properties/sourceId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        vErrors === null ? vErrors = [err72] : vErrors.push(err72), errors++;
+        let err77 = { instancePath: instancePath + "/sourceId", schemaPath: "#/properties/sourceId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        vErrors === null ? vErrors = [err77] : vErrors.push(err77), errors++;
       }
     }
     if (data.provider !== void 0) {
       let data5 = data.provider;
       if (!(data5 === "local_repository" || data5 === "jira" || data5 === "github_issues" || data5 === "azure_boards" || data5 === "linear" || data5 === "custom")) {
-        let err73 = { instancePath: instancePath + "/provider", schemaPath: "#/properties/provider/enum", keyword: "enum", params: { allowedValues: schema60.properties.provider.enum }, message: "must be equal to one of the allowed values" };
-        vErrors === null ? vErrors = [err73] : vErrors.push(err73), errors++;
+        let err78 = { instancePath: instancePath + "/provider", schemaPath: "#/properties/provider/enum", keyword: "enum", params: { allowedValues: schema60.properties.provider.enum }, message: "must be equal to one of the allowed values" };
+        vErrors === null ? vErrors = [err78] : vErrors.push(err78), errors++;
       }
     }
     if (data.role !== void 0) {
       let data6 = data.role;
       if (!(data6 === "primary" || data6 === "supporting" || data6 === "derived_from" || data6 === "supersedes" || data6 === "related")) {
-        let err74 = { instancePath: instancePath + "/role", schemaPath: "#/properties/role/enum", keyword: "enum", params: { allowedValues: schema60.properties.role.enum }, message: "must be equal to one of the allowed values" };
-        vErrors === null ? vErrors = [err74] : vErrors.push(err74), errors++;
+        let err79 = { instancePath: instancePath + "/role", schemaPath: "#/properties/role/enum", keyword: "enum", params: { allowedValues: schema60.properties.role.enum }, message: "must be equal to one of the allowed values" };
+        vErrors === null ? vErrors = [err79] : vErrors.push(err79), errors++;
       }
     }
     if (data.externalId !== void 0) {
       let data7 = data.externalId;
       if (typeof data7 == "string") {
         if (func2(data7) < 1) {
-          let err75 = { instancePath: instancePath + "/externalId", schemaPath: "#/properties/externalId/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-          vErrors === null ? vErrors = [err75] : vErrors.push(err75), errors++;
+          let err80 = { instancePath: instancePath + "/externalId", schemaPath: "#/properties/externalId/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+          vErrors === null ? vErrors = [err80] : vErrors.push(err80), errors++;
         }
       } else {
-        let err76 = { instancePath: instancePath + "/externalId", schemaPath: "#/properties/externalId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        vErrors === null ? vErrors = [err76] : vErrors.push(err76), errors++;
+        let err81 = { instancePath: instancePath + "/externalId", schemaPath: "#/properties/externalId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        vErrors === null ? vErrors = [err81] : vErrors.push(err81), errors++;
       }
     }
     if (data.externalUrl !== void 0) {
       let data8 = data.externalUrl;
       if (typeof data8 == "string") {
         if (func2(data8) < 1) {
-          let err77 = { instancePath: instancePath + "/externalUrl", schemaPath: "#/properties/externalUrl/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-          vErrors === null ? vErrors = [err77] : vErrors.push(err77), errors++;
+          let err82 = { instancePath: instancePath + "/externalUrl", schemaPath: "#/properties/externalUrl/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+          vErrors === null ? vErrors = [err82] : vErrors.push(err82), errors++;
         }
       } else {
-        let err78 = { instancePath: instancePath + "/externalUrl", schemaPath: "#/properties/externalUrl/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        vErrors === null ? vErrors = [err78] : vErrors.push(err78), errors++;
+        let err83 = { instancePath: instancePath + "/externalUrl", schemaPath: "#/properties/externalUrl/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        vErrors === null ? vErrors = [err83] : vErrors.push(err83), errors++;
       }
     }
     if (data.externalRevision !== void 0) {
       let data9 = data.externalRevision;
       if (typeof data9 == "string") {
         if (func2(data9) < 1) {
-          let err79 = { instancePath: instancePath + "/externalRevision", schemaPath: "#/properties/externalRevision/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-          vErrors === null ? vErrors = [err79] : vErrors.push(err79), errors++;
+          let err84 = { instancePath: instancePath + "/externalRevision", schemaPath: "#/properties/externalRevision/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+          vErrors === null ? vErrors = [err84] : vErrors.push(err84), errors++;
         }
       } else {
-        let err80 = { instancePath: instancePath + "/externalRevision", schemaPath: "#/properties/externalRevision/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        vErrors === null ? vErrors = [err80] : vErrors.push(err80), errors++;
+        let err85 = { instancePath: instancePath + "/externalRevision", schemaPath: "#/properties/externalRevision/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        vErrors === null ? vErrors = [err85] : vErrors.push(err85), errors++;
       }
     }
     if (data.path !== void 0) {
       let data10 = data.path;
       if (typeof data10 == "string") {
         if (func2(data10) < 1) {
-          let err81 = { instancePath: instancePath + "/path", schemaPath: "#/properties/path/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-          vErrors === null ? vErrors = [err81] : vErrors.push(err81), errors++;
+          let err86 = { instancePath: instancePath + "/path", schemaPath: "#/properties/path/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+          vErrors === null ? vErrors = [err86] : vErrors.push(err86), errors++;
         }
       } else {
-        let err82 = { instancePath: instancePath + "/path", schemaPath: "#/properties/path/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        vErrors === null ? vErrors = [err82] : vErrors.push(err82), errors++;
+        let err87 = { instancePath: instancePath + "/path", schemaPath: "#/properties/path/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        vErrors === null ? vErrors = [err87] : vErrors.push(err87), errors++;
       }
     }
     if (data.contentRevision !== void 0) {
       let data11 = data.contentRevision;
       if (typeof data11 == "string") {
         if (!pattern0.test(data11)) {
-          let err83 = { instancePath: instancePath + "/contentRevision", schemaPath: "#/$defs/hash/pattern", keyword: "pattern", params: { pattern: "^sha256:[0-9a-f]{64}$" }, message: 'must match pattern "^sha256:[0-9a-f]{64}$"' };
-          vErrors === null ? vErrors = [err83] : vErrors.push(err83), errors++;
+          let err88 = { instancePath: instancePath + "/contentRevision", schemaPath: "#/$defs/hash/pattern", keyword: "pattern", params: { pattern: "^sha256:[0-9a-f]{64}$" }, message: 'must match pattern "^sha256:[0-9a-f]{64}$"' };
+          vErrors === null ? vErrors = [err88] : vErrors.push(err88), errors++;
         }
       } else {
-        let err84 = { instancePath: instancePath + "/contentRevision", schemaPath: "#/$defs/hash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        vErrors === null ? vErrors = [err84] : vErrors.push(err84), errors++;
+        let err89 = { instancePath: instancePath + "/contentRevision", schemaPath: "#/$defs/hash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        vErrors === null ? vErrors = [err89] : vErrors.push(err89), errors++;
       }
     }
     if (data.fingerprint !== void 0) {
       let data12 = data.fingerprint;
       if (typeof data12 == "string") {
         if (!pattern0.test(data12)) {
-          let err85 = { instancePath: instancePath + "/fingerprint", schemaPath: "#/$defs/hash/pattern", keyword: "pattern", params: { pattern: "^sha256:[0-9a-f]{64}$" }, message: 'must match pattern "^sha256:[0-9a-f]{64}$"' };
-          vErrors === null ? vErrors = [err85] : vErrors.push(err85), errors++;
+          let err90 = { instancePath: instancePath + "/fingerprint", schemaPath: "#/$defs/hash/pattern", keyword: "pattern", params: { pattern: "^sha256:[0-9a-f]{64}$" }, message: 'must match pattern "^sha256:[0-9a-f]{64}$"' };
+          vErrors === null ? vErrors = [err90] : vErrors.push(err90), errors++;
         }
       } else {
-        let err86 = { instancePath: instancePath + "/fingerprint", schemaPath: "#/$defs/hash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        vErrors === null ? vErrors = [err86] : vErrors.push(err86), errors++;
+        let err91 = { instancePath: instancePath + "/fingerprint", schemaPath: "#/$defs/hash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        vErrors === null ? vErrors = [err91] : vErrors.push(err91), errors++;
       }
     }
     if (data.mappingVersion !== void 0) {
       let data13 = data.mappingVersion;
       if (!(typeof data13 == "number" && !(data13 % 1) && !isNaN(data13) && isFinite(data13))) {
-        let err87 = { instancePath: instancePath + "/mappingVersion", schemaPath: "#/properties/mappingVersion/type", keyword: "type", params: { type: "integer" }, message: "must be integer" };
-        vErrors === null ? vErrors = [err87] : vErrors.push(err87), errors++;
+        let err92 = { instancePath: instancePath + "/mappingVersion", schemaPath: "#/properties/mappingVersion/type", keyword: "type", params: { type: "integer" }, message: "must be integer" };
+        vErrors === null ? vErrors = [err92] : vErrors.push(err92), errors++;
       }
       if (typeof data13 == "number" && isFinite(data13) && (data13 < 1 || isNaN(data13))) {
-        let err88 = { instancePath: instancePath + "/mappingVersion", schemaPath: "#/properties/mappingVersion/minimum", keyword: "minimum", params: { comparison: ">=", limit: 1 }, message: "must be >= 1" };
-        vErrors === null ? vErrors = [err88] : vErrors.push(err88), errors++;
+        let err93 = { instancePath: instancePath + "/mappingVersion", schemaPath: "#/properties/mappingVersion/minimum", keyword: "minimum", params: { comparison: ">=", limit: 1 }, message: "must be >= 1" };
+        vErrors === null ? vErrors = [err93] : vErrors.push(err93), errors++;
       }
     }
     if (data.importedAt !== void 0) {
       let data14 = data.importedAt;
       if (typeof data14 == "string") {
         if (func2(data14) < 1) {
-          let err89 = { instancePath: instancePath + "/importedAt", schemaPath: "#/properties/importedAt/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-          vErrors === null ? vErrors = [err89] : vErrors.push(err89), errors++;
+          let err94 = { instancePath: instancePath + "/importedAt", schemaPath: "#/properties/importedAt/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+          vErrors === null ? vErrors = [err94] : vErrors.push(err94), errors++;
         }
       } else {
-        let err90 = { instancePath: instancePath + "/importedAt", schemaPath: "#/properties/importedAt/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        vErrors === null ? vErrors = [err90] : vErrors.push(err90), errors++;
+        let err95 = { instancePath: instancePath + "/importedAt", schemaPath: "#/properties/importedAt/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        vErrors === null ? vErrors = [err95] : vErrors.push(err95), errors++;
       }
     }
     if (data.itemId !== void 0) {
       let data15 = data.itemId;
       if (typeof data15 == "string") {
         if (func2(data15) > 256) {
-          let err91 = { instancePath: instancePath + "/itemId", schemaPath: "#/properties/itemId/maxLength", keyword: "maxLength", params: { limit: 256 }, message: "must NOT have more than 256 characters" };
-          vErrors === null ? vErrors = [err91] : vErrors.push(err91), errors++;
+          let err96 = { instancePath: instancePath + "/itemId", schemaPath: "#/properties/itemId/maxLength", keyword: "maxLength", params: { limit: 256 }, message: "must NOT have more than 256 characters" };
+          vErrors === null ? vErrors = [err96] : vErrors.push(err96), errors++;
         }
         if (func2(data15) < 1) {
-          let err92 = { instancePath: instancePath + "/itemId", schemaPath: "#/properties/itemId/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-          vErrors === null ? vErrors = [err92] : vErrors.push(err92), errors++;
+          let err97 = { instancePath: instancePath + "/itemId", schemaPath: "#/properties/itemId/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+          vErrors === null ? vErrors = [err97] : vErrors.push(err97), errors++;
         }
       } else {
-        let err93 = { instancePath: instancePath + "/itemId", schemaPath: "#/properties/itemId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        vErrors === null ? vErrors = [err93] : vErrors.push(err93), errors++;
+        let err98 = { instancePath: instancePath + "/itemId", schemaPath: "#/properties/itemId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        vErrors === null ? vErrors = [err98] : vErrors.push(err98), errors++;
       }
     }
   } else {
-    let err94 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    vErrors === null ? vErrors = [err94] : vErrors.push(err94), errors++;
+    let err99 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    vErrors === null ? vErrors = [err99] : vErrors.push(err99), errors++;
   }
   return validate29.errors = vErrors, errors === 0;
 }
@@ -22867,7 +22901,7 @@ function validate123(data, { instancePath = "", parentData, parentDataProperty, 
   }
   return validate123.errors = vErrors, errors === 0;
 }
-var validate_release_item = validate26, schema47 = { $id: "https://shipping-mode.dev/schemas/release-item.schema.json", type: "object", additionalProperties: !1, required: ["schemaVersion", "id", "displayId", "displayIdStatus", "releaseId", "slug", "kind", "title", "description", "status", "dependencies", "sourceRefs", "resolution", "audit"], properties: { schemaVersion: { const: 1 }, id: { $ref: "#/$defs/uuid" }, displayId: { type: "string", pattern: "^RI-([0-9A-HJKMNP-TV-Z]{8}|[0-9A-HJKMNP-TV-Z]{12}|[0-9A-HJKMNP-TV-Z]{16}|[0-9A-HJKMNP-TV-Z]{26}|[0-9A-HJKMNP-TV-Z]{52})$" }, displayIdStatus: { const: "ACTIVE" }, releaseId: { $ref: "#/$defs/uuid" }, slug: { type: ["string", "null"], pattern: "^[a-z0-9]+(-[a-z0-9]+)*$" }, kind: { enum: ["user_story", "capability", "defect", "enabler", "spike", "compliance", "migration", "operational"] }, title: { type: "string", minLength: 1 }, description: { type: ["string", "null"], minLength: 1 }, status: { enum: ["DRAFT", "DONE", "CANCELLED", "SUPERSEDED"] }, dependencies: { type: "array", items: { $ref: "#/$defs/uuid" }, uniqueItems: !0 }, sourceRefs: { type: "array", items: { $ref: "#/$defs/sourceRef" }, uniqueItems: !0 }, resolution: { type: ["object", "null"], additionalProperties: !1, required: ["type", "reason", "approvedBy", "approvedAt", "riskAccepted", "replacementId", "operationId", "provenance"], properties: { type: { enum: ["DONE", "CANCELLED", "SUPERSEDED"] }, reason: { type: "string", minLength: 1 }, approvedBy: { type: "string", minLength: 1 }, approvedAt: { type: "string", minLength: 1 }, riskAccepted: { type: "boolean" }, replacementId: { type: ["string", "null"], pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, operationId: { $ref: "#/$defs/uuid" }, provenance: { type: "object", additionalProperties: !1, required: ["source", "revision"], properties: { source: { type: "string", minLength: 1 }, revision: { type: "string", minLength: 1 } } } } }, actor: { type: "string", minLength: 1 }, need: { type: "string", minLength: 1 }, value: { type: "string", minLength: 1 }, acceptanceCriteria: { type: "array", minItems: 1, items: { type: "string", minLength: 1 }, uniqueItems: !0 }, outcome: { type: "string", minLength: 1 }, behavior: { type: "string", minLength: 1 }, observedBehavior: { type: "string", minLength: 1 }, expectedBehavior: { type: "string", minLength: 1 }, reproduction: { type: "string", minLength: 1 }, severity: { enum: ["low", "medium", "high", "critical"] }, technicalOutcome: { type: "string", minLength: 1 }, unlockedCapabilities: { type: "array", minItems: 1, items: { type: "string", minLength: 1 }, uniqueItems: !0 }, question: { type: "string", minLength: 1 }, timebox: { type: "string", minLength: 1 }, expectedDecision: { type: "string", minLength: 1 }, obligation: { type: "string", minLength: 1 }, authority: { type: "string", minLength: 1 }, deadline: { type: "string", minLength: 1 }, evidence: { type: "array", minItems: 1, items: { type: "string", minLength: 1 }, uniqueItems: !0 }, sourceState: { type: "string", minLength: 1 }, targetState: { type: "string", minLength: 1 }, rollback: { type: "string", minLength: 1 }, procedure: { type: "string", minLength: 1 }, owner: { type: "string", minLength: 1 }, audit: { type: "object", additionalProperties: !1, required: ["createdAt", "createdBy", "updatedAt", "updatedBy", "operationId", "revision"], properties: { createdAt: { type: "string", minLength: 1 }, createdBy: { type: "string", minLength: 1 }, updatedAt: { type: "string", minLength: 1 }, updatedBy: { type: "string", minLength: 1 }, operationId: { $ref: "#/$defs/uuid" }, revision: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" } } } }, allOf: [{ if: { type: "object", properties: { status: { const: "DRAFT" } } }, then: { properties: { resolution: { type: "null" } }, type: "object" }, else: { properties: { resolution: { type: "object" } }, type: "object" } }, { if: { properties: { status: { const: "DONE" } }, required: ["status"] }, then: { properties: { resolution: { properties: { type: { const: "DONE" }, replacementId: { type: "null" } }, required: ["type", "replacementId"], type: "object" } } } }, { if: { properties: { status: { const: "CANCELLED" } }, required: ["status"] }, then: { properties: { resolution: { properties: { type: { const: "CANCELLED" }, replacementId: { type: "null" } }, required: ["type", "replacementId"], type: "object" } } } }, { if: { properties: { status: { const: "SUPERSEDED" } }, required: ["status"] }, then: { properties: { resolution: { properties: { type: { const: "SUPERSEDED" }, replacementId: { $ref: "#/$defs/uuid" } }, required: ["type", "replacementId"], type: "object" } } } }, { $ref: "#/$defs/userStoryVariant" }, { $ref: "#/$defs/capabilityVariant" }, { $ref: "#/$defs/defectVariant" }, { $ref: "#/$defs/enablerVariant" }, { $ref: "#/$defs/spikeVariant" }, { $ref: "#/$defs/complianceVariant" }, { $ref: "#/$defs/migrationVariant" }, { $ref: "#/$defs/operationalVariant" }], $defs: { uuid: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, hash: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" }, sourceRef: { type: "object", additionalProperties: !1, required: ["sourceId", "provider", "role", "mappingVersion"], properties: { sourceId: { type: "string", minLength: 1 }, provider: { enum: ["local_repository", "jira", "github_issues", "azure_boards", "linear", "custom"] }, role: { enum: ["primary", "supporting", "derived_from", "supersedes", "related"] }, externalId: { type: "string", minLength: 1 }, externalUrl: { type: "string", minLength: 1 }, externalRevision: { type: "string", minLength: 1 }, path: { type: "string", minLength: 1 }, contentRevision: { $ref: "#/$defs/hash" }, fingerprint: { $ref: "#/$defs/hash" }, mappingVersion: { type: "integer", minimum: 1 }, importedAt: { type: "string", minLength: 1 }, itemId: { type: "string", minLength: 1, maxLength: 256 } }, oneOf: [{ properties: { provider: { const: "local_repository" }, path: {}, itemId: {} }, required: ["provider", "path", "itemId"], allOf: [{ anyOf: [{ required: ["contentRevision"], type: "object", properties: { contentRevision: {} } }, { required: ["fingerprint"], type: "object", properties: { fingerprint: {} } }] }, { not: { anyOf: [{ required: ["externalId"], type: "object", properties: { externalId: {} } }, { required: ["externalUrl"], type: "object", properties: { externalUrl: {} } }, { required: ["externalRevision"], type: "object", properties: { externalRevision: {} } }] } }], type: "object" }, { properties: { provider: { enum: ["jira", "github_issues", "azure_boards", "linear"] }, externalId: {} }, required: ["provider", "externalId"], allOf: [{ anyOf: [{ required: ["externalRevision"], type: "object", properties: { externalRevision: {} } }, { required: ["fingerprint"], type: "object", properties: { fingerprint: {} } }] }, { not: { anyOf: [{ required: ["path"], type: "object", properties: { path: {} } }, { required: ["contentRevision"], type: "object", properties: { contentRevision: {} } }] } }], type: "object" }, { properties: { provider: { const: "custom" }, path: {} }, required: ["provider", "path"], allOf: [{ anyOf: [{ required: ["contentRevision"], type: "object", properties: { contentRevision: {} } }, { required: ["fingerprint"], type: "object", properties: { fingerprint: {} } }] }, { not: { anyOf: [{ required: ["externalId"], type: "object", properties: { externalId: {} } }, { required: ["externalUrl"], type: "object", properties: { externalUrl: {} } }, { required: ["externalRevision"], type: "object", properties: { externalRevision: {} } }] } }], type: "object" }, { properties: { provider: { const: "custom" }, externalId: {} }, required: ["provider", "externalId"], allOf: [{ anyOf: [{ required: ["externalRevision"], type: "object", properties: { externalRevision: {} } }, { required: ["fingerprint"], type: "object", properties: { fingerprint: {} } }] }, { not: { anyOf: [{ required: ["path"], type: "object", properties: { path: {} } }, { required: ["contentRevision"], type: "object", properties: { contentRevision: {} } }] } }], type: "object" }] }, userStoryVariant: { if: { type: "object", properties: { kind: { const: "user_story" } } }, then: { required: ["actor", "need", "value", "acceptanceCriteria"], not: { anyOf: [{ required: ["outcome"], type: "object", properties: { outcome: {} } }, { required: ["behavior"], type: "object", properties: { behavior: {} } }, { required: ["observedBehavior"], type: "object", properties: { observedBehavior: {} } }, { required: ["expectedBehavior"], type: "object", properties: { expectedBehavior: {} } }, { required: ["reproduction"], type: "object", properties: { reproduction: {} } }, { required: ["severity"], type: "object", properties: { severity: {} } }, { required: ["technicalOutcome"], type: "object", properties: { technicalOutcome: {} } }, { required: ["unlockedCapabilities"], type: "object", properties: { unlockedCapabilities: {} } }, { required: ["question"], type: "object", properties: { question: {} } }, { required: ["timebox"], type: "object", properties: { timebox: {} } }, { required: ["expectedDecision"], type: "object", properties: { expectedDecision: {} } }, { required: ["obligation"], type: "object", properties: { obligation: {} } }, { required: ["authority"], type: "object", properties: { authority: {} } }, { required: ["deadline"], type: "object", properties: { deadline: {} } }, { required: ["evidence"], type: "object", properties: { evidence: {} } }, { required: ["sourceState"], type: "object", properties: { sourceState: {} } }, { required: ["targetState"], type: "object", properties: { targetState: {} } }, { required: ["rollback"], type: "object", properties: { rollback: {} } }, { required: ["procedure"], type: "object", properties: { procedure: {} } }, { required: ["owner"], type: "object", properties: { owner: {} } }] }, type: "object", properties: { actor: {}, need: {}, value: {}, acceptanceCriteria: {} } } }, capabilityVariant: { if: { type: "object", properties: { kind: { const: "capability" } } }, then: { required: ["outcome", "behavior", "acceptanceCriteria"], not: { anyOf: [{ required: ["actor"], type: "object", properties: { actor: {} } }, { required: ["need"], type: "object", properties: { need: {} } }, { required: ["value"], type: "object", properties: { value: {} } }, { required: ["observedBehavior"], type: "object", properties: { observedBehavior: {} } }, { required: ["expectedBehavior"], type: "object", properties: { expectedBehavior: {} } }, { required: ["reproduction"], type: "object", properties: { reproduction: {} } }, { required: ["severity"], type: "object", properties: { severity: {} } }, { required: ["technicalOutcome"], type: "object", properties: { technicalOutcome: {} } }, { required: ["unlockedCapabilities"], type: "object", properties: { unlockedCapabilities: {} } }, { required: ["question"], type: "object", properties: { question: {} } }, { required: ["timebox"], type: "object", properties: { timebox: {} } }, { required: ["expectedDecision"], type: "object", properties: { expectedDecision: {} } }, { required: ["obligation"], type: "object", properties: { obligation: {} } }, { required: ["authority"], type: "object", properties: { authority: {} } }, { required: ["deadline"], type: "object", properties: { deadline: {} } }, { required: ["evidence"], type: "object", properties: { evidence: {} } }, { required: ["sourceState"], type: "object", properties: { sourceState: {} } }, { required: ["targetState"], type: "object", properties: { targetState: {} } }, { required: ["rollback"], type: "object", properties: { rollback: {} } }, { required: ["procedure"], type: "object", properties: { procedure: {} } }, { required: ["owner"], type: "object", properties: { owner: {} } }] }, type: "object", properties: { outcome: {}, behavior: {}, acceptanceCriteria: {} } } }, defectVariant: { if: { type: "object", properties: { kind: { const: "defect" } } }, then: { required: ["observedBehavior", "expectedBehavior", "reproduction", "severity"], not: { anyOf: [{ required: ["actor"], type: "object", properties: { actor: {} } }, { required: ["need"], type: "object", properties: { need: {} } }, { required: ["value"], type: "object", properties: { value: {} } }, { required: ["acceptanceCriteria"], type: "object", properties: { acceptanceCriteria: {} } }, { required: ["outcome"], type: "object", properties: { outcome: {} } }, { required: ["behavior"], type: "object", properties: { behavior: {} } }, { required: ["technicalOutcome"], type: "object", properties: { technicalOutcome: {} } }, { required: ["unlockedCapabilities"], type: "object", properties: { unlockedCapabilities: {} } }, { required: ["question"], type: "object", properties: { question: {} } }, { required: ["timebox"], type: "object", properties: { timebox: {} } }, { required: ["expectedDecision"], type: "object", properties: { expectedDecision: {} } }, { required: ["obligation"], type: "object", properties: { obligation: {} } }, { required: ["authority"], type: "object", properties: { authority: {} } }, { required: ["deadline"], type: "object", properties: { deadline: {} } }, { required: ["evidence"], type: "object", properties: { evidence: {} } }, { required: ["sourceState"], type: "object", properties: { sourceState: {} } }, { required: ["targetState"], type: "object", properties: { targetState: {} } }, { required: ["rollback"], type: "object", properties: { rollback: {} } }, { required: ["procedure"], type: "object", properties: { procedure: {} } }, { required: ["owner"], type: "object", properties: { owner: {} } }] }, type: "object", properties: { observedBehavior: {}, expectedBehavior: {}, reproduction: {}, severity: {} } } }, enablerVariant: { if: { type: "object", properties: { kind: { const: "enabler" } } }, then: { required: ["technicalOutcome", "unlockedCapabilities"], not: { anyOf: [{ required: ["actor"], type: "object", properties: { actor: {} } }, { required: ["need"], type: "object", properties: { need: {} } }, { required: ["value"], type: "object", properties: { value: {} } }, { required: ["acceptanceCriteria"], type: "object", properties: { acceptanceCriteria: {} } }, { required: ["outcome"], type: "object", properties: { outcome: {} } }, { required: ["behavior"], type: "object", properties: { behavior: {} } }, { required: ["observedBehavior"], type: "object", properties: { observedBehavior: {} } }, { required: ["expectedBehavior"], type: "object", properties: { expectedBehavior: {} } }, { required: ["reproduction"], type: "object", properties: { reproduction: {} } }, { required: ["severity"], type: "object", properties: { severity: {} } }, { required: ["question"], type: "object", properties: { question: {} } }, { required: ["timebox"], type: "object", properties: { timebox: {} } }, { required: ["expectedDecision"], type: "object", properties: { expectedDecision: {} } }, { required: ["obligation"], type: "object", properties: { obligation: {} } }, { required: ["authority"], type: "object", properties: { authority: {} } }, { required: ["deadline"], type: "object", properties: { deadline: {} } }, { required: ["evidence"], type: "object", properties: { evidence: {} } }, { required: ["sourceState"], type: "object", properties: { sourceState: {} } }, { required: ["targetState"], type: "object", properties: { targetState: {} } }, { required: ["rollback"], type: "object", properties: { rollback: {} } }, { required: ["procedure"], type: "object", properties: { procedure: {} } }, { required: ["owner"], type: "object", properties: { owner: {} } }] }, type: "object", properties: { technicalOutcome: {}, unlockedCapabilities: {} } } }, spikeVariant: { if: { type: "object", properties: { kind: { const: "spike" } } }, then: { required: ["question", "timebox", "expectedDecision"], not: { anyOf: [{ required: ["actor"], type: "object", properties: { actor: {} } }, { required: ["need"], type: "object", properties: { need: {} } }, { required: ["value"], type: "object", properties: { value: {} } }, { required: ["acceptanceCriteria"], type: "object", properties: { acceptanceCriteria: {} } }, { required: ["outcome"], type: "object", properties: { outcome: {} } }, { required: ["behavior"], type: "object", properties: { behavior: {} } }, { required: ["observedBehavior"], type: "object", properties: { observedBehavior: {} } }, { required: ["expectedBehavior"], type: "object", properties: { expectedBehavior: {} } }, { required: ["reproduction"], type: "object", properties: { reproduction: {} } }, { required: ["severity"], type: "object", properties: { severity: {} } }, { required: ["technicalOutcome"], type: "object", properties: { technicalOutcome: {} } }, { required: ["unlockedCapabilities"], type: "object", properties: { unlockedCapabilities: {} } }, { required: ["obligation"], type: "object", properties: { obligation: {} } }, { required: ["authority"], type: "object", properties: { authority: {} } }, { required: ["deadline"], type: "object", properties: { deadline: {} } }, { required: ["evidence"], type: "object", properties: { evidence: {} } }, { required: ["sourceState"], type: "object", properties: { sourceState: {} } }, { required: ["targetState"], type: "object", properties: { targetState: {} } }, { required: ["rollback"], type: "object", properties: { rollback: {} } }, { required: ["procedure"], type: "object", properties: { procedure: {} } }, { required: ["owner"], type: "object", properties: { owner: {} } }] }, type: "object", properties: { question: {}, timebox: {}, expectedDecision: {} } } }, complianceVariant: { if: { type: "object", properties: { kind: { const: "compliance" } } }, then: { required: ["obligation", "authority", "deadline", "evidence"], not: { anyOf: [{ required: ["actor"], type: "object", properties: { actor: {} } }, { required: ["need"], type: "object", properties: { need: {} } }, { required: ["value"], type: "object", properties: { value: {} } }, { required: ["acceptanceCriteria"], type: "object", properties: { acceptanceCriteria: {} } }, { required: ["outcome"], type: "object", properties: { outcome: {} } }, { required: ["behavior"], type: "object", properties: { behavior: {} } }, { required: ["observedBehavior"], type: "object", properties: { observedBehavior: {} } }, { required: ["expectedBehavior"], type: "object", properties: { expectedBehavior: {} } }, { required: ["reproduction"], type: "object", properties: { reproduction: {} } }, { required: ["severity"], type: "object", properties: { severity: {} } }, { required: ["technicalOutcome"], type: "object", properties: { technicalOutcome: {} } }, { required: ["unlockedCapabilities"], type: "object", properties: { unlockedCapabilities: {} } }, { required: ["question"], type: "object", properties: { question: {} } }, { required: ["timebox"], type: "object", properties: { timebox: {} } }, { required: ["expectedDecision"], type: "object", properties: { expectedDecision: {} } }, { required: ["sourceState"], type: "object", properties: { sourceState: {} } }, { required: ["targetState"], type: "object", properties: { targetState: {} } }, { required: ["rollback"], type: "object", properties: { rollback: {} } }, { required: ["procedure"], type: "object", properties: { procedure: {} } }, { required: ["owner"], type: "object", properties: { owner: {} } }] }, type: "object", properties: { obligation: {}, authority: {}, deadline: {}, evidence: {} } } }, migrationVariant: { if: { type: "object", properties: { kind: { const: "migration" } } }, then: { required: ["sourceState", "targetState", "rollback"], not: { anyOf: [{ required: ["actor"], type: "object", properties: { actor: {} } }, { required: ["need"], type: "object", properties: { need: {} } }, { required: ["value"], type: "object", properties: { value: {} } }, { required: ["acceptanceCriteria"], type: "object", properties: { acceptanceCriteria: {} } }, { required: ["outcome"], type: "object", properties: { outcome: {} } }, { required: ["behavior"], type: "object", properties: { behavior: {} } }, { required: ["observedBehavior"], type: "object", properties: { observedBehavior: {} } }, { required: ["expectedBehavior"], type: "object", properties: { expectedBehavior: {} } }, { required: ["reproduction"], type: "object", properties: { reproduction: {} } }, { required: ["severity"], type: "object", properties: { severity: {} } }, { required: ["technicalOutcome"], type: "object", properties: { technicalOutcome: {} } }, { required: ["unlockedCapabilities"], type: "object", properties: { unlockedCapabilities: {} } }, { required: ["question"], type: "object", properties: { question: {} } }, { required: ["timebox"], type: "object", properties: { timebox: {} } }, { required: ["expectedDecision"], type: "object", properties: { expectedDecision: {} } }, { required: ["obligation"], type: "object", properties: { obligation: {} } }, { required: ["authority"], type: "object", properties: { authority: {} } }, { required: ["deadline"], type: "object", properties: { deadline: {} } }, { required: ["evidence"], type: "object", properties: { evidence: {} } }, { required: ["procedure"], type: "object", properties: { procedure: {} } }, { required: ["owner"], type: "object", properties: { owner: {} } }] }, type: "object", properties: { sourceState: {}, targetState: {}, rollback: {} } } }, operationalVariant: { if: { type: "object", properties: { kind: { const: "operational" } } }, then: { required: ["procedure", "owner", "evidence"], not: { anyOf: [{ required: ["actor"], type: "object", properties: { actor: {} } }, { required: ["need"], type: "object", properties: { need: {} } }, { required: ["value"], type: "object", properties: { value: {} } }, { required: ["acceptanceCriteria"], type: "object", properties: { acceptanceCriteria: {} } }, { required: ["outcome"], type: "object", properties: { outcome: {} } }, { required: ["behavior"], type: "object", properties: { behavior: {} } }, { required: ["observedBehavior"], type: "object", properties: { observedBehavior: {} } }, { required: ["expectedBehavior"], type: "object", properties: { expectedBehavior: {} } }, { required: ["reproduction"], type: "object", properties: { reproduction: {} } }, { required: ["severity"], type: "object", properties: { severity: {} } }, { required: ["technicalOutcome"], type: "object", properties: { technicalOutcome: {} } }, { required: ["unlockedCapabilities"], type: "object", properties: { unlockedCapabilities: {} } }, { required: ["question"], type: "object", properties: { question: {} } }, { required: ["timebox"], type: "object", properties: { timebox: {} } }, { required: ["expectedDecision"], type: "object", properties: { expectedDecision: {} } }, { required: ["obligation"], type: "object", properties: { obligation: {} } }, { required: ["authority"], type: "object", properties: { authority: {} } }, { required: ["deadline"], type: "object", properties: { deadline: {} } }, { required: ["sourceState"], type: "object", properties: { sourceState: {} } }, { required: ["targetState"], type: "object", properties: { targetState: {} } }, { required: ["rollback"], type: "object", properties: { rollback: {} } }] }, type: "object", properties: { procedure: {}, owner: {}, evidence: {} } } } } };
+var validate_release_item = validate26, schema47 = { $id: "https://shipping-mode.dev/schemas/release-item.schema.json", type: "object", additionalProperties: !1, required: ["schemaVersion", "id", "displayId", "displayIdStatus", "releaseId", "slug", "kind", "title", "description", "status", "dependencies", "sourceRefs", "resolution", "audit"], properties: { schemaVersion: { const: 1 }, id: { $ref: "#/$defs/uuid" }, displayId: { type: "string", pattern: "^RI-([0-9A-HJKMNP-TV-Z]{8}|[0-9A-HJKMNP-TV-Z]{12}|[0-9A-HJKMNP-TV-Z]{16}|[0-9A-HJKMNP-TV-Z]{26}|[0-9A-HJKMNP-TV-Z]{52})$" }, displayIdStatus: { const: "ACTIVE" }, releaseId: { $ref: "#/$defs/uuid" }, slug: { type: ["string", "null"], pattern: "^[a-z0-9]+(-[a-z0-9]+)*$" }, kind: { enum: ["user_story", "capability", "defect", "enabler", "spike", "compliance", "migration", "operational"] }, title: { type: "string", minLength: 1 }, description: { type: ["string", "null"], minLength: 1 }, status: { enum: ["DRAFT", "DONE", "CANCELLED", "SUPERSEDED"] }, dependencies: { type: "array", items: { $ref: "#/$defs/uuid" }, uniqueItems: !0 }, sourceRefs: { type: "array", items: { $ref: "#/$defs/sourceRef" }, uniqueItems: !0 }, resolution: { type: ["object", "null"], additionalProperties: !1, required: ["type", "reason", "approvedBy", "approvedAt", "riskAccepted", "replacementId", "operationId", "provenance"], properties: { type: { enum: ["DONE", "CANCELLED", "SUPERSEDED"] }, reason: { type: "string", minLength: 1 }, approvedBy: { type: "string", minLength: 1 }, approvedAt: { type: "string", minLength: 1 }, riskAccepted: { type: "boolean" }, replacementId: { type: ["string", "null"], pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, operationId: { $ref: "#/$defs/uuid" }, provenance: { type: "object", additionalProperties: !1, required: ["source", "revision"], properties: { source: { type: "string", minLength: 1 }, revision: { type: "string", minLength: 1 } } } } }, actor: { type: "string", minLength: 1 }, need: { type: "string", minLength: 1 }, value: { type: "string", minLength: 1 }, acceptanceCriteria: { type: "array", minItems: 1, items: { type: "string", minLength: 1 }, uniqueItems: !0 }, outcome: { type: "string", minLength: 1 }, behavior: { type: "string", minLength: 1 }, observedBehavior: { type: "string", minLength: 1 }, expectedBehavior: { type: "string", minLength: 1 }, reproduction: { type: "string", minLength: 1 }, severity: { enum: ["low", "medium", "high", "critical"] }, technicalOutcome: { type: "string", minLength: 1 }, unlockedCapabilities: { type: "array", minItems: 1, items: { type: "string", minLength: 1 }, uniqueItems: !0 }, question: { type: "string", minLength: 1 }, timebox: { type: "string", minLength: 1 }, expectedDecision: { type: "string", minLength: 1 }, obligation: { type: "string", minLength: 1 }, authority: { type: "string", minLength: 1 }, deadline: { type: "string", minLength: 1 }, evidence: { type: "array", minItems: 1, items: { type: "string", minLength: 1 }, uniqueItems: !0 }, sourceState: { type: "string", minLength: 1 }, targetState: { type: "string", minLength: 1 }, rollback: { type: "string", minLength: 1 }, procedure: { type: "string", minLength: 1 }, owner: { type: "string", minLength: 1 }, audit: { type: "object", additionalProperties: !1, required: ["createdAt", "createdBy", "updatedAt", "updatedBy", "operationId", "revision"], properties: { createdAt: { type: "string", minLength: 1 }, createdBy: { type: "string", minLength: 1 }, updatedAt: { type: "string", minLength: 1 }, updatedBy: { type: "string", minLength: 1 }, operationId: { $ref: "#/$defs/uuid" }, revision: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" } } } }, allOf: [{ if: { type: "object", properties: { status: { const: "DRAFT" } } }, then: { properties: { resolution: { type: "null" } }, type: "object" }, else: { properties: { resolution: { type: "object" } }, type: "object" } }, { if: { properties: { status: { const: "DONE" } }, required: ["status"] }, then: { properties: { resolution: { properties: { type: { const: "DONE" }, replacementId: { type: "null" } }, required: ["type", "replacementId"], type: "object" } } } }, { if: { properties: { status: { const: "CANCELLED" } }, required: ["status"] }, then: { properties: { resolution: { properties: { type: { const: "CANCELLED" }, replacementId: { type: "null" } }, required: ["type", "replacementId"], type: "object" } } } }, { if: { properties: { status: { const: "SUPERSEDED" } }, required: ["status"] }, then: { properties: { resolution: { properties: { type: { const: "SUPERSEDED" }, replacementId: { $ref: "#/$defs/uuid" } }, required: ["type", "replacementId"], type: "object" } } } }, { $ref: "#/$defs/userStoryVariant" }, { $ref: "#/$defs/capabilityVariant" }, { $ref: "#/$defs/defectVariant" }, { $ref: "#/$defs/enablerVariant" }, { $ref: "#/$defs/spikeVariant" }, { $ref: "#/$defs/complianceVariant" }, { $ref: "#/$defs/migrationVariant" }, { $ref: "#/$defs/operationalVariant" }], $defs: { uuid: { type: "string", pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" }, hash: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" }, sourceRef: { type: "object", additionalProperties: !1, required: ["sourceId", "provider", "role", "mappingVersion", "importedAt"], properties: { sourceId: { type: "string", minLength: 1 }, provider: { enum: ["local_repository", "jira", "github_issues", "azure_boards", "linear", "custom"] }, role: { enum: ["primary", "supporting", "derived_from", "supersedes", "related"] }, externalId: { type: "string", minLength: 1 }, externalUrl: { type: "string", minLength: 1 }, externalRevision: { type: "string", minLength: 1 }, path: { type: "string", minLength: 1 }, contentRevision: { $ref: "#/$defs/hash" }, fingerprint: { $ref: "#/$defs/hash" }, mappingVersion: { type: "integer", minimum: 1 }, importedAt: { type: "string", minLength: 1 }, itemId: { type: "string", minLength: 1, maxLength: 256 } }, oneOf: [{ properties: { provider: { const: "local_repository" }, path: {}, itemId: {} }, required: ["provider", "path", "itemId"], allOf: [{ anyOf: [{ required: ["contentRevision"], type: "object", properties: { contentRevision: {} } }, { required: ["fingerprint"], type: "object", properties: { fingerprint: {} } }] }, { not: { anyOf: [{ required: ["externalId"], type: "object", properties: { externalId: {} } }, { required: ["externalUrl"], type: "object", properties: { externalUrl: {} } }, { required: ["externalRevision"], type: "object", properties: { externalRevision: {} } }] } }], type: "object" }, { properties: { provider: { enum: ["jira", "github_issues", "azure_boards", "linear"] }, externalId: {} }, required: ["provider", "externalId"], allOf: [{ anyOf: [{ required: ["externalRevision"], type: "object", properties: { externalRevision: {} } }, { required: ["fingerprint"], type: "object", properties: { fingerprint: {} } }] }, { not: { anyOf: [{ required: ["path"], type: "object", properties: { path: {} } }, { required: ["contentRevision"], type: "object", properties: { contentRevision: {} } }, { type: "object", required: ["itemId"], properties: { itemId: {} } }] } }], type: "object" }, { properties: { provider: { const: "custom" }, path: {} }, required: ["provider", "path"], allOf: [{ anyOf: [{ required: ["contentRevision"], type: "object", properties: { contentRevision: {} } }, { required: ["fingerprint"], type: "object", properties: { fingerprint: {} } }] }, { not: { anyOf: [{ required: ["externalId"], type: "object", properties: { externalId: {} } }, { required: ["externalUrl"], type: "object", properties: { externalUrl: {} } }, { required: ["externalRevision"], type: "object", properties: { externalRevision: {} } }] } }], type: "object" }, { properties: { provider: { const: "custom" }, externalId: {} }, required: ["provider", "externalId"], allOf: [{ anyOf: [{ required: ["externalRevision"], type: "object", properties: { externalRevision: {} } }, { required: ["fingerprint"], type: "object", properties: { fingerprint: {} } }] }, { not: { anyOf: [{ required: ["path"], type: "object", properties: { path: {} } }, { required: ["contentRevision"], type: "object", properties: { contentRevision: {} } }, { type: "object", required: ["itemId"], properties: { itemId: {} } }] } }], type: "object" }] }, userStoryVariant: { if: { type: "object", properties: { kind: { const: "user_story" } } }, then: { required: ["actor", "need", "value", "acceptanceCriteria"], not: { anyOf: [{ required: ["outcome"], type: "object", properties: { outcome: {} } }, { required: ["behavior"], type: "object", properties: { behavior: {} } }, { required: ["observedBehavior"], type: "object", properties: { observedBehavior: {} } }, { required: ["expectedBehavior"], type: "object", properties: { expectedBehavior: {} } }, { required: ["reproduction"], type: "object", properties: { reproduction: {} } }, { required: ["severity"], type: "object", properties: { severity: {} } }, { required: ["technicalOutcome"], type: "object", properties: { technicalOutcome: {} } }, { required: ["unlockedCapabilities"], type: "object", properties: { unlockedCapabilities: {} } }, { required: ["question"], type: "object", properties: { question: {} } }, { required: ["timebox"], type: "object", properties: { timebox: {} } }, { required: ["expectedDecision"], type: "object", properties: { expectedDecision: {} } }, { required: ["obligation"], type: "object", properties: { obligation: {} } }, { required: ["authority"], type: "object", properties: { authority: {} } }, { required: ["deadline"], type: "object", properties: { deadline: {} } }, { required: ["evidence"], type: "object", properties: { evidence: {} } }, { required: ["sourceState"], type: "object", properties: { sourceState: {} } }, { required: ["targetState"], type: "object", properties: { targetState: {} } }, { required: ["rollback"], type: "object", properties: { rollback: {} } }, { required: ["procedure"], type: "object", properties: { procedure: {} } }, { required: ["owner"], type: "object", properties: { owner: {} } }] }, type: "object", properties: { actor: {}, need: {}, value: {}, acceptanceCriteria: {} } } }, capabilityVariant: { if: { type: "object", properties: { kind: { const: "capability" } } }, then: { required: ["outcome", "behavior", "acceptanceCriteria"], not: { anyOf: [{ required: ["actor"], type: "object", properties: { actor: {} } }, { required: ["need"], type: "object", properties: { need: {} } }, { required: ["value"], type: "object", properties: { value: {} } }, { required: ["observedBehavior"], type: "object", properties: { observedBehavior: {} } }, { required: ["expectedBehavior"], type: "object", properties: { expectedBehavior: {} } }, { required: ["reproduction"], type: "object", properties: { reproduction: {} } }, { required: ["severity"], type: "object", properties: { severity: {} } }, { required: ["technicalOutcome"], type: "object", properties: { technicalOutcome: {} } }, { required: ["unlockedCapabilities"], type: "object", properties: { unlockedCapabilities: {} } }, { required: ["question"], type: "object", properties: { question: {} } }, { required: ["timebox"], type: "object", properties: { timebox: {} } }, { required: ["expectedDecision"], type: "object", properties: { expectedDecision: {} } }, { required: ["obligation"], type: "object", properties: { obligation: {} } }, { required: ["authority"], type: "object", properties: { authority: {} } }, { required: ["deadline"], type: "object", properties: { deadline: {} } }, { required: ["evidence"], type: "object", properties: { evidence: {} } }, { required: ["sourceState"], type: "object", properties: { sourceState: {} } }, { required: ["targetState"], type: "object", properties: { targetState: {} } }, { required: ["rollback"], type: "object", properties: { rollback: {} } }, { required: ["procedure"], type: "object", properties: { procedure: {} } }, { required: ["owner"], type: "object", properties: { owner: {} } }] }, type: "object", properties: { outcome: {}, behavior: {}, acceptanceCriteria: {} } } }, defectVariant: { if: { type: "object", properties: { kind: { const: "defect" } } }, then: { required: ["observedBehavior", "expectedBehavior", "reproduction", "severity"], not: { anyOf: [{ required: ["actor"], type: "object", properties: { actor: {} } }, { required: ["need"], type: "object", properties: { need: {} } }, { required: ["value"], type: "object", properties: { value: {} } }, { required: ["acceptanceCriteria"], type: "object", properties: { acceptanceCriteria: {} } }, { required: ["outcome"], type: "object", properties: { outcome: {} } }, { required: ["behavior"], type: "object", properties: { behavior: {} } }, { required: ["technicalOutcome"], type: "object", properties: { technicalOutcome: {} } }, { required: ["unlockedCapabilities"], type: "object", properties: { unlockedCapabilities: {} } }, { required: ["question"], type: "object", properties: { question: {} } }, { required: ["timebox"], type: "object", properties: { timebox: {} } }, { required: ["expectedDecision"], type: "object", properties: { expectedDecision: {} } }, { required: ["obligation"], type: "object", properties: { obligation: {} } }, { required: ["authority"], type: "object", properties: { authority: {} } }, { required: ["deadline"], type: "object", properties: { deadline: {} } }, { required: ["evidence"], type: "object", properties: { evidence: {} } }, { required: ["sourceState"], type: "object", properties: { sourceState: {} } }, { required: ["targetState"], type: "object", properties: { targetState: {} } }, { required: ["rollback"], type: "object", properties: { rollback: {} } }, { required: ["procedure"], type: "object", properties: { procedure: {} } }, { required: ["owner"], type: "object", properties: { owner: {} } }] }, type: "object", properties: { observedBehavior: {}, expectedBehavior: {}, reproduction: {}, severity: {} } } }, enablerVariant: { if: { type: "object", properties: { kind: { const: "enabler" } } }, then: { required: ["technicalOutcome", "unlockedCapabilities"], not: { anyOf: [{ required: ["actor"], type: "object", properties: { actor: {} } }, { required: ["need"], type: "object", properties: { need: {} } }, { required: ["value"], type: "object", properties: { value: {} } }, { required: ["acceptanceCriteria"], type: "object", properties: { acceptanceCriteria: {} } }, { required: ["outcome"], type: "object", properties: { outcome: {} } }, { required: ["behavior"], type: "object", properties: { behavior: {} } }, { required: ["observedBehavior"], type: "object", properties: { observedBehavior: {} } }, { required: ["expectedBehavior"], type: "object", properties: { expectedBehavior: {} } }, { required: ["reproduction"], type: "object", properties: { reproduction: {} } }, { required: ["severity"], type: "object", properties: { severity: {} } }, { required: ["question"], type: "object", properties: { question: {} } }, { required: ["timebox"], type: "object", properties: { timebox: {} } }, { required: ["expectedDecision"], type: "object", properties: { expectedDecision: {} } }, { required: ["obligation"], type: "object", properties: { obligation: {} } }, { required: ["authority"], type: "object", properties: { authority: {} } }, { required: ["deadline"], type: "object", properties: { deadline: {} } }, { required: ["evidence"], type: "object", properties: { evidence: {} } }, { required: ["sourceState"], type: "object", properties: { sourceState: {} } }, { required: ["targetState"], type: "object", properties: { targetState: {} } }, { required: ["rollback"], type: "object", properties: { rollback: {} } }, { required: ["procedure"], type: "object", properties: { procedure: {} } }, { required: ["owner"], type: "object", properties: { owner: {} } }] }, type: "object", properties: { technicalOutcome: {}, unlockedCapabilities: {} } } }, spikeVariant: { if: { type: "object", properties: { kind: { const: "spike" } } }, then: { required: ["question", "timebox", "expectedDecision"], not: { anyOf: [{ required: ["actor"], type: "object", properties: { actor: {} } }, { required: ["need"], type: "object", properties: { need: {} } }, { required: ["value"], type: "object", properties: { value: {} } }, { required: ["acceptanceCriteria"], type: "object", properties: { acceptanceCriteria: {} } }, { required: ["outcome"], type: "object", properties: { outcome: {} } }, { required: ["behavior"], type: "object", properties: { behavior: {} } }, { required: ["observedBehavior"], type: "object", properties: { observedBehavior: {} } }, { required: ["expectedBehavior"], type: "object", properties: { expectedBehavior: {} } }, { required: ["reproduction"], type: "object", properties: { reproduction: {} } }, { required: ["severity"], type: "object", properties: { severity: {} } }, { required: ["technicalOutcome"], type: "object", properties: { technicalOutcome: {} } }, { required: ["unlockedCapabilities"], type: "object", properties: { unlockedCapabilities: {} } }, { required: ["obligation"], type: "object", properties: { obligation: {} } }, { required: ["authority"], type: "object", properties: { authority: {} } }, { required: ["deadline"], type: "object", properties: { deadline: {} } }, { required: ["evidence"], type: "object", properties: { evidence: {} } }, { required: ["sourceState"], type: "object", properties: { sourceState: {} } }, { required: ["targetState"], type: "object", properties: { targetState: {} } }, { required: ["rollback"], type: "object", properties: { rollback: {} } }, { required: ["procedure"], type: "object", properties: { procedure: {} } }, { required: ["owner"], type: "object", properties: { owner: {} } }] }, type: "object", properties: { question: {}, timebox: {}, expectedDecision: {} } } }, complianceVariant: { if: { type: "object", properties: { kind: { const: "compliance" } } }, then: { required: ["obligation", "authority", "deadline", "evidence"], not: { anyOf: [{ required: ["actor"], type: "object", properties: { actor: {} } }, { required: ["need"], type: "object", properties: { need: {} } }, { required: ["value"], type: "object", properties: { value: {} } }, { required: ["acceptanceCriteria"], type: "object", properties: { acceptanceCriteria: {} } }, { required: ["outcome"], type: "object", properties: { outcome: {} } }, { required: ["behavior"], type: "object", properties: { behavior: {} } }, { required: ["observedBehavior"], type: "object", properties: { observedBehavior: {} } }, { required: ["expectedBehavior"], type: "object", properties: { expectedBehavior: {} } }, { required: ["reproduction"], type: "object", properties: { reproduction: {} } }, { required: ["severity"], type: "object", properties: { severity: {} } }, { required: ["technicalOutcome"], type: "object", properties: { technicalOutcome: {} } }, { required: ["unlockedCapabilities"], type: "object", properties: { unlockedCapabilities: {} } }, { required: ["question"], type: "object", properties: { question: {} } }, { required: ["timebox"], type: "object", properties: { timebox: {} } }, { required: ["expectedDecision"], type: "object", properties: { expectedDecision: {} } }, { required: ["sourceState"], type: "object", properties: { sourceState: {} } }, { required: ["targetState"], type: "object", properties: { targetState: {} } }, { required: ["rollback"], type: "object", properties: { rollback: {} } }, { required: ["procedure"], type: "object", properties: { procedure: {} } }, { required: ["owner"], type: "object", properties: { owner: {} } }] }, type: "object", properties: { obligation: {}, authority: {}, deadline: {}, evidence: {} } } }, migrationVariant: { if: { type: "object", properties: { kind: { const: "migration" } } }, then: { required: ["sourceState", "targetState", "rollback"], not: { anyOf: [{ required: ["actor"], type: "object", properties: { actor: {} } }, { required: ["need"], type: "object", properties: { need: {} } }, { required: ["value"], type: "object", properties: { value: {} } }, { required: ["acceptanceCriteria"], type: "object", properties: { acceptanceCriteria: {} } }, { required: ["outcome"], type: "object", properties: { outcome: {} } }, { required: ["behavior"], type: "object", properties: { behavior: {} } }, { required: ["observedBehavior"], type: "object", properties: { observedBehavior: {} } }, { required: ["expectedBehavior"], type: "object", properties: { expectedBehavior: {} } }, { required: ["reproduction"], type: "object", properties: { reproduction: {} } }, { required: ["severity"], type: "object", properties: { severity: {} } }, { required: ["technicalOutcome"], type: "object", properties: { technicalOutcome: {} } }, { required: ["unlockedCapabilities"], type: "object", properties: { unlockedCapabilities: {} } }, { required: ["question"], type: "object", properties: { question: {} } }, { required: ["timebox"], type: "object", properties: { timebox: {} } }, { required: ["expectedDecision"], type: "object", properties: { expectedDecision: {} } }, { required: ["obligation"], type: "object", properties: { obligation: {} } }, { required: ["authority"], type: "object", properties: { authority: {} } }, { required: ["deadline"], type: "object", properties: { deadline: {} } }, { required: ["evidence"], type: "object", properties: { evidence: {} } }, { required: ["procedure"], type: "object", properties: { procedure: {} } }, { required: ["owner"], type: "object", properties: { owner: {} } }] }, type: "object", properties: { sourceState: {}, targetState: {}, rollback: {} } } }, operationalVariant: { if: { type: "object", properties: { kind: { const: "operational" } } }, then: { required: ["procedure", "owner", "evidence"], not: { anyOf: [{ required: ["actor"], type: "object", properties: { actor: {} } }, { required: ["need"], type: "object", properties: { need: {} } }, { required: ["value"], type: "object", properties: { value: {} } }, { required: ["acceptanceCriteria"], type: "object", properties: { acceptanceCriteria: {} } }, { required: ["outcome"], type: "object", properties: { outcome: {} } }, { required: ["behavior"], type: "object", properties: { behavior: {} } }, { required: ["observedBehavior"], type: "object", properties: { observedBehavior: {} } }, { required: ["expectedBehavior"], type: "object", properties: { expectedBehavior: {} } }, { required: ["reproduction"], type: "object", properties: { reproduction: {} } }, { required: ["severity"], type: "object", properties: { severity: {} } }, { required: ["technicalOutcome"], type: "object", properties: { technicalOutcome: {} } }, { required: ["unlockedCapabilities"], type: "object", properties: { unlockedCapabilities: {} } }, { required: ["question"], type: "object", properties: { question: {} } }, { required: ["timebox"], type: "object", properties: { timebox: {} } }, { required: ["expectedDecision"], type: "object", properties: { expectedDecision: {} } }, { required: ["obligation"], type: "object", properties: { obligation: {} } }, { required: ["authority"], type: "object", properties: { authority: {} } }, { required: ["deadline"], type: "object", properties: { deadline: {} } }, { required: ["sourceState"], type: "object", properties: { sourceState: {} } }, { required: ["targetState"], type: "object", properties: { targetState: {} } }, { required: ["rollback"], type: "object", properties: { rollback: {} } }] }, type: "object", properties: { procedure: {}, owner: {}, evidence: {} } } } } };
 function validate27(data, { instancePath = "", parentData, parentDataProperty, rootData = data } = {}) {
   let vErrors = null, errors = 0, _errs1 = errors, valid0 = !1, passing0 = null, _errs2 = errors, _errs5 = errors, valid2 = !1, _errs6 = errors;
   if (data && typeof data == "object" && !Array.isArray(data)) {
@@ -23037,415 +23071,449 @@ function validate27(data, { instancePath = "", parentData, parentDataProperty, r
         vErrors === null ? vErrors = [err26] : vErrors.push(err26), errors++;
       }
     var _valid4 = _errs35 === errors;
-    valid9 = valid9 || _valid4;
+    if (valid9 = valid9 || _valid4, !valid9) {
+      let _errs37 = errors;
+      if (errors === _errs37)
+        if (data && typeof data == "object" && !Array.isArray(data)) {
+          let missing5;
+          if (data.itemId === void 0 && (missing5 = "itemId")) {
+            let err27 = {};
+            vErrors === null ? vErrors = [err27] : vErrors.push(err27), errors++;
+          }
+        } else {
+          let err28 = {};
+          vErrors === null ? vErrors = [err28] : vErrors.push(err28), errors++;
+        }
+      var _valid4 = _errs37 === errors;
+      valid9 = valid9 || _valid4;
+    }
   }
   if (valid9)
     errors = _errs32, vErrors !== null && (_errs32 ? vErrors.length = _errs32 : vErrors = null);
   else {
-    let err27 = {};
-    vErrors === null ? vErrors = [err27] : vErrors.push(err27), errors++;
+    let err29 = {};
+    vErrors === null ? vErrors = [err29] : vErrors.push(err29), errors++;
   }
   var valid8 = _errs31 === errors;
   if (valid8) {
-    let err28 = { instancePath, schemaPath: "#/oneOf/1/allOf/1/not", keyword: "not", params: {}, message: "must NOT be valid" };
-    vErrors === null ? vErrors = [err28] : vErrors.push(err28), errors++;
+    let err30 = { instancePath, schemaPath: "#/oneOf/1/allOf/1/not", keyword: "not", params: {}, message: "must NOT be valid" };
+    vErrors === null ? vErrors = [err30] : vErrors.push(err30), errors++;
   } else
     errors = _errs30, vErrors !== null && (_errs30 ? vErrors.length = _errs30 : vErrors = null);
   if (data && typeof data == "object" && !Array.isArray(data)) {
     if (data.provider === void 0) {
-      let err29 = { instancePath, schemaPath: "#/oneOf/1/required", keyword: "required", params: { missingProperty: "provider" }, message: "must have required property 'provider'" };
-      vErrors === null ? vErrors = [err29] : vErrors.push(err29), errors++;
+      let err31 = { instancePath, schemaPath: "#/oneOf/1/required", keyword: "required", params: { missingProperty: "provider" }, message: "must have required property 'provider'" };
+      vErrors === null ? vErrors = [err31] : vErrors.push(err31), errors++;
     }
     if (data.externalId === void 0) {
-      let err30 = { instancePath, schemaPath: "#/oneOf/1/required", keyword: "required", params: { missingProperty: "externalId" }, message: "must have required property 'externalId'" };
-      vErrors === null ? vErrors = [err30] : vErrors.push(err30), errors++;
+      let err32 = { instancePath, schemaPath: "#/oneOf/1/required", keyword: "required", params: { missingProperty: "externalId" }, message: "must have required property 'externalId'" };
+      vErrors === null ? vErrors = [err32] : vErrors.push(err32), errors++;
     }
     if (data.provider !== void 0) {
       let data1 = data.provider;
       if (!(data1 === "jira" || data1 === "github_issues" || data1 === "azure_boards" || data1 === "linear")) {
-        let err31 = { instancePath: instancePath + "/provider", schemaPath: "#/oneOf/1/properties/provider/enum", keyword: "enum", params: { allowedValues: schema60.oneOf[1].properties.provider.enum }, message: "must be equal to one of the allowed values" };
-        vErrors === null ? vErrors = [err31] : vErrors.push(err31), errors++;
+        let err33 = { instancePath: instancePath + "/provider", schemaPath: "#/oneOf/1/properties/provider/enum", keyword: "enum", params: { allowedValues: schema60.oneOf[1].properties.provider.enum }, message: "must be equal to one of the allowed values" };
+        vErrors === null ? vErrors = [err33] : vErrors.push(err33), errors++;
       }
     }
   } else {
-    let err32 = { instancePath, schemaPath: "#/oneOf/1/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    vErrors === null ? vErrors = [err32] : vErrors.push(err32), errors++;
+    let err34 = { instancePath, schemaPath: "#/oneOf/1/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    vErrors === null ? vErrors = [err34] : vErrors.push(err34), errors++;
   }
   var _valid0 = _errs21 === errors;
   if (_valid0 && valid0)
     valid0 = !1, passing0 = [passing0, 1];
   else {
     _valid0 && (valid0 = !0, passing0 = 1);
-    let _errs38 = errors, _errs41 = errors, valid12 = !1, _errs42 = errors;
+    let _errs40 = errors, _errs43 = errors, valid12 = !1, _errs44 = errors;
     if (data && typeof data == "object" && !Array.isArray(data)) {
       if (data.contentRevision === void 0) {
-        let err33 = { instancePath, schemaPath: "#/oneOf/2/allOf/0/anyOf/0/required", keyword: "required", params: { missingProperty: "contentRevision" }, message: "must have required property 'contentRevision'" };
-        vErrors === null ? vErrors = [err33] : vErrors.push(err33), errors++;
+        let err35 = { instancePath, schemaPath: "#/oneOf/2/allOf/0/anyOf/0/required", keyword: "required", params: { missingProperty: "contentRevision" }, message: "must have required property 'contentRevision'" };
+        vErrors === null ? vErrors = [err35] : vErrors.push(err35), errors++;
       }
     } else {
-      let err34 = { instancePath, schemaPath: "#/oneOf/2/allOf/0/anyOf/0/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-      vErrors === null ? vErrors = [err34] : vErrors.push(err34), errors++;
+      let err36 = { instancePath, schemaPath: "#/oneOf/2/allOf/0/anyOf/0/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+      vErrors === null ? vErrors = [err36] : vErrors.push(err36), errors++;
     }
-    var _valid5 = _errs42 === errors;
+    var _valid5 = _errs44 === errors;
     if (valid12 = valid12 || _valid5, !valid12) {
-      let _errs44 = errors;
+      let _errs46 = errors;
       if (data && typeof data == "object" && !Array.isArray(data)) {
         if (data.fingerprint === void 0) {
-          let err35 = { instancePath, schemaPath: "#/oneOf/2/allOf/0/anyOf/1/required", keyword: "required", params: { missingProperty: "fingerprint" }, message: "must have required property 'fingerprint'" };
-          vErrors === null ? vErrors = [err35] : vErrors.push(err35), errors++;
+          let err37 = { instancePath, schemaPath: "#/oneOf/2/allOf/0/anyOf/1/required", keyword: "required", params: { missingProperty: "fingerprint" }, message: "must have required property 'fingerprint'" };
+          vErrors === null ? vErrors = [err37] : vErrors.push(err37), errors++;
         }
       } else {
-        let err36 = { instancePath, schemaPath: "#/oneOf/2/allOf/0/anyOf/1/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-        vErrors === null ? vErrors = [err36] : vErrors.push(err36), errors++;
+        let err38 = { instancePath, schemaPath: "#/oneOf/2/allOf/0/anyOf/1/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        vErrors === null ? vErrors = [err38] : vErrors.push(err38), errors++;
       }
-      var _valid5 = _errs44 === errors;
+      var _valid5 = _errs46 === errors;
       valid12 = valid12 || _valid5;
     }
     if (valid12)
-      errors = _errs41, vErrors !== null && (_errs41 ? vErrors.length = _errs41 : vErrors = null);
+      errors = _errs43, vErrors !== null && (_errs43 ? vErrors.length = _errs43 : vErrors = null);
     else {
-      let err37 = { instancePath, schemaPath: "#/oneOf/2/allOf/0/anyOf", keyword: "anyOf", params: {}, message: "must match a schema in anyOf" };
-      vErrors === null ? vErrors = [err37] : vErrors.push(err37), errors++;
+      let err39 = { instancePath, schemaPath: "#/oneOf/2/allOf/0/anyOf", keyword: "anyOf", params: {}, message: "must match a schema in anyOf" };
+      vErrors === null ? vErrors = [err39] : vErrors.push(err39), errors++;
     }
-    let _errs47 = errors, _errs48 = errors, _errs49 = errors, valid14 = !1, _errs50 = errors;
-    if (errors === _errs50)
+    let _errs49 = errors, _errs50 = errors, _errs51 = errors, valid14 = !1, _errs52 = errors;
+    if (errors === _errs52)
       if (data && typeof data == "object" && !Array.isArray(data)) {
-        let missing5;
-        if (data.externalId === void 0 && (missing5 = "externalId")) {
-          let err38 = {};
-          vErrors === null ? vErrors = [err38] : vErrors.push(err38), errors++;
+        let missing6;
+        if (data.externalId === void 0 && (missing6 = "externalId")) {
+          let err40 = {};
+          vErrors === null ? vErrors = [err40] : vErrors.push(err40), errors++;
         }
       } else {
-        let err39 = {};
-        vErrors === null ? vErrors = [err39] : vErrors.push(err39), errors++;
+        let err41 = {};
+        vErrors === null ? vErrors = [err41] : vErrors.push(err41), errors++;
       }
-    var _valid6 = _errs50 === errors;
+    var _valid6 = _errs52 === errors;
     if (valid14 = valid14 || _valid6, !valid14) {
-      let _errs52 = errors;
-      if (errors === _errs52)
+      let _errs54 = errors;
+      if (errors === _errs54)
         if (data && typeof data == "object" && !Array.isArray(data)) {
-          let missing6;
-          if (data.externalUrl === void 0 && (missing6 = "externalUrl")) {
-            let err40 = {};
-            vErrors === null ? vErrors = [err40] : vErrors.push(err40), errors++;
+          let missing7;
+          if (data.externalUrl === void 0 && (missing7 = "externalUrl")) {
+            let err42 = {};
+            vErrors === null ? vErrors = [err42] : vErrors.push(err42), errors++;
           }
         } else {
-          let err41 = {};
-          vErrors === null ? vErrors = [err41] : vErrors.push(err41), errors++;
+          let err43 = {};
+          vErrors === null ? vErrors = [err43] : vErrors.push(err43), errors++;
         }
-      var _valid6 = _errs52 === errors;
+      var _valid6 = _errs54 === errors;
       if (valid14 = valid14 || _valid6, !valid14) {
-        let _errs54 = errors;
-        if (errors === _errs54)
+        let _errs56 = errors;
+        if (errors === _errs56)
           if (data && typeof data == "object" && !Array.isArray(data)) {
-            let missing7;
-            if (data.externalRevision === void 0 && (missing7 = "externalRevision")) {
-              let err42 = {};
-              vErrors === null ? vErrors = [err42] : vErrors.push(err42), errors++;
+            let missing8;
+            if (data.externalRevision === void 0 && (missing8 = "externalRevision")) {
+              let err44 = {};
+              vErrors === null ? vErrors = [err44] : vErrors.push(err44), errors++;
             }
           } else {
-            let err43 = {};
-            vErrors === null ? vErrors = [err43] : vErrors.push(err43), errors++;
+            let err45 = {};
+            vErrors === null ? vErrors = [err45] : vErrors.push(err45), errors++;
           }
-        var _valid6 = _errs54 === errors;
+        var _valid6 = _errs56 === errors;
         valid14 = valid14 || _valid6;
       }
     }
     if (valid14)
-      errors = _errs49, vErrors !== null && (_errs49 ? vErrors.length = _errs49 : vErrors = null);
+      errors = _errs51, vErrors !== null && (_errs51 ? vErrors.length = _errs51 : vErrors = null);
     else {
-      let err44 = {};
-      vErrors === null ? vErrors = [err44] : vErrors.push(err44), errors++;
+      let err46 = {};
+      vErrors === null ? vErrors = [err46] : vErrors.push(err46), errors++;
     }
-    var valid13 = _errs48 === errors;
+    var valid13 = _errs50 === errors;
     if (valid13) {
-      let err45 = { instancePath, schemaPath: "#/oneOf/2/allOf/1/not", keyword: "not", params: {}, message: "must NOT be valid" };
-      vErrors === null ? vErrors = [err45] : vErrors.push(err45), errors++;
+      let err47 = { instancePath, schemaPath: "#/oneOf/2/allOf/1/not", keyword: "not", params: {}, message: "must NOT be valid" };
+      vErrors === null ? vErrors = [err47] : vErrors.push(err47), errors++;
     } else
-      errors = _errs47, vErrors !== null && (_errs47 ? vErrors.length = _errs47 : vErrors = null);
+      errors = _errs49, vErrors !== null && (_errs49 ? vErrors.length = _errs49 : vErrors = null);
     if (data && typeof data == "object" && !Array.isArray(data)) {
       if (data.provider === void 0) {
-        let err46 = { instancePath, schemaPath: "#/oneOf/2/required", keyword: "required", params: { missingProperty: "provider" }, message: "must have required property 'provider'" };
-        vErrors === null ? vErrors = [err46] : vErrors.push(err46), errors++;
-      }
-      if (data.path === void 0) {
-        let err47 = { instancePath, schemaPath: "#/oneOf/2/required", keyword: "required", params: { missingProperty: "path" }, message: "must have required property 'path'" };
-        vErrors === null ? vErrors = [err47] : vErrors.push(err47), errors++;
-      }
-      if (data.provider !== void 0 && data.provider !== "custom") {
-        let err48 = { instancePath: instancePath + "/provider", schemaPath: "#/oneOf/2/properties/provider/const", keyword: "const", params: { allowedValue: "custom" }, message: "must be equal to constant" };
+        let err48 = { instancePath, schemaPath: "#/oneOf/2/required", keyword: "required", params: { missingProperty: "provider" }, message: "must have required property 'provider'" };
         vErrors === null ? vErrors = [err48] : vErrors.push(err48), errors++;
       }
+      if (data.path === void 0) {
+        let err49 = { instancePath, schemaPath: "#/oneOf/2/required", keyword: "required", params: { missingProperty: "path" }, message: "must have required property 'path'" };
+        vErrors === null ? vErrors = [err49] : vErrors.push(err49), errors++;
+      }
+      if (data.provider !== void 0 && data.provider !== "custom") {
+        let err50 = { instancePath: instancePath + "/provider", schemaPath: "#/oneOf/2/properties/provider/const", keyword: "const", params: { allowedValue: "custom" }, message: "must be equal to constant" };
+        vErrors === null ? vErrors = [err50] : vErrors.push(err50), errors++;
+      }
     } else {
-      let err49 = { instancePath, schemaPath: "#/oneOf/2/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-      vErrors === null ? vErrors = [err49] : vErrors.push(err49), errors++;
+      let err51 = { instancePath, schemaPath: "#/oneOf/2/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+      vErrors === null ? vErrors = [err51] : vErrors.push(err51), errors++;
     }
-    var _valid0 = _errs38 === errors;
+    var _valid0 = _errs40 === errors;
     if (_valid0 && valid0)
       valid0 = !1, passing0 = [passing0, 2];
     else {
       _valid0 && (valid0 = !0, passing0 = 2);
-      let _errs57 = errors, _errs60 = errors, valid17 = !1, _errs61 = errors;
+      let _errs59 = errors, _errs62 = errors, valid17 = !1, _errs63 = errors;
       if (data && typeof data == "object" && !Array.isArray(data)) {
         if (data.externalRevision === void 0) {
-          let err50 = { instancePath, schemaPath: "#/oneOf/3/allOf/0/anyOf/0/required", keyword: "required", params: { missingProperty: "externalRevision" }, message: "must have required property 'externalRevision'" };
-          vErrors === null ? vErrors = [err50] : vErrors.push(err50), errors++;
+          let err52 = { instancePath, schemaPath: "#/oneOf/3/allOf/0/anyOf/0/required", keyword: "required", params: { missingProperty: "externalRevision" }, message: "must have required property 'externalRevision'" };
+          vErrors === null ? vErrors = [err52] : vErrors.push(err52), errors++;
         }
       } else {
-        let err51 = { instancePath, schemaPath: "#/oneOf/3/allOf/0/anyOf/0/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-        vErrors === null ? vErrors = [err51] : vErrors.push(err51), errors++;
+        let err53 = { instancePath, schemaPath: "#/oneOf/3/allOf/0/anyOf/0/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        vErrors === null ? vErrors = [err53] : vErrors.push(err53), errors++;
       }
-      var _valid7 = _errs61 === errors;
+      var _valid7 = _errs63 === errors;
       if (valid17 = valid17 || _valid7, !valid17) {
-        let _errs63 = errors;
+        let _errs65 = errors;
         if (data && typeof data == "object" && !Array.isArray(data)) {
           if (data.fingerprint === void 0) {
-            let err52 = { instancePath, schemaPath: "#/oneOf/3/allOf/0/anyOf/1/required", keyword: "required", params: { missingProperty: "fingerprint" }, message: "must have required property 'fingerprint'" };
-            vErrors === null ? vErrors = [err52] : vErrors.push(err52), errors++;
+            let err54 = { instancePath, schemaPath: "#/oneOf/3/allOf/0/anyOf/1/required", keyword: "required", params: { missingProperty: "fingerprint" }, message: "must have required property 'fingerprint'" };
+            vErrors === null ? vErrors = [err54] : vErrors.push(err54), errors++;
           }
         } else {
-          let err53 = { instancePath, schemaPath: "#/oneOf/3/allOf/0/anyOf/1/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-          vErrors === null ? vErrors = [err53] : vErrors.push(err53), errors++;
+          let err55 = { instancePath, schemaPath: "#/oneOf/3/allOf/0/anyOf/1/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+          vErrors === null ? vErrors = [err55] : vErrors.push(err55), errors++;
         }
-        var _valid7 = _errs63 === errors;
+        var _valid7 = _errs65 === errors;
         valid17 = valid17 || _valid7;
       }
       if (valid17)
-        errors = _errs60, vErrors !== null && (_errs60 ? vErrors.length = _errs60 : vErrors = null);
+        errors = _errs62, vErrors !== null && (_errs62 ? vErrors.length = _errs62 : vErrors = null);
       else {
-        let err54 = { instancePath, schemaPath: "#/oneOf/3/allOf/0/anyOf", keyword: "anyOf", params: {}, message: "must match a schema in anyOf" };
-        vErrors === null ? vErrors = [err54] : vErrors.push(err54), errors++;
+        let err56 = { instancePath, schemaPath: "#/oneOf/3/allOf/0/anyOf", keyword: "anyOf", params: {}, message: "must match a schema in anyOf" };
+        vErrors === null ? vErrors = [err56] : vErrors.push(err56), errors++;
       }
-      let _errs66 = errors, _errs67 = errors, _errs68 = errors, valid19 = !1, _errs69 = errors;
-      if (errors === _errs69)
+      let _errs68 = errors, _errs69 = errors, _errs70 = errors, valid19 = !1, _errs71 = errors;
+      if (errors === _errs71)
         if (data && typeof data == "object" && !Array.isArray(data)) {
-          let missing8;
-          if (data.path === void 0 && (missing8 = "path")) {
-            let err55 = {};
-            vErrors === null ? vErrors = [err55] : vErrors.push(err55), errors++;
+          let missing9;
+          if (data.path === void 0 && (missing9 = "path")) {
+            let err57 = {};
+            vErrors === null ? vErrors = [err57] : vErrors.push(err57), errors++;
           }
         } else {
-          let err56 = {};
-          vErrors === null ? vErrors = [err56] : vErrors.push(err56), errors++;
+          let err58 = {};
+          vErrors === null ? vErrors = [err58] : vErrors.push(err58), errors++;
         }
-      var _valid8 = _errs69 === errors;
+      var _valid8 = _errs71 === errors;
       if (valid19 = valid19 || _valid8, !valid19) {
-        let _errs71 = errors;
-        if (errors === _errs71)
+        let _errs73 = errors;
+        if (errors === _errs73)
           if (data && typeof data == "object" && !Array.isArray(data)) {
-            let missing9;
-            if (data.contentRevision === void 0 && (missing9 = "contentRevision")) {
-              let err57 = {};
-              vErrors === null ? vErrors = [err57] : vErrors.push(err57), errors++;
+            let missing10;
+            if (data.contentRevision === void 0 && (missing10 = "contentRevision")) {
+              let err59 = {};
+              vErrors === null ? vErrors = [err59] : vErrors.push(err59), errors++;
             }
           } else {
-            let err58 = {};
-            vErrors === null ? vErrors = [err58] : vErrors.push(err58), errors++;
+            let err60 = {};
+            vErrors === null ? vErrors = [err60] : vErrors.push(err60), errors++;
           }
-        var _valid8 = _errs71 === errors;
-        valid19 = valid19 || _valid8;
+        var _valid8 = _errs73 === errors;
+        if (valid19 = valid19 || _valid8, !valid19) {
+          let _errs75 = errors;
+          if (errors === _errs75)
+            if (data && typeof data == "object" && !Array.isArray(data)) {
+              let missing11;
+              if (data.itemId === void 0 && (missing11 = "itemId")) {
+                let err61 = {};
+                vErrors === null ? vErrors = [err61] : vErrors.push(err61), errors++;
+              }
+            } else {
+              let err62 = {};
+              vErrors === null ? vErrors = [err62] : vErrors.push(err62), errors++;
+            }
+          var _valid8 = _errs75 === errors;
+          valid19 = valid19 || _valid8;
+        }
       }
       if (valid19)
-        errors = _errs68, vErrors !== null && (_errs68 ? vErrors.length = _errs68 : vErrors = null);
+        errors = _errs70, vErrors !== null && (_errs70 ? vErrors.length = _errs70 : vErrors = null);
       else {
-        let err59 = {};
-        vErrors === null ? vErrors = [err59] : vErrors.push(err59), errors++;
+        let err63 = {};
+        vErrors === null ? vErrors = [err63] : vErrors.push(err63), errors++;
       }
-      var valid18 = _errs67 === errors;
+      var valid18 = _errs69 === errors;
       if (valid18) {
-        let err60 = { instancePath, schemaPath: "#/oneOf/3/allOf/1/not", keyword: "not", params: {}, message: "must NOT be valid" };
-        vErrors === null ? vErrors = [err60] : vErrors.push(err60), errors++;
+        let err64 = { instancePath, schemaPath: "#/oneOf/3/allOf/1/not", keyword: "not", params: {}, message: "must NOT be valid" };
+        vErrors === null ? vErrors = [err64] : vErrors.push(err64), errors++;
       } else
-        errors = _errs66, vErrors !== null && (_errs66 ? vErrors.length = _errs66 : vErrors = null);
+        errors = _errs68, vErrors !== null && (_errs68 ? vErrors.length = _errs68 : vErrors = null);
       if (data && typeof data == "object" && !Array.isArray(data)) {
         if (data.provider === void 0) {
-          let err61 = { instancePath, schemaPath: "#/oneOf/3/required", keyword: "required", params: { missingProperty: "provider" }, message: "must have required property 'provider'" };
-          vErrors === null ? vErrors = [err61] : vErrors.push(err61), errors++;
+          let err65 = { instancePath, schemaPath: "#/oneOf/3/required", keyword: "required", params: { missingProperty: "provider" }, message: "must have required property 'provider'" };
+          vErrors === null ? vErrors = [err65] : vErrors.push(err65), errors++;
         }
         if (data.externalId === void 0) {
-          let err62 = { instancePath, schemaPath: "#/oneOf/3/required", keyword: "required", params: { missingProperty: "externalId" }, message: "must have required property 'externalId'" };
-          vErrors === null ? vErrors = [err62] : vErrors.push(err62), errors++;
+          let err66 = { instancePath, schemaPath: "#/oneOf/3/required", keyword: "required", params: { missingProperty: "externalId" }, message: "must have required property 'externalId'" };
+          vErrors === null ? vErrors = [err66] : vErrors.push(err66), errors++;
         }
         if (data.provider !== void 0 && data.provider !== "custom") {
-          let err63 = { instancePath: instancePath + "/provider", schemaPath: "#/oneOf/3/properties/provider/const", keyword: "const", params: { allowedValue: "custom" }, message: "must be equal to constant" };
-          vErrors === null ? vErrors = [err63] : vErrors.push(err63), errors++;
+          let err67 = { instancePath: instancePath + "/provider", schemaPath: "#/oneOf/3/properties/provider/const", keyword: "const", params: { allowedValue: "custom" }, message: "must be equal to constant" };
+          vErrors === null ? vErrors = [err67] : vErrors.push(err67), errors++;
         }
       } else {
-        let err64 = { instancePath, schemaPath: "#/oneOf/3/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-        vErrors === null ? vErrors = [err64] : vErrors.push(err64), errors++;
+        let err68 = { instancePath, schemaPath: "#/oneOf/3/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+        vErrors === null ? vErrors = [err68] : vErrors.push(err68), errors++;
       }
-      var _valid0 = _errs57 === errors;
+      var _valid0 = _errs59 === errors;
       _valid0 && valid0 ? (valid0 = !1, passing0 = [passing0, 3]) : _valid0 && (valid0 = !0, passing0 = 3);
     }
   }
   if (valid0)
     errors = _errs1, vErrors !== null && (_errs1 ? vErrors.length = _errs1 : vErrors = null);
   else {
-    let err65 = { instancePath, schemaPath: "#/oneOf", keyword: "oneOf", params: { passingSchemas: passing0 }, message: "must match exactly one schema in oneOf" };
-    vErrors === null ? vErrors = [err65] : vErrors.push(err65), errors++;
+    let err69 = { instancePath, schemaPath: "#/oneOf", keyword: "oneOf", params: { passingSchemas: passing0 }, message: "must match exactly one schema in oneOf" };
+    vErrors === null ? vErrors = [err69] : vErrors.push(err69), errors++;
   }
   if (data && typeof data == "object" && !Array.isArray(data)) {
     if (data.sourceId === void 0) {
-      let err66 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "sourceId" }, message: "must have required property 'sourceId'" };
-      vErrors === null ? vErrors = [err66] : vErrors.push(err66), errors++;
+      let err70 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "sourceId" }, message: "must have required property 'sourceId'" };
+      vErrors === null ? vErrors = [err70] : vErrors.push(err70), errors++;
     }
     if (data.provider === void 0) {
-      let err67 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "provider" }, message: "must have required property 'provider'" };
-      vErrors === null ? vErrors = [err67] : vErrors.push(err67), errors++;
+      let err71 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "provider" }, message: "must have required property 'provider'" };
+      vErrors === null ? vErrors = [err71] : vErrors.push(err71), errors++;
     }
     if (data.role === void 0) {
-      let err68 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "role" }, message: "must have required property 'role'" };
-      vErrors === null ? vErrors = [err68] : vErrors.push(err68), errors++;
+      let err72 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "role" }, message: "must have required property 'role'" };
+      vErrors === null ? vErrors = [err72] : vErrors.push(err72), errors++;
     }
     if (data.mappingVersion === void 0) {
-      let err69 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "mappingVersion" }, message: "must have required property 'mappingVersion'" };
-      vErrors === null ? vErrors = [err69] : vErrors.push(err69), errors++;
+      let err73 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "mappingVersion" }, message: "must have required property 'mappingVersion'" };
+      vErrors === null ? vErrors = [err73] : vErrors.push(err73), errors++;
+    }
+    if (data.importedAt === void 0) {
+      let err74 = { instancePath, schemaPath: "#/required", keyword: "required", params: { missingProperty: "importedAt" }, message: "must have required property 'importedAt'" };
+      vErrors === null ? vErrors = [err74] : vErrors.push(err74), errors++;
     }
     for (let key0 in data)
       if (!func4.call(schema60.properties, key0)) {
-        let err70 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
-        vErrors === null ? vErrors = [err70] : vErrors.push(err70), errors++;
+        let err75 = { instancePath, schemaPath: "#/additionalProperties", keyword: "additionalProperties", params: { additionalProperty: key0 }, message: "must NOT have additional properties" };
+        vErrors === null ? vErrors = [err75] : vErrors.push(err75), errors++;
       }
     if (data.sourceId !== void 0) {
       let data4 = data.sourceId;
       if (typeof data4 == "string") {
         if (func2(data4) < 1) {
-          let err71 = { instancePath: instancePath + "/sourceId", schemaPath: "#/properties/sourceId/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-          vErrors === null ? vErrors = [err71] : vErrors.push(err71), errors++;
+          let err76 = { instancePath: instancePath + "/sourceId", schemaPath: "#/properties/sourceId/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+          vErrors === null ? vErrors = [err76] : vErrors.push(err76), errors++;
         }
       } else {
-        let err72 = { instancePath: instancePath + "/sourceId", schemaPath: "#/properties/sourceId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        vErrors === null ? vErrors = [err72] : vErrors.push(err72), errors++;
+        let err77 = { instancePath: instancePath + "/sourceId", schemaPath: "#/properties/sourceId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        vErrors === null ? vErrors = [err77] : vErrors.push(err77), errors++;
       }
     }
     if (data.provider !== void 0) {
       let data5 = data.provider;
       if (!(data5 === "local_repository" || data5 === "jira" || data5 === "github_issues" || data5 === "azure_boards" || data5 === "linear" || data5 === "custom")) {
-        let err73 = { instancePath: instancePath + "/provider", schemaPath: "#/properties/provider/enum", keyword: "enum", params: { allowedValues: schema60.properties.provider.enum }, message: "must be equal to one of the allowed values" };
-        vErrors === null ? vErrors = [err73] : vErrors.push(err73), errors++;
+        let err78 = { instancePath: instancePath + "/provider", schemaPath: "#/properties/provider/enum", keyword: "enum", params: { allowedValues: schema60.properties.provider.enum }, message: "must be equal to one of the allowed values" };
+        vErrors === null ? vErrors = [err78] : vErrors.push(err78), errors++;
       }
     }
     if (data.role !== void 0) {
       let data6 = data.role;
       if (!(data6 === "primary" || data6 === "supporting" || data6 === "derived_from" || data6 === "supersedes" || data6 === "related")) {
-        let err74 = { instancePath: instancePath + "/role", schemaPath: "#/properties/role/enum", keyword: "enum", params: { allowedValues: schema60.properties.role.enum }, message: "must be equal to one of the allowed values" };
-        vErrors === null ? vErrors = [err74] : vErrors.push(err74), errors++;
+        let err79 = { instancePath: instancePath + "/role", schemaPath: "#/properties/role/enum", keyword: "enum", params: { allowedValues: schema60.properties.role.enum }, message: "must be equal to one of the allowed values" };
+        vErrors === null ? vErrors = [err79] : vErrors.push(err79), errors++;
       }
     }
     if (data.externalId !== void 0) {
       let data7 = data.externalId;
       if (typeof data7 == "string") {
         if (func2(data7) < 1) {
-          let err75 = { instancePath: instancePath + "/externalId", schemaPath: "#/properties/externalId/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-          vErrors === null ? vErrors = [err75] : vErrors.push(err75), errors++;
+          let err80 = { instancePath: instancePath + "/externalId", schemaPath: "#/properties/externalId/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+          vErrors === null ? vErrors = [err80] : vErrors.push(err80), errors++;
         }
       } else {
-        let err76 = { instancePath: instancePath + "/externalId", schemaPath: "#/properties/externalId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        vErrors === null ? vErrors = [err76] : vErrors.push(err76), errors++;
+        let err81 = { instancePath: instancePath + "/externalId", schemaPath: "#/properties/externalId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        vErrors === null ? vErrors = [err81] : vErrors.push(err81), errors++;
       }
     }
     if (data.externalUrl !== void 0) {
       let data8 = data.externalUrl;
       if (typeof data8 == "string") {
         if (func2(data8) < 1) {
-          let err77 = { instancePath: instancePath + "/externalUrl", schemaPath: "#/properties/externalUrl/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-          vErrors === null ? vErrors = [err77] : vErrors.push(err77), errors++;
+          let err82 = { instancePath: instancePath + "/externalUrl", schemaPath: "#/properties/externalUrl/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+          vErrors === null ? vErrors = [err82] : vErrors.push(err82), errors++;
         }
       } else {
-        let err78 = { instancePath: instancePath + "/externalUrl", schemaPath: "#/properties/externalUrl/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        vErrors === null ? vErrors = [err78] : vErrors.push(err78), errors++;
+        let err83 = { instancePath: instancePath + "/externalUrl", schemaPath: "#/properties/externalUrl/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        vErrors === null ? vErrors = [err83] : vErrors.push(err83), errors++;
       }
     }
     if (data.externalRevision !== void 0) {
       let data9 = data.externalRevision;
       if (typeof data9 == "string") {
         if (func2(data9) < 1) {
-          let err79 = { instancePath: instancePath + "/externalRevision", schemaPath: "#/properties/externalRevision/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-          vErrors === null ? vErrors = [err79] : vErrors.push(err79), errors++;
+          let err84 = { instancePath: instancePath + "/externalRevision", schemaPath: "#/properties/externalRevision/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+          vErrors === null ? vErrors = [err84] : vErrors.push(err84), errors++;
         }
       } else {
-        let err80 = { instancePath: instancePath + "/externalRevision", schemaPath: "#/properties/externalRevision/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        vErrors === null ? vErrors = [err80] : vErrors.push(err80), errors++;
+        let err85 = { instancePath: instancePath + "/externalRevision", schemaPath: "#/properties/externalRevision/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        vErrors === null ? vErrors = [err85] : vErrors.push(err85), errors++;
       }
     }
     if (data.path !== void 0) {
       let data10 = data.path;
       if (typeof data10 == "string") {
         if (func2(data10) < 1) {
-          let err81 = { instancePath: instancePath + "/path", schemaPath: "#/properties/path/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-          vErrors === null ? vErrors = [err81] : vErrors.push(err81), errors++;
+          let err86 = { instancePath: instancePath + "/path", schemaPath: "#/properties/path/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+          vErrors === null ? vErrors = [err86] : vErrors.push(err86), errors++;
         }
       } else {
-        let err82 = { instancePath: instancePath + "/path", schemaPath: "#/properties/path/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        vErrors === null ? vErrors = [err82] : vErrors.push(err82), errors++;
+        let err87 = { instancePath: instancePath + "/path", schemaPath: "#/properties/path/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        vErrors === null ? vErrors = [err87] : vErrors.push(err87), errors++;
       }
     }
     if (data.contentRevision !== void 0) {
       let data11 = data.contentRevision;
       if (typeof data11 == "string") {
         if (!pattern0.test(data11)) {
-          let err83 = { instancePath: instancePath + "/contentRevision", schemaPath: "#/$defs/hash/pattern", keyword: "pattern", params: { pattern: "^sha256:[0-9a-f]{64}$" }, message: 'must match pattern "^sha256:[0-9a-f]{64}$"' };
-          vErrors === null ? vErrors = [err83] : vErrors.push(err83), errors++;
+          let err88 = { instancePath: instancePath + "/contentRevision", schemaPath: "#/$defs/hash/pattern", keyword: "pattern", params: { pattern: "^sha256:[0-9a-f]{64}$" }, message: 'must match pattern "^sha256:[0-9a-f]{64}$"' };
+          vErrors === null ? vErrors = [err88] : vErrors.push(err88), errors++;
         }
       } else {
-        let err84 = { instancePath: instancePath + "/contentRevision", schemaPath: "#/$defs/hash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        vErrors === null ? vErrors = [err84] : vErrors.push(err84), errors++;
+        let err89 = { instancePath: instancePath + "/contentRevision", schemaPath: "#/$defs/hash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        vErrors === null ? vErrors = [err89] : vErrors.push(err89), errors++;
       }
     }
     if (data.fingerprint !== void 0) {
       let data12 = data.fingerprint;
       if (typeof data12 == "string") {
         if (!pattern0.test(data12)) {
-          let err85 = { instancePath: instancePath + "/fingerprint", schemaPath: "#/$defs/hash/pattern", keyword: "pattern", params: { pattern: "^sha256:[0-9a-f]{64}$" }, message: 'must match pattern "^sha256:[0-9a-f]{64}$"' };
-          vErrors === null ? vErrors = [err85] : vErrors.push(err85), errors++;
+          let err90 = { instancePath: instancePath + "/fingerprint", schemaPath: "#/$defs/hash/pattern", keyword: "pattern", params: { pattern: "^sha256:[0-9a-f]{64}$" }, message: 'must match pattern "^sha256:[0-9a-f]{64}$"' };
+          vErrors === null ? vErrors = [err90] : vErrors.push(err90), errors++;
         }
       } else {
-        let err86 = { instancePath: instancePath + "/fingerprint", schemaPath: "#/$defs/hash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        vErrors === null ? vErrors = [err86] : vErrors.push(err86), errors++;
+        let err91 = { instancePath: instancePath + "/fingerprint", schemaPath: "#/$defs/hash/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        vErrors === null ? vErrors = [err91] : vErrors.push(err91), errors++;
       }
     }
     if (data.mappingVersion !== void 0) {
       let data13 = data.mappingVersion;
       if (!(typeof data13 == "number" && !(data13 % 1) && !isNaN(data13) && isFinite(data13))) {
-        let err87 = { instancePath: instancePath + "/mappingVersion", schemaPath: "#/properties/mappingVersion/type", keyword: "type", params: { type: "integer" }, message: "must be integer" };
-        vErrors === null ? vErrors = [err87] : vErrors.push(err87), errors++;
+        let err92 = { instancePath: instancePath + "/mappingVersion", schemaPath: "#/properties/mappingVersion/type", keyword: "type", params: { type: "integer" }, message: "must be integer" };
+        vErrors === null ? vErrors = [err92] : vErrors.push(err92), errors++;
       }
       if (typeof data13 == "number" && isFinite(data13) && (data13 < 1 || isNaN(data13))) {
-        let err88 = { instancePath: instancePath + "/mappingVersion", schemaPath: "#/properties/mappingVersion/minimum", keyword: "minimum", params: { comparison: ">=", limit: 1 }, message: "must be >= 1" };
-        vErrors === null ? vErrors = [err88] : vErrors.push(err88), errors++;
+        let err93 = { instancePath: instancePath + "/mappingVersion", schemaPath: "#/properties/mappingVersion/minimum", keyword: "minimum", params: { comparison: ">=", limit: 1 }, message: "must be >= 1" };
+        vErrors === null ? vErrors = [err93] : vErrors.push(err93), errors++;
       }
     }
     if (data.importedAt !== void 0) {
       let data14 = data.importedAt;
       if (typeof data14 == "string") {
         if (func2(data14) < 1) {
-          let err89 = { instancePath: instancePath + "/importedAt", schemaPath: "#/properties/importedAt/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-          vErrors === null ? vErrors = [err89] : vErrors.push(err89), errors++;
+          let err94 = { instancePath: instancePath + "/importedAt", schemaPath: "#/properties/importedAt/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+          vErrors === null ? vErrors = [err94] : vErrors.push(err94), errors++;
         }
       } else {
-        let err90 = { instancePath: instancePath + "/importedAt", schemaPath: "#/properties/importedAt/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        vErrors === null ? vErrors = [err90] : vErrors.push(err90), errors++;
+        let err95 = { instancePath: instancePath + "/importedAt", schemaPath: "#/properties/importedAt/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        vErrors === null ? vErrors = [err95] : vErrors.push(err95), errors++;
       }
     }
     if (data.itemId !== void 0) {
       let data15 = data.itemId;
       if (typeof data15 == "string") {
         if (func2(data15) > 256) {
-          let err91 = { instancePath: instancePath + "/itemId", schemaPath: "#/properties/itemId/maxLength", keyword: "maxLength", params: { limit: 256 }, message: "must NOT have more than 256 characters" };
-          vErrors === null ? vErrors = [err91] : vErrors.push(err91), errors++;
+          let err96 = { instancePath: instancePath + "/itemId", schemaPath: "#/properties/itemId/maxLength", keyword: "maxLength", params: { limit: 256 }, message: "must NOT have more than 256 characters" };
+          vErrors === null ? vErrors = [err96] : vErrors.push(err96), errors++;
         }
         if (func2(data15) < 1) {
-          let err92 = { instancePath: instancePath + "/itemId", schemaPath: "#/properties/itemId/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
-          vErrors === null ? vErrors = [err92] : vErrors.push(err92), errors++;
+          let err97 = { instancePath: instancePath + "/itemId", schemaPath: "#/properties/itemId/minLength", keyword: "minLength", params: { limit: 1 }, message: "must NOT have fewer than 1 characters" };
+          vErrors === null ? vErrors = [err97] : vErrors.push(err97), errors++;
         }
       } else {
-        let err93 = { instancePath: instancePath + "/itemId", schemaPath: "#/properties/itemId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
-        vErrors === null ? vErrors = [err93] : vErrors.push(err93), errors++;
+        let err98 = { instancePath: instancePath + "/itemId", schemaPath: "#/properties/itemId/type", keyword: "type", params: { type: "string" }, message: "must be string" };
+        vErrors === null ? vErrors = [err98] : vErrors.push(err98), errors++;
       }
     }
   } else {
-    let err94 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
-    vErrors === null ? vErrors = [err94] : vErrors.push(err94), errors++;
+    let err99 = { instancePath, schemaPath: "#/type", keyword: "type", params: { type: "object" }, message: "must be object" };
+    vErrors === null ? vErrors = [err99] : vErrors.push(err99), errors++;
   }
   return validate27.errors = vErrors, errors === 0;
 }
