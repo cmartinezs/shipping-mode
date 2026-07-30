@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { capturePostToolUseEvent, BridgeError, BRIDGE_RESULT_CODES } from "./bridge-core.mjs";
+import { capturePostToolUseEvent, BridgeError, BRIDGE_RESULT_CODES } from "./bridge-verified.mjs";
 
 let input = "";
 process.stdin.setEncoding("utf8");
