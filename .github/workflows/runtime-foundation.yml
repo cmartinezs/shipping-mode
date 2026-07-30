@@ -25,218 +25,214 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
-          def replace_once(path, old, new):
-              file = Path(path)
-              text = file.read_text()
-              if old not in text:
-                  raise SystemExit(f"anchor not found in {path}: {old[:120]!r}")
-              file.write_text(text.replace(old, new, 1))
+          def lines(path):
+              return Path(path).read_text().splitlines()
 
-          store = "runtime/src/lib/workPackageStore.mjs"
-          replace_once(store, '''export function updateWorkPackageRevision(pkgWithoutRevision) {
-            const withoutRevision = { ...pkgWithoutRevision, audit: { ...pkgWithoutRevision.audit } };
-            delete withoutRevision.audit.revision;
-            return { ...withoutRevision, audit: { ...withoutRevision.audit, revision: `sha256:${revisionHash(withoutRevision)}` } };
-          }
+          def write(path, values):
+              Path(path).write_text("\n".join(values) + "\n")
 
-          export function workPackageIntegrityFindings''', '''export function updateWorkPackageRevision(pkgWithoutRevision) {
-            const withoutRevision = { ...pkgWithoutRevision, audit: { ...pkgWithoutRevision.audit } };
-            delete withoutRevision.audit.revision;
-            return { ...withoutRevision, audit: { ...withoutRevision.audit, revision: `sha256:${revisionHash(withoutRevision)}` } };
-          }
+          def find(values, marker, start=0):
+              for index in range(start, len(values)):
+                  if marker in values[index]:
+                      return index
+              raise SystemExit(f"marker not found: {marker}")
 
-          function duplicateValues(values) {
-            const counts = new Map();
-            for (const value of values) counts.set(value, (counts.get(value) || 0) + 1);
-            return [...counts.entries()].filter(([, count]) => count > 1).map(([value]) => value).sort();
-          }
+          store_path = "runtime/src/lib/workPackageStore.mjs"
+          store = lines(store_path)
 
-          function terminalResolutionMatches(pkg) {
-            return ["DONE", "CANCELLED", "SUPERSEDED"].includes(pkg.status) && pkg.resolution?.type === pkg.status;
-          }
+          insert_at = find(store, "export function workPackageIntegrityFindings")
+          helpers = [
+              "function duplicateValues(values) {",
+              "  const counts = new Map();",
+              "  for (const value of values) counts.set(value, (counts.get(value) || 0) + 1);",
+              "  return [...counts.entries()].filter(([, count]) => count > 1).map(([value]) => value).sort();",
+              "}",
+              "",
+              "function terminalResolutionMatches(pkg) {",
+              "  return [\"DONE\", \"CANCELLED\", \"SUPERSEDED\"].includes(pkg.status) && pkg.resolution?.type === pkg.status;",
+              "}",
+              ""
+          ]
+          store[insert_at:insert_at] = helpers
 
-          export function workPackageIntegrityFindings''')
+          semantic_at = find(store, "if (directoryId && pkg.id !== directoryId)")
+          semantic = [
+              "  for (const [label, values] of [",
+              "    [\"interfaces\", pkg.interfaces.map((entry) => entry.id)],",
+              "    [\"contracts\", pkg.contracts.map((entry) => entry.id)],",
+              "    [\"guideRefs\", pkg.guideRefs.map((entry) => entry.kind)],",
+              "    [\"gateRequirements\", pkg.gateRequirements.map((entry) => entry.id)],",
+              "    [\"risks\", pkg.risks.map((entry) => entry.id)],",
+              "    [\"blockers\", pkg.blockers.map((entry) => entry.id)]",
+              "  ]) {",
+              "    for (const duplicate of duplicateValues(values)) findings.push(`${label} contains duplicate identity ${duplicate}`);",
+              "  }",
+              "  const guideKinds = pkg.guideRefs.map((entry) => entry.kind).sort();",
+              "  if (guideKinds.length !== 2 || guideKinds[0] !== \"task\" || guideKinds[1] !== \"test\") findings.push(\"guideRefs must contain exactly one task Guide and one test Guide\");",
+              "  for (const ref of pkg.guideRefs) {",
+              "    if (ref.scopeId !== pkg.scopeId) findings.push(`guideRef ${ref.kind} scopeId ${ref.scopeId} does not match Work Package scopeId ${pkg.scopeId}`);",
+              "  }",
+              "  for (const gate of pkg.gateRequirements) {",
+              "    const guide = pkg.guideRefs.find((ref) => ref.kind === gate.source.guideKind);",
+              "    if (gate.source.scopeId !== pkg.scopeId || !guide || gate.source.guideId !== guide.id || gate.source.revision !== guide.revision) {",
+              "      findings.push(`gateRequirement ${gate.id} source does not match the captured ${gate.source.guideKind} Guide revision`);",
+              "    }",
+              "  }",
+              "  for (const blocker of pkg.blockers) {",
+              "    const resolvedFieldCount = [blocker.resolvedAt, blocker.resolvedBy].filter((value) => value !== undefined && value !== null).length;",
+              "    if (resolvedFieldCount === 1) findings.push(`blocker ${blocker.id} must set resolvedAt and resolvedBy together`);",
+              "  }"
+          ]
+          store[semantic_at:semantic_at] = semantic
 
-          replace_once(store, '''  if (!schemaResult.valid) {
-            for (const error of schemaResult.errors) findings.push(`work-package.yml${error.path}: ${error.message}`);
-            return { schemaValid: false, findings };
-          }
-          if (directoryId && pkg.id !== directoryId) findings.push(`workPackage.id ${pkg.id} does not match directory ${directoryId}`);''', '''  if (!schemaResult.valid) {
-            for (const error of schemaResult.errors) findings.push(`work-package.yml${error.path}: ${error.message}`);
-            return { schemaValid: false, findings };
-          }
-          for (const [label, values] of [
-            ["interfaces", pkg.interfaces.map((entry) => entry.id)],
-            ["contracts", pkg.contracts.map((entry) => entry.id)],
-            ["guideRefs", pkg.guideRefs.map((entry) => entry.kind)],
-            ["gateRequirements", pkg.gateRequirements.map((entry) => entry.id)],
-            ["risks", pkg.risks.map((entry) => entry.id)],
-            ["blockers", pkg.blockers.map((entry) => entry.id)]
-          ]) {
-            for (const duplicate of duplicateValues(values)) findings.push(`${label} contains duplicate identity ${duplicate}`);
-          }
-          const guideKinds = pkg.guideRefs.map((entry) => entry.kind).sort();
-          if (guideKinds.length !== 2 || guideKinds[0] !== "task" || guideKinds[1] !== "test") findings.push("guideRefs must contain exactly one task Guide and one test Guide");
-          for (const ref of pkg.guideRefs) {
-            if (ref.scopeId !== pkg.scopeId) findings.push(`guideRef ${ref.kind} scopeId ${ref.scopeId} does not match Work Package scopeId ${pkg.scopeId}`);
-          }
-          for (const gate of pkg.gateRequirements) {
-            const guide = pkg.guideRefs.find((ref) => ref.kind === gate.source.guideKind);
-            if (gate.source.scopeId !== pkg.scopeId || !guide || gate.source.guideId !== guide.id || gate.source.revision !== guide.revision) {
-              findings.push(`gateRequirement ${gate.id} source does not match the captured ${gate.source.guideKind} Guide revision`);
-            }
-          }
-          for (const blocker of pkg.blockers) {
-            const resolvedFieldCount = [blocker.resolvedAt, blocker.resolvedBy].filter((value) => value !== undefined && value !== null).length;
-            if (resolvedFieldCount === 1) findings.push(`blocker ${blocker.id} must set resolvedAt and resolvedBy together`);
-          }
-          if (directoryId && pkg.id !== directoryId) findings.push(`workPackage.id ${pkg.id} does not match directory ${directoryId}`);''')
+          catalog_start = find(store, "export function workPackageCatalogFindings")
+          by_start = find(store, "const byId = new Map();", catalog_start)
+          first_loop = find(store, "for (const pkg of packages)", by_start)
+          first_loop_end = first_loop + 1
+          while first_loop_end < len(store) and store[first_loop_end] != "  }":
+              first_loop_end += 1
+          if first_loop_end >= len(store):
+              raise SystemExit("catalog first loop end not found")
+          catalog_header = [
+              "  const byId = new Map();",
+              "  const displayOwners = new Map();",
+              "  for (const pkg of packages) {",
+              "    if (byId.has(pkg.id)) findings.push({ code: \"WORK_PACKAGE_ID_DUPLICATE\", severity: \"error\", packageId: pkg.id, message: `Work Package ID ${pkg.id} appears more than once in Release ${releaseId}` });",
+              "    else byId.set(pkg.id, pkg);",
+              "    const displayOwner = displayOwners.get(pkg.displayId);",
+              "    if (displayOwner && displayOwner !== pkg.id) findings.push({ code: \"WORK_PACKAGE_DISPLAY_ID_DUPLICATE\", severity: \"error\", packageId: pkg.id, message: `Work Package display ID ${pkg.displayId} is owned by both ${displayOwner} and ${pkg.id}` });",
+              "    else displayOwners.set(pkg.displayId, pkg.id);",
+              "    if (pkg.releaseId !== releaseId) findings.push({ code: \"WORK_PACKAGE_PARENT_MISMATCH\", severity: \"error\", packageId: pkg.id, message: `Work Package ${pkg.id} belongs to ${pkg.releaseId}, not ${releaseId}` });",
+              "  }"
+          ]
+          store[by_start:first_loop_end + 1] = catalog_header
 
-          replace_once(store, '''export function workPackageCatalogFindings(packages, { releaseId }) {
-            const findings = [];
-            const byId = new Map();
-            for (const pkg of packages) {
-              byId.set(pkg.id, pkg);
-              if (pkg.releaseId !== releaseId) findings.push({ code: "WORK_PACKAGE_PARENT_MISMATCH", severity: "error", packageId: pkg.id, message: `Work Package ${pkg.id} belongs to ${pkg.releaseId}, not ${releaseId}` });
-            }''', '''export function workPackageCatalogFindings(packages, { releaseId }) {
-            const findings = [];
-            const byId = new Map();
-            const displayOwners = new Map();
-            for (const pkg of packages) {
-              if (byId.has(pkg.id)) findings.push({ code: "WORK_PACKAGE_ID_DUPLICATE", severity: "error", packageId: pkg.id, message: `Work Package ID ${pkg.id} appears more than once in Release ${releaseId}` });
-              else byId.set(pkg.id, pkg);
-              const displayOwner = displayOwners.get(pkg.displayId);
-              if (displayOwner && displayOwner !== pkg.id) findings.push({ code: "WORK_PACKAGE_DISPLAY_ID_DUPLICATE", severity: "error", packageId: pkg.id, message: `Work Package display ID ${pkg.displayId} is owned by both ${displayOwner} and ${pkg.id}` });
-              else displayOwners.set(pkg.displayId, pkg.id);
-              if (pkg.releaseId !== releaseId) findings.push({ code: "WORK_PACKAGE_PARENT_MISMATCH", severity: "error", packageId: pkg.id, message: `Work Package ${pkg.id} belongs to ${pkg.releaseId}, not ${releaseId}` });
-            }''')
+          dep_start = find(store, "let dependencyFindings = [];")
+          dep_end = find(store, "dimensions.push(dimension(\"dependencies\"", dep_start)
+          dep_block = [
+              "  let dependencyFindings = [];",
+              "  try {",
+              "    const catalogPackages = listWorkPackageDocuments(planningRoot, { releaseId: release.id });",
+              "    dependencyFindings = workPackageCatalogFindings(catalogPackages, { releaseId: release.id })",
+              "      .filter((entry) => !entry.packageId || entry.packageId === workPackage.id || workPackage.dependencies.includes(entry.packageId))",
+              "      .map((entry) => finding({ code: entry.code, severity: entry.severity, dimension: \"dependencies\", message: entry.message, evidence: { packageId: workPackage.id } }));",
+              "    for (const dependencyId of workPackage.dependencies) {",
+              "      const target = catalogPackages.find((candidate) => candidate.id === dependencyId);",
+              "      if (target && !terminalResolutionMatches(target)) {",
+              "        dependencyFindings.push(finding({ code: \"WORK_PACKAGE_DEPENDENCY_UNSATISFIED\", dimension: \"dependencies\", message: `dependency ${dependencyId} is not terminally resolved`, evidence: { packageId: workPackage.id, dependencyId, dependencyStatus: target.status } }));",
+              "      }",
+              "    }",
+              "  } catch (error) {",
+              "    dependencyFindings = [finding({ code: \"WORK_PACKAGE_CATALOG_CORRUPT\", dimension: \"dependencies\", message: `Work Package catalog cannot be evaluated: ${error.message}`, evidence: { releaseId: release.id } })];",
+              "  }"
+          ]
+          store[dep_start:dep_end] = dep_block
 
-          replace_once(store, '''  let dependencyFindings = [];
-            try {
-              dependencyFindings = workPackageCatalogFindings(listWorkPackageDocuments(planningRoot, { releaseId: release.id }), { releaseId: release.id })
-                .filter((entry) => !entry.packageId || entry.packageId === workPackage.id || workPackage.dependencies.includes(entry.packageId))
-                .map((entry) => finding({ code: entry.code, severity: entry.severity, dimension: "dependencies", message: entry.message, evidence: { packageId: workPackage.id } }));
-            } catch (error) {
-              dependencyFindings = [finding({ code: "WORK_PACKAGE_CATALOG_CORRUPT", dimension: "dependencies", message: `Work Package catalog cannot be evaluated: ${error.message}`, evidence: { releaseId: release.id } })];
-            }''', '''  let dependencyFindings = [];
-            try {
-              const catalogPackages = listWorkPackageDocuments(planningRoot, { releaseId: release.id });
-              dependencyFindings = workPackageCatalogFindings(catalogPackages, { releaseId: release.id })
-                .filter((entry) => !entry.packageId || entry.packageId === workPackage.id || workPackage.dependencies.includes(entry.packageId))
-                .map((entry) => finding({ code: entry.code, severity: entry.severity, dimension: "dependencies", message: entry.message, evidence: { packageId: workPackage.id } }));
-              for (const dependencyId of workPackage.dependencies) {
-                const target = catalogPackages.find((candidate) => candidate.id === dependencyId);
-                if (target && !terminalResolutionMatches(target)) {
-                  dependencyFindings.push(finding({ code: "WORK_PACKAGE_DEPENDENCY_UNSATISFIED", dimension: "dependencies", message: `dependency ${dependencyId} is not terminally resolved`, evidence: { packageId: workPackage.id, dependencyId, dependencyStatus: target.status } }));
-                }
-              }
-            } catch (error) {
-              dependencyFindings = [finding({ code: "WORK_PACKAGE_CATALOG_CORRUPT", dimension: "dependencies", message: `Work Package catalog cannot be evaluated: ${error.message}`, evidence: { releaseId: release.id } })];
-            }''')
+          completion_start = find(store, "const invalid = dimensions.some", dep_start)
+          completion_end = completion_start
+          while completion_end < len(store) and store[completion_end] != "  };":
+              completion_end += 1
+          if completion_end >= len(store):
+              raise SystemExit("completion return end not found")
+          completion_block = [
+              "  const invalid = dimensions.some((entry) => entry.status === \"invalid\");",
+              "  const failed = dimensions.some((entry) => entry.status === \"failed\");",
+              "  const unavailable = dimensions.some((entry) => entry.status === \"unavailable\" && entry.id !== \"tasks\");",
+              "  const structurallyComplete = terminalResolutionMatches(workPackage);",
+              "  const complete = !invalid && !failed && !unavailable && structurallyComplete;",
+              "  return {",
+              "    aggregate: { status: invalid ? \"invalid\" : failed ? \"failed\" : unavailable ? \"unavailable\" : \"partial\", valid: !invalid && !failed && !unavailable, blockingFindingCount: blocking.length },",
+              "    dimensions: dimensions.sort((left, right) => left.id.localeCompare(right.id)),",
+              "    completionContribution: { status: invalid ? \"invalid\" : unavailable ? \"unavailable\" : complete ? \"complete\" : \"incomplete\", complete, evaluable: !invalid && !unavailable },",
+              "    readiness: { status: blocking.length > 0 ? \"blocked\" : unavailable ? \"unavailable\" : \"available\", releasable: false, blockedDimensions: [...new Set(blocking.map((entry) => entry.dimension))].sort(), unavailableFutureCapabilities: [\"tasks\", \"gate_execution\"] },",
+              "    findings: findings.sort((left, right) => `${left.dimension}:${left.code}:${left.message}`.localeCompare(`${right.dimension}:${right.code}:${right.message}`))",
+              "  };"
+          ]
+          store[completion_start:completion_end + 1] = completion_block
 
-          replace_once(store, '''  const invalid = dimensions.some((entry) => entry.status === "invalid");
-            const failed = dimensions.some((entry) => entry.status === "failed");
-            const unavailable = dimensions.some((entry) => entry.status === "unavailable" && entry.id !== "tasks");
-            const structurallyComplete = ["DONE", "CANCELLED", "SUPERSEDED"].includes(workPackage.status) && workPackage.resolution !== null;
-            return {
-              aggregate: { status: invalid ? "invalid" : failed ? "failed" : unavailable ? "unavailable" : "partial", valid: !invalid && !failed && !unavailable, blockingFindingCount: blocking.length },
-              dimensions: dimensions.sort((left, right) => left.id.localeCompare(right.id)),
-              completionContribution: { status: invalid ? "invalid" : unavailable ? "unavailable" : structurallyComplete ? "complete" : "incomplete", complete: !invalid && !unavailable && structurallyComplete, evaluable: !invalid },
-              readiness: { status: blocking.length > 0 ? "blocked" : unavailable ? "unavailable" : "available", releasable: false, blockedDimensions: [...new Set(blocking.map((entry) => entry.dimension))].sort(), unavailableFutureCapabilities: ["tasks", "gate_execution"] },
-              findings: findings.sort((left, right) => `${left.dimension}:${left.code}:${left.message}`.localeCompare(`${right.dimension}:${right.code}:${right.message}`))
-            };''', '''  const invalid = dimensions.some((entry) => entry.status === "invalid");
-            const failed = dimensions.some((entry) => entry.status === "failed");
-            const unavailable = dimensions.some((entry) => entry.status === "unavailable" && entry.id !== "tasks");
-            const structurallyComplete = terminalResolutionMatches(workPackage);
-            const complete = !invalid && !failed && !unavailable && structurallyComplete;
-            return {
-              aggregate: { status: invalid ? "invalid" : failed ? "failed" : unavailable ? "unavailable" : "partial", valid: !invalid && !failed && !unavailable, blockingFindingCount: blocking.length },
-              dimensions: dimensions.sort((left, right) => left.id.localeCompare(right.id)),
-              completionContribution: { status: invalid ? "invalid" : unavailable ? "unavailable" : complete ? "complete" : "incomplete", complete, evaluable: !invalid && !unavailable },
-              readiness: { status: blocking.length > 0 ? "blocked" : unavailable ? "unavailable" : "available", releasable: false, blockedDimensions: [...new Set(blocking.map((entry) => entry.dimension))].sort(), unavailableFutureCapabilities: ["tasks", "gate_execution"] },
-              findings: findings.sort((left, right) => `${left.dimension}:${left.code}:${left.message}`.localeCompare(`${right.dimension}:${right.code}:${right.message}`))
-            };''')
+          package_push = find(store, "packages.push({ workPackage: record.workPackage, health });")
+          insert_findings = find(store, "for (const entry of health.findings)", package_push)
+          store[insert_findings:insert_findings] = [
+              "    findings.push(...health.findings.filter((entry) => entry.severity !== \"info\" && entry.severity !== \"warning\").map((entry) => ({ ...entry, dimension: \"children\", message: `${record.workPackage.id}: ${entry.message}`, evidence: { ...entry.evidence, itemId: item.id, packageId: record.workPackage.id } })));"
+          ]
+          eval_line = find(store, "evaluable: invalidPackageIds.length === 0", insert_findings)
+          store[eval_line] = "    evaluable: invalidPackageIds.length === 0 && !hasUnavailableRequired,"
+          write(store_path, store)
 
-          replace_once(store, '''    const health = evaluateWorkPackageHealth({ planningRoot, release, item, workPackage: record.workPackage, directoryId: record.directoryId });
-              packages.push({ workPackage: record.workPackage, health });
-              if (health.aggregate.status === "invalid") invalidPackageIds.push(record.workPackage.id);
-              if (record.workPackage.commitment === "required" && !health.completionContribution.complete) blockingPackageIds.push(record.workPackage.id);
-              for (const entry of health.findings) {
-                if (entry.code === "CAPABILITY_UNAVAILABLE") unavailableCapabilities.add(entry.evidence.capability || entry.dimension);
-              }''', '''    const health = evaluateWorkPackageHealth({ planningRoot, release, item, workPackage: record.workPackage, directoryId: record.directoryId });
-              packages.push({ workPackage: record.workPackage, health });
-              if (health.aggregate.status === "invalid") invalidPackageIds.push(record.workPackage.id);
-              if (record.workPackage.commitment === "required" && !health.completionContribution.complete) blockingPackageIds.push(record.workPackage.id);
-              findings.push(...health.findings.filter((entry) => entry.severity !== "info" && entry.severity !== "warning").map((entry) => ({ ...entry, dimension: "children", message: `${record.workPackage.id}: ${entry.message}`, evidence: { ...entry.evidence, itemId: item.id, packageId: record.workPackage.id } })));
-              for (const entry of health.findings) {
-                if (entry.code === "CAPABILITY_UNAVAILABLE") unavailableCapabilities.add(entry.evidence.capability || entry.dimension);
-              }''')
+          create_path = "runtime/src/lib/workPackageCreate.mjs"
+          create = lines(create_path)
+          loop = find(create, "for (const dep of dependencies)")
+          loop_end = loop + 1
+          while loop_end < len(create) and create[loop_end] != "  }":
+              loop_end += 1
+          create[loop:loop_end + 1] = [
+              "  for (const dep of dependencies) {",
+              "    const target = existingPackages.find((pkg) => pkg.id === dep);",
+              "    if (!target) throw new Error(`INVALID_REFERENCE: dependency ${dep} does not resolve to a Work Package`);",
+              "    if (target.releaseId !== release.id) throw new Error(`INVALID_REFERENCE: dependency ${dep} belongs to another Release ${target.releaseId}`);",
+              "  }"
+          ]
+          write(create_path, create)
 
-          replace_once(store, '''    evaluable: invalidPackageIds.length === 0,''', '''    evaluable: invalidPackageIds.length === 0 && !hasUnavailableRequired,''')
+          command_test_path = "runtime/src/commands/tests/work-package-commands.test.mjs"
+          command_test = lines(command_test_path)
+          b_line = find(command_test, "const b = createPackage")
+          second_line = find(command_test, "const second = initializedWorkspace();", b_line)
+          dependency_assertions = [
+              "  completePackage(first.planningRoot, first.release.releaseId, first.item.itemId, b.packageId);",
+              "  const dependencyBlocked = runCheckWorkPackage({ planningRoot: first.planningRoot, releaseRef: first.release.releaseId, itemRef: first.item.itemId, packageRef: b.packageId });",
+              "  assert.equal(dependencyBlocked.status, \"FAIL\", \"terminal package cannot complete while a dependency remains unresolved\");",
+              "  assert.ok(dependencyBlocked.findings.some((finding) => finding.includes(\"WORK_PACKAGE_DEPENDENCY_UNSATISFIED\")));",
+              "  completePackage(first.planningRoot, first.release.releaseId, first.item.itemId, a.packageId);",
+              "  assert.equal(runCheckWorkPackage({ planningRoot: first.planningRoot, releaseRef: first.release.releaseId, itemRef: first.item.itemId, packageRef: b.packageId }).status, \"PASS\");"
+          ]
+          command_test[second_line:second_line] = dependency_assertions
 
-          create = "runtime/src/lib/workPackageCreate.mjs"
-          replace_once(create, '''  for (const dep of dependencies) {
-            const target = existingPackages.find((pkg) => pkg.id === dep && pkg.releaseId === release.id);
-            if (!target) throw new Error(`INVALID_REFERENCE: dependency ${dep} does not resolve to a Work Package in ${release.id}`);
-          }''', '''  for (const dep of dependencies) {
-            const target = existingPackages.find((pkg) => pkg.id === dep);
-            if (!target) throw new Error(`INVALID_REFERENCE: dependency ${dep} does not resolve to a Work Package`);
-            if (target.releaseId !== release.id) throw new Error(`INVALID_REFERENCE: dependency ${dep} belongs to another Release ${target.releaseId}`);
-          }''')
+          gated_block = find(command_test, "initializedWorkspace({ requiredGateRefs: [\"unit\"] })")
+          open_brace = gated_block - 1
+          blocker_test = [
+              "{",
+              "  const { planningRoot, operationsRoot, release, item, scope } = initializedWorkspace();",
+              "  const blocked = createPackage(planningRoot, operationsRoot, release.releaseId, item.itemId, scope.scopeId, \"blocked\");",
+              "  completePackage(planningRoot, release.releaseId, item.itemId, blocked.packageId);",
+              "  const packagePath = path.join(planningRoot, \"releases\", release.releaseId, \"items\", item.itemId, \"work-packages\", blocked.packageId, \"work-package.yml\");",
+              "  const packageDoc = parseYaml(fs.readFileSync(packagePath, \"utf8\"));",
+              "  const withBlocker = updateWorkPackageRevision({",
+              "    ...packageDoc,",
+              "    blockers: [{ id: generateUuidV7(), severity: \"critical\", summary: \"Open production blocker\", createdAt: \"2026-07-29T00:00:00.000Z\", createdBy: \"carlos\", resolvedAt: null, resolvedBy: null }]",
+              "  });",
+              "  fs.writeFileSync(packagePath, stringifyYaml(withBlocker));",
+              "  fs.writeFileSync(path.join(path.dirname(packagePath), \"README.md\"), renderWorkPackageReadme(withBlocker));",
+              "  assert.equal(runCheckWorkPackage({ planningRoot, releaseRef: release.releaseId, itemRef: item.itemId, packageRef: blocked.packageId }).status, \"FAIL\", \"open blockers must invalidate completion contribution\");",
+              "  assert.equal(runCheckItem({ planningRoot, releaseRef: release.releaseId, itemRef: item.itemId }).items[0].completion.complete, false);",
+              "}",
+              ""
+          ]
+          command_test[open_brace:open_brace] = blocker_test
+          write(command_test_path, command_test)
 
-          test = "runtime/src/commands/tests/work-package-commands.test.mjs"
-          replace_once(test, '''  const b = createPackage(first.planningRoot, first.operationsRoot, first.release.releaseId, first.item.itemId, first.scope.scopeId, "b", "required", a.packageId);
-            assert.equal(runItemPackageStatus({ planningRoot: first.planningRoot, releaseRef: first.release.releaseId, itemRef: first.item.itemId, packageRef: b.packageId }).status, "FOUND");
-            const second = initializedWorkspace();''', '''  const b = createPackage(first.planningRoot, first.operationsRoot, first.release.releaseId, first.item.itemId, first.scope.scopeId, "b", "required", a.packageId);
-            assert.equal(runItemPackageStatus({ planningRoot: first.planningRoot, releaseRef: first.release.releaseId, itemRef: first.item.itemId, packageRef: b.packageId }).status, "FOUND");
-            completePackage(first.planningRoot, first.release.releaseId, first.item.itemId, b.packageId);
-            const dependencyBlocked = runCheckWorkPackage({ planningRoot: first.planningRoot, releaseRef: first.release.releaseId, itemRef: first.item.itemId, packageRef: b.packageId });
-            assert.equal(dependencyBlocked.status, "FAIL", "terminal package cannot complete while a dependency remains unresolved");
-            assert.ok(dependencyBlocked.findings.some((finding) => finding.includes("WORK_PACKAGE_DEPENDENCY_UNSATISFIED")));
-            completePackage(first.planningRoot, first.release.releaseId, first.item.itemId, a.packageId);
-            assert.equal(runCheckWorkPackage({ planningRoot: first.planningRoot, releaseRef: first.release.releaseId, itemRef: first.item.itemId, packageRef: b.packageId }).status, "PASS");
-            const second = initializedWorkspace();''')
-
-          replace_once(test, '''{
-            const { planningRoot, operationsRoot, release, item, scope } = initializedWorkspace({ requiredGateRefs: ["unit"] });''', '''{
-            const { planningRoot, operationsRoot, release, item, scope } = initializedWorkspace();
-            const blocked = createPackage(planningRoot, operationsRoot, release.releaseId, item.itemId, scope.scopeId, "blocked");
-            completePackage(planningRoot, release.releaseId, item.itemId, blocked.packageId);
-            const packagePath = path.join(planningRoot, "releases", release.releaseId, "items", item.itemId, "work-packages", blocked.packageId, "work-package.yml");
-            const packageDoc = parseYaml(fs.readFileSync(packagePath, "utf8"));
-            const withBlocker = updateWorkPackageRevision({
-              ...packageDoc,
-              blockers: [{ id: generateUuidV7(), severity: "critical", summary: "Open production blocker", createdAt: "2026-07-29T00:00:00.000Z", createdBy: "carlos", resolvedAt: null, resolvedBy: null }]
-            });
-            fs.writeFileSync(packagePath, stringifyYaml(withBlocker));
-            fs.writeFileSync(path.join(path.dirname(packagePath), "README.md"), renderWorkPackageReadme(withBlocker));
-            assert.equal(runCheckWorkPackage({ planningRoot, releaseRef: release.releaseId, itemRef: item.itemId, packageRef: blocked.packageId }).status, "FAIL", "open blockers must invalidate completion contribution");
-            assert.equal(runCheckItem({ planningRoot, releaseRef: release.releaseId, itemRef: item.itemId }).items[0].completion.complete, false);
-          }
-
-          {
-            const { planningRoot, operationsRoot, release, item, scope } = initializedWorkspace({ requiredGateRefs: ["unit"] });''')
-
-          schema_test = "runtime/src/lib/tests/work-package-schema.test.mjs"
-          replace_once(schema_test, '''import { updateWorkPackageRevision } from "../workPackageStore.mjs";''', '''import { updateWorkPackageRevision, workPackageCatalogFindings, workPackageIntegrityFindings } from "../workPackageStore.mjs";''')
-          replace_once(schema_test, '''assert.equal(validate("work-package", updateWorkPackageRevision(done)).valid, true);
-
-          console.log''', '''assert.equal(validate("work-package", updateWorkPackageRevision(done)).valid, true);
-
-          const duplicateSemanticIds = validPackage();
-          duplicateSemanticIds.risks.push({ ...duplicateSemanticIds.risks[0], summary: "Second risk with same ID" });
-          const duplicateIntegrity = workPackageIntegrityFindings(updateWorkPackageRevision(duplicateSemanticIds));
-          assert.ok(duplicateIntegrity.findings.some((finding) => finding.includes("risks contains duplicate identity")));
-
-          const mismatchedGateSource = validPackage();
-          mismatchedGateSource.gateRequirements[0].source.guideId = "018f0000-0000-7000-8000-000000000399";
-          const gateIntegrity = workPackageIntegrityFindings(updateWorkPackageRevision(mismatchedGateSource));
-          assert.ok(gateIntegrity.findings.some((finding) => finding.includes("source does not match the captured")));
-
-          const duplicatePackage = updateWorkPackageRevision({ ...validPackage(), releaseItemId: "018f0000-0000-7000-8000-000000000398", title: "Duplicate physical identity" });
-          assert.ok(workPackageCatalogFindings([validPackage(), duplicatePackage], { releaseId: duplicatePackage.releaseId }).some((finding) => finding.code === "WORK_PACKAGE_ID_DUPLICATE"));
-
-          console.log''')
+          schema_test_path = "runtime/src/lib/tests/work-package-schema.test.mjs"
+          schema_test = lines(schema_test_path)
+          import_line = find(schema_test, "import { updateWorkPackageRevision }")
+          schema_test[import_line] = 'import { updateWorkPackageRevision, workPackageCatalogFindings, workPackageIntegrityFindings } from "../workPackageStore.mjs";'
+          console_line = find(schema_test, "console.log")
+          semantic_tests = [
+              "const duplicateSemanticIds = validPackage();",
+              "duplicateSemanticIds.risks.push({ ...duplicateSemanticIds.risks[0], summary: \"Second risk with same ID\" });",
+              "const duplicateIntegrity = workPackageIntegrityFindings(updateWorkPackageRevision(duplicateSemanticIds));",
+              "assert.ok(duplicateIntegrity.findings.some((finding) => finding.includes(\"risks contains duplicate identity\")));",
+              "",
+              "const mismatchedGateSource = validPackage();",
+              "mismatchedGateSource.gateRequirements[0].source.guideId = \"018f0000-0000-7000-8000-000000000399\";",
+              "const gateIntegrity = workPackageIntegrityFindings(updateWorkPackageRevision(mismatchedGateSource));",
+              "assert.ok(gateIntegrity.findings.some((finding) => finding.includes(\"source does not match the captured\")));",
+              "",
+              "const duplicatePackage = updateWorkPackageRevision({ ...validPackage(), releaseItemId: \"018f0000-0000-7000-8000-000000000398\", title: \"Duplicate physical identity\" });",
+              "assert.ok(workPackageCatalogFindings([validPackage(), duplicatePackage], { releaseId: duplicatePackage.releaseId }).some((finding) => finding.code === \"WORK_PACKAGE_ID_DUPLICATE\"));",
+              ""
+          ]
+          schema_test[console_line:console_line] = semantic_tests
+          write(schema_test_path, schema_test)
           PY
           git checkout origin/develop -- .github/workflows/runtime-foundation.yml
       - name: Commit corrective source changes
