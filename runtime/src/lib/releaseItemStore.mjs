@@ -36,6 +36,16 @@ export function releaseItemIntegrityFindings(item, { releaseId = null, directory
   if (directoryId && item.id !== directoryId) findings.push(`releaseItem.id ${item.id} does not match directory ${directoryId}`);
   if (releaseId && item.releaseId !== releaseId) findings.push(`releaseItem.releaseId ${item.releaseId} does not match parent release directory ${releaseId}`);
   if (!isReleaseItemDisplayIdForUuid(item.id, item.displayId)) findings.push(`displayId ${item.displayId} is not derived from Release Item UUIDv7 ${item.id}`);
+  const sourceIdentities = new Set();
+  let primaryCount = 0;
+  for (const ref of item.sourceRefs || []) {
+    if (ref.role === "primary") primaryCount += 1;
+    const locator = ref.itemId || ref.externalId || ref.path;
+    const identity = `${ref.role}:${ref.provider}:${ref.sourceId}:${locator}`;
+    if (sourceIdentities.has(identity)) findings.push(`sourceRefs contains duplicate semantic identity ${identity}`);
+    sourceIdentities.add(identity);
+  }
+  if (primaryCount > 1) findings.push("sourceRefs cannot contain more than one primary reference without an explicit policy");
   const revisionless = { ...item, audit: { ...item.audit } };
   delete revisionless.audit.revision;
   const expectedRevision = `sha256:${revisionHash(revisionless)}`;
@@ -138,22 +148,22 @@ export function listReservedReleaseItemDocuments(operationsRoot) {
     } catch (error) {
       throw new StateError(`cannot inspect operation ${operationId} while reserving Release Item identities: ${error.message}`);
     }
-    if (operation.kind !== "release-item.create" || ["APPLIED"].includes(operation.status)) continue;
+    if (!["release-item.create", "work-source.import"].includes(operation.kind) || ["APPLIED"].includes(operation.status)) continue;
     let changeSet;
     try {
       changeSet = readChangeSet(operationsRoot, operationId);
     } catch (error) {
       throw new StateError(`cannot verify release-item.create identity reservation for operation ${operationId}: ${error.message}`);
     }
-    if (changeSet.kind !== "release-item.create" || changeSet.operationId !== operationId) {
-      throw new StateError(`release-item.create identity reservation is inconsistent for operation ${operationId}`);
+    if (changeSet.kind !== operation.kind || changeSet.operationId !== operationId) {
+      throw new StateError(`${operation.kind} identity reservation is inconsistent for operation ${operationId}`);
     }
     const itemId = changeSet.payload?.id;
     const displayId = changeSet.payload?.displayId;
     if (!isUuidV7(itemId) || !isReleaseItemDisplayIdForUuid(itemId, displayId)) {
-      throw new StateError(`release-item.create identity reservation is invalid for operation ${operationId}`);
+      throw new StateError(`${operation.kind} identity reservation is invalid for operation ${operationId}`);
     }
-    reserved.push({ id: itemId, displayId, releaseId: changeSet.payload.releaseId });
+    reserved.push({ id: itemId, displayId, releaseId: changeSet.payload.releaseId, sourceRefs: changeSet.payload.requestSnapshot?.sourceRefs || [] });
   }
   return reserved;
 }

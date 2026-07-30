@@ -21,6 +21,7 @@ import { releaseItemCreateInvariantFindings } from "./releaseItemCreate.mjs";
 import { listReleaseItemDocuments } from "./releaseItemStore.mjs";
 import { workPackageCreateInvariantFindings } from "./workPackageCreate.mjs";
 import { listWorkPackageDocuments } from "./workPackageStore.mjs";
+import { workSourceImportInvariantFindings } from "./workSourceImport.mjs";
 
 export function readFileState(planningRoot, relativePath) {
   const absolutePath = confineRuntimeWritePath(planningRoot, relativePath);
@@ -64,7 +65,8 @@ export function eventTypeFor(kind) {
     "release.deployment.record": "release.deployment.recorded",
     "release.finalization.complete": "release.finalization.completed",
     "release-item.create": "release-item.created",
-    "work-package.create": "work-package.created"
+    "work-package.create": "work-package.created",
+    "work-source.import": "work-source.imported"
   }[kind];
 }
 
@@ -244,6 +246,27 @@ function checkKindInvariants(changeSet, operation = null, planningRoot = null) {
       }
     }
   }
+  if (changeSet.kind === "work-source.import") {
+    let existingItems = [];
+    try {
+      existingItems = listReleaseItemDocuments(planningRoot);
+    } catch (error) {
+      errors.push(`work-source.import cannot verify display ID uniqueness: ${error.message}`);
+    }
+    errors.push(...workSourceImportInvariantFindings(changeSet, operation, existingItems));
+    const itemPath = `releases/${changeSet.payload.releaseId}/items/${changeSet.payload.id}/release-item.yml`;
+    const readmePath = `releases/${changeSet.payload.releaseId}/items/${changeSet.payload.id}/README.md`;
+    const actualPaths = new Set(Object.keys(changeSet.baseRevisions));
+    if (actualPaths.size !== 2 || !actualPaths.has(itemPath) || !actualPaths.has(readmePath)) {
+      errors.push("work-source.import baseRevisions must contain exactly release-item.yml and README.md for the UUIDv7 Release Item directory");
+    }
+    for (const relativePath of [itemPath, readmePath]) {
+      const entry = changeSet.baseRevisions[relativePath];
+      if (!entry || entry.revisionHash !== ABSENT || entry.contentHash !== ABSENT) {
+        errors.push(`${relativePath} must be ABSENT for work-source.import`);
+      }
+    }
+  }
   if (changeSet.kind === "work-package.create") {
     let existingPackages = [];
     try {
@@ -296,6 +319,13 @@ function checkKindInvariants(changeSet, operation = null, planningRoot = null) {
   }
   if (changeSet.kind === "release-item.create" && operation?.proposalHash && operation.proposalHash !== changeSet.hash) {
     errors.push("release-item.create ChangeSet no longer matches the server-owned proposal hash");
+  }
+  if (changeSet.kind === "work-source.import" && operation?.requestBinding) {
+    if (changeSet.payload?.idempotencyKey !== operation.requestBinding.key) errors.push("work-source.import idempotencyKey must match the server-owned Operation request binding");
+    if (changeSet.payload?.idempotencyRequestHash !== operation.requestBinding.requestHash) errors.push("work-source.import idempotencyRequestHash must match the server-owned Operation request binding");
+  }
+  if (changeSet.kind === "work-source.import" && operation?.proposalHash && operation.proposalHash !== changeSet.hash) {
+    errors.push("work-source.import ChangeSet no longer matches the server-owned proposal hash");
   }
   if (changeSet.kind === "work-package.create" && operation?.requestBinding) {
     if (changeSet.payload?.idempotencyKey !== operation.requestBinding.key) errors.push("work-package.create idempotencyKey must match the server-owned Operation request binding");
@@ -578,6 +608,34 @@ function prepareApply({ operationsRoot, planningRoot, operationId, render, actor
         return expectedEvent;
       })
     : operation.reservedEvents.map((reserved) => {
+        if (changeSet.kind === "work-source.import") {
+          const itemPath = `releases/${changeSet.payload.releaseId}/items/${changeSet.payload.id}/release-item.yml`;
+          const item = parseYaml(rendered.get(itemPath));
+          return buildExpectedEvent({
+            eventId: reserved.eventId,
+            type: reserved.type,
+            aggregate: { type: "release-item", id: item.id },
+            actor,
+            operationId,
+            idempotencyKey: changeSet.payload.idempotencyKey,
+            payload: {
+              releaseItemId: item.id,
+              displayId: item.displayId,
+              releaseId: item.releaseId,
+              sourceId: changeSet.payload.source.sourceId,
+              provider: changeSet.payload.source.provider,
+              sourceItemRef: changeSet.payload.source.itemId,
+              sourcePath: changeSet.payload.source.path,
+              sourceRevision: changeSet.payload.source.observedRevision,
+              mappingVersion: changeSet.payload.source.mappingVersion,
+              operationId,
+              actor,
+              idempotencyKey: changeSet.payload.idempotencyKey,
+              changeSetHash: recomputedHash,
+              revisionAfter: item.audit.revision
+            }
+          });
+        }
         if (changeSet.kind === "release-item.create") {
           const itemPath = `releases/${changeSet.payload.releaseId}/items/${changeSet.payload.id}/release-item.yml`;
           const item = parseYaml(rendered.get(itemPath));

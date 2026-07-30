@@ -470,7 +470,8 @@
         "sourceId",
         "provider",
         "role",
-        "mappingVersion"
+        "mappingVersion",
+        "importedAt"
       ],
       "properties": {
         "sourceId": {
@@ -525,6 +526,11 @@
         "importedAt": {
           "type": "string",
           "minLength": 1
+        },
+        "itemId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
         }
       },
       "oneOf": [
@@ -533,11 +539,13 @@
             "provider": {
               "const": "local_repository"
             },
-            "path": {}
+            "path": {},
+            "itemId": {}
           },
           "required": [
             "provider",
-            "path"
+            "path",
+            "itemId"
           ],
           "allOf": [
             {
@@ -657,6 +665,15 @@
                     "properties": {
                       "contentRevision": {}
                     }
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "itemId"
+                    ],
+                    "properties": {
+                      "itemId": {}
+                    }
                   }
                 ]
               }
@@ -787,6 +804,15 @@
                     "type": "object",
                     "properties": {
                       "contentRevision": {}
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "itemId"
+                    ],
+                    "properties": {
+                      "itemId": {}
                     }
                   }
                 ]

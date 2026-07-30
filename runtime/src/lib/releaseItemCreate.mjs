@@ -6,8 +6,8 @@ import { deriveUniqueReleaseItemDisplayId, isReleaseItemDisplayIdForUuid } from 
 import { listReleaseItemDocuments, listReservedReleaseItemDocuments, releaseItemCatalogFindings, releaseItemReadmeRelativePath, releaseItemYamlRelativePath, assertReleaseParentCanAcceptItem, updateReleaseItemRevision } from "./releaseItemStore.mjs";
 
 export const RELEASE_ITEM_KINDS = Object.freeze(["user_story", "capability", "defect", "enabler", "spike", "compliance", "migration", "operational"]);
-const SERVER_OWNED = new Set(["id", "displayId", "displayIdStatus", "releaseId", "releaseRefResolved", "operationId", "createdAt", "updatedAt", "createdBy", "updatedBy", "audit", "status", "revision", "findings", "readiness", "completion", "resolution", "approval", "childIndexes", "workPackageRefs", "eventId", "targetPaths", "parentRevision"]);
-const COMMON_ALLOWED = new Set(["kind", "title", "description", "dependencies", "dependencyRefs", "sourceRefs", "slug", "idempotencyKey"]);
+const SERVER_OWNED = new Set(["id", "displayId", "displayIdStatus", "releaseId", "releaseRefResolved", "operationId", "createdAt", "updatedAt", "createdBy", "updatedBy", "audit", "status", "revision", "findings", "readiness", "completion", "resolution", "approval", "childIndexes", "workPackageRefs", "sourceRefs", "eventId", "targetPaths", "parentRevision"]);
+const COMMON_ALLOWED = new Set(["kind", "title", "description", "dependencies", "dependencyRefs", "slug", "idempotencyKey"]);
 const KIND_FIELDS = {
   user_story: new Set(["actor", "need", "value", "acceptanceCriteria"]),
   capability: new Set(["outcome", "behavior", "acceptanceCriteria"]),
@@ -141,7 +141,7 @@ export function normalizeReleaseItemCreateRequest(rawPayload, { actor, defaultId
     description: optionalString(rawPayload.description, "description"),
     slug: normalizeSlug(rawPayload.slug),
     dependencies,
-    sourceRefs: normalizeSourceRefs(rawPayload.sourceRefs),
+    sourceRefs: [],
     ...normalizeKindSpecific(rawPayload, kind)
   };
   const idempotencyKey = rawPayload.idempotencyKey === undefined ? requireString(defaultIdempotencyKey, "idempotencyKey") : requireString(rawPayload.idempotencyKey, "idempotencyKey");

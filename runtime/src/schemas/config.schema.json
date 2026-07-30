@@ -422,7 +422,10 @@
     "documentationContext": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source_refs", "gaps"],
+      "required": [
+        "source_refs",
+        "gaps"
+      ],
       "properties": {
         "source_refs": {
           "type": "array",
@@ -435,14 +438,21 @@
         "gaps": {
           "type": "array",
           "uniqueItems": true,
-          "items": {"$ref": "#/$defs/documentationGap"}
+          "items": {
+            "$ref": "#/$defs/documentationGap"
+          }
         }
       }
     },
     "documentationGap": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "concern", "status", "description"],
+      "required": [
+        "id",
+        "concern",
+        "status",
+        "description"
+      ],
       "properties": {
         "id": {
           "type": "string",
@@ -453,7 +463,13 @@
           "pattern": "^[a-z][a-z0-9._-]*$"
         },
         "status": {
-          "enum": ["known", "missing", "unknown", "conflicting", "deferred"]
+          "enum": [
+            "known",
+            "missing",
+            "unknown",
+            "conflicting",
+            "deferred"
+          ]
         },
         "description": {
           "type": "string",
@@ -772,8 +788,11 @@
         "id",
         "provider",
         "enabled",
-        "source_policy",
-        "sync_mode"
+        "import_policy",
+        "sync_mode",
+        "mapping_version",
+        "capabilities",
+        "options"
       ],
       "properties": {
         "id": {
@@ -793,54 +812,62 @@
         "enabled": {
           "type": "boolean"
         },
-        "transport": {
-          "enum": [
-            "filesystem",
-            "http",
-            "mcp",
-            "provider_api",
-            "custom"
-          ]
-        },
         "roots": {
           "type": "array",
           "minItems": 1,
           "items": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!\\.planning(?:/|$))(?!\\.git(?:/|$)).+"
           }
         },
-        "queries": {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "type": "string",
-            "minLength": 1
-          }
-        },
-        "source_policy": {
+        "import_policy": {
           "enum": [
-            "external_authoritative",
-            "shipping_mode_authoritative",
-            "import_snapshot",
-            "bidirectional_controlled"
+            "import_snapshot"
           ]
         },
         "sync_mode": {
           "enum": [
-            "import_only",
-            "pull",
-            "push",
-            "bidirectional"
+            "import_only"
           ]
         },
-        "mcp_connection_ref": {
-          "type": "string",
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+        "mapping_version": {
+          "type": "integer",
+          "minimum": 1
         },
-        "capability_config_ref": {
-          "type": "string",
-          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+        "capabilities": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "discover",
+              "search",
+              "get",
+              "create",
+              "update",
+              "transition",
+              "comment"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "options": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "file_globs": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "uniqueItems": true
+            },
+            "max_item_bytes": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
         }
       },
       "allOf": [
@@ -862,28 +889,6 @@
             "properties": {
               "roots": {
                 "$ref": "#/$defs/workSource/properties/roots"
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "required": [
-              "transport"
-            ],
-            "properties": {
-              "transport": {
-                "const": "mcp"
-              }
-            }
-          },
-          "then": {
-            "required": [
-              "mcp_connection_ref"
-            ],
-            "properties": {
-              "mcp_connection_ref": {
-                "$ref": "#/$defs/workSource/properties/mcp_connection_ref"
               }
             }
           }

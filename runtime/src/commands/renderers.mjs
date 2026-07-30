@@ -17,6 +17,7 @@ import { renderReleaseItemReadme } from "../lib/releaseItemProjection.mjs";
 import { renderWorkPackageCreate } from "../lib/workPackageCreate.mjs";
 import { workPackageReadmeRelativePath, workPackageYamlRelativePath } from "../lib/workPackageStore.mjs";
 import { renderWorkPackageReadme } from "../lib/workPackageProjection.mjs";
+import { renderWorkSourceImport } from "../lib/workSourceImport.mjs";
 
 function toKebabCase(value) {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-+|-+$)/g, "");
@@ -164,6 +165,14 @@ export function renderWorkPackageCreateChangeSet(payload, planningRoot) {
   return new Map([
     [workPackageYamlRelativePath(workPackage.releaseId, workPackage.releaseItemId, workPackage.id), stringifyYaml(workPackage)],
     [workPackageReadmeRelativePath(workPackage.releaseId, workPackage.releaseItemId, workPackage.id), renderWorkPackageReadme(workPackage)]
+  ]);
+}
+
+export function renderWorkSourceImportChangeSet(payload, planningRoot) {
+  const item = renderWorkSourceImport(payload, { planningRoot });
+  return new Map([
+    [releaseItemYamlRelativePath(item.releaseId, item.id), stringifyYaml(item)],
+    [releaseItemReadmeRelativePath(item.releaseId, item.id), renderReleaseItemReadme(item)]
   ]);
 }
 

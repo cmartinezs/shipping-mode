@@ -19,6 +19,8 @@ import { workPackageCatalogFindings, workPackageIntegrityFindings } from "../lib
 import { readCatalogEntry } from "../lib/operationalCatalog.mjs";
 import { releaseCatalogPolicyFindings } from "../lib/releasePolicy.mjs";
 import { evaluateReleaseHealth } from "../lib/releaseHealth.mjs";
+import { defaultWorkSourceRegistry, normalizeWorkSourceConfig, readValidatedWorkSourceConfig } from "../lib/workSourceImport.mjs";
+import { evaluateWorkSourceProviderContract } from "../lib/workSourceContract.mjs";
 import { pendingRecovery } from "./release.mjs";
 
 function checkRequiredFile(planningRoot, relativePath, schemaName, findings) {
@@ -516,7 +518,7 @@ export function checkSchema({ planningRoot }) {
       if (operation.status === "APPLYING" || operation.status === "RECOVERY_REQUIRED") {
         pendingOperations.push({ operationId, status: operation.status });
       }
-      if (operation.kind === "release-item.create" || operation.kind === "work-package.create") {
+      if (operation.kind === "release-item.create" || operation.kind === "work-package.create" || operation.kind === "work-source.import") {
         let changeSet;
         try {
           changeSet = readChangeSet(operationsRoot, operationId);
@@ -530,15 +532,18 @@ export function checkSchema({ planningRoot }) {
           continue;
         }
         if (computePersistedChangeSetHash(changeSet) !== changeSet.hash) findings.push(`operations/${operationId}/change-set.json: hash does not match recomputed content`);
-        const expectedItemPath = operation.kind === "release-item.create"
+        const expectedItemPath = operation.kind === "release-item.create" || operation.kind === "work-source.import"
           ? `releases/${changeSet.payload.releaseId}/items/${changeSet.payload.id}/release-item.yml`
           : `releases/${changeSet.payload.releaseId}/items/${changeSet.payload.releaseItemId}/work-packages/${changeSet.payload.id}/work-package.yml`;
-        const expectedReadmePath = operation.kind === "release-item.create"
+        const expectedReadmePath = operation.kind === "release-item.create" || operation.kind === "work-source.import"
           ? `releases/${changeSet.payload.releaseId}/items/${changeSet.payload.id}/README.md`
           : `releases/${changeSet.payload.releaseId}/items/${changeSet.payload.releaseItemId}/work-packages/${changeSet.payload.id}/README.md`;
         const targetKeys = Object.keys(changeSet.target || {}).sort();
         if (operation.kind === "release-item.create" && (changeSet.kind !== "release-item.create" || targetKeys.length !== 2 || changeSet.target.releaseId !== changeSet.payload.releaseId || changeSet.target.itemId !== changeSet.payload.id)) {
           findings.push(`operations/${operationId}/change-set.json: release-item.create target is inconsistent`);
+        }
+        if (operation.kind === "work-source.import" && (changeSet.kind !== "work-source.import" || targetKeys.length !== 2 || changeSet.target.releaseId !== changeSet.payload.releaseId || changeSet.target.itemId !== changeSet.payload.id)) {
+          findings.push(`operations/${operationId}/change-set.json: work-source.import target is inconsistent`);
         }
         if (operation.kind === "work-package.create" && (changeSet.kind !== "work-package.create" || targetKeys.length !== 3 || changeSet.target.releaseId !== changeSet.payload.releaseId || changeSet.target.itemId !== changeSet.payload.releaseItemId || changeSet.target.packageId !== changeSet.payload.id)) {
           findings.push(`operations/${operationId}/change-set.json: work-package.create target is inconsistent`);
@@ -556,6 +561,62 @@ export function checkSchema({ planningRoot }) {
 
   const status = findings.length > 0 ? "FAIL" : pendingOperations.length > 0 ? "RECOVERY_REQUIRED" : "PASS";
   return { status, findings, pendingOperations };
+}
+
+export function checkWorkSources({ planningRoot, workspaceRoot = path.dirname(planningRoot) }) {
+  if (!fs.existsSync(planningRoot)) return { status: "NOT_INITIALIZED", sources: [], findings: ["workspace is not initialized: .planning/ does not exist"], pendingOperations: [] };
+  const pending = pendingRecovery(planningRoot);
+  if (pending.length > 0) return { status: "RECOVERY_REQUIRED", sources: [], findings: ["workspace has pending or recovery-required operations"], pendingOperations: pending };
+  let config;
+  let sources;
+  try {
+    config = readValidatedWorkSourceConfig(planningRoot);
+    sources = normalizeWorkSourceConfig({ config, workspaceRoot });
+  } catch (error) {
+    return { status: "FAIL", sources: [], findings: [`SOURCE_MISCONFIGURED: ${error.message}`], pendingOperations: [] };
+  }
+  let registry;
+  try {
+    registry = defaultWorkSourceRegistry({ planningRoot });
+  } catch (error) {
+    return { status: "FAIL", sources: [], findings: [`SOURCE_MISCONFIGURED: ${error.message}`], pendingOperations: [] };
+  }
+  const entries = [];
+  const findings = [];
+  for (const source of sources) {
+    const entryFindings = [];
+    const descriptor = registry.inspect(source.id);
+    const capabilities = source.capabilities.map((capability) => ({ name: capability, declared: true, implemented: descriptor.providerCapabilities.includes(capability) }));
+    for (const capability of capabilities) {
+      if (!capability.implemented) entryFindings.push({ code: "SOURCE_CAPABILITY_MISSING", severity: "error", message: `capability ${capability.name} is not implemented by ${source.provider}` });
+    }
+    const roots = source.roots.map((root) => {
+      let available = false;
+      try {
+        const stat = fs.lstatSync(root.absolutePath);
+        available = stat.isDirectory() && !stat.isSymbolicLink();
+      } catch {
+        available = false;
+      }
+      if (source.enabled && !available) entryFindings.push({ code: "SOURCE_UNAVAILABLE", severity: "error", message: `root unavailable: ${root.relativePath}` });
+      return { path: root.relativePath, available };
+    });
+    const contract = evaluateWorkSourceProviderContract({ registry, source });
+    entryFindings.push(...contract.findings);
+    const orderedFindings = entryFindings.sort((left, right) => `${left.code}:${left.message}`.localeCompare(`${right.code}:${right.message}`));
+    entries.push({
+      sourceId: source.id,
+      provider: source.provider,
+      enabled: source.enabled,
+      capabilities,
+      configuration: { valid: orderedFindings.length === 0, mappingVersion: source.mappingVersion, importPolicy: source.importPolicy, syncMode: source.syncMode },
+      roots,
+      contractTests: { active: contract.active, status: contract.status, contractVersion: contract.contractVersion, checks: contract.checks, itemCount: contract.itemCount },
+      findings: orderedFindings
+    });
+  }
+  for (const entry of entries) findings.push(...entry.findings.map((finding) => `${finding.code}: ${finding.message}`));
+  return { status: findings.length > 0 ? "FAIL" : "PASS", sources: entries.sort((left, right) => left.sourceId.localeCompare(right.sourceId)), findings, pendingOperations: [] };
 }
 
 function checkReleaseDocument(planningRoot, record) {
