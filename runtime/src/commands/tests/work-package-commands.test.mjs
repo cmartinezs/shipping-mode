@@ -5,7 +5,7 @@ import path from "node:path";
 import { runInit, runConfigScopeAdd } from "../init.mjs";
 import { runChangesetApply, runChangesetApprove, runChangesetValidate } from "../changesetCommand.mjs";
 import { runReleaseNew } from "../release.mjs";
-import { runCheckItem, runCheckWorkPackage, runItemCreate, runItemPackageAdd, runItemPackageStatus } from "../item.mjs";
+import { proposeWorkPackageCreate, runCheckItem, runCheckWorkPackage, runItemCreate, runItemPackageAdd, runItemPackageStatus } from "../item.mjs";
 import { checkRelease, checkSchema } from "../check.mjs";
 import { readChangeSet, readOperation, writeChangeSet } from "../../lib/operationStore.mjs";
 import { computePersistedChangeSetHash } from "../../lib/changeset.mjs";
@@ -255,6 +255,51 @@ function tamperChangeSet(operationsRoot, operationId, mutate) {
   fs.writeFileSync(path.join(path.dirname(packagePath), "README.md"), renderWorkPackageReadme(withBlocker));
   assert.equal(runCheckWorkPackage({ planningRoot, releaseRef: release.releaseId, itemRef: item.itemId, packageRef: blocked.packageId }).status, "FAIL", "open blockers must invalidate completion contribution");
   assert.equal(runCheckItem({ planningRoot, releaseRef: release.releaseId, itemRef: item.itemId }).items[0].completion.complete, false);
+}
+
+{
+  const { planningRoot, operationsRoot, release, item, scope } = initializedWorkspace();
+  const duplicateId = generateUuidV7();
+  const operationCount = fs.readdirSync(operationsRoot).length;
+  assert.throws(
+    () => proposeWorkPackageCreate({
+      planningRoot,
+      releaseRef: release.releaseId,
+      itemRef: item.itemId,
+      actor: "carlos",
+      rawPayload: {
+        scopeId: scope.scopeId,
+        commitment: "required",
+        title: "Duplicate risk IDs",
+        risks: [
+          { id: duplicateId, level: "low", summary: "First" },
+          { id: duplicateId, level: "high", summary: "Second" }
+        ],
+        idempotencyKey: "duplicate-risk"
+      }
+    }),
+    /risks cannot contain duplicate ids/
+  );
+  assert.throws(
+    () => proposeWorkPackageCreate({
+      planningRoot,
+      releaseRef: release.releaseId,
+      itemRef: item.itemId,
+      actor: "carlos",
+      rawPayload: {
+        scopeId: scope.scopeId,
+        commitment: "required",
+        title: "Duplicate blocker IDs",
+        blockers: [
+          { id: duplicateId, severity: "low", summary: "First" },
+          { id: duplicateId, severity: "critical", summary: "Second" }
+        ],
+        idempotencyKey: "duplicate-blocker"
+      }
+    }),
+    /blockers cannot contain duplicate ids/
+  );
+  assert.equal(fs.readdirSync(operationsRoot).length, operationCount, "invalid nested identities must fail before reserving an Operation");
 }
 
 {
