@@ -50,6 +50,13 @@ jobs:
 
           foundation_test = Path("runtime/src/lib/tests/work-source-foundation.test.mjs")
           text = foundation_test.read_text().replace('/sourceRefs.*server-owned/', '/server-owned: sourceRefs/')
+          text = text.replace('''  const result = checkWorkSources({ planningRoot, workspaceRoot });
+  assert.equal(result.status, "PASS");
+  assert.equal(result.sources[0].contractTests.itemCount, 1, ".planning must never be traversed by a broad local root");
+}''', '''  const result = checkWorkSources({ planningRoot, workspaceRoot });
+  assert.equal(result.status, "FAIL", "the workspace root is rejected before provider discovery");
+  assert.match(result.findings.join("\\n"), /SOURCE_MISCONFIGURED/);
+}''')
           foundation_test.write_text(text)
           PY
           git checkout origin/develop -- .github/workflows/runtime-foundation.yml
