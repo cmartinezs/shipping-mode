@@ -10,6 +10,7 @@ import { StateError } from "./errors.mjs";
 import { readReleaseFile, releaseIntegrityFindings } from "./releaseStore.mjs";
 import { isReleaseItemDisplayId, isReleaseItemDisplayIdForUuid } from "./releaseItemIdentity.mjs";
 import { compareReleaseItemProjection } from "./releaseItemProjection.mjs";
+import { deriveReleaseItemCompletionFromWorkPackages } from "./workPackageStore.mjs";
 
 export function releaseItemRelativeDir(releaseId, itemId) {
   if (!isUuidV7(releaseId)) throw new Error(`invalid release id: ${releaseId}`);
@@ -276,7 +277,14 @@ export function evaluateReleaseItemHealth({ planningRoot, release, item, directo
     catalogFindings = [{ code: "RELEASE_ITEM_CATALOG_CORRUPT", severity: "error", itemId: item.id, message: `Release Item catalog is corrupt: ${error.message}` }];
   }
   dimensions.push({ id: "dependencies", status: catalogFindings.length === 0 ? "valid" : "failed", summary: "Release Item dependency graph", evidence: { dependencyCount: item.dependencies.length, catalogCount: catalog.length }, findings: catalogFindings.filter((entry) => !entry.itemId || entry.itemId === item.id || item.dependencies.includes(entry.itemId)).map((entry) => ({ ...entry, dimension: "dependencies", evidence: { itemId: item.id } })) });
-  dimensions.push({ id: "children", status: "unavailable", summary: "Work Package capability is not implemented in Plan 1", evidence: { unavailableCapabilities: ["work_packages"] }, findings: [{ code: "CAPABILITY_UNAVAILABLE", severity: "info", dimension: "children", message: "Work Package capability is deferred to Corte 3 Plan 2", evidence: { capability: "work_packages" } }] });
+  const completion = deriveReleaseItemCompletionFromWorkPackages({ planningRoot, release, item });
+  const childFindings = [...(completion.findings || [])];
+  if (completion.packageCount === 0) childFindings.push({ code: "WORK_PACKAGE_CATALOG_EMPTY", severity: "error", dimension: "children", message: "Release Item has no Work Packages; empty catalog is not completion evidence", evidence: { itemId: item.id } });
+  if (completion.packageCount > 0 && completion.requiredCount === 0) childFindings.push({ code: "WORK_PACKAGE_REQUIRED_EMPTY", severity: "error", dimension: "children", message: "Release Item has no required Work Packages; optional-only catalog is not completion evidence", evidence: { itemId: item.id, packageCount: completion.packageCount } });
+  for (const packageId of completion.blockingPackageIds || []) childFindings.push({ code: "WORK_PACKAGE_REQUIRED_INCOMPLETE", severity: "error", dimension: "children", message: `required Work Package ${packageId} is not complete`, evidence: { itemId: item.id, packageId } });
+  for (const packageId of completion.invalidPackageIds || []) childFindings.push({ code: "WORK_PACKAGE_INVALID", severity: "error", dimension: "children", message: `Work Package ${packageId} is invalid`, evidence: { itemId: item.id, packageId } });
+  const childStatus = completion.status === "invalid" ? "invalid" : childFindings.some((entry) => entry.severity === "error") ? "failed" : completion.status === "unavailable" ? "unavailable" : "valid";
+  dimensions.push({ id: "children", status: childStatus, summary: "Work Package catalog and derived completion", evidence: { packageCount: completion.packageCount, requiredCount: completion.requiredCount, requiredCompletedCount: completion.requiredCompletedCount, optionalCount: completion.optionalCount, optionalCompletedCount: completion.optionalCompletedCount }, findings: childFindings });
   for (const dimension of dimensions) findings.push(...dimension.findings);
   const blocking = findings.filter((entry) => entry.severity !== "info" && entry.severity !== "warning");
   const invalid = dimensions.some((entry) => entry.status === "invalid");
@@ -284,8 +292,8 @@ export function evaluateReleaseItemHealth({ planningRoot, release, item, directo
   return {
     aggregate: { status: invalid ? "invalid" : failed ? "failed" : "partial", valid: !invalid && !failed, blockingFindingCount: blocking.length },
     dimensions: dimensions.sort((left, right) => left.id.localeCompare(right.id)),
-    completion: { status: "unavailable", complete: false, evaluable: false, unavailableCapabilities: ["work_packages"], reason: "Work Package completion is deferred to Corte 3 Plan 2" },
-    readiness: { status: blocking.length > 0 ? "blocked" : "unavailable", releasable: false, blockedDimensions: [...new Set(blocking.map((entry) => entry.dimension))].sort(), unavailableFutureCapabilities: ["work_packages"] },
+    completion,
+    readiness: { status: blocking.length > 0 ? "blocked" : "unavailable", releasable: false, blockedDimensions: [...new Set(blocking.map((entry) => entry.dimension))].sort(), unavailableFutureCapabilities: ["tasks", "gate_execution"] },
     findings: findings.sort((left, right) => `${left.dimension}:${left.code}:${left.message}`.localeCompare(`${right.dimension}:${right.code}:${right.message}`))
   };
 }

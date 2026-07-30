@@ -14,6 +14,8 @@ import { compareReleaseReadme } from "../lib/releaseProjection.mjs";
 import { listReleaseDocuments, listReleaseRecords, releaseIntegrityFindings, resolveReleaseReference } from "../lib/releaseStore.mjs";
 import { compareReleaseItemProjection } from "../lib/releaseItemProjection.mjs";
 import { releaseItemCatalogFindings, releaseItemIntegrityFindings } from "../lib/releaseItemStore.mjs";
+import { compareWorkPackageProjection } from "../lib/workPackageProjection.mjs";
+import { workPackageCatalogFindings, workPackageIntegrityFindings } from "../lib/workPackageStore.mjs";
 import { readCatalogEntry } from "../lib/operationalCatalog.mjs";
 import { releaseCatalogPolicyFindings } from "../lib/releasePolicy.mjs";
 import { evaluateReleaseHealth } from "../lib/releaseHealth.mjs";
@@ -291,6 +293,73 @@ function checkReleaseItemConsistency(planningRoot, findings) {
   }
 }
 
+function checkWorkPackageConsistency(planningRoot, findings) {
+  const releasesRoot = path.join(planningRoot, "releases");
+  if (!fs.existsSync(releasesRoot)) return;
+  const displayIdOwners = new Map();
+  for (const releaseId of fs.readdirSync(releasesRoot).sort()) {
+    if (!isUuidV7(releaseId)) continue;
+    const itemsRoot = path.join(planningRoot, "releases", releaseId, "items");
+    if (!fs.existsSync(itemsRoot)) continue;
+    const releasePackages = [];
+    for (const itemId of fs.readdirSync(itemsRoot).sort()) {
+      if (!isUuidV7(itemId)) continue;
+      const packagesRoot = path.join(itemsRoot, itemId, "work-packages");
+      if (!fs.existsSync(packagesRoot)) continue;
+      const rootRelative = path.join("releases", releaseId, "items", itemId, "work-packages");
+      const rootStat = fs.lstatSync(packagesRoot);
+      if (rootStat.isSymbolicLink()) {
+        findings.push(`${rootRelative}: symlink entries are not permitted`);
+        continue;
+      }
+      if (!rootStat.isDirectory()) {
+        findings.push(`${rootRelative}: entry must be a directory`);
+        continue;
+      }
+      for (const packageId of fs.readdirSync(packagesRoot).sort()) {
+        const packageDir = path.join(packagesRoot, packageId);
+        const packageRelativeDir = path.join(rootRelative, packageId);
+        const stat = fs.lstatSync(packageDir);
+        if (stat.isSymbolicLink()) {
+          findings.push(`${packageRelativeDir}: symlink entries are not permitted`);
+          continue;
+        }
+        if (!isUuidV7(packageId)) {
+          findings.push(`${packageRelativeDir}: not a valid Work Package id`);
+          continue;
+        }
+        if (!stat.isDirectory()) {
+          findings.push(`${packageRelativeDir}: entry must be a directory`);
+          continue;
+        }
+        const packageRelativePath = path.join(packageRelativeDir, "work-package.yml");
+        const readmeRelativePath = path.join(packageRelativeDir, "README.md");
+        const packagePath = checkRequiredNonSymlinkFile(planningRoot, packageRelativePath, findings);
+        const readmePath = checkRequiredNonSymlinkFile(planningRoot, readmeRelativePath, findings);
+        if (!packagePath) continue;
+        let workPackage;
+        try {
+          workPackage = parseYaml(fs.readFileSync(packagePath, "utf8"));
+        } catch (error) {
+          findings.push(`${packageRelativePath}: failed to parse (${error.message})`);
+          continue;
+        }
+        const integrity = workPackageIntegrityFindings(workPackage, { releaseId, itemId, directoryId: packageId });
+        for (const finding of integrity.findings) findings.push(`${packageRelativePath}: ${finding}`);
+        if (!integrity.schemaValid || integrity.findings.length > 0) continue;
+        releasePackages.push(workPackage);
+        const existingOwner = displayIdOwners.get(workPackage.displayId);
+        if (existingOwner && existingOwner !== workPackage.id) findings.push(`${packageRelativePath}: displayId ${workPackage.displayId} is ambiguous with Work Package ${existingOwner}`);
+        displayIdOwners.set(workPackage.displayId, workPackage.id);
+        if (readmePath && !compareWorkPackageProjection(workPackage, fs.readFileSync(readmePath, "utf8")).equal) findings.push(`${readmeRelativePath}: projection drift`);
+      }
+    }
+    for (const finding of workPackageCatalogFindings(releasePackages, { releaseId })) {
+      findings.push(`releases/${releaseId}/work-packages: ${finding.code}: ${finding.message}`);
+    }
+  }
+}
+
 export function checkSchema({ planningRoot }) {
   if (!fs.existsSync(planningRoot)) {
     return { status: "NOT_INITIALIZED", findings: ["workspace is not initialized: .planning/ does not exist"], pendingOperations: [] };
@@ -408,6 +477,7 @@ export function checkSchema({ planningRoot }) {
 
   checkReleaseConsistency(planningRoot, findings);
   checkReleaseItemConsistency(planningRoot, findings);
+  checkWorkPackageConsistency(planningRoot, findings);
 
   const pendingOperations = [];
   const operationsRoot = path.join(planningRoot, "operations");
@@ -446,7 +516,7 @@ export function checkSchema({ planningRoot }) {
       if (operation.status === "APPLYING" || operation.status === "RECOVERY_REQUIRED") {
         pendingOperations.push({ operationId, status: operation.status });
       }
-      if (operation.kind === "release-item.create") {
+      if (operation.kind === "release-item.create" || operation.kind === "work-package.create") {
         let changeSet;
         try {
           changeSet = readChangeSet(operationsRoot, operationId);
@@ -460,18 +530,25 @@ export function checkSchema({ planningRoot }) {
           continue;
         }
         if (computePersistedChangeSetHash(changeSet) !== changeSet.hash) findings.push(`operations/${operationId}/change-set.json: hash does not match recomputed content`);
-        const expectedItemPath = `releases/${changeSet.payload.releaseId}/items/${changeSet.payload.id}/release-item.yml`;
-        const expectedReadmePath = `releases/${changeSet.payload.releaseId}/items/${changeSet.payload.id}/README.md`;
+        const expectedItemPath = operation.kind === "release-item.create"
+          ? `releases/${changeSet.payload.releaseId}/items/${changeSet.payload.id}/release-item.yml`
+          : `releases/${changeSet.payload.releaseId}/items/${changeSet.payload.releaseItemId}/work-packages/${changeSet.payload.id}/work-package.yml`;
+        const expectedReadmePath = operation.kind === "release-item.create"
+          ? `releases/${changeSet.payload.releaseId}/items/${changeSet.payload.id}/README.md`
+          : `releases/${changeSet.payload.releaseId}/items/${changeSet.payload.releaseItemId}/work-packages/${changeSet.payload.id}/README.md`;
         const targetKeys = Object.keys(changeSet.target || {}).sort();
-        if (changeSet.kind !== "release-item.create" || targetKeys.length !== 2 || changeSet.target.releaseId !== changeSet.payload.releaseId || changeSet.target.itemId !== changeSet.payload.id) {
+        if (operation.kind === "release-item.create" && (changeSet.kind !== "release-item.create" || targetKeys.length !== 2 || changeSet.target.releaseId !== changeSet.payload.releaseId || changeSet.target.itemId !== changeSet.payload.id)) {
           findings.push(`operations/${operationId}/change-set.json: release-item.create target is inconsistent`);
+        }
+        if (operation.kind === "work-package.create" && (changeSet.kind !== "work-package.create" || targetKeys.length !== 3 || changeSet.target.releaseId !== changeSet.payload.releaseId || changeSet.target.itemId !== changeSet.payload.releaseItemId || changeSet.target.packageId !== changeSet.payload.id)) {
+          findings.push(`operations/${operationId}/change-set.json: work-package.create target is inconsistent`);
         }
         const basePaths = Object.keys(changeSet.baseRevisions || {}).sort();
         if (basePaths.length !== 2 || !basePaths.includes(expectedItemPath) || !basePaths.includes(expectedReadmePath)) {
-          findings.push(`operations/${operationId}/change-set.json: release-item.create baseRevisions target unexpected paths`);
+          findings.push(`operations/${operationId}/change-set.json: ${operation.kind} baseRevisions target unexpected paths`);
         }
         if (!Array.isArray(changeSet.payload.targetPaths) || !changeSet.payload.targetPaths.includes(expectedItemPath) || !changeSet.payload.targetPaths.includes(expectedReadmePath)) {
-          findings.push(`operations/${operationId}/change-set.json: release-item.create payload targetPaths are inconsistent`);
+          findings.push(`operations/${operationId}/change-set.json: ${operation.kind} payload targetPaths are inconsistent`);
         }
       }
     }

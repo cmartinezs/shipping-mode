@@ -10,6 +10,7 @@ import { compareReleaseReadme } from "./releaseProjection.mjs";
 import { releaseCatalogPolicyFindings, laneConfigFindings } from "./releasePolicy.mjs";
 import { listReleaseDocuments } from "./releaseStore.mjs";
 import { listReleaseItemDocuments, listReleaseItemRecords, releaseItemCatalogFindings, evaluateReleaseItemHealth } from "./releaseItemStore.mjs";
+import { listWorkPackageRecords } from "./workPackageStore.mjs";
 import { readCatalogEntry } from "./operationalCatalog.mjs";
 import { buildScopeRefsEvidence } from "./releaseScopeEvidence.mjs";
 
@@ -35,7 +36,7 @@ export const RELEASE_HEALTH_FINDING_CODES = Object.freeze({
   RELEASE_ITEM_INVALID: "RELEASE_ITEM_INVALID"
 });
 
-const FUTURE_CAPABILITIES = Object.freeze(["work_packages", "tasks", "gates"]);
+const FUTURE_CAPABILITIES = Object.freeze(["tasks", "gate_execution", "work_sources"]);
 
 function finding({ code, severity = "error", dimension, message, evidence = {} }) {
   return { code, severity, dimension, message, evidence };
@@ -340,7 +341,13 @@ function releaseItemsDimension(planningRoot, release) {
     const invalid = findings.some((entry) => entry.code === RELEASE_HEALTH_FINDING_CODES.CATALOG_CORRUPT || entry.code === RELEASE_HEALTH_FINDING_CODES.RELEASE_ITEM_INVALID);
     return dimension("releaseItems", invalid ? "invalid" : "failed", "Release Item catalog has findings", findings, { itemCount: validItems.length, itemRefs: release.itemRefs });
   }
-  return dimension("releaseItems", "valid", "Canonical Release Items resolve and their dependency graph is valid", [], { itemCount: validItems.length, itemIds: validItems.map((item) => item.id).sort(), itemRefs: release.itemRefs });
+  let packageCount = 0;
+  try {
+    packageCount = listWorkPackageRecords(planningRoot, { releaseId: release.id, includeInvalid: true, requireIntegrity: false }).length;
+  } catch {
+    packageCount = 0;
+  }
+  return dimension("releaseItems", "valid", "Canonical Release Items and Work Packages resolve", [], { itemCount: validItems.length, packageCount, itemIds: validItems.map((item) => item.id).sort(), itemRefs: release.itemRefs });
 }
 
 function finalizationDimension(release) {
@@ -353,8 +360,8 @@ function finalizationDimension(release) {
 }
 
 function futureCapabilityDimension(release) {
-  const findings = [finding({ code: RELEASE_HEALTH_FINDING_CODES.CAPABILITY_UNAVAILABLE, severity: "info", dimension: "futureCapabilities", message: "Work Packages, Tasks and gates are deferred capabilities", evidence: { unavailableCapabilities: FUTURE_CAPABILITIES, itemRefCount: release.itemRefs.length } })];
-  return dimension("futureCapabilities", "unavailable", "Corte 3 Plan 1 does not evaluate Work Packages, Tasks or gates", findings, { unavailableCapabilities: FUTURE_CAPABILITIES, itemRefCount: release.itemRefs.length });
+  const findings = [finding({ code: RELEASE_HEALTH_FINDING_CODES.CAPABILITY_UNAVAILABLE, severity: "info", dimension: "futureCapabilities", message: "Tasks, gate execution and Work Sources are deferred capabilities", evidence: { unavailableCapabilities: FUTURE_CAPABILITIES, itemRefCount: release.itemRefs.length } })];
+  return dimension("futureCapabilities", "unavailable", "Corte 3 Plan 2 evaluates Work Packages but defers Tasks, gate execution and Work Sources", findings, { unavailableCapabilities: FUTURE_CAPABILITIES, itemRefCount: release.itemRefs.length });
 }
 
 function summarize(dimensions) {
@@ -395,7 +402,7 @@ function completion(release) {
     evaluable: false,
     itemRefCount: release.itemRefs.length,
     unavailableCapabilities: FUTURE_CAPABILITIES,
-    reason: "Release Items are evaluable, but Work Packages, Tasks and gates are deferred; empty itemRefs is not completion evidence"
+    reason: "Release Items and Work Packages are evaluable, but Tasks, gate execution and Work Sources are deferred; empty itemRefs is not completion evidence"
   };
 }
 
