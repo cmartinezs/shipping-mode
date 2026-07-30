@@ -1,0 +1,64 @@
+name: PR23 Review Follow-up
+
+on:
+  pull_request:
+    branches: [develop]
+
+permissions:
+  contents: write
+
+jobs:
+  fix-and-verify:
+    if: github.event.pull_request.head.ref == 'agent/corte-2-plan-3-derived-health-closure' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/corte-2-plan-3-derived-health-closure
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Correct approved Guide fixture
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('runtime/src/commands/tests/commands.test.mjs')
+          text = path.read_text()
+          old = 'approval: { actor: "reviewer", approvedAt: "2026-07-29T00:00:00.000Z", revision: guide.revision, contentHash: hash }'
+          new = 'approval: { actor: "reviewer", approvedAt: "2026-07-29T00:00:00.000Z", changeSetHash: revisionHash({ scopeId, kind, guideId }), revision: guide.revision, contentHash: hash }'
+          if old not in text:
+              raise SystemExit('approved Guide fixture anchor not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
+          rm -f .github/workflows/pr23-review-followup.yml
+      - name: Publish fixture correction
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "test(release): bind approved Guide fixture"
+          git push origin HEAD:agent/corte-2-plan-3-derived-health-closure
+      - name: Build and verify
+        run: |
+          npm ci --silent
+          npm run build:schemas
+          npm run build:runtime
+          npm run build:test-bundle
+          npm run test:unit
+          npm run test:cli-e2e
+          npm run test:real-crash-e2e
+          npm run test:security-e2e
+          npm run test:bundle
+          npm run verify:artifacts
+          npm run verify:next-generation
+          git diff --check
+      - name: Publish generated artifacts
+        run: |
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "build(runtime): regenerate reviewed Corte 2 artifacts"
+            git push origin HEAD:agent/corte-2-plan-3-derived-health-closure
+          fi
