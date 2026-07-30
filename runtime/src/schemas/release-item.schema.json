@@ -470,7 +470,8 @@
         "sourceId",
         "provider",
         "role",
-        "mappingVersion"
+        "mappingVersion",
+        "importedAt"
       ],
       "properties": {
         "sourceId": {
@@ -664,6 +665,15 @@
                     "properties": {
                       "contentRevision": {}
                     }
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "itemId"
+                    ],
+                    "properties": {
+                      "itemId": {}
+                    }
                   }
                 ]
               }
@@ -794,6 +804,15 @@
                     "type": "object",
                     "properties": {
                       "contentRevision": {}
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "itemId"
+                    ],
+                    "properties": {
+                      "itemId": {}
                     }
                   }
                 ]

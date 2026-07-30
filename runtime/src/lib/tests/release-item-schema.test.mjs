@@ -55,12 +55,14 @@ assert.equal(validate("release-item", item("defect", { severity: "urgent" })).va
 assert.equal(validate("release-item", item("spike", { question: "" })).valid, false, "blank required strings must be rejected");
 assert.equal(validate("release-item", item("user_story", { status: "SKIPPED" })).valid, false, "SKIPPED is not a Release Item status");
 
-const localRef = { sourceId: "local-backlog", provider: "local_repository", role: "primary", itemId: "local-story-1", path: "docs/backlog.md", contentRevision: `sha256:${"a".repeat(64)}`, mappingVersion: 1 };
-const externalRef = { sourceId: "jira-main", provider: "jira", role: "primary", externalId: "ABC-1", externalRevision: "100", mappingVersion: 1 };
+const localRef = { sourceId: "local-backlog", provider: "local_repository", role: "primary", itemId: "local-story-1", path: "docs/backlog.md", contentRevision: `sha256:${"a".repeat(64)}`, mappingVersion: 1, importedAt: "2026-07-30T00:00:00.000Z" };
+const externalRef = { sourceId: "jira-main", provider: "jira", role: "primary", externalId: "ABC-1", externalRevision: "100", mappingVersion: 1, importedAt: "2026-07-30T00:00:00.000Z" };
 assert.equal(validate("release-item", item("user_story", { sourceRefs: [localRef] })).valid, true, "closed local sourceRefs are supported");
 assert.equal(validate("release-item", item("user_story", { sourceRefs: [externalRef] })).valid, true, "closed external sourceRefs are supported");
 assert.equal(validate("release-item", item("user_story", { sourceRefs: [{ ...localRef, contentRevision: undefined }] })).valid, false, "local sourceRefs require revision evidence");
 assert.equal(validate("release-item", item("user_story", { sourceRefs: [{ ...externalRef, path: "docs/issue.md" }] })).valid, false, "external providers cannot use local path locators");
+assert.equal(validate("release-item", item("user_story", { sourceRefs: [{ ...localRef, importedAt: undefined }] })).valid, false, "sourceRefs require server-owned import timestamps");
+assert.equal(validate("release-item", item("user_story", { sourceRefs: [{ ...externalRef, itemId: "local-style-id" }] })).valid, false, "external sourceRefs cannot mix local item identity");
 assert.equal(validate("release-item", item("user_story", { status: "DONE", resolution: { type: "CANCELLED", reason: "wrong", approvedBy: "carlos", approvedAt: "2026-07-29T00:00:00.000Z", riskAccepted: false, replacementId: null, operationId: generateUuidV7(), provenance: { source: "manual", revision: "1" } } })).valid, false, "resolution type must match terminal status");
 assert.equal(validate("release-item", item("user_story", { status: "SUPERSEDED", resolution: { type: "SUPERSEDED", reason: "replaced", approvedBy: "carlos", approvedAt: "2026-07-29T00:00:00.000Z", riskAccepted: false, replacementId: null, operationId: generateUuidV7(), provenance: { source: "manual", revision: "1" } } })).valid, false, "SUPERSEDED requires a replacement ID");
 const sourceRequest = { kind: "spike", title: "Source", question: "Q", timebox: "1d", expectedDecision: "D", sourceRefs: [localRef], idempotencyKey: "source" };

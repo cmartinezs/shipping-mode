@@ -196,3 +196,5 @@ La revisión adversarial cerró gaps que no estaban cubiertos por la implementac
 - La normalización exige campos canónicos específicos por kind; no se fabrican valores `unspecified` ni se infieren campos obligatorios ambiguos.
 - Source refs locales conservan `itemId` estable además de path, por lo que un movimiento de archivo no permite duplicar el mismo primary item.
 - El schema normalizado admite providers externos sin exigir fingerprints locales, preservando la compatibilidad prevista para Plan 4.
+
+- Toda source ref canónica exige `importedAt` server-owned; las variantes externas rechazan el `itemId` reservado a la identidad local.
