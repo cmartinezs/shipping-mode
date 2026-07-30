@@ -2,15 +2,18 @@ import fs from "node:fs";
 import path from "node:path";
 import { validate } from "../lib/schema.mjs";
 import { parseYaml } from "../lib/yaml.mjs";
-import { readOperation } from "../lib/operationStore.mjs";
+import { readOperation, readChangeSet } from "../lib/operationStore.mjs";
 import { isUuidV7 } from "../lib/ids.mjs";
 import { assertTrustedRoots, confineWritePath } from "../lib/paths.mjs";
 import { findCommandFingerprintKeyMismatches } from "../lib/discoverScan.mjs";
 import { REQUIRED_BOOTSTRAP_DIRECTORIES } from "../lib/bootstrapTopology.mjs";
 import { projectContextConsistencyFindings } from "../lib/projectContextValidation.mjs";
 import { contentHash, revisionHash } from "../lib/canonical.mjs";
+import { computePersistedChangeSetHash } from "../lib/changeset.mjs";
 import { compareReleaseReadme } from "../lib/releaseProjection.mjs";
 import { listReleaseDocuments, listReleaseRecords, releaseIntegrityFindings, resolveReleaseReference } from "../lib/releaseStore.mjs";
+import { compareReleaseItemProjection } from "../lib/releaseItemProjection.mjs";
+import { releaseItemCatalogFindings, releaseItemIntegrityFindings } from "../lib/releaseItemStore.mjs";
 import { readCatalogEntry } from "../lib/operationalCatalog.mjs";
 import { releaseCatalogPolicyFindings } from "../lib/releasePolicy.mjs";
 import { evaluateReleaseHealth } from "../lib/releaseHealth.mjs";
@@ -180,7 +183,6 @@ function checkReleaseConsistency(planningRoot, findings) {
     for (const finding of integrity.findings) findings.push(`${releaseRelativePath}: ${finding}`);
     if (!integrity.schemaValid) continue;
     if (integrity.findings.length === 0) releaseDocuments.push(release);
-    if (release.itemRefs.length > 0) findings.push(`${releaseRelativePath}: itemRefs cannot be resolved before Release Items exist`);
     for (const scopeRef of release.scopeRefs) {
       const scopePath = path.join(planningRoot, "scopes", scopeRef.scopeId, "scope.yml");
       if (!fs.existsSync(scopePath)) findings.push(`${releaseRelativePath}: scopeRef ${scopeRef.scopeId} does not resolve`);
@@ -213,6 +215,79 @@ function checkReleaseConsistency(planningRoot, findings) {
   }
   for (const finding of releaseCatalogPolicyFindings(releaseDocuments)) {
     findings.push(`releases: ${finding.code}: ${finding.message}`);
+  }
+}
+
+function checkReleaseItemConsistency(planningRoot, findings) {
+  const releasesRoot = path.join(planningRoot, "releases");
+  if (!fs.existsSync(releasesRoot)) return;
+  const displayIdOwners = new Map();
+  for (const releaseId of fs.readdirSync(releasesRoot).sort()) {
+    if (!isUuidV7(releaseId)) continue;
+    const releasePath = path.join(planningRoot, "releases", releaseId, "release.yml");
+    if (!fs.existsSync(releasePath)) continue;
+    let release = null;
+    try {
+      release = parseYaml(fs.readFileSync(releasePath, "utf8"));
+    } catch {
+      continue;
+    }
+    const itemsRoot = path.join(planningRoot, "releases", releaseId, "items");
+    if (!fs.existsSync(itemsRoot)) continue;
+    const itemsStat = fs.lstatSync(itemsRoot);
+    if (itemsStat.isSymbolicLink()) {
+      findings.push(`releases/${releaseId}/items: symlink entries are not permitted`);
+      continue;
+    }
+    if (!itemsStat.isDirectory()) {
+      findings.push(`releases/${releaseId}/items: entry must be a directory`);
+      continue;
+    }
+    const items = [];
+    for (const itemId of fs.readdirSync(itemsRoot).sort()) {
+      const itemDir = path.join(itemsRoot, itemId);
+      const itemRelativeDir = path.join("releases", releaseId, "items", itemId);
+      const stat = fs.lstatSync(itemDir);
+      if (stat.isSymbolicLink()) {
+        findings.push(`${itemRelativeDir}: symlink entries are not permitted`);
+        continue;
+      }
+      if (!isUuidV7(itemId)) {
+        findings.push(`${itemRelativeDir}: not a valid Release Item id`);
+        continue;
+      }
+      if (!stat.isDirectory()) {
+        findings.push(`${itemRelativeDir}: entry must be a directory`);
+        continue;
+      }
+      const itemRelativePath = path.join(itemRelativeDir, "release-item.yml");
+      const readmeRelativePath = path.join(itemRelativeDir, "README.md");
+      const itemPath = checkRequiredNonSymlinkFile(planningRoot, itemRelativePath, findings);
+      const readmePath = checkRequiredNonSymlinkFile(planningRoot, readmeRelativePath, findings);
+      if (!itemPath) continue;
+      let item;
+      try {
+        item = parseYaml(fs.readFileSync(itemPath, "utf8"));
+      } catch (error) {
+        findings.push(`${itemRelativePath}: failed to parse (${error.message})`);
+        continue;
+      }
+      const integrity = releaseItemIntegrityFindings(item, { releaseId, directoryId: itemId });
+      for (const finding of integrity.findings) findings.push(`${itemRelativePath}: ${finding}`);
+      if (!integrity.schemaValid || integrity.findings.length > 0) continue;
+      items.push(item);
+      const existingOwner = displayIdOwners.get(item.displayId);
+      if (existingOwner && existingOwner !== item.id) findings.push(`${itemRelativePath}: displayId ${item.displayId} is ambiguous with Release Item ${existingOwner}`);
+      displayIdOwners.set(item.displayId, item.id);
+      if (release && item.releaseId !== release.id) findings.push(`${itemRelativePath}: releaseId ${item.releaseId} does not match parent Release ${release.id}`);
+      if (readmePath && !compareReleaseItemProjection(item, fs.readFileSync(readmePath, "utf8")).equal) findings.push(`${readmeRelativePath}: projection drift`);
+    }
+    for (const finding of releaseItemCatalogFindings(items, { releaseId })) {
+      findings.push(`releases/${releaseId}/items: ${finding.code}: ${finding.message}`);
+    }
+    for (const itemRef of release?.itemRefs || []) {
+      if (!items.some((item) => item.id === itemRef)) findings.push(`releases/${releaseId}/release.yml: itemRefs contains ${itemRef}, but no canonical Release Item exists under items/`);
+    }
   }
 }
 
@@ -332,6 +407,7 @@ export function checkSchema({ planningRoot }) {
   }
 
   checkReleaseConsistency(planningRoot, findings);
+  checkReleaseItemConsistency(planningRoot, findings);
 
   const pendingOperations = [];
   const operationsRoot = path.join(planningRoot, "operations");
@@ -369,6 +445,34 @@ export function checkSchema({ planningRoot }) {
       }
       if (operation.status === "APPLYING" || operation.status === "RECOVERY_REQUIRED") {
         pendingOperations.push({ operationId, status: operation.status });
+      }
+      if (operation.kind === "release-item.create") {
+        let changeSet;
+        try {
+          changeSet = readChangeSet(operationsRoot, operationId);
+        } catch (error) {
+          findings.push(`operations/${operationId}/change-set.json: failed to read or parse (${error.message})`);
+          continue;
+        }
+        const changeSetSchemaCheck = validate("change-set", changeSet);
+        if (!changeSetSchemaCheck.valid) {
+          for (const error of changeSetSchemaCheck.errors) findings.push(`operations/${operationId}/change-set.json${error.path}: ${error.message}`);
+          continue;
+        }
+        if (computePersistedChangeSetHash(changeSet) !== changeSet.hash) findings.push(`operations/${operationId}/change-set.json: hash does not match recomputed content`);
+        const expectedItemPath = `releases/${changeSet.payload.releaseId}/items/${changeSet.payload.id}/release-item.yml`;
+        const expectedReadmePath = `releases/${changeSet.payload.releaseId}/items/${changeSet.payload.id}/README.md`;
+        const targetKeys = Object.keys(changeSet.target || {}).sort();
+        if (changeSet.kind !== "release-item.create" || targetKeys.length !== 2 || changeSet.target.releaseId !== changeSet.payload.releaseId || changeSet.target.itemId !== changeSet.payload.id) {
+          findings.push(`operations/${operationId}/change-set.json: release-item.create target is inconsistent`);
+        }
+        const basePaths = Object.keys(changeSet.baseRevisions || {}).sort();
+        if (basePaths.length !== 2 || !basePaths.includes(expectedItemPath) || !basePaths.includes(expectedReadmePath)) {
+          findings.push(`operations/${operationId}/change-set.json: release-item.create baseRevisions target unexpected paths`);
+        }
+        if (!Array.isArray(changeSet.payload.targetPaths) || !changeSet.payload.targetPaths.includes(expectedItemPath) || !changeSet.payload.targetPaths.includes(expectedReadmePath)) {
+          findings.push(`operations/${operationId}/change-set.json: release-item.create payload targetPaths are inconsistent`);
+        }
       }
     }
   }
@@ -451,4 +555,3 @@ export function checkRelease({ planningRoot, reference = null }) {
     pendingOperations: []
   };
 }
-
