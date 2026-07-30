@@ -1,5 +1,6 @@
 name: Runtime Foundation
 
+# Temporary PR #26 correction runner; restored from develop before commit.
 on:
   pull_request:
     branches: [develop]
