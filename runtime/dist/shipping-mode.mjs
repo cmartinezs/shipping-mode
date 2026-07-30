@@ -37032,7 +37032,7 @@ function prepareProposal(kind, rawPayload, {
 }
 
 // runtime/src/generated/build-meta.mjs
-var PLUGIN_VERSION = "1.0.0", TEMPLATE_PACK_FINGERPRINT = "sha256:b97c7bb4bac7e4ea70dfde510a536c90e6be0d38f1c9cdd242d2661ce9a570cc";
+var PLUGIN_VERSION = "1.0.0", TEMPLATE_PACK_FINGERPRINT = "sha256:dac631a01f245aec9b6d70f5488d6d2543f939a9c2a903aaca10a77ba0c54167";
 
 // runtime/src/commands/init.mjs
 function runInit({ planningRoot, args }) {
