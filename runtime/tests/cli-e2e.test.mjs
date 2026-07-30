@@ -217,8 +217,9 @@ function fullyInit(cwd) {
   assert.equal(itemStatus.json.status, "FOUND");
   assert.equal(itemStatus.json.item.id, item.json.itemId);
   const checkItem = run(["check", "item", release.json.displayId, item.json.itemId, "--format", "json"], cwd);
-  assert.equal(checkItem.code, 0);
-  assert.equal(checkItem.json.status, "PASS");
+  assert.equal(checkItem.code, 1);
+  assert.equal(checkItem.json.status, "FAIL");
+  assert.equal(checkItem.json.items[0].completion.status, "incomplete", "empty Work Package catalogs must not pass by vacuous truth");
   const itemReadmePath = path.join(cwd, ".planning", "releases", release.json.releaseId, "items", item.json.itemId, "README.md");
   const itemReadme = fs.readFileSync(itemReadmePath, "utf8");
   fs.appendFileSync(itemReadmePath, "drift\n");
