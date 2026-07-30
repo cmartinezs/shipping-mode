@@ -345,7 +345,7 @@ export function prepareReleaseMutation(kind, rawPayload, {
     };
   } else if (kind === "release.finalization.complete") {
     const health = evaluateReleaseHealth({ planningRoot, release, directoryId: release.id });
-    const currentGuardSummary = releaseFinalizationGuardSummary(health, release);
+    const guardSummary = assertReleaseCanFinalize({ health, release });
     const nextFinalization = {
       completed: true,
       completedAt: proposedAt,
@@ -433,7 +433,7 @@ export function renderReleaseMutation(kind, payload, { planningRoot, workspaceRo
     nextRelease = { ...nextRelease, deploymentEvents: [...release.deploymentEvents, payload.deploymentEvent] };
   } else if (kind === "release.finalization.complete") {
     const health = evaluateReleaseHealth({ planningRoot, release, directoryId: release.id });
-    const guardSummary = assertReleaseCanFinalize({ health, release });
+    const currentGuardSummary = releaseFinalizationGuardSummary(health, release);
     const guardHash = releasePolicyRequestHash({ actor: "system:release-health", requestSnapshot: currentGuardSummary });
     if (guardHash !== payload.guardSummaryHash) {
       const error = new Error("REFERENCE_STALE: release finalization guard summary changed since propose");
