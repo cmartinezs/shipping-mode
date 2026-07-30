@@ -50,22 +50,25 @@ execution.
 |---|---|---|---|---|
 | 1 | Release core | Identity, closed schema, UUIDv7 storage, lifecycle create/DRAFT, Release ChangeSet kind, YAML+README projection, release new/status, check schema integration, immutable create event | **Merged (PR #21 to develop); complete** | `2026-07-28-corte-2-plan-1-release-core.md` |
 | 2 | Release policy and operational references | Sequence/dependency policy, lane validation, scope guide revision index, execution-context refs, environment refs and deployment-event records | **Merged (PR #22 to develop); complete** | `2026-07-29-corte-2-plan-2-release-policy-operational-refs.md` |
-| 3 | Derived health and Corte 2 closure | Completion/readiness evaluation, finalization mutation, `check release`, projection/report primitives and final E2E/DoD audit | **Implemented; pending PR merge** | `2026-07-29-corte-2-plan-3-derived-health-closure.md` |
+| 3 | Derived health and Corte 2 closure | Completion/readiness evaluation, finalization mutation, `check release`, projection/report primitives and final E2E/DoD audit | **Merged (PR #23 to develop); complete** | `2026-07-29-corte-2-plan-3-derived-health-closure.md` |
 
-## Stop Rule For Current PR
+## Corte 2 Closure
 
-This PR executes Plan 3 only. It must not implement Release Items, Work
-Packages, Tasks, deployment execution, gate execution, Work Source providers,
-release notes, retrospective AI, `release_train`, parallel execution, generic
-`release.update` or persisted completion/readiness.
+PR #23 (`Corte 2 Plan 3: Derived health and Corte 2 closure`) was merged into
+`develop` on 2026-07-30 with merge commit
+`8ebdef04f3ebb580cf9a06137549aab0d1b7e23b`.
+
+Corte 2 is now administratively closed. The implementation remains bounded to
+the Release aggregate; Release Items, Work Packages, Tasks, Work Sources,
+release notes, traceability projection and provider sync move to Corte 3+.
 
 ```text
 Corte 1: COMPLETE
 
 Corte 2:
-  Plan 1 — Merged (PR #21 to develop); complete
-  Plan 2 — Merged (PR #22 to develop); complete
-  Plan 3 — IMPLEMENTED / PENDING PR MERGE
+  Plan 1 — MERGED / COMPLETE
+  Plan 2 — MERGED / COMPLETE
+  Plan 3 — MERGED / COMPLETE
 
-Corte 2: IMPLEMENTATION COMPLETE / PENDING PR MERGE
+Corte 2 — COMPLETE
 ```
