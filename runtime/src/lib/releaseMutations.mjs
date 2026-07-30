@@ -10,7 +10,7 @@ import { isReleaseDisplayId } from "./releaseIdentity.mjs";
 import { assertReleasePolicyValid, assertValidLaneConfig, releasePolicyRequestHash } from "./releasePolicy.mjs";
 import { assertCatalogRefsValid } from "./operationalCatalog.mjs";
 import { buildScopeRefsEvidence, assertScopeEvidenceCurrent } from "./releaseScopeEvidence.mjs";
-import { assertReleaseCanFinalize, evaluateReleaseHealth } from "./releaseHealth.mjs";
+import { assertReleaseCanFinalize, evaluateReleaseHealth, releaseFinalizationGuardSummary } from "./releaseHealth.mjs";
 
 export const RELEASE_PLAN2_KINDS = Object.freeze([
   "release.policy.configure",
@@ -345,7 +345,7 @@ export function prepareReleaseMutation(kind, rawPayload, {
     };
   } else if (kind === "release.finalization.complete") {
     const health = evaluateReleaseHealth({ planningRoot, release, directoryId: release.id });
-    const guardSummary = assertReleaseCanFinalize({ health, release });
+    const currentGuardSummary = releaseFinalizationGuardSummary(health, release);
     const nextFinalization = {
       completed: true,
       completedAt: proposedAt,
@@ -434,12 +434,13 @@ export function renderReleaseMutation(kind, payload, { planningRoot, workspaceRo
   } else if (kind === "release.finalization.complete") {
     const health = evaluateReleaseHealth({ planningRoot, release, directoryId: release.id });
     const guardSummary = assertReleaseCanFinalize({ health, release });
-    const guardHash = releasePolicyRequestHash({ actor: "system:release-health", requestSnapshot: guardSummary });
+    const guardHash = releasePolicyRequestHash({ actor: "system:release-health", requestSnapshot: currentGuardSummary });
     if (guardHash !== payload.guardSummaryHash) {
       const error = new Error("REFERENCE_STALE: release finalization guard summary changed since propose");
       error.code = "STALE";
       throw error;
     }
+    assertReleaseCanFinalize({ health, release });
     if (revisionHash(release.finalization) !== revisionHash(payload.previousFinalization)) {
       const error = new Error("REFERENCE_STALE: finalization metadata changed since propose");
       error.code = "STALE";
