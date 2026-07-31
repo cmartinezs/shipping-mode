@@ -51,6 +51,7 @@ export class JiraMcpWorkSource {
   #execute({ source, operation, params }) {
     if (!this.transport || typeof this.transport.execute !== "function") return unavailable();
     const request = buildWorkSourceTransportRequest({
+      ...(this.transport.requestId ? { requestId: this.transport.requestId } : {}),
       provider: "jira",
       transport: "mcp",
       connectionRef: source.connectionRef,
