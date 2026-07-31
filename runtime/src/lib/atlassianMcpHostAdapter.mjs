@@ -5,6 +5,8 @@ const SECRET_KEY_PATTERN = /(token|secret|password|cookie|credential|authorizati
 const READ_OPERATIONS = new Set(["discover", "search", "get"]);
 const BASE_SELECTORS = new Set(["summary", "description", "status", "priority", "labels", "parent", "epic", "links", "assignee"]);
 const JIRA_BASE_FIELDS = ["assignee", "description", "issuelinks", "issuetype", "labels", "parent", "priority", "status", "summary", "updated"];
+const GET_TOOL = "getJiraIssue";
+const SEARCH_TOOL = "searchJiraIssuesUsingJql";
 const MAX_QUERY_CHARS = 120;
 const MAX_RESPONSE_BYTES = 256 * 1024;
 const MAX_ITEMS = 100;
@@ -69,6 +71,22 @@ function assertRequestMatchesSource(request, source) {
   if (source.mappingVersion !== request.mappingVersion) throw new Error("request/source mapping mismatch");
 }
 
+function normalizeCloudId(source, env) {
+  const value = requireString(source.cloudId || env.SHIPPING_MODE_ATLASSIAN_CLOUD_ID, "Atlassian cloudId");
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) return value;
+  let url;
+  try {
+    url = new URL(value);
+  } catch {
+    throw new Error("Atlassian cloudId must be a UUID or an https atlassian.net site URL");
+  }
+  if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || (url.pathname !== "/" && url.pathname !== "")) {
+    throw new Error("Atlassian cloudId site URL must be a credential-free https origin");
+  }
+  if (!url.hostname.toLowerCase().endsWith(".atlassian.net")) throw new Error("Atlassian cloudId site URL must belong to atlassian.net");
+  return url.origin;
+}
+
 function normalizeProjectKeys(keys, source) {
   const configured = new Set(source.options.project_keys || []);
   const values = keys === undefined ? [...configured] : keys;
@@ -78,6 +96,14 @@ function normalizeProjectKeys(keys, source) {
     if (!configured.has(key)) throw new Error(`project key ${key} is not configured`);
   }
   return normalized.sort();
+}
+
+function normalizeIssueKey(value, source) {
+  const issueKey = requireString(value, "params.itemRef");
+  const match = /^([A-Z][A-Z0-9_]{1,31})-([1-9][0-9]*)$/.exec(issueKey);
+  if (!match) throw new Error("params.itemRef must be an exact Jira issue key");
+  if (!(source.options.project_keys || []).includes(match[1])) throw new Error(`Jira issue key project ${match[1]} is not configured`);
+  return issueKey;
 }
 
 function normalizeLimit(value, source) {
@@ -112,29 +138,35 @@ function normalizeRequestedFields(request, source) {
   return [...requested].sort();
 }
 
-export function atlassianMcpActionForRequest({ request, source }) {
+export function atlassianMcpActionForRequest({ request, source, env = process.env }) {
   assertRequestMatchesSource(request, source);
+  const cloudId = normalizeCloudId(source, env);
   if (request.operation === "get") {
-    const fields = normalizeRequestedFields(request, source);
+    normalizeRequestedFields(request, source);
+    const input = {
+      cloudId,
+      issueIdOrKey: normalizeIssueKey(request.params.itemRef, source),
+      fields: mcpFieldsForSource(source)
+    };
     return {
       schemaVersion: 1,
       server: "atlassian",
-      tool: "jira_get_issue",
-      toolName: "mcp__atlassian__jira_get_issue",
-      input: { issue_key: requireString(request.params.itemRef, "params.itemRef"), fields },
-      inputHash: `sha256:${revisionHash({ issue_key: request.params.itemRef, fields })}`
+      tool: GET_TOOL,
+      toolName: `mcp__atlassian__${GET_TOOL}`,
+      input,
+      inputHash: `sha256:${revisionHash(input)}`
     };
   }
   const projectKeys = normalizeProjectKeys(request.params.projectKeys, source);
-  const limit = normalizeLimit(request.params.limit, source);
+  const maxResults = normalizeLimit(request.params.limit, source);
   const queryText = normalizeQueryText(request.params.queryText);
   const jql = `${projectJql(projectKeys)}${queryText ? ` AND text ~ "${escapeJqlString(queryText)}"` : ""} ORDER BY updated DESC`;
-  const input = { jql, limit, fields: mcpFieldsForSource(source) };
+  const input = { cloudId, jql, maxResults, fields: mcpFieldsForSource(source) };
   return {
     schemaVersion: 1,
     server: "atlassian",
-    tool: "jira_search",
-    toolName: "mcp__atlassian__jira_search",
+    tool: SEARCH_TOOL,
+    toolName: `mcp__atlassian__${SEARCH_TOOL}`,
     input,
     inputHash: `sha256:${revisionHash(input)}`
   };
@@ -144,6 +176,26 @@ function rejectTruncated(value, field = "response") {
   if (!value || typeof value !== "object") return;
   if (value.truncated === true || value.isTruncated === true) throw new Error(`${field} is truncated`);
   for (const child of Array.isArray(value) ? value : Object.values(value)) rejectTruncated(child, field);
+}
+
+function unwrapStandardMcpResult(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value) || !Array.isArray(value.content)) return value;
+  const allowed = new Set(["content", "isError", "is_error", "structuredContent", "structured_content"]);
+  for (const key of Object.keys(value)) if (!allowed.has(key)) throw new Error(`unsupported MCP result wrapper field ${key}`);
+  if (value.isError === true || value.is_error === true) throw new Error("Atlassian MCP tool returned an error result");
+  const structured = value.structuredContent ?? value.structured_content;
+  if (structured !== undefined) {
+    if (!structured || typeof structured !== "object" || Array.isArray(structured)) throw new Error("MCP structuredContent must be an object");
+    return structured;
+  }
+  if (value.content.length !== 1 || value.content[0]?.type !== "text" || typeof value.content[0].text !== "string") {
+    throw new Error("Atlassian MCP result must contain exactly one JSON text block");
+  }
+  try {
+    return JSON.parse(value.content[0].text);
+  } catch {
+    throw new Error("Atlassian MCP text response is not deterministic JSON");
+  }
 }
 
 function scalarText(value, field) {
@@ -171,9 +223,16 @@ function normalizeExternalRef(value) {
   return undefined;
 }
 
+function normalizeMappedValue(value, field) {
+  if (value === undefined || value === null) return null;
+  if (Array.isArray(value)) return value.map((entry, index) => scalarText(entry, `${field}[${index}]`)).filter((entry) => entry !== null);
+  if (typeof value === "object") return scalarText(value, field);
+  return value;
+}
+
 function normalizeIssue(issue, source) {
   if (!issue || typeof issue !== "object" || Array.isArray(issue)) throw new Error("Jira issue must be an object");
-  const allowedTop = new Set(["id", "key", "self", "fields"]);
+  const allowedTop = new Set(["expand", "id", "key", "self", "fields", "names", "schema"]);
   for (const key of Object.keys(issue)) {
     if (!allowedTop.has(key)) throw new Error(`unsupported Jira issue wrapper field ${key}`);
   }
@@ -183,7 +242,7 @@ function normalizeIssue(issue, source) {
   const customFields = {};
   for (const [key, value] of Object.entries(fields)) {
     if (/^customfield_[0-9]{1,10}$/.test(key)) {
-      if (allowed.has(key)) customFields[key] = value;
+      if (allowed.has(key)) customFields[key] = normalizeMappedValue(value, `fields.${key}`);
       continue;
     }
     if (!["summary", "description", "issuetype", "status", "priority", "labels", "parent", "issuelinks", "assignee", "updated"].includes(key)) {
@@ -214,23 +273,33 @@ function normalizeIssue(issue, source) {
 }
 
 function issueListForAction(rawResponse, action) {
-  if (action.tool === "jira_get_issue") return { items: [], item: rawResponse };
+  if (action.tool === GET_TOOL) return { items: [], item: rawResponse };
   if (!rawResponse || typeof rawResponse !== "object" || Array.isArray(rawResponse)) throw new Error("Jira search response must be an object");
-  const allowed = new Set(["issues", "startAt", "maxResults", "total", "isLast"]);
+  const allowed = new Set(["issues", "nextPageToken"]);
   for (const key of Object.keys(rawResponse)) {
     if (!allowed.has(key)) throw new Error(`unsupported Jira search wrapper field ${key}`);
   }
-  if (!Array.isArray(rawResponse.issues)) throw new Error("Jira search response issues must be an array");
-  if (rawResponse.issues.length > MAX_ITEMS) throw new Error("Jira search response exceeds item limit");
-  return { items: rawResponse.issues, item: null };
+  if (Array.isArray(rawResponse.issues)) {
+    if (rawResponse.issues.length > MAX_ITEMS) throw new Error("Jira search response exceeds item limit");
+    return { items: rawResponse.issues, item: null };
+  }
+  const issueCollection = rawResponse.issues;
+  if (!issueCollection || typeof issueCollection !== "object" || Array.isArray(issueCollection)) throw new Error("Jira search response issues must be an object");
+  const collectionAllowed = new Set(["nodes", "totalCount", "webUrl"]);
+  for (const key of Object.keys(issueCollection)) if (!collectionAllowed.has(key)) throw new Error(`unsupported Jira search collection field ${key}`);
+  if (!Array.isArray(issueCollection.nodes)) throw new Error("Jira search response issues.nodes must be an array");
+  if (issueCollection.nodes.length > MAX_ITEMS) throw new Error("Jira search response exceeds item limit");
+  return { items: issueCollection.nodes, item: null };
 }
 
 export function normalizeAtlassianMcpResponse({ request, action, rawResponse, source, observedAt = new Date().toISOString() }) {
   assertRequestMatchesSource(request, source);
-  if (action.toolName !== (request.operation === "get" ? "mcp__atlassian__jira_get_issue" : "mcp__atlassian__jira_search")) throw new Error("action/request tool mismatch");
-  assertBounded(rawResponse, "Atlassian MCP response");
-  rejectTruncated(rawResponse);
-  const selected = issueListForAction(rawResponse, action);
+  const expectedToolName = request.operation === "get" ? `mcp__atlassian__${GET_TOOL}` : `mcp__atlassian__${SEARCH_TOOL}`;
+  if (action.toolName !== expectedToolName) throw new Error("action/request tool mismatch");
+  const unwrapped = unwrapStandardMcpResult(rawResponse);
+  assertBounded(unwrapped, "Atlassian MCP response");
+  rejectTruncated(unwrapped);
+  const selected = issueListForAction(unwrapped, action);
   const item = selected.item ? normalizeIssue(selected.item, source) : null;
   const items = selected.items.map((entry) => normalizeIssue(entry, source)).sort((left, right) => left.externalId.localeCompare(right.externalId));
   const response = {
