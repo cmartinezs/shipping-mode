@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import { normalizeWorkSourceConfig, validateNormalizedWorkSourceItem } from "../workSourceImport.mjs";
 import { mapJiraTransportItem } from "../workSourceMapping.mjs";
+import { JiraMcpWorkSource } from "../jiraMcpWorkSource.mjs";
+import { buildWorkSourceRegistry } from "../workSourceProvider.mjs";
 import { FakeWorkSourceTransport } from "./fakes/fakeWorkSourceTransport.mjs";
 import { buildWorkSourceTransportRequest } from "../workSourceTransportPort.mjs";
 
@@ -70,5 +72,16 @@ assert.throws(() => mapJiraTransportItem({ source, transportItem: { ...response.
 assert.throws(() => mapJiraTransportItem({ source, transportItem: fake.execute(request, { scenario: "required-field-missing" }).item, responseFingerprint: response.responseFingerprint, observedAt: response.observedAt }), /missing required mapped field/);
 assert.throws(() => mapJiraTransportItem({ source, transportItem: { ...response.item, url: "https://user:pass@example.atlassian.net/browse/GRADE-142" }, responseFingerprint: response.responseFingerprint, observedAt: response.observedAt }), /URL must not contain credentials/);
 assert.throws(() => mapJiraTransportItem({ source, transportItem: { ...response.item, rawJiraPayload: {} }, responseFingerprint: response.responseFingerprint, observedAt: response.observedAt }), /raw provider payload/);
+
+const provider = new JiraMcpWorkSource({ transport: fake });
+assert.deepEqual(provider.capabilities, ["discover", "search", "get"]);
+assert.deepEqual(provider.discover({ source }).items.map((item) => item.itemId), ["GRADE-142"]);
+assert.deepEqual(provider.search({ source, query: "rubric" }).items.map((item) => item.itemId), ["GRADE-143"]);
+assert.equal(provider.get({ source, itemRef: "GRADE-142" }).item.type, "user_story");
+assert.equal(new JiraMcpWorkSource().get({ source, itemRef: "GRADE-142" }).status, "FAIL");
+
+const registry = buildWorkSourceRegistry({ providerFactories: [() => provider], sources: [source] });
+assert.equal(registry.resolve("jira-gradeops", "get"), provider);
+assert.throws(() => registry.resolve("jira-gradeops", "comment"), /SOURCE_CAPABILITY_MISSING/);
 
 console.log("jira-mcp-work-source: closed Jira mapping passes");

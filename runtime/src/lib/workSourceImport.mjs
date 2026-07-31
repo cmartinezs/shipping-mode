@@ -10,6 +10,7 @@ import { releaseItemCreateRequestHash, renderReleaseItemCreate } from "./release
 import { assertReleaseParentCanAcceptItem, listReleaseItemDocuments, listReservedReleaseItemDocuments, releaseItemCatalogFindings, releaseItemReadmeRelativePath, releaseItemYamlRelativePath } from "./releaseItemStore.mjs";
 import { buildWorkSourceRegistry, WORK_SOURCE_CAPABILITIES } from "./workSourceProvider.mjs";
 import { LocalRepositoryWorkSource } from "./localRepositoryWorkSource.mjs";
+import { JiraMcpWorkSource } from "./jiraMcpWorkSource.mjs";
 import { parseYaml } from "./yaml.mjs";
 import { assertProjectContextConsistency } from "./projectContextValidation.mjs";
 
@@ -231,7 +232,7 @@ export function defaultWorkSourceRegistry({ planningRoot }) {
   const config = readValidatedWorkSourceConfig(planningRoot);
   const sources = normalizeWorkSourceConfig({ config, workspaceRoot });
   return buildWorkSourceRegistry({
-    providerFactories: [() => new LocalRepositoryWorkSource({ workspaceRoot })],
+    providerFactories: [() => new LocalRepositoryWorkSource({ workspaceRoot }), () => new JiraMcpWorkSource()],
     sources
   });
 }
