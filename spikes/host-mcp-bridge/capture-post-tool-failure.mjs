@@ -1,6 +1,23 @@
 #!/usr/bin/env node
 
+import path from "node:path";
 import { capturePostToolFailureEvent, BridgeError, BRIDGE_RESULT_CODES } from "./bridge-verified.mjs";
+
+function pluginDataDirectory(argv) {
+  const index = argv.indexOf("--plugin-data-dir");
+  const value = index >= 0 ? argv[index + 1] : null;
+  if (typeof value !== "string" || value.trim() === "" || value.startsWith("--")) {
+    throw new BridgeError(BRIDGE_RESULT_CODES.INVALID, "--plugin-data-dir requires a non-blank directory");
+  }
+  if (value.includes("${CLAUDE_PLUGIN_DATA}")) {
+    throw new BridgeError(BRIDGE_RESULT_CODES.INVALID, "--plugin-data-dir placeholder was not resolved");
+  }
+  const resolved = path.resolve(value.trim());
+  if (resolved.split(path.sep).includes(".planning")) {
+    throw new BridgeError(BRIDGE_RESULT_CODES.INVALID, "--plugin-data-dir must not point inside .planning");
+  }
+  return resolved;
+}
 
 let input = "";
 process.stdin.setEncoding("utf8");
@@ -9,8 +26,9 @@ process.stdin.on("data", (chunk) => {
 });
 process.stdin.on("end", () => {
   try {
+    const dataRoot = pluginDataDirectory(process.argv.slice(2));
     const rawEvent = input.trim() ? JSON.parse(input) : {};
-    const result = capturePostToolFailureEvent({ rawEvent });
+    const result = capturePostToolFailureEvent({ dataRoot, rawEvent });
     if (result.requestId) {
       process.stderr.write(`shipping-mode bridge ${result.status} ${result.requestId}\n`);
     }
