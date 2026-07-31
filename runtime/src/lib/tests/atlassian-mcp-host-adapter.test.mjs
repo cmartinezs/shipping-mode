@@ -19,6 +19,7 @@ const source = {
     }
   }
 };
+const env = { SHIPPING_MODE_ATLASSIAN_CLOUD_ID: "11111111-2222-4333-8444-555555555555" };
 
 function request(operation, params) {
   return buildWorkSourceTransportRequest({
@@ -35,32 +36,41 @@ function request(operation, params) {
 }
 
 const getRequest = request("get", { itemRef: "GRADE-142", requestedFieldIds: ["summary", "customfield_10101"], limit: 1 });
-const getAction = atlassianMcpActionForRequest({ request: getRequest, source });
+const getAction = atlassianMcpActionForRequest({ request: getRequest, source, env });
 assert.equal(getAction.server, "atlassian");
-assert.equal(getAction.toolName, "mcp__atlassian__jira_get_issue");
-assert.deepEqual(getAction.input, { issue_key: "GRADE-142", fields: ["customfield_10101", "summary"] });
+assert.equal(getAction.toolName, "mcp__atlassian__getJiraIssue");
+assert.equal(getAction.input.cloudId, env.SHIPPING_MODE_ATLASSIAN_CLOUD_ID);
+assert.equal(getAction.input.issueIdOrKey, "GRADE-142");
+assert.ok(getAction.input.fields.includes("customfield_10101"));
+assert.ok(getAction.input.fields.includes("issuelinks"));
+assert.equal(getAction.input.fields.includes("links"), false);
 
-const searchAction = atlassianMcpActionForRequest({ request: request("search", { projectKeys: ["GRADE"], queryText: "rubric review", limit: 10 }), source });
-assert.equal(searchAction.toolName, "mcp__atlassian__jira_search");
+const searchAction = atlassianMcpActionForRequest({ request: request("search", { projectKeys: ["GRADE"], queryText: "rubric review", limit: 10 }), source, env });
+assert.equal(searchAction.toolName, "mcp__atlassian__searchJiraIssuesUsingJql");
 assert.equal(searchAction.input.jql, 'project in ("GRADE") AND text ~ "rubric review" ORDER BY updated DESC');
-assert.equal(searchAction.input.limit, 10);
+assert.equal(searchAction.input.maxResults, 10);
 assert.ok(searchAction.input.fields.includes("customfield_10104"));
 
-const discoverAction = atlassianMcpActionForRequest({ request: request("discover", { projectKeys: ["GRADE"], limit: 5 }), source });
+const discoverAction = atlassianMcpActionForRequest({ request: request("discover", { projectKeys: ["GRADE"], limit: 5 }), source, env });
 assert.equal(discoverAction.input.jql, 'project in ("GRADE") ORDER BY updated DESC');
-assert.equal(discoverAction.input.limit, 5);
+assert.equal(discoverAction.input.maxResults, 5);
 
-assert.throws(() => atlassianMcpActionForRequest({ request: { ...getRequest, capability: "update" }, source }), /mutating|capability/i);
-assert.throws(() => atlassianMcpActionForRequest({ request: request("search", { projectKeys: ["GRADE"], queryText: "project = OTHER", limit: 10 }), source }), /JQL|query/i);
-assert.throws(() => atlassianMcpActionForRequest({ request: request("get", { itemRef: "GRADE-142", requestedFieldIds: ["customfield_99999"], limit: 1 }), source }), /field selector/i);
-assert.throws(() => atlassianMcpActionForRequest({ request: getRequest, source: { ...source, options: { ...source.options, access_token: "secret" } } }), /secret-like/i);
+assert.throws(() => atlassianMcpActionForRequest({ request: { ...getRequest, capability: "update" }, source, env }), /mutating|capability/i);
+assert.throws(() => atlassianMcpActionForRequest({ request: request("search", { projectKeys: ["GRADE"], queryText: "project = OTHER", limit: 10 }), source, env }), /JQL|query/i);
+assert.throws(() => atlassianMcpActionForRequest({ request: request("get", { itemRef: "OTHER-142", requestedFieldIds: ["summary"], limit: 1 }), source, env }), /not configured/i);
+assert.throws(() => atlassianMcpActionForRequest({ request: request("get", { itemRef: "GRADE-0 OR project=OTHER", requestedFieldIds: ["summary"], limit: 1 }), source, env }), /exact Jira issue key/i);
+assert.throws(() => atlassianMcpActionForRequest({ request: request("get", { itemRef: "GRADE-142", requestedFieldIds: ["customfield_99999"], limit: 1 }), source, env }), /field selector/i);
+assert.throws(() => atlassianMcpActionForRequest({ request: getRequest, source: { ...source, options: { ...source.options, access_token: "secret" } }, env }), /secret-like/i);
+assert.throws(() => atlassianMcpActionForRequest({ request: getRequest, source, env: {} }), /cloudId/i);
 
 const rawIssue = {
+  expand: "renderedFields,names,schema",
+  id: "10042",
   key: "GRADE-142",
-  self: "https://example.atlassian.net/rest/api/3/issue/10042",
+  self: "https://api.atlassian.com/ex/jira/111/rest/api/3/issue/10042",
   fields: {
     summary: "Import assessment brief",
-    description: "Import an assessment brief from Jira.",
+    description: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Import an assessment brief from Jira." }] }] },
     issuetype: { name: "Story" },
     status: { name: "To Do" },
     priority: { name: "High" },
@@ -69,7 +79,7 @@ const rawIssue = {
     customfield_10101: "teacher",
     customfield_10102: "assessment brief",
     customfield_10103: "consistent grading",
-    customfield_10104: ["The brief imports"]
+    customfield_10104: [{ type: "paragraph", content: [{ type: "text", text: "The brief imports" }] }]
   }
 };
 const normalized = normalizeAtlassianMcpResponse({ request: getRequest, action: getAction, rawResponse: rawIssue, source, observedAt: "2026-07-30T12:01:00.000Z" });
@@ -77,10 +87,19 @@ assert.equal(normalized.status, "OK");
 assert.equal(normalized.item.externalId, "GRADE-142");
 assert.equal(normalized.item.issueType, "Story");
 assert.equal(normalized.item.fields.customfield_10101, "teacher");
+assert.deepEqual(normalized.item.fields.customfield_10104, ["The brief imports"]);
 assert.match(normalized.responseFingerprint, /^sha256:[0-9a-f]{64}$/);
 
+const searchRequest = request("search", { projectKeys: ["GRADE"], queryText: "assessment", limit: 10 });
+const currentSearchResponse = { issues: { totalCount: 1, nodes: [rawIssue], webUrl: "https://example.atlassian.net/issues" } };
+const normalizedSearch = normalizeAtlassianMcpResponse({ request: searchRequest, action: atlassianMcpActionForRequest({ request: searchRequest, source, env }), rawResponse: currentSearchResponse, source });
+assert.equal(normalizedSearch.status, "OK");
+assert.equal(normalizedSearch.items.length, 1);
+
+const wrapped = { content: [{ type: "text", text: JSON.stringify(rawIssue) }], isError: false };
+assert.equal(normalizeAtlassianMcpResponse({ request: getRequest, action: getAction, rawResponse: wrapped, source }).item.externalId, "GRADE-142");
 assert.throws(() => normalizeAtlassianMcpResponse({ request: getRequest, action: getAction, rawResponse: { data: rawIssue }, source }), /wrapper|unsupported/i);
-assert.throws(() => normalizeAtlassianMcpResponse({ request: getRequest, action: getAction, rawResponse: { ...rawIssue, truncated: true }, source }), /truncated/i);
+assert.throws(() => normalizeAtlassianMcpResponse({ request: getRequest, action: getAction, rawResponse: { ...rawIssue, truncated: true }, source }), /truncated|unsupported/i);
 assert.throws(() => normalizeAtlassianMcpResponse({ request: getRequest, action: getAction, rawResponse: { ...rawIssue, fields: { ...rawIssue.fields, description: "x".repeat(300 * 1024) } }, source }), /byte/i);
 
-console.log("atlassian-mcp-host-adapter: closed host mapping and normalization pass");
+console.log("atlassian-mcp-host-adapter: current Atlassian Rovo MCP mapping and normalization pass");
