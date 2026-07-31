@@ -65,6 +65,31 @@ assert.equal(validate("release-item", item("user_story", { sourceRefs: [{ ...loc
 assert.equal(validate("release-item", item("user_story", { sourceRefs: [{ ...externalRef, itemId: "local-style-id" }] })).valid, false, "external sourceRefs cannot mix local item identity");
 assert.equal(validate("release-item", item("user_story", { status: "DONE", resolution: { type: "CANCELLED", reason: "wrong", approvedBy: "carlos", approvedAt: "2026-07-29T00:00:00.000Z", riskAccepted: false, replacementId: null, operationId: generateUuidV7(), provenance: { source: "manual", revision: "1" } } })).valid, false, "resolution type must match terminal status");
 assert.equal(validate("release-item", item("user_story", { status: "SUPERSEDED", resolution: { type: "SUPERSEDED", reason: "replaced", approvedBy: "carlos", approvedAt: "2026-07-29T00:00:00.000Z", riskAccepted: false, replacementId: null, operationId: generateUuidV7(), provenance: { source: "manual", revision: "1" } } })).valid, false, "SUPERSEDED requires a replacement ID");
+assert.equal(validate("release-item", item("user_story")).valid, true, "legacy Release Items without sourceSync remain valid");
+const sourceSync = {
+  schemaVersion: 1,
+  baselines: [{
+    baselineId: generateUuidV7(),
+    sourceRefIdentityHash: `sha256:${"b".repeat(64)}`,
+    role: "primary",
+    sourceId: "jira-main",
+    provider: "jira",
+    locator: { externalId: "ABC-1" },
+    sourceRevision: "100",
+    mappingVersion: 1,
+    mappingProfile: "jira-main-v1",
+    configHash: `sha256:${"c".repeat(64)}`,
+    managedFields: ["/kind", "/title", "/description", "/actor", "/need", "/value", "/acceptanceCriteria"],
+    managedSnapshot: { kind: "user_story", title: "user_story title", description: null, actor: "teacher", need: "track work", value: "predictability", acceptanceCriteria: ["status is visible"] },
+    managedSnapshotHash: `sha256:${"d".repeat(64)}`,
+    aggregateRevisionAtSync: `sha256:${"e".repeat(64)}`,
+    syncedAt: "2026-07-30T00:00:00.000Z",
+    syncedBy: "carlos"
+  }]
+};
+assert.equal(validate("release-item", item("user_story", { sourceRefs: [externalRef], sourceSync })).valid, true, "sourceSync baseline is optional, closed and schema-valid");
+assert.equal(validate("release-item", item("user_story", { sourceRefs: [externalRef], sourceSync: { ...sourceSync, rawJiraPayload: {} } })).valid, false, "sourceSync rejects raw provider payload");
+assert.equal(validate("release-item", item("user_story", { sourceRefs: [externalRef], sourceSync: { schemaVersion: 1, baselines: [{ ...sourceSync.baselines[0], syncedAt: undefined }] } })).valid, false, "sourceSync baselines require syncedAt");
 const sourceRequest = { kind: "spike", title: "Source", question: "Q", timebox: "1d", expectedDecision: "D", sourceRefs: [localRef], idempotencyKey: "source" };
 assert.throws(() => normalizeReleaseItemCreateRequest(sourceRequest, { actor: "carlos", defaultIdempotencyKey: "default", releaseId }), /server-owned: sourceRefs/, "manual Release Item creation cannot forge source provenance");
 
