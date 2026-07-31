@@ -1054,7 +1054,7 @@ Corte 5:
 Bloqueo actual:
 
 ```text
-P4-0 — productive host-to-MCP transport bridge is unproven
+PRODUCTIVE JIRA HOST PATH: PENDING
 ```
 
 ## 27. Implementacion de cierre
@@ -1077,3 +1077,44 @@ La diferencia material respecto del texto inicial del plan es que el runtime
 legacy conserva `workSourceConfigHash` sin prefijo para no romper Plan 3; los
 transport requests y sourceSync lo expresan como `sha256:<hash>`. El binding
 entre ambos valores se valida en el adapter, el mapping y el baseline.
+
+## 28. Host orchestration productivo
+
+La implementacion posterior al review de PR #29 agrega una capa host-side
+explicita, separada del core provider-neutral:
+
+- `AtlassianMcpHostAdapter` convierte requests canonicos Jira MCP a acciones
+  read-only allowlisted (`jira_get_issue` y `jira_search`) y normaliza la
+  respuesta Atlassian a `WorkSourceTransportResponse`.
+- `HostWorkSourceInvocation` implementa PREPARE/MCP/RESUME con invocaciones
+  HMAC-signed bajo `CLAUDE_PLUGIN_DATA/work-source-host-invocations/`.
+- `scripts/work-source-host-runner.mjs` es el entrypoint interno para skills
+  instaladas.
+- `skills/item` y `skills/check` distinguen provider local del provider Jira
+  externo y documentan PREPARE -> MCP -> RESUME.
+
+Invariantes preservadas:
+
+- los hooks de captura siguen exclusivamente en `hooks/hooks.json`;
+- el core no conoce herramientas `mcp__atlassian__*`, prompts Claude Code,
+  hook payloads, `CLAUDE_PLUGIN_DATA` ni `bridge.key`;
+- el bridge challenge usa el mismo `requestId` que el
+  `WorkSourceTransportRequest`;
+- `item import`, `item refresh` y `check source-drift` reanudan `dispatch` con un
+  transport en memoria;
+- el standalone CLI sigue fail-closed para Jira sin runtimeContext host;
+- no se aceptan flags para raw response, envelope file, transport response ni
+  JSON confiado por caller.
+
+Estado:
+
+```text
+PRODUCTIVE JIRA HOST PATH: PENDING
+CORTE 3 PLAN 4: IMPLEMENTED CORE + HOST ORCHESTRATION — PENDING REAL JIRA EVIDENCE
+CORTE 3: IN PROGRESS
+```
+
+La evidencia automatizada cubre adapter, lifecycle, replay rejection, skill
+placement, hook placement, provider local sin regresion y bridge P4-0. Falta el
+smoke real desde plugin instalado contra Atlassian MCP con autorizacion normal
+del usuario; hasta entonces no se marca `PASSED`.

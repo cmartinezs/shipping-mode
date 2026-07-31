@@ -1,6 +1,6 @@
 # Approved Work Source Transport Bridge
 
-Status: accepted primitive; productive Jira orchestration pending
+Status: accepted primitive; productive Jira host path automated; manual Jira evidence pending
 
 Plan 4 reuses the P4-0 bridge result as the only approved host-owned transport
 primitive for external Work Sources.
@@ -9,6 +9,13 @@ Runtime code derived from P4-0 is limited to:
 
 - `runtime/src/lib/hostWorkSourceTransport.mjs`
 - `runtime/src/lib/workSourceTransportPort.mjs`
+
+Plan 4 host orchestration code that is allowed to know about installed-plugin
+host details is limited to:
+
+- `runtime/src/lib/atlassianMcpHostAdapter.mjs`
+- `runtime/src/lib/hostWorkSourceInvocation.mjs`
+- `scripts/work-source-host-runner.mjs`
 
 The spike implementation under `spikes/host-mcp-bridge/**` remains the host
 capture and consume primitive. Plan 4 does not copy the whole spike into the
@@ -47,3 +54,32 @@ not a successful real Jira round trip. Therefore this ADR accepts the transport
 primitive and adapter shape, but does not authorize declaring Jira productive or
 Corte 3 complete until the missing orchestration is implemented and demonstrated
 from an installed plugin.
+
+## Productive host path update
+
+Automated implementation now adds the missing PREPARE/MCP/RESUME host layer:
+
+```text
+Shipping Mode command
+  -> collecting runtimeContext records canonical WorkSourceTransportRequest
+  -> AtlassianMcpHostAdapter maps to allowlisted read-only MCP action
+  -> bridge challenge uses the same requestId
+  -> plugin-level hook captures signed envelope
+  -> HostWorkSourceInvocation consumes once and normalizes response
+  -> dispatch resumes with an in-memory WorkSourceTransport
+```
+
+The runtime core still only sees `WorkSourceTransportRequest`,
+`WorkSourceTransportResponse` and `WorkSourceTransportPort`. Atlassian tool
+names, Claude Code session binding, plugin data paths, hook placement and bridge
+keys remain host-side.
+
+Current status:
+
+```text
+PRODUCTIVE JIRA HOST PATH: PENDING
+CORTE 3: IN PROGRESS
+```
+
+The remaining gate is a real installed-plugin Atlassian MCP smoke. Unit and host
+bridge tests are not sufficient to mark the Jira path passed.
