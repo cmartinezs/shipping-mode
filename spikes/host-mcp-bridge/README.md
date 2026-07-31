@@ -18,20 +18,22 @@ ${CLAUDE_PLUGIN_DATA}/work-source-bridge/
 
 It must not be stored under `.planning/**`.
 
-Production-style commands require both `CLAUDE_PLUGIN_DATA` and
-`CLAUDE_CODE_SESSION_ID`. The session ID is hashed into the pending challenge;
+Production-style commands require both the explicit installed-plugin data path
+and `CLAUDE_CODE_SESSION_ID`. The session ID is hashed into the pending challenge;
 a hook event or consume command from another Claude Code session is rejected.
 
 ## Commands
 
 Run these from the temporary plugin skill. Installed-plugin paths use
 `${CLAUDE_PLUGIN_ROOT}` rather than assuming the target project is the plugin
-source checkout.
+source checkout. The persistent directory is passed explicitly because arbitrary
+Bash calls do not reliably inherit `CLAUDE_PLUGIN_DATA` in the tested host.
 
 Prepare a challenge:
 
 ```bash
 node "${CLAUDE_PLUGIN_ROOT}/spikes/host-mcp-bridge/bridge-cli.mjs" prepare \
+  --plugin-data-dir "${CLAUDE_PLUGIN_DATA}" \
   --operation get \
   --server <mcp-server> \
   --tool <mcp-tool-or-full-tool-name> \
@@ -43,6 +45,7 @@ Consume once, in the same Claude Code session:
 
 ```bash
 node "${CLAUDE_PLUGIN_ROOT}/spikes/host-mcp-bridge/bridge-cli.mjs" consume \
+  --plugin-data-dir "${CLAUDE_PLUGIN_DATA}" \
   --request-id <request-id> \
   --project-root "${CLAUDE_PROJECT_DIR}"
 ```
@@ -50,7 +53,8 @@ node "${CLAUDE_PLUGIN_ROOT}/spikes/host-mcp-bridge/bridge-cli.mjs" consume \
 Cleanup expired challenges:
 
 ```bash
-node "${CLAUDE_PLUGIN_ROOT}/spikes/host-mcp-bridge/bridge-cli.mjs" cleanup-expired
+node "${CLAUDE_PLUGIN_ROOT}/spikes/host-mcp-bridge/bridge-cli.mjs" cleanup-expired \
+  --plugin-data-dir "${CLAUDE_PLUGIN_DATA}"
 ```
 
 `--data-root` is test-only and requires `BRIDGE_SPIKE_ALLOW_DATA_ROOT=1`.
@@ -58,12 +62,22 @@ node "${CLAUDE_PLUGIN_ROOT}/spikes/host-mcp-bridge/bridge-cli.mjs" cleanup-expir
 
 ## Hook Model
 
-The skill defines scoped hooks for:
+The capture handlers are plugin-level hooks in `hooks/hooks.json`, not hooks in
+the skill frontmatter. Claude Code 2.1.220 rejected `${CLAUDE_PLUGIN_DATA}` in a
+skill-scoped hook command as plugin-only, while plugin hooks support the plugin
+persistent data placeholder.
+
+The plugin hooks provide:
 
 - `PostToolUse`: publishes one immutable signed `CAPTURED` envelope;
 - `PostToolUseFailure`: records a bounded `BRIDGE_UNAVAILABLE`,
   `BRIDGE_TIMEOUT` or `BRIDGE_CANCELLED` finding without persisting the raw
   provider error.
+
+They match MCP events while the plugin is enabled, but persistence remains scoped
+by the pending challenge. Without an exact pending match on session, project,
+tool and input, the handlers return unavailable and do not capture the unrelated
+MCP result.
 
 The skill does not pre-approve `mcp__*`. The chosen read-only MCP call must pass
 through the normal Claude Code permission flow.
