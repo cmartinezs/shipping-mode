@@ -1,6 +1,7 @@
 import { listReleaseItemRecords } from "./releaseItemStore.mjs";
 import { defaultWorkSourceRegistry, MANAGED_FIELDS_BY_KIND, managedSnapshotFromReleaseSnapshot, workSourceConfigHash } from "./workSourceImport.mjs";
 import { evaluateManagedFieldDrift } from "./workSourceDrift.mjs";
+import { sourceSyncAggregateRevision } from "./sourceSyncRevision.mjs";
 
 function primaryRefs(item) {
   return (item.sourceRefs || []).filter((ref) => ref.role === "primary");
@@ -8,6 +9,16 @@ function primaryRefs(item) {
 
 function itemRef(ref) {
   return ref.provider === "local_repository" ? (ref.path || ref.itemId) : (ref.externalId || ref.itemId);
+}
+
+function mappedReleaseSnapshot(normalizedItem) {
+  return {
+    kind: normalizedItem.type,
+    title: normalizedItem.title,
+    description: normalizedItem.description?.text ?? null,
+    acceptanceCriteria: (normalizedItem.acceptanceCriteria || []).map((entry) => typeof entry === "string" ? entry : entry.text),
+    ...normalizedItem.fields
+  };
 }
 
 export function querySourceDrift({ planningRoot, releaseId = null, runtimeContext = null }) {
@@ -39,12 +50,11 @@ export function querySourceDrift({ planningRoot, releaseId = null, runtimeContex
         result = evaluateManagedFieldDrift({ sourceStatus: fetched.status === "NOT_FOUND" ? "NOT_FOUND" : "UNAVAILABLE" });
       } else {
         const fields = MANAGED_FIELDS_BY_KIND[item.kind];
-        const remote = { kind: fetched.item.type, title: fetched.item.title, description: fetched.item.description?.text ?? null, ...fetched.item.fields };
         result = evaluateManagedFieldDrift({
           baseline: item.sourceSync?.baselines?.find((entry) => entry.role === "primary") || null,
-          remoteManagedSnapshot: managedSnapshotFromReleaseSnapshot(remote, fields),
+          remoteManagedSnapshot: managedSnapshotFromReleaseSnapshot(mappedReleaseSnapshot(fetched.item), fields),
           localManagedSnapshot: managedSnapshotFromReleaseSnapshot(item, fields),
-          aggregateRevision: item.audit.revision,
+          aggregateRevision: sourceSyncAggregateRevision(item),
           activeMappingProfile: source.mappingProfile || `${source.provider}-v${source.mappingVersion}`,
           activeConfigHash: `sha256:${workSourceConfigHash(source)}`
         });
