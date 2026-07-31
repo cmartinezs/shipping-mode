@@ -40898,7 +40898,7 @@ function proposeWorkSourceRefresh({ planningRoot, releaseRef, itemRef: itemRef2,
   return { status: readOperation(operationsRoot, operationId).status, operationId, releaseId: prepared.payload.releaseId, itemId: prepared.payload.itemId, drift: prepared.drift, idempotent: operationId !== candidate };
 }
 function renderWorkSourceRefresh(payload, { planningRoot, runtimeContext = null }) {
-  let prepared = prepareWorkSourceRefresh({ planningRoot, releaseRef: payload.releaseId, itemRef: payload.itemId, actor: payload.actor, operationId: payload.operationId, idempotencyKey: payload.idempotencyKey, runtimeContext });
+  let prepared = prepareWorkSourceRefresh({ planningRoot, releaseRef: payload.releaseId, itemRef: payload.itemId, actor: payload.actor, operationId: payload.operationId, idempotencyKey: payload.idempotencyKey, runtimeContext, now: payload.proposedAt });
   if (prepared.status !== "PROPOSED" || prepared.payload.idempotencyRequestHash !== payload.idempotencyRequestHash) {
     let error2 = new Error("SOURCE_STALE: refresh request no longer matches current source or local item");
     throw error2.code = "STALE", error2;

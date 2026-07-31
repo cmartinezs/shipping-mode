@@ -115,7 +115,7 @@ export function proposeWorkSourceRefresh({ planningRoot, releaseRef, itemRef, ac
 }
 
 export function renderWorkSourceRefresh(payload, { planningRoot, runtimeContext = null }) {
-  const prepared = prepareWorkSourceRefresh({ planningRoot, releaseRef: payload.releaseId, itemRef: payload.itemId, actor: payload.actor, operationId: payload.operationId, idempotencyKey: payload.idempotencyKey, runtimeContext });
+  const prepared = prepareWorkSourceRefresh({ planningRoot, releaseRef: payload.releaseId, itemRef: payload.itemId, actor: payload.actor, operationId: payload.operationId, idempotencyKey: payload.idempotencyKey, runtimeContext, now: payload.proposedAt });
   if (prepared.status !== "PROPOSED" || prepared.payload.idempotencyRequestHash !== payload.idempotencyRequestHash) {
     const error = new Error("SOURCE_STALE: refresh request no longer matches current source or local item");
     error.code = "STALE";
