@@ -50,8 +50,7 @@ export class JiraMcpWorkSource {
 
   #execute({ source, operation, params }) {
     if (!this.transport || typeof this.transport.execute !== "function") return unavailable();
-    const request = buildWorkSourceTransportRequest({
-      ...(this.transport.requestId ? { requestId: this.transport.requestId } : {}),
+    const requestInput = {
       provider: "jira",
       transport: "mcp",
       connectionRef: source.connectionRef,
@@ -61,6 +60,13 @@ export class JiraMcpWorkSource {
       mappingVersion: source.mappingVersion,
       configHash: `sha256:${workSourceConfigHash(source)}`,
       params
+    };
+    const reservedRequestId = typeof this.transport.reserveRequestId === "function"
+      ? this.transport.reserveRequestId(requestInput)
+      : this.transport.requestId;
+    const request = buildWorkSourceTransportRequest({
+      ...(reservedRequestId ? { requestId: reservedRequestId } : {}),
+      ...requestInput
     });
     try {
       return this.transport.execute(request);

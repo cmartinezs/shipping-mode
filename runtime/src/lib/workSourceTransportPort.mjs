@@ -76,6 +76,11 @@ function normalizeStringArray(value, field) {
 }
 
 export function buildWorkSourceTransportRequest(input) {
+  const normalized = normalizeWorkSourceTransportRequestInput(input);
+  return { ...normalized, requestHash: `sha256:${revisionHash(normalized)}` };
+}
+
+export function normalizeWorkSourceTransportRequestInput(input) {
   const provider = requireString(input.provider, "provider");
   if (!PROVIDERS.has(provider)) throw new Error(`provider is unsupported: ${provider}`);
   const transport = requireString(input.transport, "transport");
@@ -100,7 +105,13 @@ export function buildWorkSourceTransportRequest(input) {
   if (!isUuidV7(request.requestId)) throw new Error("requestId must be UUIDv7");
   if (!Number.isInteger(request.mappingVersion) || request.mappingVersion < 1) throw new Error("mappingVersion must be a positive integer");
   assertHash(request.configHash, "configHash");
-  return { ...request, requestHash: `sha256:${revisionHash(request)}` };
+  return request;
+}
+
+export function workSourceTransportRequestBinding(input) {
+  const normalized = normalizeWorkSourceTransportRequestInput({ ...input, requestId: input.requestId || generateUuidV7() });
+  const { requestId, ...withoutRequestId } = normalized;
+  return `sha256:${revisionHash(withoutRequestId)}`;
 }
 
 export function transportResponseFingerprint(response) {

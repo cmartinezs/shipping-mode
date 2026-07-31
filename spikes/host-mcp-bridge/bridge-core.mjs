@@ -288,6 +288,7 @@ export function normalizeRequestInput(input) {
 export function prepareBridgeRequest({
   dataRoot,
   env = process.env,
+  requestId = null,
   operation,
   server,
   tool,
@@ -301,13 +302,14 @@ export function prepareBridgeRequest({
   ensureBridgeDirectories(root);
   ensureBridgeKey(root);
   const normalizedInput = normalizeRequestInput(expectedInput);
-  const requestId = generateUuidV7(now);
+  const preparedRequestId = requestId || generateUuidV7(now);
+  if (!isUuidV7(preparedRequestId)) throw new BridgeError(BRIDGE_RESULT_CODES.INVALID, "requestId must be UUIDv7");
   const nonce = crypto.randomBytes(32).toString("base64url");
   const createdAt = now.toISOString();
   const expiresAt = new Date(now.getTime() + ttlMs).toISOString();
   const request = {
     schemaVersion: BRIDGE_SCHEMA_VERSION,
-    requestId,
+    requestId: preparedRequestId,
     nonce,
     nonceHash: hashString(nonce),
     createdAt,
@@ -324,10 +326,10 @@ export function prepareBridgeRequest({
     capture: null,
     recoveryRequired: false
   };
-  writeJsonAtomic(root, pathsFor(root, requestId).request, request, { noOverwrite: true });
+  writeJsonAtomic(root, pathsFor(root, preparedRequestId).request, request, { noOverwrite: true });
   return {
     status: "BRIDGE_PREPARED",
-    requestId,
+    requestId: preparedRequestId,
     expiresAt,
     operation: request.operation,
     server: request.expectedServer,

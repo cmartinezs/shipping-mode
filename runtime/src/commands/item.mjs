@@ -85,7 +85,7 @@ export function runItemCreate({ planningRoot, releaseRef, args }) {
   });
 }
 
-export function proposeWorkSourceImport({ planningRoot, releaseRef, rawPayload, actor, itemId = null }) {
+export function proposeWorkSourceImport({ planningRoot, releaseRef, rawPayload, actor, itemId = null, runtimeContext = null }) {
   const operationsRoot = path.join(planningRoot, "operations");
   const candidateOperationId = generateUuidV7();
   const proposedAt = new Date().toISOString();
@@ -101,7 +101,8 @@ export function proposeWorkSourceImport({ planningRoot, releaseRef, rawPayload, 
     releaseRef,
     itemId,
     expectedReleaseId: canonicalReleaseId,
-    skipDuplicatePrimaryCheck: true
+    skipDuplicatePrimaryCheck: true,
+    runtimeContext
   });
   const persistedOperationId = propose({
     operationsRoot,
@@ -123,7 +124,9 @@ export function proposeWorkSourceImport({ planningRoot, releaseRef, rawPayload, 
       releaseRef,
       importRequest: preparedForIdempotency.normalized,
       itemId,
-      expectedReleaseId: canonicalReleaseId
+      expectedReleaseId: canonicalReleaseId,
+      runtimeContext,
+      ...(runtimeContext?.workSourceTransport ? { resolvedSourceItem: preparedForIdempotency.payload.normalizedItem } : {})
     })
   });
   const persistedChangeSet = readChangeSet(operationsRoot, persistedOperationId);
@@ -138,7 +141,7 @@ export function proposeWorkSourceImport({ planningRoot, releaseRef, rawPayload, 
   };
 }
 
-export function runItemImport({ planningRoot, releaseRef, args }) {
+export function runItemImport({ planningRoot, releaseRef, args, runtimeContext = null }) {
   parseSourceRef(args.sourceRef);
   return proposeWorkSourceImport({
     planningRoot,
@@ -147,7 +150,8 @@ export function runItemImport({ planningRoot, releaseRef, args }) {
       sourceRef: args.sourceRef,
       ...(args.idempotencyKey ? { idempotencyKey: args.idempotencyKey } : {})
     },
-    actor: args.commandActor
+    actor: args.commandActor,
+    runtimeContext
   });
 }
 

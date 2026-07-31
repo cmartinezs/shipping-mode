@@ -464,7 +464,9 @@ export function prepareWorkSourceImport(rawPayload, {
   importRequest = null,
   itemId = null,
   expectedReleaseId = null,
-  skipDuplicatePrimaryCheck = false
+  skipDuplicatePrimaryCheck = false,
+  runtimeContext = null,
+  resolvedSourceItem = null
 }) {
   const resolution = resolveReleaseReference(planningRoot, releaseRef);
   if (resolution.status !== "FOUND") throw new Error(`release reference failed: ${resolution.status}: ${resolution.findings.join("; ")}`);
@@ -475,13 +477,17 @@ export function prepareWorkSourceImport(rawPayload, {
     throw error;
   }
   assertReleaseParentCanAcceptItem(release);
-  const registry = defaultWorkSourceRegistry({ planningRoot });
+  const registry = defaultWorkSourceRegistry({ planningRoot, runtimeContext });
   const sourceRef = parseSourceRef(rawPayload.sourceRef || rawPayload.source);
   const source = registry.getSource(sourceRef.sourceId);
-  const provider = registry.resolve(source.id, "get");
-  const fetched = provider.get({ source, itemRef: sourceRef.itemRef });
-  if (fetched.status !== "FOUND") throw new Error(`${fetched.status}: ${fetched.findings.map((finding) => `${finding.code}: ${finding.message}`).join("; ")}`);
-  const normalizedItem = fetched.item;
+  const normalizedItem = resolvedSourceItem
+    ? structuredClone(resolvedSourceItem)
+    : (() => {
+        const provider = registry.resolve(source.id, "get");
+        const fetched = provider.get({ source, itemRef: sourceRef.itemRef });
+        if (fetched.status !== "FOUND") throw new Error(`${fetched.status}: ${fetched.findings.map((finding) => `${finding.code}: ${finding.message}`).join("; ")}`);
+        return fetched.item;
+      })();
   const normalizedCheck = validateNormalizedWorkSourceItem(normalizedItem);
   if (!normalizedCheck.valid) throw new Error(`NormalizedWorkSourceItem invalid: ${normalizedCheck.errors.join("; ")}`);
   const sourceRevision = normalizedItem.revision.contentRevision || normalizedItem.revision.externalRevision || normalizedItem.revision.fingerprint;
