@@ -38011,6 +38011,10 @@ function normalizeStringArray2(value, field) {
   return values;
 }
 function buildWorkSourceTransportRequest(input) {
+  let normalized = normalizeWorkSourceTransportRequestInput(input);
+  return { ...normalized, requestHash: `sha256:${revisionHash(normalized)}` };
+}
+function normalizeWorkSourceTransportRequestInput(input) {
   let provider = requireString5(input.provider, "provider");
   if (!PROVIDERS.has(provider)) throw new Error(`provider is unsupported: ${provider}`);
   let transport = requireString5(input.transport, "transport");
@@ -38034,7 +38038,7 @@ function buildWorkSourceTransportRequest(input) {
   };
   if (!isUuidV7(request.requestId)) throw new Error("requestId must be UUIDv7");
   if (!Number.isInteger(request.mappingVersion) || request.mappingVersion < 1) throw new Error("mappingVersion must be a positive integer");
-  return assertHash(request.configHash, "configHash"), { ...request, requestHash: `sha256:${revisionHash(request)}` };
+  return assertHash(request.configHash, "configHash"), request;
 }
 function transportResponseFingerprint(response) {
   let { responseFingerprint, ...withoutFingerprint } = response || {};
@@ -38220,8 +38224,7 @@ var JiraMcpWorkSource = class {
   }
   #execute({ source, operation, params }) {
     if (!this.transport || typeof this.transport.execute != "function") return unavailable();
-    let request = buildWorkSourceTransportRequest({
-      ...this.transport.requestId ? { requestId: this.transport.requestId } : {},
+    let requestInput = {
       provider: "jira",
       transport: "mcp",
       connectionRef: source.connectionRef,
@@ -38231,6 +38234,9 @@ var JiraMcpWorkSource = class {
       mappingVersion: source.mappingVersion,
       configHash: `sha256:${workSourceConfigHash(source)}`,
       params
+    }, reservedRequestId = typeof this.transport.reserveRequestId == "function" ? this.transport.reserveRequestId(requestInput) : this.transport.requestId, request = buildWorkSourceTransportRequest({
+      ...reservedRequestId ? { requestId: reservedRequestId } : {},
+      ...requestInput
     });
     try {
       return this.transport.execute(request);
@@ -39107,7 +39113,9 @@ function prepareWorkSourceImport(rawPayload, {
   importRequest = null,
   itemId = null,
   expectedReleaseId = null,
-  skipDuplicatePrimaryCheck = !1
+  skipDuplicatePrimaryCheck = !1,
+  runtimeContext = null,
+  resolvedSourceItem = null
 }) {
   let resolution = resolveReleaseReference(planningRoot, releaseRef);
   if (resolution.status !== "FOUND") throw new Error(`release reference failed: ${resolution.status}: ${resolution.findings.join("; ")}`);
@@ -39117,9 +39125,11 @@ function prepareWorkSourceImport(rawPayload, {
     throw error2.code = "STALE", error2;
   }
   assertReleaseParentCanAcceptItem(release);
-  let registry = defaultWorkSourceRegistry({ planningRoot }), sourceRef = parseSourceRef(rawPayload.sourceRef || rawPayload.source), source = registry.getSource(sourceRef.sourceId), fetched = registry.resolve(source.id, "get").get({ source, itemRef: sourceRef.itemRef });
-  if (fetched.status !== "FOUND") throw new Error(`${fetched.status}: ${fetched.findings.map((finding7) => `${finding7.code}: ${finding7.message}`).join("; ")}`);
-  let normalizedItem = fetched.item, normalizedCheck = validateNormalizedWorkSourceItem(normalizedItem);
+  let registry = defaultWorkSourceRegistry({ planningRoot, runtimeContext }), sourceRef = parseSourceRef(rawPayload.sourceRef || rawPayload.source), source = registry.getSource(sourceRef.sourceId), normalizedItem = resolvedSourceItem ? structuredClone(resolvedSourceItem) : (() => {
+    let fetched = registry.resolve(source.id, "get").get({ source, itemRef: sourceRef.itemRef });
+    if (fetched.status !== "FOUND") throw new Error(`${fetched.status}: ${fetched.findings.map((finding7) => `${finding7.code}: ${finding7.message}`).join("; ")}`);
+    return fetched.item;
+  })(), normalizedCheck = validateNormalizedWorkSourceItem(normalizedItem);
   if (!normalizedCheck.valid) throw new Error(`NormalizedWorkSourceItem invalid: ${normalizedCheck.errors.join("; ")}`);
   let sourceRevision = normalizedItem.revision.contentRevision || normalizedItem.revision.externalRevision || normalizedItem.revision.fingerprint;
   if (!sourceRevision) throw new Error("NormalizedWorkSourceItem requires a revision");
@@ -41046,7 +41056,7 @@ function runItemCreate({ planningRoot, releaseRef, args }) {
     actor: args.commandActor
   });
 }
-function proposeWorkSourceImport({ planningRoot, releaseRef, rawPayload, actor, itemId = null }) {
+function proposeWorkSourceImport({ planningRoot, releaseRef, rawPayload, actor, itemId = null, runtimeContext = null }) {
   let operationsRoot = path29.join(planningRoot, "operations"), candidateOperationId = generateUuidV7(), proposedAt = (/* @__PURE__ */ new Date()).toISOString(), releaseResolution = resolveReleaseReference(planningRoot, releaseRef);
   if (releaseResolution.status !== "FOUND") throw new Error(`release reference failed: ${releaseResolution.status}: ${releaseResolution.findings.join("; ")}`);
   let canonicalReleaseId = releaseResolution.release.id, preparedForIdempotency = prepareWorkSourceImport(rawPayload, {
@@ -41058,7 +41068,8 @@ function proposeWorkSourceImport({ planningRoot, releaseRef, rawPayload, actor, 
     releaseRef,
     itemId,
     expectedReleaseId: canonicalReleaseId,
-    skipDuplicatePrimaryCheck: !0
+    skipDuplicatePrimaryCheck: !0,
+    runtimeContext
   }), persistedOperationId = propose({
     operationsRoot,
     planningRoot,
@@ -41079,7 +41090,9 @@ function proposeWorkSourceImport({ planningRoot, releaseRef, rawPayload, actor, 
       releaseRef,
       importRequest: preparedForIdempotency.normalized,
       itemId,
-      expectedReleaseId: canonicalReleaseId
+      expectedReleaseId: canonicalReleaseId,
+      runtimeContext,
+      ...runtimeContext?.workSourceTransport ? { resolvedSourceItem: preparedForIdempotency.payload.normalizedItem } : {}
     })
   }), persistedChangeSet = readChangeSet(operationsRoot, persistedOperationId), operation = readOperation(operationsRoot, persistedOperationId);
   return {
@@ -41091,7 +41104,7 @@ function proposeWorkSourceImport({ planningRoot, releaseRef, rawPayload, actor, 
     idempotent: persistedOperationId !== candidateOperationId
   };
 }
-function runItemImport({ planningRoot, releaseRef, args }) {
+function runItemImport({ planningRoot, releaseRef, args, runtimeContext = null }) {
   return parseSourceRef(args.sourceRef), proposeWorkSourceImport({
     planningRoot,
     releaseRef,
@@ -41099,7 +41112,8 @@ function runItemImport({ planningRoot, releaseRef, args }) {
       sourceRef: args.sourceRef,
       ...args.idempotencyKey ? { idempotencyKey: args.idempotencyKey } : {}
     },
-    actor: args.commandActor
+    actor: args.commandActor,
+    runtimeContext
   });
 }
 function runItemRefresh({ planningRoot, releaseRef, itemRef: itemRef2, args, runtimeContext = null }) {
@@ -42832,7 +42846,8 @@ function dispatch(command, args, cwd, runtimeContext = null) {
           sourceRef: options.source,
           idempotencyKey: options.idempotency_key,
           commandActor: options.actor
-        }
+        },
+        runtimeContext
       });
     }
     if (stage === "refresh") {
