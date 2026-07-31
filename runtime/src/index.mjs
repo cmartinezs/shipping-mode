@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { runInit, runConfigSet, runConfigScopeAdd } from "./commands/init.mjs";
 import { runChangesetPropose, runChangesetValidate, runChangesetApprove, runChangesetApply } from "./commands/changesetCommand.mjs";
-import { checkSchema, checkRelease, checkWorkSources } from "./commands/check.mjs";
+import { checkSchema, checkRelease, checkWorkSources, checkSourceDrift } from "./commands/check.mjs";
 import { checkGuides } from "./commands/checkGuides.mjs";
 import { runReleaseNew, runReleaseStatus, runReleasePolicyConfigure, runReleaseScopeSet, runReleaseRefsSet, runReleaseDeploymentRecord, runReleaseFinalize } from "./commands/release.mjs";
 import { runCheckItem, runCheckWorkPackage, runItemCreate, runItemImport, runItemRefresh, runItemPackageAdd, runItemPackageStatus, runItemStatus } from "./commands/item.mjs";
@@ -186,7 +186,7 @@ export function dispatch(command, args, cwd, runtimeContext = null) {
     }
     if (stage === "validate") {
       const operationId = requireOperationId(rest[0]);
-      return runChangesetValidate({ planningRoot, operationsRoot, operationId });
+      return runChangesetValidate({ planningRoot, operationsRoot, operationId, runtimeContext });
     }
     if (stage === "approve") {
       const operationId = requireOperationId(rest[0]);
@@ -206,7 +206,7 @@ export function dispatch(command, args, cwd, runtimeContext = null) {
       const operationId = requireOperationId(rest[0]);
       const options = argsToOptions(rest.slice(1));
       if (!options.actor) throw new UsageError("changeset apply requires --actor");
-      return runChangesetApply({ planningRoot, operationsRoot, operationId, actor: options.actor });
+      return runChangesetApply({ planningRoot, operationsRoot, operationId, actor: options.actor, runtimeContext });
     }
     return notImplemented(`changeset ${stage || ""}`.trim());
   }
@@ -418,6 +418,20 @@ export function dispatch(command, args, cwd, runtimeContext = null) {
         throw new UsageError(`check work-sources does not support argument ${rest[index]}`);
       }
       return checkWorkSources({ planningRoot, workspaceRoot: cwd });
+    }
+    if (stage === "source-drift") {
+      let reference = null;
+      for (let index = 0; index < rest.length; index += 1) {
+        if (rest[index] === "--format") {
+          const format = rest[++index];
+          if (format !== "json") throw new UsageError("check source-drift --format must be json");
+          continue;
+        }
+        if (rest[index].startsWith("--")) throw new UsageError(`check source-drift does not support argument ${rest[index]}`);
+        if (reference !== null) throw new UsageError("check source-drift accepts at most one release reference");
+        reference = rest[index];
+      }
+      return checkSourceDrift({ planningRoot, reference, runtimeContext });
     }
     if (stage === "guides") {
       const options = argsToOptions(rest);
