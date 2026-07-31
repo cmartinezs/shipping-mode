@@ -7,6 +7,7 @@ const BASE_SELECTORS = new Set(["summary", "description", "status", "priority", 
 const JIRA_BASE_FIELDS = ["assignee", "description", "issuelinks", "issuetype", "labels", "parent", "priority", "status", "summary", "updated"];
 const GET_TOOL = "getJiraIssue";
 const SEARCH_TOOL = "searchJiraIssuesUsingJql";
+const ATLASSIAN_CLOUD_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_QUERY_CHARS = 120;
 const MAX_RESPONSE_BYTES = 256 * 1024;
 const MAX_ITEMS = 100;
@@ -73,18 +74,8 @@ function assertRequestMatchesSource(request, source) {
 
 function normalizeCloudId(source, env) {
   const value = requireString(source.cloudId || env.SHIPPING_MODE_ATLASSIAN_CLOUD_ID, "Atlassian cloudId");
-  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) return value;
-  let url;
-  try {
-    url = new URL(value);
-  } catch {
-    throw new Error("Atlassian cloudId must be a UUID or an https atlassian.net site URL");
-  }
-  if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || (url.pathname !== "/" && url.pathname !== "")) {
-    throw new Error("Atlassian cloudId site URL must be a credential-free https origin");
-  }
-  if (!url.hostname.toLowerCase().endsWith(".atlassian.net")) throw new Error("Atlassian cloudId site URL must belong to atlassian.net");
-  return url.origin;
+  if (!ATLASSIAN_CLOUD_ID_PATTERN.test(value)) throw new Error("Atlassian cloudId must be a UUID; site URLs are not accepted");
+  return value;
 }
 
 function normalizeProjectKeys(keys, source) {
