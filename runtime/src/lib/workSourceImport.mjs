@@ -11,6 +11,7 @@ import { assertReleaseParentCanAcceptItem, listReleaseItemDocuments, listReserve
 import { buildWorkSourceRegistry, WORK_SOURCE_CAPABILITIES } from "./workSourceProvider.mjs";
 import { LocalRepositoryWorkSource } from "./localRepositoryWorkSource.mjs";
 import { JiraMcpWorkSource } from "./jiraMcpWorkSource.mjs";
+import { HostWorkSourceTransport } from "./hostWorkSourceTransport.mjs";
 import { parseYaml } from "./yaml.mjs";
 import { assertProjectContextConsistency } from "./projectContextValidation.mjs";
 
@@ -227,12 +228,17 @@ export function normalizeWorkSourceConfig({ config, workspaceRoot }) {
   }).sort((left, right) => left.id.localeCompare(right.id));
 }
 
-export function defaultWorkSourceRegistry({ planningRoot }) {
+export function defaultWorkSourceRegistry({ planningRoot, runtimeContext = null }) {
   const workspaceRoot = path.dirname(planningRoot);
   const config = readValidatedWorkSourceConfig(planningRoot);
   const sources = normalizeWorkSourceConfig({ config, workspaceRoot });
+  const hostTransport = runtimeContext?.workSourceTransport?.execute
+    ? runtimeContext.workSourceTransport
+    : runtimeContext?.workSourceTransport?.kind === "host-bridge"
+      ? new HostWorkSourceTransport({ projectRoot: workspaceRoot, pluginDataDir: runtimeContext.workSourceTransport.pluginDataDir, sessionId: runtimeContext.workSourceTransport.sessionId })
+      : null;
   return buildWorkSourceRegistry({
-    providerFactories: [() => new LocalRepositoryWorkSource({ workspaceRoot }), () => new JiraMcpWorkSource()],
+    providerFactories: [() => new LocalRepositoryWorkSource({ workspaceRoot }), () => new JiraMcpWorkSource({ transport: hostTransport })],
     sources
   });
 }
@@ -354,7 +360,7 @@ function mappedReleaseItemSnapshot(normalizedItem, sourceRef) {
   throw new Error(`unsupported Work Source item type: ${normalizedItem.type}`);
 }
 
-const MANAGED_FIELDS_BY_KIND = {
+export const MANAGED_FIELDS_BY_KIND = {
   user_story: ["/kind", "/title", "/description", "/actor", "/need", "/value", "/acceptanceCriteria"],
   capability: ["/kind", "/title", "/description", "/outcome", "/behavior", "/acceptanceCriteria"],
   defect: ["/kind", "/title", "/description", "/observedBehavior", "/expectedBehavior", "/reproduction", "/severity"],
@@ -365,7 +371,7 @@ const MANAGED_FIELDS_BY_KIND = {
   operational: ["/kind", "/title", "/description", "/procedure", "/owner", "/evidence"]
 };
 
-function managedSnapshotFromReleaseSnapshot(snapshot, managedFields) {
+export function managedSnapshotFromReleaseSnapshot(snapshot, managedFields) {
   return Object.fromEntries(managedFields.map((pointer) => [pointer.slice(1), snapshot[pointer.slice(1)] ?? null]));
 }
 
@@ -382,7 +388,7 @@ function locatorFromSourceRef(sourceRef) {
   return { externalId: sourceRef.externalId };
 }
 
-function buildSourceSync({ source, sourceRef, requestSnapshot, proposedAt, actor }) {
+export function buildSourceSync({ source, sourceRef, requestSnapshot, proposedAt, actor }) {
   const managedFields = MANAGED_FIELDS_BY_KIND[requestSnapshot.kind];
   const managedSnapshot = managedSnapshotFromReleaseSnapshot(requestSnapshot, managedFields);
   return {
@@ -408,7 +414,7 @@ function buildSourceSync({ source, sourceRef, requestSnapshot, proposedAt, actor
   };
 }
 
-function deriveSourceRef({ source, normalizedItem, importedAt, role = "primary" }) {
+export function deriveSourceRef({ source, normalizedItem, importedAt, role = "primary" }) {
   if (source.provider === "local_repository") {
     return {
       sourceId: source.id,

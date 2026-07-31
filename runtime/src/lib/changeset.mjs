@@ -66,7 +66,8 @@ export function eventTypeFor(kind) {
     "release.finalization.complete": "release.finalization.completed",
     "release-item.create": "release-item.created",
     "work-package.create": "work-package.created",
-    "work-source.import": "work-source.imported"
+    "work-source.import": "work-source.imported",
+    "work-source.refresh": "work-source.refreshed"
   }[kind];
 }
 
@@ -267,6 +268,18 @@ function checkKindInvariants(changeSet, operation = null, planningRoot = null) {
       }
     }
   }
+  if (changeSet.kind === "work-source.refresh") {
+    const itemPath = `releases/${changeSet.payload.releaseId}/items/${changeSet.payload.itemId}/release-item.yml`;
+    const readmePath = `releases/${changeSet.payload.releaseId}/items/${changeSet.payload.itemId}/README.md`;
+    const actualPaths = new Set(Object.keys(changeSet.baseRevisions));
+    if (actualPaths.size !== 2 || !actualPaths.has(itemPath) || !actualPaths.has(readmePath)) errors.push("work-source.refresh baseRevisions must contain exactly release-item.yml and README.md");
+    for (const relativePath of [itemPath, readmePath]) {
+      const entry = changeSet.baseRevisions[relativePath];
+      if (!entry || entry.revisionHash === ABSENT || entry.contentHash === ABSENT) errors.push(`${relativePath} must already exist for work-source.refresh`);
+    }
+    if (changeSet.target?.releaseId !== changeSet.payload.releaseId || changeSet.target?.itemId !== changeSet.payload.itemId) errors.push("work-source.refresh target must match payload");
+    if (changeSet.payload.operationId !== changeSet.operationId || (operation && changeSet.payload.operationId !== operation.id)) errors.push("work-source.refresh payload.operationId must match operation id");
+  }
   if (changeSet.kind === "work-package.create") {
     let existingPackages = [];
     try {
@@ -327,6 +340,11 @@ function checkKindInvariants(changeSet, operation = null, planningRoot = null) {
   if (changeSet.kind === "work-source.import" && operation?.proposalHash && operation.proposalHash !== changeSet.hash) {
     errors.push("work-source.import ChangeSet no longer matches the server-owned proposal hash");
   }
+  if (changeSet.kind === "work-source.refresh" && operation?.requestBinding) {
+    if (changeSet.payload?.idempotencyKey !== operation.requestBinding.key) errors.push("work-source.refresh idempotencyKey must match the server-owned Operation request binding");
+    if (changeSet.payload?.idempotencyRequestHash !== operation.requestBinding.requestHash) errors.push("work-source.refresh idempotencyRequestHash must match the server-owned Operation request binding");
+  }
+  if (changeSet.kind === "work-source.refresh" && operation?.proposalHash && operation.proposalHash !== changeSet.hash) errors.push("work-source.refresh ChangeSet no longer matches the server-owned proposal hash");
   if (changeSet.kind === "work-package.create" && operation?.requestBinding) {
     if (changeSet.payload?.idempotencyKey !== operation.requestBinding.key) errors.push("work-package.create idempotencyKey must match the server-owned Operation request binding");
     if (changeSet.payload?.idempotencyRequestHash !== operation.requestBinding.requestHash) errors.push("work-package.create idempotencyRequestHash must match the server-owned Operation request binding");
@@ -628,6 +646,32 @@ function prepareApply({ operationsRoot, planningRoot, operationId, render, actor
               sourcePath: changeSet.payload.source.path,
               sourceRevision: changeSet.payload.source.observedRevision,
               mappingVersion: changeSet.payload.source.mappingVersion,
+              operationId,
+              actor,
+              idempotencyKey: changeSet.payload.idempotencyKey,
+              changeSetHash: recomputedHash,
+              revisionAfter: item.audit.revision
+            }
+          });
+        }
+        if (changeSet.kind === "work-source.refresh") {
+          const itemPath = `releases/${changeSet.payload.releaseId}/items/${changeSet.payload.itemId}/release-item.yml`;
+          const item = parseYaml(rendered.get(itemPath));
+          return buildExpectedEvent({
+            eventId: reserved.eventId,
+            type: reserved.type,
+            aggregate: { type: "release-item", id: item.id },
+            actor,
+            operationId,
+            idempotencyKey: changeSet.payload.idempotencyKey,
+            payload: {
+              releaseItemId: item.id,
+              releaseId: item.releaseId,
+              sourceId: changeSet.payload.sourceId,
+              provider: changeSet.payload.provider,
+              sourceRevision: changeSet.payload.sourceRef.externalRevision || changeSet.payload.sourceRef.contentRevision || changeSet.payload.sourceRef.fingerprint,
+              mappingVersion: item.sourceSync.baselines[0].mappingVersion,
+              baselineId: item.sourceSync.baselines[0].baselineId,
               operationId,
               actor,
               idempotencyKey: changeSet.payload.idempotencyKey,

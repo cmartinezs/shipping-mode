@@ -34,7 +34,8 @@
         "release.finalization.complete",
         "release-item.create",
         "work-package.create",
-        "work-source.import"
+        "work-source.import",
+        "work-source.refresh"
       ]
     },
     "status": {

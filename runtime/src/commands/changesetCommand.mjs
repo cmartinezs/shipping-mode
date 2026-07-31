@@ -13,6 +13,7 @@ import { generateGuideOutput } from "../lib/guideGeneration.mjs";
 import { revisionHash } from "../lib/canonical.mjs";
 import { proposeReleaseCreate, proposeReleasePlan2Mutation } from "./release.mjs";
 import { proposeReleaseItemCreate, proposeWorkPackageCreate, proposeWorkSourceImport } from "./item.mjs";
+import { renderWorkSourceRefresh } from "../lib/workSourceRefresh.mjs";
 
 function readCurrentConfig(planningRoot) {
   const configPath = confineRuntimeWritePath(planningRoot, "config.yml");
@@ -37,6 +38,7 @@ function renderFor(kind, payload, currentConfig, workspaceRoot, planningRoot, { 
   if (kind === "release.create") return renderReleaseCreate(payload);
   if (kind === "release-item.create") return renderReleaseItemCreateChangeSet(payload, planningRoot);
   if (kind === "work-source.import") return renderWorkSourceImportChangeSet(payload, planningRoot);
+  if (kind === "work-source.refresh") return renderWorkSourceRefresh(payload, { planningRoot });
   if (kind === "work-package.create") return renderWorkPackageCreateChangeSet(payload, planningRoot);
   if (kind.startsWith("release.")) return renderReleasePlan2Mutation(kind, payload, planningRoot, workspaceRoot, currentConfig);
   throw new UsageError(`unsupported changeset kind: ${kind}`);
