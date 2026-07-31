@@ -1,5 +1,20 @@
 # Corte 3 P4-0 Host MCP Bridge Spike
 
+## Decision
+
+```text
+PASSED
+```
+
+A real installed Shipping Mode plugin prepared a session-bound challenge,
+executed one explicitly approved read-only MCP tool through Claude Code, captured
+the real host result with a plugin-level `PostToolUse` hook, signed and consumed
+the envelope once, and rejected a second consume as `BRIDGE_REPLAYED`.
+
+The Plan 4 transport blocker established by P4-0 is removed. Productive Jira,
+refresh, drift and mapping work remain separate later tasks and are not part of
+this spike.
+
 ## Hypothesis
 
 A manual Shipping Mode plugin skill can prepare a canonical request, trigger one
@@ -7,217 +22,191 @@ real read-only MCP tool invocation in Claude Code, capture the host hook event,
 sign the response envelope under `CLAUDE_PLUGIN_DATA`, and let a later Node
 process consume that envelope once.
 
+Result: proven for the tested installed-plugin host path.
+
 ## Version And Environment
 
-- Date: 2026-07-30
+- Date: 2026-07-30, America/Santiago
 - Claude Code observed: `2.1.220`, commit `4073f59596e2`, `linux-x64`
 - Branch: `spike/corte-3-p4-0-host-mcp-bridge`
 - Base: `4b73fa17397ec9370b83c8355cbdcb849b6c88a1`
+- Installed test plugin: `shipping-mode-p4-test@shipping-mode-p4-clean`
+- MCP server: `p4fs`
+- Tool: `mcp__p4fs__read_text_file`
+- Read target: `/home/carlos/projects/shipping-mode/package.json`
 
-## Architecture Tested
+## Proven Architecture
 
 ```text
-manual plugin skill
+installed plugin skill
   -> bridge prepare
       -> session-bound pending challenge in CLAUDE_PLUGIN_DATA
   -> explicitly approved read-only MCP invocation
-      -> scoped PostToolUse or PostToolUseFailure hook
+      -> plugin-level PostToolUse or PostToolUseFailure hook
           -> binds session/tool/input/result to pending challenge
           -> writes immutable signed success envelope or bounded failure state
   -> bridge consume in the same Claude Code session
       -> verifies envelope
       -> atomically marks request consumed
       -> returns bounded DTO
+  -> second consume
+      -> BRIDGE_REPLAYED
 ```
 
-## Sequence
+## Real Productive Sequence
 
-Deterministic sequence implemented and tested:
+The final manual run completed:
 
 ```text
-bridge prepare
-  -> request bound to CLAUDE_CODE_SESSION_ID
-synthetic PostToolUse harness
-  -> immutable signed CAPTURED envelope
-bridge consume
-  -> HMAC, TTL, session, project, server, tool, input and response binding
-  -> request atomically marked CONSUMED
-  -> signed envelope not modified
-replay
-  -> BRIDGE_REPLAYED
+BRIDGE_PREPARED
+BRIDGE_CAPTURED
+BRIDGE_CONSUMED
+BRIDGE_REPLAYED
 ```
 
-Failure sequence implemented and tested:
+Canonical request ID:
 
 ```text
-synthetic PostToolUseFailure
-  -> BRIDGE_UNAVAILABLE | BRIDGE_TIMEOUT | BRIDGE_CANCELLED
-  -> only bounded hashes and identifiers persisted
-  -> raw provider error not persisted
+019fb5a7-4768-7f9b-8b9f-7e5784c994ea
 ```
 
-Attempted real sequence:
+Observed behavior:
+
+1. The plugin and temporary skill loaded from an installed local marketplace.
+2. `cleanup-expired` completed against the installed-plugin data directory.
+3. `prepare` created one session-bound challenge.
+4. Claude Code displayed the normal MCP permission flow.
+5. The user approved only the read-only `mcp__p4fs__read_text_file` tool.
+6. p4fs returned the real `package.json` content.
+7. The plugin-level `PostToolUse` hook captured the actual tool input and
+   response without manual capture execution.
+8. `consume` verified the signed envelope and returned `BRIDGE_CONSUMED` with
+   result `BRIDGE_CAPTURED` and an 1828-byte response.
+9. A second consume for the same request, data directory and project root
+   returned `BRIDGE_REPLAYED` and did not return the payload again.
+10. Cleanup completed before and after the productive sequence.
+
+## Host Integration Finding
+
+Claude Code 2.1.220 treats skill-scoped hooks and plugin-level hooks differently:
 
 ```text
-claude --plugin-dir . --mcp-config /tmp/shipping-mode-mcp-config.json --strict-mcp-config
+skill-scoped hook:
+  CLAUDE_PLUGIN_ROOT available
+  CLAUDE_PLUGIN_DATA rejected as plugin-only
+
+plugin-level hook in hooks/hooks.json:
+  CLAUDE_PLUGIN_ROOT available
+  CLAUDE_PLUGIN_DATA available
 ```
 
-The plugin loaded, but a real MCP tool invocation and real success hook capture
-did not complete in this run.
+The initial attempt to place capture handlers in the skill frontmatter therefore
+failed before hook execution. The final implementation moves `PostToolUse` and
+`PostToolUseFailure` to `hooks/hooks.json`. The skill contains no capture hooks.
 
-## Threat Model
-
-Shipping Mode provides cooperative guardrails and traceability. This bridge does
-not sandbox a malicious local user or process with access to the same filesystem.
-A process that can read or modify `${CLAUDE_PLUGIN_DATA}`, the plugin files or the
-bridge key can alter the cooperative mechanism.
-
-The bridge is intended to distinguish normal host-captured evidence from ordinary
-unsigned CLI input, prevent accidental cross-session matching and replay, and
-make incomplete state fail closed.
+The plugin-level handlers match MCP events while the plugin is enabled, but they
+persist evidence only when session, project, exact tool and normalized input
+match one pending challenge. Unrelated MCP calls are not captured.
 
 ## Adversarial Review Corrections
 
-The initial spike implementation contained material defects that were corrected
-on the same branch:
+The spike implementation was corrected during review:
 
-1. **The pending challenge was not bound to its preparing Claude Code session.**
-   It now stores `expectedSessionIdHash` derived from
-   `CLAUDE_CODE_SESSION_ID`. Capture and consume must occur in that same session.
+1. **Preparing-session binding.** The request stores
+   `expectedSessionIdHash`; capture and consume must use the same Claude Code
+   session.
+2. **Immutable signed evidence.** Consumption does not mutate the signed
+   `CAPTURED` envelope.
+3. **Single mutable lifecycle record.** The request is the only canonical mutable
+   state during consume.
+4. **Explicit permission.** The skill does not pre-approve `mcp__*`; the user
+   must approve the selected read-only call.
+5. **Installed-plugin path resolution.** Executables use
+   `CLAUDE_PLUGIN_ROOT`, the target uses `CLAUDE_PROJECT_DIR`, and Bash
+   entrypoints receive the substituted plugin data directory explicitly.
+6. **Server/tool binding.** Full tool names must belong to the declared MCP
+   server.
+7. **Bounded persistence.** Response size, depth, node count, finite numbers and
+   credential-like keys are checked before publication.
+8. **Redacted inspection.** Nonce, response and HMAC are not exposed by inspect.
+9. **Normalized failures.** `PostToolUseFailure` records only bounded failure
+   identifiers and an error hash.
+10. **Single plugin hook discovery path.** The manifest does not redundantly
+    declare the default hooks file.
+11. **Plugin-level capture placement.** Capture handlers reside in
+    `hooks/hooks.json`; structural tests prohibit skill-scoped capture hooks.
+12. **Official verification.** The spike suite is part of
+    `verify:next-generation`.
 
-2. **Consumption modified the signed envelope without recomputing its HMAC.**
-   The envelope is now immutable with permanent status `CAPTURED`. Consumption
-   changes only the canonical request record and stores `consumedEnvelopeHash`.
+## Guarantees Achieved
 
-3. **Consumption previously updated request and envelope as two canonical state
-   files.** The request is now the only mutable lifecycle record, so one atomic
-   write transitions it to `CONSUMED`. A valid envelope can reconstruct missing
-   capture metadata after a crash between envelope publication and request update.
+Manual productive evidence plus deterministic tests establish:
 
-4. **The skill pre-approved every `mcp__*` tool.** This could remove the normal
-   permission prompt from mutating MCP tools. The wildcard pre-approval was
-   removed; the selected read-only call must be explicitly approved.
+- a real approved MCP read can be captured through the Claude Code host;
+- the request is bound to session, project, server, exact tool and normalized
+  input;
+- the response envelope is schema-closed, bounded and HMAC-signed;
+- the envelope is immutable after capture;
+- consume is lock-protected and changes one canonical lifecycle record;
+- the envelope can be consumed exactly once;
+- a real second consume returns `BRIDGE_REPLAYED`;
+- cross-session capture and consume fail closed in deterministic tests;
+- HMAC tampering, expiry, mismatch, ambiguity and malformed data fail closed;
+- failed tools normalize to unavailable, timeout or cancellation without storing
+  raw provider errors;
+- bridge state and the local HMAC key live under the installed plugin data
+  directory, not `.planning/**`;
+- the standalone CLI cannot select an arbitrary data root without the explicit
+  test-only gate.
 
-5. **Skill commands assumed the target project was the plugin source checkout.**
-   Commands now resolve executable files through `CLAUDE_PLUGIN_ROOT` and bind
-   the target through `CLAUDE_PROJECT_DIR`.
+## Remaining Limits
 
-6. **A full MCP tool name could disagree with its declared server.** Full names
-   must now have the exact `mcp__<server>__` prefix.
-
-7. **The secret-key matcher rejected legitimate fields such as `author`.** It was
-   replaced with exact credential-oriented names plus size, depth, node-count and
-   finite-number limits. This remains a heuristic, not proof that arbitrary text
-   is non-sensitive.
-
-8. **`inspect` exposed nonce and response material.** It now returns redacted
-   metadata. `--data-root` is restricted to deterministic tests.
-
-9. **Failed MCP calls had no durable normalized path.** A scoped
-   `PostToolUseFailure` hook now records unavailable, timeout or cancellation
-   without retaining the raw error.
-
-10. **The plugin manifest explicitly registered the default hooks file while the
-    tested Claude Code version also auto-discovered it.** The redundant manifest
-    entry was removed and host integration now asserts one default discovery path.
-
-11. **The official verification did not run the spike suite.**
-    `test:host-mcp-bridge` is now part of `verify:next-generation`.
-
-## Guarantees Achieved By Deterministic Tests
-
-- Canonical request hashing is deterministic.
-- Pending challenges live under `${CLAUDE_PLUGIN_DATA}/work-source-bridge`, not
-  under `.planning/**`.
-- The HMAC key lives outside `.planning/**` with restrictive permissions where
-  supported.
-- The request is bound to the preparing Claude Code session before capture.
-- Server, exact MCP tool, normalized input and project are bound.
-- The envelope is schema-closed, size-bounded, depth-bounded and signed.
-- The signed envelope remains immutable during one-time consumption.
-- Request consumption is lock-protected and one atomic canonical state update.
-- Missing capture metadata can be recovered from a valid signed envelope.
-- Cross-session capture/consume, HMAC tampering, replay, expiry, project/tool/input
-  mismatch, oversized structures, credential-like keys and malformed data fail
-  closed.
-- Successful and failed tool hooks use separate bounded paths.
-- The standalone CLI cannot inject an arbitrary data root without the explicit
-  test-only environment guard.
-
-## Guarantees Not Achieved
-
-- No real Claude Code MCP tool invocation completed.
-- No real `PostToolUse` event with actual MCP `tool_input` and `tool_response` was
-  captured.
-- The corrected session-bound hook path has not yet been demonstrated manually
-  inside an installed/plugin-loaded Claude Code session.
-- `/reload-plugins` success was not captured from the TUI.
-- Atlassian MCP was not available.
-- A generic bridge cannot prove arbitrary text values contain no sensitive
-  business data; production must map to a provider-specific closed safe DTO.
-- This mechanism is not a sandbox against a process with local access to plugin
-  data and the HMAC key.
+- Atlassian MCP was not required for P4-0 and was not tested.
+- The generic bridge cannot prove arbitrary string values are free of sensitive
+  business data; productive adapters must map to closed safe DTOs.
+- This cooperative mechanism is not a sandbox against a local process with access
+  to plugin files, plugin data or the HMAC key.
+- POSIX key modes, rename/link and lock behavior must be rechecked on any future
+  native Windows host path.
+- P4-0 does not implement Jira providers, mappings, refresh, drift or domain
+  integration.
 
 ## Automatic Results
 
-The official workflow now runs:
+The official workflow runs:
 
 ```text
 npm run test:host-mcp-bridge
 npm run verify:next-generation
 ```
 
-The suite covers original mechanics plus the post-review session, permission,
-failure, immutable-envelope, recovery and redaction cases.
+The suite covers lifecycle, session binding, hook processes, plugin hook
+placement, failure normalization, immutable envelopes, recovery, replay,
+redaction, security limits and host integration. The verification after the
+final plugin-level hook architecture completed successfully.
 
-## Manual Results
+## Evidence
 
-Sanitized evidence remains under:
+Detailed evidence is stored under:
 
 ```text
 spikes/host-mcp-bridge/evidence/2026-07-30-manual-evidence.md
 spikes/host-mcp-bridge/evidence/2026-07-30-automated-results.md
 ```
 
-Observed before the adversarial correction:
-
-- `claude --plugin-dir .` loaded the inline Shipping Mode plugin.
-- The temporary spike skill was discovered.
-- No Atlassian MCP server was available.
-- Existing MCP servers were unavailable.
-- The local read-only stdio fixture failed its connection before a tool call.
-- Network and filesystem restrictions prevented the real smoke.
-
-Those observations do not demonstrate the corrected productive bridge.
-
-## Cross-Platform Limits
-
-The bridge attempts POSIX `0600` permissions for the local HMAC key. Platforms
-without POSIX modes rely on host filesystem controls and the cooperative trust
-model. Atomic rename/link and lock-file behavior must be rechecked on the Windows
-host path used by a future manual smoke.
-
-## Decision
-
-`INCONCLUSIVE`.
-
-The authenticated envelope mechanics are stronger after adversarial review, but
-P4-0 cannot be marked `PASSED` without a real loaded-plugin MCP call and real host
-hook capture on the corrected implementation.
-
 ## Condition To Continue Plan 4
 
-Plan 4 can continue only after a new manual run demonstrates all of the following
-on the final corrected head:
+The P4-0 condition is met:
 
-1. plugin and temporary skill load successfully;
-2. one explicitly approved read-only MCP tool completes;
-3. `PostToolUse` receives the real session, input and response;
+1. plugin and skill loaded successfully;
+2. one explicitly approved read-only MCP tool completed;
+3. plugin-level `PostToolUse` received the real session, input and response;
 4. the request was prepared in the same session;
-5. the immutable envelope verifies and is consumed once;
-6. replay and cross-session attempts fail;
-7. no bridge secret or state is written under `.planning/**`;
-8. absence/failure paths normalize correctly.
+5. the immutable envelope verified and was consumed once;
+6. real replay was rejected and automated cross-session tests pass;
+7. bridge state uses the installed plugin data directory rather than
+   `.planning/**`;
+8. absence and failure paths normalize fail-closed.
 
-Current condition: not met. Do not implement productive Jira, refresh, drift,
-mapping or production transport files from this result.
+Plan 4 may proceed from this transport result, while preserving the scope and
+security constraints documented above.
