@@ -1,0 +1,117 @@
+{
+  "discover": {
+    "status": "OK",
+    "items": [
+      {
+        "externalId": "GRADE-142",
+        "issueType": "Story",
+        "summary": "Import assessment brief",
+        "description": "Import an assessment brief from Jira.",
+        "fields": {
+          "customfield_10101": "teacher",
+          "customfield_10102": "assessment brief",
+          "customfield_10103": "consistent grading",
+          "customfield_10104": ["The brief imports"]
+        },
+        "status": "To Do",
+        "priority": "High",
+        "labels": ["assessment"],
+        "revision": "10042",
+        "url": "https://example.atlassian.net/browse/GRADE-142"
+      }
+    ],
+    "findings": []
+  },
+  "search": {
+    "status": "OK",
+    "items": [
+      {
+        "externalId": "GRADE-143",
+        "issueType": "Bug",
+        "summary": "Fix rubric rounding",
+        "description": null,
+        "fields": {
+          "customfield_10201": "Rounded score is wrong",
+          "customfield_10202": "Rounded score is stable",
+          "customfield_10203": "Open rubric preview",
+          "priority": "High"
+        },
+        "status": "In Progress",
+        "priority": "High",
+        "labels": ["rubric"],
+        "revision": "10043",
+        "url": "https://example.atlassian.net/browse/GRADE-143"
+      }
+    ],
+    "findings": []
+  },
+  "get": {
+    "status": "OK",
+    "item": {
+      "externalId": "GRADE-142",
+      "issueType": "Story",
+      "summary": "Import assessment brief",
+      "description": "Import an assessment brief from Jira.",
+      "fields": {
+        "customfield_10101": "teacher",
+        "customfield_10102": "assessment brief",
+        "customfield_10103": "consistent grading",
+        "customfield_10104": ["The brief imports"]
+      },
+      "status": "To Do",
+      "priority": "High",
+      "labels": ["assessment"],
+      "revision": "10042",
+      "url": "https://example.atlassian.net/browse/GRADE-142"
+    },
+    "findings": []
+  },
+  "not-found": {
+    "status": "NOT_FOUND",
+    "item": null,
+    "items": [],
+    "findings": [{ "code": "SOURCE_NOT_FOUND", "severity": "error", "message": "Issue not found" }]
+  },
+  "unavailable": {
+    "status": "UNAVAILABLE",
+    "item": null,
+    "items": [],
+    "findings": [{ "code": "SOURCE_UNAVAILABLE", "severity": "error", "message": "MCP connection unavailable" }]
+  },
+  "timeout": {
+    "status": "UNAVAILABLE",
+    "item": null,
+    "items": [],
+    "findings": [{ "code": "SOURCE_UNAVAILABLE", "severity": "error", "message": "MCP request timed out" }]
+  },
+  "cancelled": {
+    "status": "UNAVAILABLE",
+    "item": null,
+    "items": [],
+    "findings": [{ "code": "SOURCE_UNAVAILABLE", "severity": "error", "message": "MCP request cancelled" }]
+  },
+  "malformed": {
+    "status": "MALFORMED",
+    "item": null,
+    "items": [],
+    "findings": [{ "code": "SOURCE_MALFORMED", "severity": "error", "message": "Malformed MCP response" }]
+  },
+  "required-field-missing": {
+    "status": "OK",
+    "item": {
+      "externalId": "GRADE-144",
+      "issueType": "Story",
+      "summary": "Incomplete story",
+      "description": null,
+      "fields": {
+        "customfield_10101": "teacher"
+      },
+      "status": "To Do",
+      "priority": "Medium",
+      "labels": [],
+      "revision": "10044",
+      "url": "https://example.atlassian.net/browse/GRADE-144"
+    },
+    "findings": []
+  }
+}
