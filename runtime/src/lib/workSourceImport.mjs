@@ -183,6 +183,13 @@ export function validateNormalizedWorkSourceItem(item) {
   } catch (error) {
     errors.push(error.message);
   }
+  if (item?.trace?.kind === "external") {
+    try {
+      assertSafeMetadata(item.trace.evidence || {});
+    } catch (error) {
+      errors.push(`trace.evidence ${error.message}`);
+    }
+  }
   for (const [field, keyFn] of [
     ["acceptanceCriteria", (entry) => entry.id],
     ["relationships", (entry) => `${entry.type}:${entry.target}`],

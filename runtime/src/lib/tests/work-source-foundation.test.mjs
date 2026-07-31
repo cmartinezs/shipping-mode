@@ -286,9 +286,21 @@ function writeLocalItem(workspaceRoot, fileName = "story.work-source.yml", overr
     fields: { outcome: "Imported capability", behavior: "Preserve provider-neutral semantics" },
     revision: { externalRevision: "10042", updatedAt: "2026-07-30T00:00:00Z" },
     mappingVersion: 1, metadata: {},
-    trace: { observedPath: null, observedBytes: 0, observedContentHash: "a".repeat(64) }
+    trace: { kind: "external", externalId: "GRADE-142", observedAt: "2026-07-30T00:00:00Z", responseFingerprint: `sha256:${"a".repeat(64)}`, evidence: { responseBytes: 1024, bounded: true } }
   };
   assert.equal(validateNormalizedWorkSourceItem(external).valid, true, "normalized schema must remain usable by the future Jira adapter without local revision fields");
+  assert.equal(validateNormalizedWorkSourceItem({ ...external, description: null }).valid, true, "external providers may expose nullable description without fabricated text");
+  assert.equal(validateNormalizedWorkSourceItem({ ...external, acceptanceCriteria: [] }).valid, false, "capability still requires acceptance criteria");
+  const defect = {
+    ...external,
+    type: "defect",
+    acceptanceCriteria: [],
+    fields: { observedBehavior: "wrong output", expectedBehavior: "right output", reproduction: "open issue", severity: "high" }
+  };
+  assert.equal(validateNormalizedWorkSourceItem(defect).valid, true, "non-story/capability kinds may have empty acceptance criteria");
+  assert.equal(validateNormalizedWorkSourceItem({ ...external, trace: { ...external.trace, rawJiraPayload: { key: "GRADE-142" } } }).valid, false, "external trace must reject raw Jira payload fields");
+  assert.equal(validateNormalizedWorkSourceItem({ ...external, trace: { ...external.trace, evidence: { bearerToken: "secret" } } }).valid, false, "external trace evidence must reject secret-like keys");
+  assert.equal(validateNormalizedWorkSourceItem({ ...external, trace: { ...external.trace, evidence: { items: Array.from({ length: 33 }, (_, index) => index) } } }).valid, false, "external trace evidence must remain bounded");
 }
 
 console.log("work-source-foundation: registry, local provider, import, stale detection and checks pass");

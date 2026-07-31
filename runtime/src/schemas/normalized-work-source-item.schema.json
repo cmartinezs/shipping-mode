@@ -69,29 +69,35 @@
       "maxLength": 512
     },
     "description": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "format",
-        "text"
-      ],
-      "properties": {
-        "format": {
-          "enum": [
-            "plain",
-            "markdown"
-          ]
+      "oneOf": [
+        {
+          "type": "null"
         },
-        "text": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 32768
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "format",
+            "text"
+          ],
+          "properties": {
+            "format": {
+              "enum": [
+                "plain",
+                "markdown"
+              ]
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32768
+            }
+          }
         }
-      }
+      ]
     },
     "acceptanceCriteria": {
       "type": "array",
-      "minItems": 1,
       "maxItems": 128,
       "items": {
         "type": "object",
@@ -276,33 +282,42 @@
       "maxProperties": 32
     },
     "trace": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "observedPath",
-        "observedBytes",
-        "observedContentHash"
-      ],
-      "properties": {
-        "observedPath": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "minLength": 1
+      "oneOf": [
+        {
+          "$ref": "#/$defs/localTrace"
         },
-        "observedBytes": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "observedContentHash": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{64}$"
+        {
+          "$ref": "#/$defs/externalTrace"
         }
-      }
+      ]
     }
   },
   "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "user_story",
+              "capability"
+            ]
+          }
+        }
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "acceptanceCriteria": {
+            "type": "array",
+            "minItems": 1
+          }
+        }
+      }
+    },
     {
       "if": {
         "type": "object",
@@ -596,6 +611,68 @@
     }
   ],
   "$defs": {
+    "localTrace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observedPath",
+        "observedBytes",
+        "observedContentHash"
+      ],
+      "properties": {
+        "kind": {
+          "const": "local"
+        },
+        "observedPath": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1
+        },
+        "observedBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "observedContentHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "externalTrace": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "externalId",
+        "observedAt",
+        "responseFingerprint",
+        "evidence"
+      ],
+      "properties": {
+        "kind": {
+          "const": "external"
+        },
+        "externalId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "observedAt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "responseFingerprint": {
+          "$ref": "#/$defs/hash"
+        },
+        "evidence": {
+          "type": "object",
+          "maxProperties": 32
+        }
+      }
+    },
     "hash": {
       "type": "string",
       "pattern": "^sha256:[0-9a-f]{64}$"
