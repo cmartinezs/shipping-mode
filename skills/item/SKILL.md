@@ -1,7 +1,7 @@
 ---
 description: Create, import, refresh and inspect Release Items and their Work Packages through the deterministic runtime.
 argument-hint: "create <release-id-or-display-id> --kind <kind> --title <title> | import <release-ref> --source <source-id:item-id-or-path> | refresh <release-ref> <item-ref> | package add <release-ref> <item-ref> --scope-id <uuid> --commitment required|optional --title <title> | status <release-ref> <item-ref>"
-allowed-tools: Bash(shipping-mode item:*), Bash(shipping-mode changeset validate:*), Bash(shipping-mode changeset approve:*), Bash(shipping-mode changeset apply:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/work-source-host-runner.mjs:*), mcp__atlassian__jira_get_issue, mcp__atlassian__jira_search
+allowed-tools: Bash(shipping-mode item:*), Bash(shipping-mode changeset validate:*), Bash(shipping-mode changeset approve:*), Bash(shipping-mode changeset apply:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/work-source-host-runner.mjs:*), mcp__atlassian__getJiraIssue, mcp__atlassian__searchJiraIssuesUsingJql
 ---
 
 # Item
@@ -40,9 +40,12 @@ shipping-mode item status <release-id-or-display-id> <item-id-or-display-id>
 shipping-mode item package status <release-id-or-display-id> <item-id-or-display-id> <work-package-id-or-display-id>
 ```
 
-For local providers, invoke the standalone runtime normally.
+For local providers, invoke the standalone runtime normally. Do not route local
+imports or refreshes through the host runner.
 
-For external Jira providers, do not call `shipping-mode item import` or
+For external Jira providers, require `SHIPPING_MODE_ATLASSIAN_CLOUD_ID` to
+contain the connected Atlassian site UUID or credential-free
+`https://<site>.atlassian.net` origin. Do not call `shipping-mode item import` or
 `shipping-mode item refresh` directly. Use the installed-plugin host runner:
 
 ```text
@@ -63,9 +66,12 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/work-source-host-runner.mjs" prepare \
 
 Then execute exactly each returned read-only Atlassian MCP action using the
 returned `toolName` and `input`, allowing the normal Claude Code authorization
-prompt. Do not execute any mutating Jira tool and do not run capture helpers
-manually. After the plugin-level hook captures each action, resume with the same
-Shipping Mode command:
+prompt. The only supported Jira host tools are
+`mcp__atlassian__getJiraIssue` and
+`mcp__atlassian__searchJiraIssuesUsingJql`. Do not substitute similarly named
+legacy or mutating tools, and do not run capture helpers manually. After the
+plugin-level hook captures each action, resume with the same Shipping Mode
+command:
 
 ```text
 node "${CLAUDE_PLUGIN_ROOT}/scripts/work-source-host-runner.mjs" resume \
