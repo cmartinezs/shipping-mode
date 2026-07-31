@@ -1,12 +1,19 @@
 # Host MCP Bridge Spike
 
-This spike is isolated from the production runtime. It tests whether a Shipping
+This spike is isolated from the production runtime. It proves that a Shipping
 Mode plugin skill can prepare a canonical MCP request, let Claude Code execute a
 real read-only MCP tool, capture host hook evidence, sign a response envelope
-under `CLAUDE_PLUGIN_DATA`, and consume that envelope once from Node.
+under `CLAUDE_PLUGIN_DATA`, consume that envelope once from Node, and reject a
+second consume as replay.
 
-The result remains `INCONCLUSIVE`: deterministic mechanics are tested, but a real
-MCP success followed by a real `PostToolUse` capture has not yet completed.
+Result:
+
+```text
+PASSED
+```
+
+The productive proof used an installed local plugin, the `p4fs` MCP server and
+`mcp__p4fs__read_text_file` against the repository `package.json` file.
 
 ## State Location
 
@@ -87,6 +94,35 @@ record to `CONSUMED`, stores the immutable envelope hash, and rejects replay.
 If capture metadata was not published after an envelope write, consume can
 reconstruct it from the valid signed envelope.
 
+## Productive Evidence
+
+The real installed-plugin run completed:
+
+```text
+BRIDGE_PREPARED
+BRIDGE_CAPTURED
+BRIDGE_CONSUMED
+BRIDGE_REPLAYED
+```
+
+Request ID:
+
+```text
+019fb5a7-4768-7f9b-8b9f-7e5784c994ea
+```
+
+The MCP call read `/home/carlos/projects/shipping-mode/package.json`, returned an
+1828-byte real MCP response, and was captured automatically by the plugin-level
+`PostToolUse` hook. The second consume returned `BRIDGE_REPLAYED` without
+returning the payload again.
+
+Detailed evidence is recorded in:
+
+```text
+spikes/host-mcp-bridge/evidence/2026-07-30-manual-evidence.md
+spikes/host-mcp-bridge/evidence/2026-07-30-automated-results.md
+```
+
 ## Trust Model
 
 This is a cooperative host guardrail. The HMAC envelope distinguishes a response
@@ -99,9 +135,13 @@ bridge key.
 
 Key-name filtering and size/depth limits reduce accidental secret persistence,
 but a generic bridge cannot prove that arbitrary string values contain no
-sensitive business data. P4-0 must use an intentionally non-sensitive read-only
-tool; a production provider must map host responses to a closed safe DTO before
-persisting domain data.
+sensitive business data. A production provider must map host responses to a
+closed safe DTO before persisting domain data.
+
+## Scope Boundary
+
+P4-0 proves the transport primitive only. It does not implement Jira adapters,
+field mappings, refresh, drift or productive Plan 4 domain behavior.
 
 ## Key Rotation
 
