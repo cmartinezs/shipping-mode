@@ -74,11 +74,11 @@ export class JiraMcpWorkSource {
   }
 }
 
-function requestedFieldIds(source) {
+export function requestedFieldIds(source) {
   const fields = new Set(["summary", "description", "status", "priority", "labels", "parent", "epic", "links", "assignee"]);
   for (const mapping of Object.values(source.options.field_map || {})) {
-    for (const selector of Object.values(mapping)) {
-      if (selector !== "kind") fields.add(selector);
+    for (const [field, selector] of Object.entries(mapping)) {
+      if (field !== "kind") fields.add(selector);
     }
   }
   return [...fields].sort();
