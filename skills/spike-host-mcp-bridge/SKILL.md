@@ -8,13 +8,21 @@ hooks:
     - matcher: "mcp__.*"
       hooks:
         - type: command
-          command: "node \"${CLAUDE_PLUGIN_ROOT}/spikes/host-mcp-bridge/capture-post-tool-use.mjs\""
+          command: node
+          args:
+            - "${CLAUDE_PLUGIN_ROOT}/spikes/host-mcp-bridge/capture-post-tool-use.mjs"
+            - --plugin-data-dir
+            - "${CLAUDE_PLUGIN_DATA}"
           timeout: 10
   PostToolUseFailure:
     - matcher: "mcp__.*"
       hooks:
         - type: command
-          command: "node \"${CLAUDE_PLUGIN_ROOT}/spikes/host-mcp-bridge/capture-post-tool-failure.mjs\""
+          command: node
+          args:
+            - "${CLAUDE_PLUGIN_ROOT}/spikes/host-mcp-bridge/capture-post-tool-failure.mjs"
+            - --plugin-data-dir
+            - "${CLAUDE_PLUGIN_DATA}"
           timeout: 10
 ---
 
@@ -28,11 +36,11 @@ flow. Never select a create, update, delete, transition, comment or other mutati
 tool.
 
 Claude Code substitutes `${CLAUDE_PLUGIN_ROOT}`, `${CLAUDE_PLUGIN_DATA}` and
-`${CLAUDE_PROJECT_DIR}` directly into installed plugin skill content. It exports
-plugin path variables automatically to hook processes, but it does not guarantee
-that arbitrary Bash tool calls inherit `CLAUDE_PLUGIN_DATA`. Therefore, do not
-check `CLAUDE_PLUGIN_DATA` through `env`; pass the substituted directory explicitly
-to the bridge CLI as shown below.
+`${CLAUDE_PROJECT_DIR}` directly into installed plugin skill content and hook
+arguments. The tested Claude Code 2.1.220 host did not expose
+`CLAUDE_PLUGIN_DATA` through `process.env` to skill-scoped hook commands despite
+the documented export contract, so every bridge entrypoint receives the same
+substituted directory explicitly through `--plugin-data-dir`.
 
 ## Required Flow
 
@@ -62,8 +70,8 @@ to the bridge CLI as shown below.
 4. Read the prepared output and invoke exactly one read-only MCP tool with the
    returned `toolInput`. The full tool name must belong to the declared server.
 5. Allow the scoped `PostToolUse` or `PostToolUseFailure` hook to record the
-   result. Hook processes receive their real plugin-specific `CLAUDE_PLUGIN_DATA`;
-   do not manually execute either capture script.
+   result. Both hook commands receive the same substituted plugin data directory
+   through `--plugin-data-dir`; do not manually execute either capture script.
 6. Do not write to Jira or any external system.
 7. Consume the envelope in the same Claude Code session:
 
