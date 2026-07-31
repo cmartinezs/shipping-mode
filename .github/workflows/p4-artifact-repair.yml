@@ -1,0 +1,38 @@
+name: P4 Artifact Repair
+
+on:
+  pull_request:
+    branches: [develop]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: github.event.pull_request.number == 29 && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --silent
+      - name: Regenerate canonical runtime artifacts
+        run: |
+          npm run build:schemas
+          npm run build:runtime
+      - name: Publish generated artifacts and remove repair workflow
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          git rm .github/workflows/p4-artifact-repair.yml
+          git add runtime/src/generated runtime/dist bin/shipping-mode.mjs
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "build(runtime): regenerate after Plan 4 corrections"
+          git push origin "HEAD:${HEAD_REF}"
