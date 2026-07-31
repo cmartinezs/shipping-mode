@@ -20,7 +20,12 @@ assert.equal(fs.existsSync(path.join(root, "hooks/hooks.json")), true, "default-
 for (const skill of skillNames) {
   const skillPath = path.join(root, "skills", skill, "SKILL.md");
   assert.equal(fs.existsSync(skillPath), true, `skill-discovery:${skill}`);
-  assert.match(fs.readFileSync(skillPath, "utf8"), /disable-model-invocation: true/);
+  const skillText = fs.readFileSync(skillPath, "utf8");
+  if (["item", "check"].includes(skill)) {
+    assert.doesNotMatch(skillText, /disable-model-invocation: true/, `${skill} must be able to orchestrate approved MCP reads`);
+  } else {
+    assert.match(skillText, /disable-model-invocation: true/);
+  }
 }
 
 const hooks = JSON.parse(fs.readFileSync(path.join(root, "hooks/hooks.json"), "utf8"));
