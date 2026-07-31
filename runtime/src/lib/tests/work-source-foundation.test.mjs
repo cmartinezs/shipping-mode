@@ -12,7 +12,7 @@ import { computePersistedChangeSetHash } from "../changeset.mjs";
 import { parseYaml, stringifyYaml } from "../yaml.mjs";
 import { buildWorkSourceRegistry } from "../workSourceProvider.mjs";
 import { LocalRepositoryWorkSource } from "../localRepositoryWorkSource.mjs";
-import { normalizeWorkSourceConfig, validateNormalizedWorkSourceItem } from "../workSourceImport.mjs";
+import { normalizeWorkSourceConfig, validateNormalizedWorkSourceItem, workSourceConfigHash } from "../workSourceImport.mjs";
 import { validate } from "../schema.mjs";
 
 function initializedWorkspace() {
@@ -47,6 +47,31 @@ function configureLocalSource(planningRoot, source = {}) {
     ...source
   }];
   fs.writeFileSync(configPath, stringifyYaml(config));
+}
+
+function jiraSource(overrides = {}) {
+  return {
+    id: "jira-gradeops",
+    provider: "jira",
+    transport: "mcp",
+    enabled: true,
+    connection_ref: "atlassian",
+    mapping_version: 1,
+    mapping_profile: "jira-gradeops-v1",
+    import_policy: "external_authoritative",
+    sync_mode: "pull",
+    capabilities: ["discover", "search", "get"],
+    options: {
+      project_keys: ["GRADE"],
+      query_scope: { mode: "project_keys_and_text", max_results: 50 },
+      allowed_issue_types: ["Story", "Bug"],
+      field_map: {
+        Story: { kind: "user_story", actor: "customfield_10101", need: "customfield_10102", value: "customfield_10103", acceptanceCriteria: "customfield_10104" },
+        Bug: { kind: "defect", observedBehavior: "customfield_10201", expectedBehavior: "customfield_10202", reproduction: "customfield_10203", severity: "priority" }
+      }
+    },
+    ...overrides
+  };
 }
 
 function writeLocalItem(workspaceRoot, fileName = "story.work-source.yml", overrides = {}) {
@@ -106,6 +131,32 @@ function writeLocalItem(workspaceRoot, fileName = "story.work-source.yml", overr
   assert.equal(normalized.type, "user_story");
   assert.equal(validateNormalizedWorkSourceItem(normalized).valid, true);
   assert.equal(Object.hasOwn(normalized, "rawPayload"), false);
+}
+
+{
+  const { workspaceRoot, planningRoot } = initializedWorkspace();
+  const configPath = path.join(planningRoot, "config.yml");
+  const config = parseYaml(fs.readFileSync(configPath, "utf8"));
+  config.work_sources = [jiraSource()];
+  fs.writeFileSync(configPath, stringifyYaml(config));
+  const [source] = normalizeWorkSourceConfig({ config, workspaceRoot });
+  assert.equal(source.provider, "jira");
+  assert.equal(source.transport, "mcp");
+  assert.equal(source.connectionRef, "atlassian");
+  assert.equal(source.mappingProfile, "jira-gradeops-v1");
+  assert.deepEqual(source.capabilities, ["discover", "search", "get"]);
+  assert.deepEqual(source.options.project_keys, ["GRADE"]);
+  const baselineHash = workSourceConfigHash(source);
+  const changed = normalizeWorkSourceConfig({ config: { ...config, work_sources: [jiraSource({ connection_ref: "atlassian-prod" })] }, workspaceRoot })[0];
+  assert.notEqual(workSourceConfigHash(changed), baselineHash, "Jira config hash must include transport-affecting connection refs");
+  assert.throws(() => normalizeWorkSourceConfig({ config: { ...config, work_sources: [jiraSource({ roots: ["backlog"] })] }, workspaceRoot }), /must not declare roots/);
+  assert.throws(() => normalizeWorkSourceConfig({ config: { ...config, work_sources: [jiraSource({ transport: "http" })] }, workspaceRoot }), /requires transport mcp/);
+  assert.throws(() => normalizeWorkSourceConfig({ config: { ...config, work_sources: [jiraSource({ import_policy: "import_snapshot" })] }, workspaceRoot }), /requires external_authoritative/);
+  assert.throws(() => normalizeWorkSourceConfig({ config: { ...config, work_sources: [jiraSource({ sync_mode: "import_only" })] }, workspaceRoot }), /requires sync mode pull/);
+  assert.throws(() => normalizeWorkSourceConfig({ config: { ...config, work_sources: [jiraSource({ capabilities: ["discover", "get", "comment"] })] }, workspaceRoot }), /mutating capability/);
+  assert.throws(() => normalizeWorkSourceConfig({ config: { ...config, work_sources: [jiraSource({ options: { ...jiraSource().options, jql: "project = GRADE" } })] }, workspaceRoot }), /unsupported field jql/);
+  assert.throws(() => normalizeWorkSourceConfig({ config: { ...config, work_sources: [jiraSource({ options: { ...jiraSource().options, token: "secret" } })] }, workspaceRoot }), /must not contain secrets/);
+  assert.throws(() => normalizeWorkSourceConfig({ config: { ...config, work_sources: [jiraSource({ options: { ...jiraSource().options, field_map: { Story: { kind: "user_story", actor: "customfield_10101", need: "customfield_10102", value: "customfield_10103" }, Bug: jiraSource().options.field_map.Bug } } })] }, workspaceRoot }), /missing required field acceptanceCriteria/);
 }
 
 {

@@ -130,11 +130,38 @@ const validWorkSources = [
   { id: "local-backlog", provider: "local_repository", enabled: true, roots: ["docs/backlog/"], import_policy: "import_snapshot", sync_mode: "import_only", mapping_version: 1, capabilities: ["discover", "search", "get"], options: {} },
   { id: "local-disabled", provider: "local_repository", enabled: false, roots: ["docs/requirements/"], import_policy: "import_snapshot", sync_mode: "import_only", mapping_version: 1, capabilities: ["discover", "search", "get"], options: { file_globs: ["*.work-source.yml"] } }
 ];
+const validJiraWorkSource = {
+  id: "jira-gradeops",
+  provider: "jira",
+  transport: "mcp",
+  enabled: true,
+  connection_ref: "atlassian",
+  mapping_version: 1,
+  mapping_profile: "jira-gradeops-v1",
+  import_policy: "external_authoritative",
+  sync_mode: "pull",
+  capabilities: ["discover", "search", "get"],
+  options: {
+    project_keys: ["GRADE"],
+    query_scope: { mode: "project_keys_and_text", max_results: 50 },
+    allowed_issue_types: ["Story", "Bug"],
+    field_map: {
+      Story: { kind: "user_story", actor: "customfield_10101", need: "customfield_10102", value: "customfield_10103", acceptanceCriteria: "customfield_10104" },
+      Bug: { kind: "defect", observedBehavior: "customfield_10201", expectedBehavior: "customfield_10202", reproduction: "customfield_10203", severity: "priority" }
+    }
+  }
+};
 const validDocumentation = {
   source_refs: ["018f0000-0000-7000-8000-000000000010"],
   gaps: [{ id: "018f0000-0000-7000-8000-000000000011", concern: "guides", status: "missing", description: "scope guide is pending", scope_ref: "018f0000-0000-7000-8000-000000000012" }]
 };
 assert.equal(validate("config", { ...cases.config.valid, git: validGitPolicy, work_sources: validWorkSources }).valid, true, "closed Git and Work Source config must pass");
+assert.equal(validate("config", { ...cases.config.valid, work_sources: [validJiraWorkSource] }).valid, true, "secure Jira MCP Work Source config must pass");
+assert.equal(validate("config", { ...cases.config.valid, work_sources: [{ ...validJiraWorkSource, roots: ["docs/backlog"] }] }).valid, false, "Jira Work Sources must reject filesystem roots");
+assert.equal(validate("config", { ...cases.config.valid, work_sources: [{ ...validJiraWorkSource, transport: "stdio" }] }).valid, false, "Jira Work Sources must require MCP transport");
+assert.equal(validate("config", { ...cases.config.valid, work_sources: [{ ...validJiraWorkSource, capabilities: ["discover", "get", "update"] }] }).valid, false, "Jira Work Sources must reject mutating capabilities");
+assert.equal(validate("config", { ...cases.config.valid, work_sources: [{ ...validJiraWorkSource, options: { ...validJiraWorkSource.options, jql: "project = GRADE" } }] }).valid, false, "Jira Work Sources must reject arbitrary JQL");
+assert.equal(validate("config", { ...cases.config.valid, work_sources: [{ ...validJiraWorkSource, options: { ...validJiraWorkSource.options, authorization_header: "Bearer secret" } }] }).valid, false, "Jira Work Sources must reject credentials");
 assert.equal(validate("config", { ...cases.config.valid, documentation: validDocumentation }).valid, true, "documentation refs and gaps must pass");
 assert.equal(validate("config", { ...cases.config.valid, documentation: { source_refs: [], gaps: [{ ...validDocumentation.gaps[0], owner: "unapproved" }] } }).valid, false, "documentation gaps must remain closed");
 assert.equal(validate("config", { ...cases.config.valid, git: { enabled: false, provider: "github" } }).valid, false, "disabled Git cannot use a provider");
