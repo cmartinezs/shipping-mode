@@ -369,7 +369,8 @@ export function dispatch(command, args, cwd, runtimeContext = null) {
           sourceRef: options.source,
           idempotencyKey: options.idempotency_key,
           commandActor: options.actor
-        }
+        },
+        runtimeContext
       });
     }
     if (stage === "refresh") {

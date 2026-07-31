@@ -1,8 +1,7 @@
 ---
 description: Check Shipping Mode schema, guides, Work Sources, Release, Release Item and Work Package health query-only.
 argument-hint: "schema | guides [--scope-id <uuid>] | work-sources --format json | source-drift [release-ref] --format json | release [id-or-display-id] [--format json] | item <release-ref> <item-ref> --format json | work-package <release-ref> <item-ref> <package-ref> --format json"
-disable-model-invocation: true
-allowed-tools: Bash(shipping-mode check schema:*), Bash(shipping-mode check guides:*), Bash(shipping-mode check work-sources:*), Bash(shipping-mode check source-drift:*), Bash(shipping-mode check release:*), Bash(shipping-mode check item:*), Bash(shipping-mode check work-package:*)
+allowed-tools: Bash(shipping-mode check schema:*), Bash(shipping-mode check guides:*), Bash(shipping-mode check work-sources:*), Bash(shipping-mode check source-drift:*), Bash(shipping-mode check release:*), Bash(shipping-mode check item:*), Bash(shipping-mode check work-package:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/work-source-host-runner.mjs:*), mcp__atlassian__getJiraIssue, mcp__atlassian__searchJiraIssuesUsingJql
 ---
 
 Run query-only checks:
@@ -15,6 +14,36 @@ shipping-mode check source-drift [release-id-or-display-id] --format json
 shipping-mode check release [id-or-display-id] [--format json]
 shipping-mode check item <release-id-or-display-id> <item-id-or-display-id> --format json
 shipping-mode check work-package <release-id-or-display-id> <item-id-or-display-id> <work-package-id-or-display-id> --format json
+```
+
+For local providers, run the standalone checks above.
+
+For `check source-drift` when Jira Work Sources are enabled, require
+`SHIPPING_MODE_ATLASSIAN_CLOUD_ID` to contain the connected Atlassian site's
+UUID. Site URLs are rejected. Resolve the UUID during Atlassian connection setup
+before invoking this skill; Shipping Mode does not expand its productive
+allowlist to perform resource discovery. Then use the installed host runner so
+the query can receive a bounded runtime transport:
+
+```text
+node "${CLAUDE_PLUGIN_ROOT}/scripts/work-source-host-runner.mjs" prepare \
+  --plugin-data-dir "${CLAUDE_PLUGIN_DATA}" \
+  --cwd "${CLAUDE_PROJECT_DIR}" \
+  -- check source-drift [release-id-or-display-id] --format json
+```
+
+Execute only the returned read-only Atlassian MCP actions with their exact
+`toolName` and `input`. The supported host tools are
+`mcp__atlassian__getJiraIssue` and
+`mcp__atlassian__searchJiraIssuesUsingJql`; do not substitute similarly named or
+mutating tools. After plugin-level capture, resume:
+
+```text
+node "${CLAUDE_PLUGIN_ROOT}/scripts/work-source-host-runner.mjs" resume \
+  --plugin-data-dir "${CLAUDE_PLUGIN_DATA}" \
+  --cwd "${CLAUDE_PROJECT_DIR}" \
+  --invocation-id <invocation-id> \
+  -- check source-drift [release-id-or-display-id] --format json
 ```
 
 `check work-sources` validates configured Work Sources, provider resolution,
@@ -42,3 +71,6 @@ gates without execution capability do not become PASS.
 Checks never mutate state, never create Operations, ChangeSets or Events, never
 repair README projections and never trigger recovery. Stop on
 `RECOVERY_REQUIRED`, `NOT_FOUND`, `AMBIGUOUS`, `FAIL` or `NOT_INITIALIZED`.
+Stop on host timeout, cancellation, mismatch, replay or malformed Atlassian
+responses. Do not run capture helpers manually and do not pass raw MCP responses
+through files, stdin or `.planning`.

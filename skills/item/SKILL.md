@@ -1,7 +1,7 @@
 ---
 description: Create, import, refresh and inspect Release Items and their Work Packages through the deterministic runtime.
 argument-hint: "create <release-id-or-display-id> --kind <kind> --title <title> | import <release-ref> --source <source-id:item-id-or-path> | refresh <release-ref> <item-ref> | package add <release-ref> <item-ref> --scope-id <uuid> --commitment required|optional --title <title> | status <release-ref> <item-ref>"
-disable-model-invocation: true
+allowed-tools: Bash(shipping-mode item:*), Bash(shipping-mode changeset validate:*), Bash(shipping-mode changeset approve:*), Bash(shipping-mode changeset apply:*), Bash(node ${CLAUDE_PLUGIN_ROOT}/scripts/work-source-host-runner.mjs:*), mcp__atlassian__getJiraIssue, mcp__atlassian__searchJiraIssuesUsingJql
 ---
 
 # Item
@@ -38,6 +38,49 @@ shipping-mode item refresh <release-id-or-display-id> <item-id-or-display-id> --
 shipping-mode item package add <release-id-or-display-id> <item-id-or-display-id> --scope-id <uuid> --commitment required|optional --title <title> --actor <audit-actor>
 shipping-mode item status <release-id-or-display-id> <item-id-or-display-id>
 shipping-mode item package status <release-id-or-display-id> <item-id-or-display-id> <work-package-id-or-display-id>
+```
+
+For local providers, invoke the standalone runtime normally. Do not route local
+imports or refreshes through the host runner.
+
+For external Jira providers, require `SHIPPING_MODE_ATLASSIAN_CLOUD_ID` to
+contain the connected Atlassian site's UUID. Site URLs are rejected. Resolve the
+UUID during Atlassian connection setup before invoking this skill; Shipping Mode
+does not expand its productive allowlist to perform resource discovery. Do not
+call `shipping-mode item import` or `shipping-mode item refresh` directly. Use
+the installed-plugin host runner:
+
+```text
+node "${CLAUDE_PLUGIN_ROOT}/scripts/work-source-host-runner.mjs" prepare \
+  --plugin-data-dir "${CLAUDE_PLUGIN_DATA}" \
+  --cwd "${CLAUDE_PROJECT_DIR}" \
+  -- item import <release-ref> --source <source-id:issue-key> --actor <audit-actor>
+```
+
+or:
+
+```text
+node "${CLAUDE_PLUGIN_ROOT}/scripts/work-source-host-runner.mjs" prepare \
+  --plugin-data-dir "${CLAUDE_PLUGIN_DATA}" \
+  --cwd "${CLAUDE_PROJECT_DIR}" \
+  -- item refresh <release-ref> <item-ref> --actor <audit-actor>
+```
+
+Then execute exactly each returned read-only Atlassian MCP action using the
+returned `toolName` and `input`, allowing the normal Claude Code authorization
+prompt. The only supported Jira host tools are
+`mcp__atlassian__getJiraIssue` and
+`mcp__atlassian__searchJiraIssuesUsingJql`. Do not substitute similarly named
+legacy or mutating tools, and do not run capture helpers manually. After the
+plugin-level hook captures each action, resume with the same Shipping Mode
+command:
+
+```text
+node "${CLAUDE_PLUGIN_ROOT}/scripts/work-source-host-runner.mjs" resume \
+  --plugin-data-dir "${CLAUDE_PLUGIN_DATA}" \
+  --cwd "${CLAUDE_PROJECT_DIR}" \
+  --invocation-id <invocation-id> \
+  -- item refresh <release-ref> <item-ref> --actor <audit-actor>
 ```
 
 `item create` creates only a `release-item.create` ChangeSet. `item import`
@@ -79,6 +122,8 @@ shipping-mode changeset apply <operation-id> --actor <actor>
 - Stop on `RECOVERY_REQUIRED`, `NOT_FOUND`, `AMBIGUOUS`, `INVALID` or `STALE`.
 - Stop when an external Work Source reports `SOURCE_UNAVAILABLE`; do not inject a
   caller-supplied transport response or bridge envelope as a workaround.
+- Stop when host PREPARE, MCP execution, hook capture or RESUME reports mismatch,
+  timeout, cancellation, replay or malformed response.
 - Do not write `.planning` directly.
 - Do not parse Markdown as source.
 - Do not create Tasks, external mutations, write-back operations or `item resolve`
