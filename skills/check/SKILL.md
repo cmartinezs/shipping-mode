@@ -19,9 +19,11 @@ shipping-mode check work-package <release-id-or-display-id> <item-id-or-display-
 For local providers, run the standalone checks above.
 
 For `check source-drift` when Jira Work Sources are enabled, require
-`SHIPPING_MODE_ATLASSIAN_CLOUD_ID` to contain the connected Atlassian site UUID
-or credential-free `https://<site>.atlassian.net` origin. Then use the installed
-host runner so the query can receive a bounded runtime transport:
+`SHIPPING_MODE_ATLASSIAN_CLOUD_ID` to contain the connected Atlassian site's
+UUID. Site URLs are rejected. Resolve the UUID during Atlassian connection setup
+before invoking this skill; Shipping Mode does not expand its productive
+allowlist to perform resource discovery. Then use the installed host runner so
+the query can receive a bounded runtime transport:
 
 ```text
 node "${CLAUDE_PLUGIN_ROOT}/scripts/work-source-host-runner.mjs" prepare \
