@@ -37,7 +37,8 @@
         "release.finalization.complete",
         "release-item.create",
         "work-package.create",
-        "work-source.import"
+        "work-source.import",
+        "work-source.refresh"
       ]
     },
     "target": {
@@ -711,6 +712,7 @@
                   "slug": { "type": ["string", "null"], "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
                   "dependencies": { "type": "array", "items": { "$ref": "#/properties/operationId" }, "uniqueItems": true },
                   "sourceRefs": { "type": "array", "minItems": 1, "maxItems": 1, "items": { "$ref": "https://shipping-mode.dev/schemas/release-item.schema.json#/$defs/sourceRef" } },
+                  "sourceSync": { "$ref": "https://shipping-mode.dev/schemas/release-item.schema.json#/$defs/sourceSync" },
                   "actor": { "type": "string", "minLength": 1 },
                   "need": { "type": "string", "minLength": 1 },
                   "value": { "type": "string", "minLength": 1 },
@@ -737,6 +739,56 @@
                   "owner": { "type": "string", "minLength": 1 }
                 }
               },
+              "idempotencyKey": { "type": "string", "minLength": 1, "maxLength": 256 },
+              "idempotencyRequestHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+              "targetPaths": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": { "const": "work-source.refresh" }
+        }
+      },
+      "then": {
+        "properties": {
+          "payload": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["operationId", "releaseId", "itemId", "actor", "proposedAt", "sourceId", "provider", "sourceRef", "normalizedItem", "baselineId", "baselineHash", "requestSnapshot", "idempotencyKey", "idempotencyRequestHash", "targetPaths"],
+            "properties": {
+              "operationId": { "$ref": "#/properties/operationId" },
+              "releaseId": { "$ref": "#/properties/operationId" },
+              "itemId": { "$ref": "#/properties/operationId" },
+              "actor": { "type": "string", "minLength": 1 },
+              "proposedAt": { "type": "string", "minLength": 1 },
+              "sourceId": { "type": "string", "minLength": 1 },
+              "provider": { "type": "string", "minLength": 1 },
+              "sourceRef": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["sourceId", "provider", "role", "mappingVersion"],
+                "properties": {
+                  "sourceId": { "type": "string", "minLength": 1 },
+                  "provider": { "type": "string", "minLength": 1 },
+                  "role": { "const": "primary" },
+                  "mappingVersion": { "type": "integer", "minimum": 1 },
+                  "itemId": { "type": "string", "minLength": 1 },
+                  "path": { "type": "string", "minLength": 1 },
+                  "externalId": { "type": "string", "minLength": 1 },
+                  "externalUrl": { "type": "string", "minLength": 1 },
+                  "externalRevision": { "type": "string", "minLength": 1 },
+                  "contentRevision": { "type": "string", "minLength": 1 },
+                  "fingerprint": { "type": "string", "minLength": 1 }
+                }
+              },
+              "normalizedItem": { "$ref": "https://shipping-mode.dev/schemas/normalized-work-source-item.schema.json" },
+              "baselineId": { "$ref": "#/properties/operationId" },
+              "baselineHash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+              "requestSnapshot": { "type": "object" },
               "idempotencyKey": { "type": "string", "minLength": 1, "maxLength": 256 },
               "idempotencyRequestHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
               "targetPaths": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }

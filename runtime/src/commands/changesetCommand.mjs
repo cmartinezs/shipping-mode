@@ -13,6 +13,7 @@ import { generateGuideOutput } from "../lib/guideGeneration.mjs";
 import { revisionHash } from "../lib/canonical.mjs";
 import { proposeReleaseCreate, proposeReleasePlan2Mutation } from "./release.mjs";
 import { proposeReleaseItemCreate, proposeWorkPackageCreate, proposeWorkSourceImport } from "./item.mjs";
+import { renderWorkSourceRefresh } from "../lib/workSourceRefresh.mjs";
 
 function readCurrentConfig(planningRoot) {
   const configPath = confineRuntimeWritePath(planningRoot, "config.yml");
@@ -37,6 +38,7 @@ function renderFor(kind, payload, currentConfig, workspaceRoot, planningRoot, { 
   if (kind === "release.create") return renderReleaseCreate(payload);
   if (kind === "release-item.create") return renderReleaseItemCreateChangeSet(payload, planningRoot);
   if (kind === "work-source.import") return renderWorkSourceImportChangeSet(payload, planningRoot);
+  if (kind === "work-source.refresh") return renderWorkSourceRefresh(payload, { planningRoot });
   if (kind === "work-package.create") return renderWorkPackageCreateChangeSet(payload, planningRoot);
   if (kind.startsWith("release.")) return renderReleasePlan2Mutation(kind, payload, planningRoot, workspaceRoot, currentConfig);
   throw new UsageError(`unsupported changeset kind: ${kind}`);
@@ -132,10 +134,12 @@ export function runChangesetPropose({ planningRoot, kind, payloadText, actor }) 
   return { operationId };
 }
 
-export function runChangesetValidate({ planningRoot, operationsRoot, operationId }) {
+export function runChangesetValidate({ planningRoot, operationsRoot, operationId, runtimeContext = null }) {
   const changeSet = readChangeSet(operationsRoot, operationId);
   const currentConfig = changeSet.kind === "workspace.init" ? null : readCurrentConfig(planningRoot);
-  const render = (payload) => renderFor(changeSet.kind, payload, currentConfig, path.dirname(planningRoot), planningRoot, { currentSources: readConfirmedSources(planningRoot), currentScopes: readConfirmedScopes(planningRoot), proposedAt: changeSet.proposedAt });
+  const render = (payload) => changeSet.kind === "work-source.refresh"
+    ? renderWorkSourceRefresh(payload, { planningRoot, runtimeContext })
+    : renderFor(changeSet.kind, payload, currentConfig, path.dirname(planningRoot), planningRoot, { currentSources: readConfirmedSources(planningRoot), currentScopes: readConfirmedScopes(planningRoot), proposedAt: changeSet.proposedAt });
   validateOperation({ operationsRoot, planningRoot, operationId, render });
   const operation = readOperation(operationsRoot, operationId);
   return { status: operation.status, errors: operation.validation?.errors || [] };
@@ -146,10 +150,12 @@ export function runChangesetApprove({ operationsRoot, planningRoot, operationId,
   return { status: readOperation(operationsRoot, operationId).status };
 }
 
-export function runChangesetApply({ planningRoot, operationsRoot, operationId, actor }) {
+export function runChangesetApply({ planningRoot, operationsRoot, operationId, actor, runtimeContext = null }) {
   const changeSet = readChangeSet(operationsRoot, operationId);
   const operation = readOperation(operationsRoot, operationId);
   const currentConfig = changeSet.kind === "workspace.init" ? null : readCurrentConfig(planningRoot);
-  const render = (payload) => renderFor(changeSet.kind, payload, currentConfig, path.dirname(planningRoot), planningRoot, { currentSources: readConfirmedSources(planningRoot), currentScopes: readConfirmedScopes(planningRoot), approvalMode: operation.approval?.mode || "human", approval: operation.approval, proposedAt: changeSet.proposedAt });
+  const render = (payload) => changeSet.kind === "work-source.refresh"
+    ? renderWorkSourceRefresh(payload, { planningRoot, runtimeContext })
+    : renderFor(changeSet.kind, payload, currentConfig, path.dirname(planningRoot), planningRoot, { currentSources: readConfirmedSources(planningRoot), currentScopes: readConfirmedScopes(planningRoot), approvalMode: operation.approval?.mode || "human", approval: operation.approval, proposedAt: changeSet.proposedAt });
   return applyOperation({ operationsRoot, planningRoot, operationId, actor, render });
 }

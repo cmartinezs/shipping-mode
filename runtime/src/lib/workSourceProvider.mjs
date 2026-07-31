@@ -33,7 +33,7 @@ function cloneSource(source) {
     ...source,
     roots: (source.roots || []).map((root) => ({ ...root })),
     capabilities: [...(source.capabilities || [])],
-    options: { ...(source.options || {}), ...(source.options?.file_globs ? { file_globs: [...source.options.file_globs] } : {}) }
+    options: structuredClone(source.options || {})
   };
 }
 

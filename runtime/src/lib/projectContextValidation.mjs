@@ -79,11 +79,17 @@ export function projectContextConsistencyFindings(config, { knownSourceIds = nul
     if (ids.has(source.id)) findings.push(`config.yml: duplicate work source id ${source.id}`);
     ids.add(source.id);
 
-    if (source.import_policy !== "import_snapshot") {
-      findings.push(`config.yml: work source ${source.id} import_policy must be import_snapshot in Plan 3`);
+    if (source.provider === "local_repository" && source.import_policy !== "import_snapshot") {
+      findings.push(`config.yml: work source ${source.id} local_repository import_policy must be import_snapshot`);
     }
-    if (source.sync_mode !== "import_only") {
-      findings.push(`config.yml: work source ${source.id} sync_mode must be import_only in Plan 3`);
+    if (source.provider === "local_repository" && source.sync_mode !== "import_only") {
+      findings.push(`config.yml: work source ${source.id} local_repository sync_mode must be import_only`);
+    }
+    if (source.provider === "jira" && source.import_policy !== "external_authoritative") {
+      findings.push(`config.yml: work source ${source.id} jira import_policy must be external_authoritative`);
+    }
+    if (source.provider === "jira" && source.sync_mode !== "pull") {
+      findings.push(`config.yml: work source ${source.id} jira sync_mode must be pull`);
     }
     if (!Number.isInteger(source.mapping_version) || source.mapping_version < 1) {
       findings.push(`config.yml: work source ${source.id} mapping_version must be a positive integer`);
@@ -95,8 +101,14 @@ export function projectContextConsistencyFindings(config, { knownSourceIds = nul
       }
       if (segments[0] === ".planning" || segments[0] === ".git") findings.push(`config.yml: work source ${source.id} root cannot use reserved runtime or VCS directories`);
     }
-    if (source.provider !== "local_repository") {
-      findings.push(`config.yml: work source ${source.id} provider ${source.provider} is deferred to Plan 4`);
+    if (source.provider === "jira") {
+      if (source.transport !== "mcp") findings.push(`config.yml: work source ${source.id} jira transport must be mcp`);
+      if (source.roots !== undefined) findings.push(`config.yml: work source ${source.id} jira must not declare roots`);
+      for (const capability of source.capabilities || []) {
+        if (!["discover", "search", "get"].includes(capability)) findings.push(`config.yml: work source ${source.id} jira cannot declare mutating capability ${capability}`);
+      }
+    } else if (source.provider !== "local_repository") {
+      findings.push(`config.yml: work source ${source.id} provider ${source.provider} is not implemented`);
     }
     for (const capability of source.capabilities || []) {
       if (!["discover", "search", "get", "create", "update", "transition", "comment"].includes(capability)) {

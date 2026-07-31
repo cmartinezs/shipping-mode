@@ -36,7 +36,7 @@ assert.deepEqual(help.commands, [
   "init --name <name> [--project-type software|non_software|mixed|unknown] [--base-branch <b>] [--vcs git|none] --actor <actor>",
   "config set --name <name> --actor <actor>",
   "config scope add --key <slug> --label <label> --kind code|non_code --path <path> [--owner <o>] --actor <actor>",
-  "changeset propose --kind <workspace.init|config.update|scope.add|scope.generator.set|guide.update|release.create|release.policy.configure|release.scopeRefs.set|release.operationalRefs.set|release.deployment.record|release.finalization.complete|release-item.create|work-package.create|work-source.import> --payload-file <file|-> --actor <actor>",
+  "changeset propose --kind <workspace.init|config.update|scope.add|scope.generator.set|guide.update|release.create|release.policy.configure|release.scopeRefs.set|release.operationalRefs.set|release.deployment.record|release.finalization.complete|release-item.create|work-package.create|work-source.import|work-source.refresh> --payload-file <file|-> --actor <actor>",
   "changeset validate <operation-id>",
   "changeset approve <operation-id> --actor <actor> [--allow-self-approval]",
   "changeset apply <operation-id> --actor <actor>",
@@ -49,6 +49,7 @@ assert.deepEqual(help.commands, [
   "release finalize <id-or-display-id> [--retrospective-status not_started|draft|approved|not_required] [--idempotency-key <key>] --actor <actor>",
   "item create <release-id-or-display-id> --kind <kind> --title <title> [kind-specific options] [--dependency-refs <uuid,...>] [--slug <slug>] [--idempotency-key <key>] --actor <actor>",
   "item import <release-id-or-display-id> --source <source-id:item-id-or-path> [--idempotency-key <key>] --actor <actor>",
+  "item refresh <release-id-or-display-id> <item-id-or-display-id> [--idempotency-key <key>] --actor <actor>",
   "item package add <release-id-or-display-id> <item-id-or-display-id> --scope-id <uuid> --commitment required|optional --title <title> [--description <text>] [--dependencies <uuid,...>] [--idempotency-key <key>] --actor <actor>",
   "item status <release-id-or-display-id> <item-id-or-display-id>",
   "item package status <release-id-or-display-id> <item-id-or-display-id> <work-package-id-or-display-id>",
@@ -57,6 +58,7 @@ assert.deepEqual(help.commands, [
   "check item <release-id-or-display-id> <item-id-or-display-id> --format json",
   "check work-package <release-id-or-display-id> <item-id-or-display-id> <work-package-id-or-display-id> --format json",
   "check work-sources --format json",
+  "check source-drift [release-id-or-display-id] --format json",
   "check guides [--scope-id <uuid>] [--mode strict|advisory]",
   "--help", "--version"
 ]);

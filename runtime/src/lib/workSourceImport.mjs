@@ -10,12 +10,25 @@ import { releaseItemCreateRequestHash, renderReleaseItemCreate } from "./release
 import { assertReleaseParentCanAcceptItem, listReleaseItemDocuments, listReservedReleaseItemDocuments, releaseItemCatalogFindings, releaseItemReadmeRelativePath, releaseItemYamlRelativePath } from "./releaseItemStore.mjs";
 import { buildWorkSourceRegistry, WORK_SOURCE_CAPABILITIES } from "./workSourceProvider.mjs";
 import { LocalRepositoryWorkSource } from "./localRepositoryWorkSource.mjs";
+import { JiraMcpWorkSource } from "./jiraMcpWorkSource.mjs";
+import { HostWorkSourceTransport } from "./hostWorkSourceTransport.mjs";
 import { parseYaml } from "./yaml.mjs";
 import { assertProjectContextConsistency } from "./projectContextValidation.mjs";
 
 const SECRET_KEY_PATTERN = /(token|secret|password|cookie|credential|authorization|auth|api[-_]?key|refresh)/i;
 const SUPPORTED_MAPPINGS = new Set([1]);
 const SUPPORTED_KINDS = new Set(["user_story", "capability", "defect", "enabler", "spike", "compliance", "migration", "operational"]);
+const JIRA_READ_CAPABILITIES = new Set(["discover", "search", "get"]);
+const JIRA_REQUIRED_FIELDS_BY_KIND = {
+  user_story: ["actor", "need", "value", "acceptanceCriteria"],
+  capability: ["outcome", "behavior", "acceptanceCriteria"],
+  defect: ["observedBehavior", "expectedBehavior", "reproduction", "severity"],
+  enabler: ["technicalOutcome", "unlockedCapabilities"],
+  spike: ["question", "timebox", "expectedDecision"],
+  compliance: ["obligation", "authority", "deadline", "evidence"],
+  migration: ["sourceState", "targetState", "rollback"],
+  operational: ["procedure", "owner", "evidence"]
+};
 
 function requireString(value, field) {
   if (typeof value !== "string" || value.trim().length === 0) throw new Error(`${field} must be a non-blank string`);
@@ -62,7 +75,7 @@ function normalizeRoot(workspaceRoot, sourceId, root, { enabled }) {
   return { relativePath: normalized, absolutePath };
 }
 
-function normalizeOptions(value, sourceId) {
+function normalizeLocalOptions(value, sourceId) {
   const options = value === undefined ? {} : value;
   if (!options || typeof options !== "object" || Array.isArray(options)) throw new Error(`work source ${sourceId} options must be an object`);
   const allowed = new Set(["file_globs", "max_item_bytes"]);
@@ -73,6 +86,68 @@ function normalizeOptions(value, sourceId) {
   return {
     ...(options.file_globs === undefined ? {} : { file_globs: normalizeStringArray(options.file_globs, `work source ${sourceId} options.file_globs`) }),
     ...(options.max_item_bytes === undefined ? {} : { max_item_bytes: normalizePositiveInteger(options.max_item_bytes, `work source ${sourceId} options.max_item_bytes`) })
+  };
+}
+
+function normalizeFieldSelector(value, field) {
+  const selector = requireString(value, field);
+  if (!/^(summary|description|status|priority|labels|parent|epic|links|assignee|customfield_[0-9]{1,10})$/.test(selector)) {
+    throw new Error(`${field} must be a closed Jira field selector`);
+  }
+  return selector;
+}
+
+function normalizeJiraOptions(value, sourceId) {
+  const options = value === undefined ? {} : value;
+  if (!options || typeof options !== "object" || Array.isArray(options)) throw new Error(`work source ${sourceId} options must be an object`);
+  const allowed = new Set(["project_keys", "query_scope", "allowed_issue_types", "field_map"]);
+  for (const key of Object.keys(options)) {
+    if (SECRET_KEY_PATTERN.test(key)) throw new Error(`work source ${sourceId} options must not contain secrets`);
+    if (!allowed.has(key)) throw new Error(`work source ${sourceId} options contains unsupported field ${key}`);
+  }
+  const projectKeys = normalizeStringArray(options.project_keys, `work source ${sourceId} options.project_keys`);
+  for (const key of projectKeys) {
+    if (!/^[A-Z][A-Z0-9_]{1,31}$/.test(key)) throw new Error(`work source ${sourceId} project key is invalid: ${key}`);
+  }
+  const queryScope = options.query_scope;
+  if (!queryScope || typeof queryScope !== "object" || Array.isArray(queryScope)) throw new Error(`work source ${sourceId} options.query_scope must be an object`);
+  for (const key of Object.keys(queryScope)) {
+    if (!["mode", "max_results"].includes(key)) throw new Error(`work source ${sourceId} query_scope contains unsupported field ${key}`);
+  }
+  if (queryScope.mode !== "project_keys_and_text") throw new Error(`work source ${sourceId} query_scope.mode must be project_keys_and_text`);
+  const maxResults = normalizePositiveInteger(queryScope.max_results, `work source ${sourceId} query_scope.max_results`);
+  if (maxResults > 100) throw new Error(`work source ${sourceId} query_scope.max_results exceeds limit`);
+  const allowedIssueTypes = normalizeStringArray(options.allowed_issue_types, `work source ${sourceId} options.allowed_issue_types`);
+  for (const type of allowedIssueTypes) {
+    if (!["Story", "Bug", "Epic", "Spike"].includes(type)) throw new Error(`work source ${sourceId} issue type is not allowed: ${type}`);
+  }
+  const fieldMap = options.field_map;
+  if (!fieldMap || typeof fieldMap !== "object" || Array.isArray(fieldMap)) throw new Error(`work source ${sourceId} options.field_map must be an object`);
+  const normalizedFieldMap = {};
+  for (const issueType of allowedIssueTypes) {
+    const mapping = fieldMap[issueType];
+    if (!mapping || typeof mapping !== "object" || Array.isArray(mapping)) throw new Error(`work source ${sourceId} field_map missing issue type ${issueType}`);
+    const kind = requireString(mapping.kind, `work source ${sourceId} field_map.${issueType}.kind`);
+    if (!SUPPORTED_KINDS.has(kind)) throw new Error(`work source ${sourceId} field_map.${issueType}.kind is unsupported: ${kind}`);
+    const normalizedMapping = { kind };
+    for (const [field, selector] of Object.entries(mapping)) {
+      if (field === "kind") continue;
+      if (SECRET_KEY_PATTERN.test(field)) throw new Error(`work source ${sourceId} field_map must not contain secrets`);
+      normalizedMapping[field] = normalizeFieldSelector(selector, `work source ${sourceId} field_map.${issueType}.${field}`);
+    }
+    for (const field of JIRA_REQUIRED_FIELDS_BY_KIND[kind] || []) {
+      if (!normalizedMapping[field]) throw new Error(`work source ${sourceId} field_map.${issueType} missing required field ${field}`);
+    }
+    normalizedFieldMap[issueType] = normalizedMapping;
+  }
+  for (const issueType of Object.keys(fieldMap)) {
+    if (!allowedIssueTypes.includes(issueType)) throw new Error(`work source ${sourceId} field_map contains undeclared issue type ${issueType}`);
+  }
+  return {
+    project_keys: projectKeys.sort(),
+    query_scope: { mode: "project_keys_and_text", max_results: maxResults },
+    allowed_issue_types: allowedIssueTypes.sort(),
+    field_map: Object.fromEntries(Object.entries(normalizedFieldMap).sort(([left], [right]) => left.localeCompare(right)))
   };
 }
 
@@ -93,13 +168,16 @@ export function workSourceConfigSnapshot(source) {
   return {
     id: source.id,
     provider: source.provider,
+    ...(source.transport ? { transport: source.transport } : {}),
+    ...(source.connectionRef ? { connectionRef: source.connectionRef } : {}),
     enabled: source.enabled,
     roots: source.roots.map((root) => root.relativePath),
     mappingVersion: source.mappingVersion,
+    ...(source.mappingProfile ? { mappingProfile: source.mappingProfile } : {}),
     importPolicy: source.importPolicy,
     syncMode: source.syncMode,
     capabilities: [...source.capabilities],
-    options: { ...source.options, ...(source.options.file_globs ? { file_globs: [...source.options.file_globs] } : {}) }
+    options: structuredClone(source.options)
   };
 }
 
@@ -117,32 +195,50 @@ export function normalizeWorkSourceConfig({ config, workspaceRoot }) {
     const mappingVersion = normalizePositiveInteger(source.mapping_version ?? source.mappingVersion, `work source ${id} mapping_version`);
     if (!SUPPORTED_MAPPINGS.has(mappingVersion)) throw new Error(`unsupported mapping version ${mappingVersion} for Work Source ${id}`);
     const importPolicy = requireString(source.import_policy ?? source.source_policy, `work source ${id} import_policy`);
-    if (importPolicy !== "import_snapshot") throw new Error(`unsupported import policy ${importPolicy} for Work Source ${id}`);
     const syncMode = requireString(source.sync_mode, `work source ${id} sync_mode`);
-    if (syncMode !== "import_only") throw new Error(`unsupported sync mode ${syncMode} for Work Source ${id}`);
     const enabled = source.enabled === true;
-    const roots = (source.roots || []).map((root) => normalizeRoot(workspaceRoot, id, root, { enabled }));
+    if (provider === "local_repository" && importPolicy !== "import_snapshot") throw new Error(`local_repository Work Source ${id} requires import_snapshot policy`);
+    if (provider === "local_repository" && syncMode !== "import_only") throw new Error(`local_repository Work Source ${id} requires sync mode import_only`);
+    if (provider === "jira" && importPolicy !== "external_authoritative") throw new Error(`jira Work Source ${id} requires external_authoritative policy`);
+    if (provider === "jira" && syncMode !== "pull") throw new Error(`jira Work Source ${id} requires sync mode pull`);
+    if (provider !== "jira" && source.transport !== undefined) throw new Error(`work source ${id} transport is only supported for external Jira MCP`);
+    if (provider === "jira" && source.transport !== "mcp") throw new Error(`jira Work Source ${id} requires transport mcp`);
+    if (provider === "jira" && source.roots !== undefined) throw new Error(`jira Work Source ${id} must not declare roots`);
+    const roots = provider === "jira" ? [] : (source.roots || []).map((root) => normalizeRoot(workspaceRoot, id, root, { enabled }));
     if (provider === "local_repository" && roots.length === 0) throw new Error(`local_repository Work Source ${id} requires at least one root`);
+    const capabilities = normalizeCapabilityList(source.capabilities || (provider === "local_repository" ? ["discover", "search", "get"] : []), `work source ${id} capabilities`);
+    if (provider === "jira") {
+      for (const capability of capabilities) {
+        if (!JIRA_READ_CAPABILITIES.has(capability)) throw new Error(`jira Work Source ${id} declares mutating capability ${capability}`);
+      }
+    }
     return {
       id,
       provider,
+      ...(provider === "jira" ? { transport: "mcp", connectionRef: requireString(source.connection_ref ?? source.connectionRef, `work source ${id} connection_ref`) } : {}),
       enabled,
       roots,
       mappingVersion,
+      ...(provider === "jira" ? { mappingProfile: requireString(source.mapping_profile ?? source.mappingProfile, `work source ${id} mapping_profile`) } : {}),
       importPolicy,
       syncMode,
-      capabilities: normalizeCapabilityList(source.capabilities || (provider === "local_repository" ? ["discover", "search", "get"] : []), `work source ${id} capabilities`),
-      options: normalizeOptions(source.options, id)
+      capabilities,
+      options: provider === "jira" ? normalizeJiraOptions(source.options, id) : normalizeLocalOptions(source.options, id)
     };
   }).sort((left, right) => left.id.localeCompare(right.id));
 }
 
-export function defaultWorkSourceRegistry({ planningRoot }) {
+export function defaultWorkSourceRegistry({ planningRoot, runtimeContext = null }) {
   const workspaceRoot = path.dirname(planningRoot);
   const config = readValidatedWorkSourceConfig(planningRoot);
   const sources = normalizeWorkSourceConfig({ config, workspaceRoot });
+  const hostTransport = runtimeContext?.workSourceTransport?.execute
+    ? runtimeContext.workSourceTransport
+    : runtimeContext?.workSourceTransport?.kind === "host-bridge"
+      ? new HostWorkSourceTransport({ projectRoot: workspaceRoot, pluginDataDir: runtimeContext.workSourceTransport.pluginDataDir, sessionId: runtimeContext.workSourceTransport.sessionId })
+      : null;
   return buildWorkSourceRegistry({
-    providerFactories: [() => new LocalRepositoryWorkSource({ workspaceRoot })],
+    providerFactories: [() => new LocalRepositoryWorkSource({ workspaceRoot }), () => new JiraMcpWorkSource({ transport: hostTransport })],
     sources
   });
 }
@@ -182,6 +278,13 @@ export function validateNormalizedWorkSourceItem(item) {
     assertSafeMetadata(item.metadata || {});
   } catch (error) {
     errors.push(error.message);
+  }
+  if (item?.trace?.kind === "external") {
+    try {
+      assertSafeMetadata(item.trace.evidence || {});
+    } catch (error) {
+      errors.push(`trace.evidence ${error.message}`);
+    }
   }
   for (const [field, keyFn] of [
     ["acceptanceCriteria", (entry) => entry.id],
@@ -239,7 +342,7 @@ function mappedReleaseItemSnapshot(normalizedItem, sourceRef) {
   const base = {
     kind: normalizedItem.type,
     title: normalizedItem.title,
-    description: normalizedItem.description.text,
+    description: normalizedItem.description?.text ?? null,
     slug: null,
     dependencies: [],
     sourceRefs: [sourceRef]
@@ -257,7 +360,61 @@ function mappedReleaseItemSnapshot(normalizedItem, sourceRef) {
   throw new Error(`unsupported Work Source item type: ${normalizedItem.type}`);
 }
 
-function deriveSourceRef({ source, normalizedItem, importedAt, role = "primary" }) {
+export const MANAGED_FIELDS_BY_KIND = {
+  user_story: ["/kind", "/title", "/description", "/actor", "/need", "/value", "/acceptanceCriteria"],
+  capability: ["/kind", "/title", "/description", "/outcome", "/behavior", "/acceptanceCriteria"],
+  defect: ["/kind", "/title", "/description", "/observedBehavior", "/expectedBehavior", "/reproduction", "/severity"],
+  enabler: ["/kind", "/title", "/description", "/technicalOutcome", "/unlockedCapabilities"],
+  spike: ["/kind", "/title", "/description", "/question", "/timebox", "/expectedDecision"],
+  compliance: ["/kind", "/title", "/description", "/obligation", "/authority", "/deadline", "/evidence"],
+  migration: ["/kind", "/title", "/description", "/sourceState", "/targetState", "/rollback"],
+  operational: ["/kind", "/title", "/description", "/procedure", "/owner", "/evidence"]
+};
+
+export function managedSnapshotFromReleaseSnapshot(snapshot, managedFields) {
+  return Object.fromEntries(managedFields.map((pointer) => [pointer.slice(1), snapshot[pointer.slice(1)] ?? null]));
+}
+
+function sourceRefIdentityHash(sourceRef) {
+  return `sha256:${revisionHash(sourceRef)}`;
+}
+
+function sourceRevisionFromRef(sourceRef) {
+  return sourceRef.externalRevision || sourceRef.contentRevision || sourceRef.fingerprint;
+}
+
+function locatorFromSourceRef(sourceRef) {
+  if (sourceRef.provider === "local_repository") return { itemId: sourceRef.itemId, path: sourceRef.path };
+  return { externalId: sourceRef.externalId };
+}
+
+export function buildSourceSync({ source, sourceRef, requestSnapshot, proposedAt, actor }) {
+  const managedFields = MANAGED_FIELDS_BY_KIND[requestSnapshot.kind];
+  const managedSnapshot = managedSnapshotFromReleaseSnapshot(requestSnapshot, managedFields);
+  return {
+    schemaVersion: 1,
+    baselines: [{
+      baselineId: generateUuidV7(),
+      sourceRefIdentityHash: sourceRefIdentityHash(sourceRef),
+      role: "primary",
+      sourceId: source.id,
+      provider: source.provider,
+      locator: locatorFromSourceRef(sourceRef),
+      sourceRevision: sourceRevisionFromRef(sourceRef),
+      mappingVersion: source.mappingVersion,
+      mappingProfile: source.mappingProfile || `${source.provider}-v${source.mappingVersion}`,
+      configHash: `sha256:${workSourceConfigHash(source)}`,
+      managedFields,
+      managedSnapshot,
+      managedSnapshotHash: `sha256:${revisionHash(managedSnapshot)}`,
+      aggregateRevisionAtSync: `sha256:${revisionHash({ ...requestSnapshot, sourceSync: null })}`,
+      syncedAt: proposedAt,
+      syncedBy: actor
+    }]
+  };
+}
+
+export function deriveSourceRef({ source, normalizedItem, importedAt, role = "primary" }) {
   if (source.provider === "local_repository") {
     return {
       sourceId: source.id,
@@ -350,7 +507,11 @@ export function prepareWorkSourceImport(rawPayload, {
   ];
   const id = itemId ?? generateUuidV7();
   const display = deriveUniqueReleaseItemDisplayId(id, existingItems);
-  const requestSnapshot = mappedReleaseItemSnapshot(normalizedItem, sourceRefObject);
+  const mappedSnapshot = mappedReleaseItemSnapshot(normalizedItem, sourceRefObject);
+  const requestSnapshot = {
+    ...mappedSnapshot,
+    sourceSync: buildSourceSync({ source, sourceRef: sourceRefObject, requestSnapshot: mappedSnapshot, proposedAt, actor })
+  };
   const prospective = {
     schemaVersion: 1,
     id,
@@ -504,7 +665,19 @@ export function workSourceImportInvariantFindings(changeSet, operation = null, e
   try {
     const expectedSourceRef = deriveSourceRef({ source: { id: payload.source.sourceId, provider: payload.source.provider, mappingVersion: payload.source.mappingVersion }, normalizedItem: payload.normalizedItem, importedAt: payload.proposedAt, role: payload.source.role });
     if (revisionHash(expectedSourceRef) !== revisionHash(payload.requestSnapshot?.sourceRefs?.[0] || null)) findings.push("work-source.import sourceRef must be derived from the normalized source item");
-    const expectedSnapshot = mappedReleaseItemSnapshot(payload.normalizedItem, expectedSourceRef);
+    const expectedMappedSnapshot = mappedReleaseItemSnapshot(payload.normalizedItem, expectedSourceRef);
+    const expectedSnapshot = {
+      ...expectedMappedSnapshot,
+      sourceSync: buildSourceSync({
+        source: { id: payload.source.sourceId, provider: payload.source.provider, mappingVersion: payload.source.mappingVersion, mappingProfile: payload.requestSnapshot?.sourceSync?.baselines?.[0]?.mappingProfile, roots: [], capabilities: [], options: {} },
+        sourceRef: expectedSourceRef,
+        requestSnapshot: expectedMappedSnapshot,
+        proposedAt: payload.proposedAt,
+        actor: payload.actor
+      })
+    };
+    if (payload.requestSnapshot?.sourceSync?.baselines?.[0]?.baselineId) expectedSnapshot.sourceSync.baselines[0].baselineId = payload.requestSnapshot.sourceSync.baselines[0].baselineId;
+    if (payload.requestSnapshot?.sourceSync?.baselines?.[0]?.configHash) expectedSnapshot.sourceSync.baselines[0].configHash = payload.requestSnapshot.sourceSync.baselines[0].configHash;
     if (revisionHash(expectedSnapshot) !== revisionHash(payload.requestSnapshot || null)) findings.push("work-source.import requestSnapshot must be derived from the normalized source item");
   } catch (error) {
     findings.push(`work-source.import cannot derive canonical snapshot: ${error.message}`);

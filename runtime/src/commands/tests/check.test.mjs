@@ -107,7 +107,7 @@ function writeValidBaseFiles(planningRoot) {
   assert.ok(result.findings.some((finding) => finding.includes("inside the workspace") || finding.includes("must match pattern")));
 }
 
-// External Work Source providers remain deferred to Plan 4.
+// External Work Source providers are accepted only through the closed Jira MCP config.
 {
   const planningRoot = fs.mkdtempSync(path.join(os.tmpdir(), "check-work-source-deferred-provider-"));
   writeValidBaseFiles(planningRoot);
@@ -120,7 +120,30 @@ function writeValidBaseFiles(planningRoot) {
   fs.writeFileSync(configPath, stringifyYaml(config));
   const result = checkSchema({ planningRoot });
   assert.equal(result.status, "FAIL");
-  assert.ok(result.findings.some((finding) => finding.includes("deferred to Plan 4")));
+  assert.ok(result.findings.some((finding) => finding.includes("must NOT be valid")));
+  config.work_sources = [{
+    id: "jira-gradeops",
+    provider: "jira",
+    transport: "mcp",
+    enabled: false,
+    connection_ref: "atlassian",
+    mapping_version: 1,
+    mapping_profile: "jira-gradeops-v1",
+    import_policy: "external_authoritative",
+    sync_mode: "pull",
+    capabilities: ["discover", "search", "get"],
+    options: {
+      project_keys: ["GRADE"],
+      query_scope: { mode: "project_keys_and_text", max_results: 50 },
+      allowed_issue_types: ["Story"],
+      field_map: {
+        Story: { kind: "user_story", actor: "customfield_10101", need: "customfield_10102", value: "customfield_10103", acceptanceCriteria: "customfield_10104" }
+      }
+    }
+  }];
+  fs.writeFileSync(configPath, stringifyYaml(config));
+  const secureResult = checkSchema({ planningRoot });
+  assert.equal(secureResult.findings.some((finding) => finding.includes("deferred") || finding.includes("jira import_policy") || finding.includes("jira sync_mode")), false);
 }
 
 function ensureBaseTopology(planningRoot) {

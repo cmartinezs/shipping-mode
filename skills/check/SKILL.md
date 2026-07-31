@@ -1,8 +1,8 @@
 ---
 description: Check Shipping Mode schema, guides, Work Sources, Release, Release Item and Work Package health query-only.
-argument-hint: "schema | guides [--scope-id <uuid>] | work-sources --format json | release [id-or-display-id] [--format json] | item <release-ref> <item-ref> --format json | work-package <release-ref> <item-ref> <package-ref> --format json"
+argument-hint: "schema | guides [--scope-id <uuid>] | work-sources --format json | source-drift [release-ref] --format json | release [id-or-display-id] [--format json] | item <release-ref> <item-ref> --format json | work-package <release-ref> <item-ref> <package-ref> --format json"
 disable-model-invocation: true
-allowed-tools: Bash(shipping-mode check schema:*), Bash(shipping-mode check guides:*), Bash(shipping-mode check work-sources:*), Bash(shipping-mode check release:*), Bash(shipping-mode check item:*), Bash(shipping-mode check work-package:*)
+allowed-tools: Bash(shipping-mode check schema:*), Bash(shipping-mode check guides:*), Bash(shipping-mode check work-sources:*), Bash(shipping-mode check source-drift:*), Bash(shipping-mode check release:*), Bash(shipping-mode check item:*), Bash(shipping-mode check work-package:*)
 ---
 
 Run query-only checks:
@@ -11,6 +11,7 @@ Run query-only checks:
 shipping-mode check schema
 shipping-mode check guides [--scope-id <uuid>] [--mode strict|advisory]
 shipping-mode check work-sources --format json
+shipping-mode check source-drift [release-id-or-display-id] --format json
 shipping-mode check release [id-or-display-id] [--format json]
 shipping-mode check item <release-id-or-display-id> <item-id-or-display-id> --format json
 shipping-mode check work-package <release-id-or-display-id> <item-id-or-display-id> <work-package-id-or-display-id> --format json

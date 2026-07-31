@@ -265,6 +265,7 @@ export function renderReleaseItemCreate(payload, { planningRoot }) {
     status: "DRAFT",
     dependencies: payload.requestSnapshot.dependencies,
     sourceRefs: payload.requestSnapshot.sourceRefs,
+    ...(payload.requestSnapshot.sourceSync ? { sourceSync: payload.requestSnapshot.sourceSync } : {}),
     resolution: null,
     audit: {
       createdAt: payload.proposedAt,

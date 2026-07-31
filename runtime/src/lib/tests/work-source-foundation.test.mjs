@@ -12,7 +12,7 @@ import { computePersistedChangeSetHash } from "../changeset.mjs";
 import { parseYaml, stringifyYaml } from "../yaml.mjs";
 import { buildWorkSourceRegistry } from "../workSourceProvider.mjs";
 import { LocalRepositoryWorkSource } from "../localRepositoryWorkSource.mjs";
-import { normalizeWorkSourceConfig, validateNormalizedWorkSourceItem } from "../workSourceImport.mjs";
+import { normalizeWorkSourceConfig, validateNormalizedWorkSourceItem, workSourceConfigHash } from "../workSourceImport.mjs";
 import { validate } from "../schema.mjs";
 
 function initializedWorkspace() {
@@ -47,6 +47,31 @@ function configureLocalSource(planningRoot, source = {}) {
     ...source
   }];
   fs.writeFileSync(configPath, stringifyYaml(config));
+}
+
+function jiraSource(overrides = {}) {
+  return {
+    id: "jira-gradeops",
+    provider: "jira",
+    transport: "mcp",
+    enabled: true,
+    connection_ref: "atlassian",
+    mapping_version: 1,
+    mapping_profile: "jira-gradeops-v1",
+    import_policy: "external_authoritative",
+    sync_mode: "pull",
+    capabilities: ["discover", "search", "get"],
+    options: {
+      project_keys: ["GRADE"],
+      query_scope: { mode: "project_keys_and_text", max_results: 50 },
+      allowed_issue_types: ["Story", "Bug"],
+      field_map: {
+        Story: { kind: "user_story", actor: "customfield_10101", need: "customfield_10102", value: "customfield_10103", acceptanceCriteria: "customfield_10104" },
+        Bug: { kind: "defect", observedBehavior: "customfield_10201", expectedBehavior: "customfield_10202", reproduction: "customfield_10203", severity: "priority" }
+      }
+    },
+    ...overrides
+  };
 }
 
 function writeLocalItem(workspaceRoot, fileName = "story.work-source.yml", overrides = {}) {
@@ -109,6 +134,32 @@ function writeLocalItem(workspaceRoot, fileName = "story.work-source.yml", overr
 }
 
 {
+  const { workspaceRoot, planningRoot } = initializedWorkspace();
+  const configPath = path.join(planningRoot, "config.yml");
+  const config = parseYaml(fs.readFileSync(configPath, "utf8"));
+  config.work_sources = [jiraSource()];
+  fs.writeFileSync(configPath, stringifyYaml(config));
+  const [source] = normalizeWorkSourceConfig({ config, workspaceRoot });
+  assert.equal(source.provider, "jira");
+  assert.equal(source.transport, "mcp");
+  assert.equal(source.connectionRef, "atlassian");
+  assert.equal(source.mappingProfile, "jira-gradeops-v1");
+  assert.deepEqual(source.capabilities, ["discover", "search", "get"]);
+  assert.deepEqual(source.options.project_keys, ["GRADE"]);
+  const baselineHash = workSourceConfigHash(source);
+  const changed = normalizeWorkSourceConfig({ config: { ...config, work_sources: [jiraSource({ connection_ref: "atlassian-prod" })] }, workspaceRoot })[0];
+  assert.notEqual(workSourceConfigHash(changed), baselineHash, "Jira config hash must include transport-affecting connection refs");
+  assert.throws(() => normalizeWorkSourceConfig({ config: { ...config, work_sources: [jiraSource({ roots: ["backlog"] })] }, workspaceRoot }), /must not declare roots/);
+  assert.throws(() => normalizeWorkSourceConfig({ config: { ...config, work_sources: [jiraSource({ transport: "http" })] }, workspaceRoot }), /requires transport mcp/);
+  assert.throws(() => normalizeWorkSourceConfig({ config: { ...config, work_sources: [jiraSource({ import_policy: "import_snapshot" })] }, workspaceRoot }), /requires external_authoritative/);
+  assert.throws(() => normalizeWorkSourceConfig({ config: { ...config, work_sources: [jiraSource({ sync_mode: "import_only" })] }, workspaceRoot }), /requires sync mode pull/);
+  assert.throws(() => normalizeWorkSourceConfig({ config: { ...config, work_sources: [jiraSource({ capabilities: ["discover", "get", "comment"] })] }, workspaceRoot }), /mutating capability/);
+  assert.throws(() => normalizeWorkSourceConfig({ config: { ...config, work_sources: [jiraSource({ options: { ...jiraSource().options, jql: "project = GRADE" } })] }, workspaceRoot }), /unsupported field jql/);
+  assert.throws(() => normalizeWorkSourceConfig({ config: { ...config, work_sources: [jiraSource({ options: { ...jiraSource().options, token: "secret" } })] }, workspaceRoot }), /must not contain secrets/);
+  assert.throws(() => normalizeWorkSourceConfig({ config: { ...config, work_sources: [jiraSource({ options: { ...jiraSource().options, field_map: { Story: { kind: "user_story", actor: "customfield_10101", need: "customfield_10102", value: "customfield_10103" }, Bug: jiraSource().options.field_map.Bug } } })] }, workspaceRoot }), /missing required field acceptanceCriteria/);
+}
+
+{
   const { workspaceRoot, planningRoot, operationsRoot, release } = initializedWorkspace();
   configureLocalSource(planningRoot);
   writeLocalItem(workspaceRoot);
@@ -138,6 +189,13 @@ function writeLocalItem(workspaceRoot, fileName = "story.work-source.yml", overr
   assert.equal(item.sourceRefs[0].role, "primary");
   assert.equal(item.sourceRefs[0].sourceId, "local-backlog");
   assert.equal(item.sourceRefs[0].path, "backlog/story.work-source.yml");
+  assert.equal(item.sourceSync.schemaVersion, 1);
+  assert.equal(item.sourceSync.baselines.length, 1);
+  assert.equal(item.sourceSync.baselines[0].role, "primary");
+  assert.equal(item.sourceSync.baselines[0].provider, "local_repository");
+  assert.deepEqual(item.sourceSync.baselines[0].managedFields, ["/kind", "/title", "/description", "/actor", "/need", "/value", "/acceptanceCriteria"]);
+  assert.equal(item.sourceSync.baselines[0].locator.itemId, "story-1");
+  assert.equal(item.sourceSync.baselines[0].locator.path, "backlog/story.work-source.yml");
   assert.match(item.sourceRefs[0].importedAt, /^\d{4}-\d{2}-\d{2}T/);
   const event = readOperation(operationsRoot, proposed.operationId).expectedEvents[0].document;
   assert.equal(event.type, "work-source.imported");
@@ -286,9 +344,21 @@ function writeLocalItem(workspaceRoot, fileName = "story.work-source.yml", overr
     fields: { outcome: "Imported capability", behavior: "Preserve provider-neutral semantics" },
     revision: { externalRevision: "10042", updatedAt: "2026-07-30T00:00:00Z" },
     mappingVersion: 1, metadata: {},
-    trace: { observedPath: null, observedBytes: 0, observedContentHash: "a".repeat(64) }
+    trace: { kind: "external", externalId: "GRADE-142", observedAt: "2026-07-30T00:00:00Z", responseFingerprint: `sha256:${"a".repeat(64)}`, evidence: { responseBytes: 1024, bounded: true } }
   };
   assert.equal(validateNormalizedWorkSourceItem(external).valid, true, "normalized schema must remain usable by the future Jira adapter without local revision fields");
+  assert.equal(validateNormalizedWorkSourceItem({ ...external, description: null }).valid, true, "external providers may expose nullable description without fabricated text");
+  assert.equal(validateNormalizedWorkSourceItem({ ...external, acceptanceCriteria: [] }).valid, false, "capability still requires acceptance criteria");
+  const defect = {
+    ...external,
+    type: "defect",
+    acceptanceCriteria: [],
+    fields: { observedBehavior: "wrong output", expectedBehavior: "right output", reproduction: "open issue", severity: "high" }
+  };
+  assert.equal(validateNormalizedWorkSourceItem(defect).valid, true, "non-story/capability kinds may have empty acceptance criteria");
+  assert.equal(validateNormalizedWorkSourceItem({ ...external, trace: { ...external.trace, rawJiraPayload: { key: "GRADE-142" } } }).valid, false, "external trace must reject raw Jira payload fields");
+  assert.equal(validateNormalizedWorkSourceItem({ ...external, trace: { ...external.trace, evidence: { bearerToken: "secret" } } }).valid, false, "external trace evidence must reject secret-like keys");
+  assert.equal(validateNormalizedWorkSourceItem({ ...external, trace: { ...external.trace, evidence: { items: Array.from({ length: 33 }, (_, index) => index) } } }).valid, false, "external trace evidence must remain bounded");
 }
 
 console.log("work-source-foundation: registry, local provider, import, stale detection and checks pass");

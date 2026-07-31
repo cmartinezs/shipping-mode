@@ -10,6 +10,7 @@ import { normalizeWorkPackageCreateRequest, prepareWorkPackageCreate } from "../
 import { resolveWorkPackageReference, evaluateWorkPackageHealth } from "../lib/workPackageStore.mjs";
 import { parseSourceRef, prepareWorkSourceImport } from "../lib/workSourceImport.mjs";
 import { pendingRecovery } from "./release.mjs";
+import { proposeWorkSourceRefresh } from "../lib/workSourceRefresh.mjs";
 
 export function proposeReleaseItemCreate({ planningRoot, releaseRef, rawPayload, actor, itemId = null }) {
   const operationsRoot = path.join(planningRoot, "operations");
@@ -148,6 +149,10 @@ export function runItemImport({ planningRoot, releaseRef, args }) {
     },
     actor: args.commandActor
   });
+}
+
+export function runItemRefresh({ planningRoot, releaseRef, itemRef, args, runtimeContext = null }) {
+  return proposeWorkSourceRefresh({ planningRoot, releaseRef, itemRef, actor: args.commandActor, idempotencyKey: args.idempotencyKey || null, runtimeContext });
 }
 
 export function proposeWorkPackageCreate({ planningRoot, releaseRef, itemRef, rawPayload, actor, packageId = null }) {

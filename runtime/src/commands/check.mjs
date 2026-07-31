@@ -22,6 +22,17 @@ import { evaluateReleaseHealth } from "../lib/releaseHealth.mjs";
 import { defaultWorkSourceRegistry, normalizeWorkSourceConfig, readValidatedWorkSourceConfig } from "../lib/workSourceImport.mjs";
 import { evaluateWorkSourceProviderContract } from "../lib/workSourceContract.mjs";
 import { pendingRecovery } from "./release.mjs";
+import { querySourceDrift } from "../lib/sourceDriftQuery.mjs";
+
+export function checkSourceDrift({ planningRoot, reference = null, runtimeContext = null }) {
+  let releaseId = null;
+  if (reference) {
+    const resolution = resolveReleaseReference(planningRoot, reference);
+    if (resolution.status !== "FOUND") return { status: resolution.status, scope: "release", items: [], findings: resolution.findings };
+    releaseId = resolution.release.id;
+  }
+  return querySourceDrift({ planningRoot, releaseId, runtimeContext });
+}
 
 function checkRequiredFile(planningRoot, relativePath, schemaName, findings) {
   let filePath;
