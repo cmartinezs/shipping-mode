@@ -1,0 +1,26 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { runInit } from "../init.mjs";
+import { checkSourceDrift } from "../check.mjs";
+import { validateOperation, approveOperation, applyOperation } from "../../lib/changeset.mjs";
+import { renderWorkspaceInit } from "../renderers.mjs";
+import { readOperation } from "../../lib/operationStore.mjs";
+
+const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), "source-drift-query-"));
+const planningRoot = path.join(workspaceRoot, ".planning");
+runInit({ planningRoot, args: { name: "source-drift", vcs: "git", actor: "tester" } });
+const operationsRoot = path.join(planningRoot, "operations");
+const initId = fs.readdirSync(operationsRoot)[0];
+validateOperation({ operationsRoot, planningRoot, operationId: initId, render: (payload) => renderWorkspaceInit(payload) });
+approveOperation({ operationsRoot, planningRoot, operationId: initId, actor: "reviewer" });
+applyOperation({ operationsRoot, planningRoot, operationId: initId, actor: "reviewer", render: (payload) => renderWorkspaceInit(payload) });
+const before = fs.readFileSync(path.join(planningRoot, "config.yml"), "utf8");
+const operationCountBefore = fs.readdirSync(operationsRoot).length;
+const result = checkSourceDrift({ planningRoot });
+assert.equal(result.status, "PASS");
+assert.deepEqual(result.items, []);
+assert.equal(fs.readFileSync(path.join(planningRoot, "config.yml"), "utf8"), before, "source-drift must not write during a query");
+assert.equal(fs.readdirSync(operationsRoot).length, operationCountBefore, "source-drift must not create an Operation");
+console.log("check-source-drift: query-only contract pass");
