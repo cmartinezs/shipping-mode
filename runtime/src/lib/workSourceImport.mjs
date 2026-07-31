@@ -336,7 +336,7 @@ function mappedReleaseItemSnapshot(normalizedItem, sourceRef) {
   const base = {
     kind: normalizedItem.type,
     title: normalizedItem.title,
-    description: normalizedItem.description.text,
+    description: normalizedItem.description?.text ?? null,
     slug: null,
     dependencies: [],
     sourceRefs: [sourceRef]
@@ -352,6 +352,60 @@ function mappedReleaseItemSnapshot(normalizedItem, sourceRef) {
   if (normalizedItem.type === "migration") return { ...base, sourceState: fields.sourceState, targetState: fields.targetState, rollback: fields.rollback };
   if (normalizedItem.type === "operational") return { ...base, procedure: fields.procedure, owner: fields.owner, evidence: fields.evidence };
   throw new Error(`unsupported Work Source item type: ${normalizedItem.type}`);
+}
+
+const MANAGED_FIELDS_BY_KIND = {
+  user_story: ["/kind", "/title", "/description", "/actor", "/need", "/value", "/acceptanceCriteria"],
+  capability: ["/kind", "/title", "/description", "/outcome", "/behavior", "/acceptanceCriteria"],
+  defect: ["/kind", "/title", "/description", "/observedBehavior", "/expectedBehavior", "/reproduction", "/severity"],
+  enabler: ["/kind", "/title", "/description", "/technicalOutcome", "/unlockedCapabilities"],
+  spike: ["/kind", "/title", "/description", "/question", "/timebox", "/expectedDecision"],
+  compliance: ["/kind", "/title", "/description", "/obligation", "/authority", "/deadline", "/evidence"],
+  migration: ["/kind", "/title", "/description", "/sourceState", "/targetState", "/rollback"],
+  operational: ["/kind", "/title", "/description", "/procedure", "/owner", "/evidence"]
+};
+
+function managedSnapshotFromReleaseSnapshot(snapshot, managedFields) {
+  return Object.fromEntries(managedFields.map((pointer) => [pointer.slice(1), snapshot[pointer.slice(1)] ?? null]));
+}
+
+function sourceRefIdentityHash(sourceRef) {
+  return `sha256:${revisionHash(sourceRef)}`;
+}
+
+function sourceRevisionFromRef(sourceRef) {
+  return sourceRef.externalRevision || sourceRef.contentRevision || sourceRef.fingerprint;
+}
+
+function locatorFromSourceRef(sourceRef) {
+  if (sourceRef.provider === "local_repository") return { itemId: sourceRef.itemId, path: sourceRef.path };
+  return { externalId: sourceRef.externalId };
+}
+
+function buildSourceSync({ source, sourceRef, requestSnapshot, proposedAt, actor }) {
+  const managedFields = MANAGED_FIELDS_BY_KIND[requestSnapshot.kind];
+  const managedSnapshot = managedSnapshotFromReleaseSnapshot(requestSnapshot, managedFields);
+  return {
+    schemaVersion: 1,
+    baselines: [{
+      baselineId: generateUuidV7(),
+      sourceRefIdentityHash: sourceRefIdentityHash(sourceRef),
+      role: "primary",
+      sourceId: source.id,
+      provider: source.provider,
+      locator: locatorFromSourceRef(sourceRef),
+      sourceRevision: sourceRevisionFromRef(sourceRef),
+      mappingVersion: source.mappingVersion,
+      mappingProfile: source.mappingProfile || `${source.provider}-v${source.mappingVersion}`,
+      configHash: `sha256:${workSourceConfigHash(source)}`,
+      managedFields,
+      managedSnapshot,
+      managedSnapshotHash: `sha256:${revisionHash(managedSnapshot)}`,
+      aggregateRevisionAtSync: `sha256:${revisionHash({ ...requestSnapshot, sourceSync: null })}`,
+      syncedAt: proposedAt,
+      syncedBy: actor
+    }]
+  };
 }
 
 function deriveSourceRef({ source, normalizedItem, importedAt, role = "primary" }) {
@@ -447,7 +501,11 @@ export function prepareWorkSourceImport(rawPayload, {
   ];
   const id = itemId ?? generateUuidV7();
   const display = deriveUniqueReleaseItemDisplayId(id, existingItems);
-  const requestSnapshot = mappedReleaseItemSnapshot(normalizedItem, sourceRefObject);
+  const mappedSnapshot = mappedReleaseItemSnapshot(normalizedItem, sourceRefObject);
+  const requestSnapshot = {
+    ...mappedSnapshot,
+    sourceSync: buildSourceSync({ source, sourceRef: sourceRefObject, requestSnapshot: mappedSnapshot, proposedAt, actor })
+  };
   const prospective = {
     schemaVersion: 1,
     id,
@@ -601,7 +659,19 @@ export function workSourceImportInvariantFindings(changeSet, operation = null, e
   try {
     const expectedSourceRef = deriveSourceRef({ source: { id: payload.source.sourceId, provider: payload.source.provider, mappingVersion: payload.source.mappingVersion }, normalizedItem: payload.normalizedItem, importedAt: payload.proposedAt, role: payload.source.role });
     if (revisionHash(expectedSourceRef) !== revisionHash(payload.requestSnapshot?.sourceRefs?.[0] || null)) findings.push("work-source.import sourceRef must be derived from the normalized source item");
-    const expectedSnapshot = mappedReleaseItemSnapshot(payload.normalizedItem, expectedSourceRef);
+    const expectedMappedSnapshot = mappedReleaseItemSnapshot(payload.normalizedItem, expectedSourceRef);
+    const expectedSnapshot = {
+      ...expectedMappedSnapshot,
+      sourceSync: buildSourceSync({
+        source: { id: payload.source.sourceId, provider: payload.source.provider, mappingVersion: payload.source.mappingVersion, mappingProfile: payload.requestSnapshot?.sourceSync?.baselines?.[0]?.mappingProfile, roots: [], capabilities: [], options: {} },
+        sourceRef: expectedSourceRef,
+        requestSnapshot: expectedMappedSnapshot,
+        proposedAt: payload.proposedAt,
+        actor: payload.actor
+      })
+    };
+    if (payload.requestSnapshot?.sourceSync?.baselines?.[0]?.baselineId) expectedSnapshot.sourceSync.baselines[0].baselineId = payload.requestSnapshot.sourceSync.baselines[0].baselineId;
+    if (payload.requestSnapshot?.sourceSync?.baselines?.[0]?.configHash) expectedSnapshot.sourceSync.baselines[0].configHash = payload.requestSnapshot.sourceSync.baselines[0].configHash;
     if (revisionHash(expectedSnapshot) !== revisionHash(payload.requestSnapshot || null)) findings.push("work-source.import requestSnapshot must be derived from the normalized source item");
   } catch (error) {
     findings.push(`work-source.import cannot derive canonical snapshot: ${error.message}`);

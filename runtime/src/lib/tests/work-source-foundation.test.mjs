@@ -189,6 +189,13 @@ function writeLocalItem(workspaceRoot, fileName = "story.work-source.yml", overr
   assert.equal(item.sourceRefs[0].role, "primary");
   assert.equal(item.sourceRefs[0].sourceId, "local-backlog");
   assert.equal(item.sourceRefs[0].path, "backlog/story.work-source.yml");
+  assert.equal(item.sourceSync.schemaVersion, 1);
+  assert.equal(item.sourceSync.baselines.length, 1);
+  assert.equal(item.sourceSync.baselines[0].role, "primary");
+  assert.equal(item.sourceSync.baselines[0].provider, "local_repository");
+  assert.deepEqual(item.sourceSync.baselines[0].managedFields, ["/kind", "/title", "/description", "/actor", "/need", "/value", "/acceptanceCriteria"]);
+  assert.equal(item.sourceSync.baselines[0].locator.itemId, "story-1");
+  assert.equal(item.sourceSync.baselines[0].locator.path, "backlog/story.work-source.yml");
   assert.match(item.sourceRefs[0].importedAt, /^\d{4}-\d{2}-\d{2}T/);
   const event = readOperation(operationsRoot, proposed.operationId).expectedEvents[0].document;
   assert.equal(event.type, "work-source.imported");
