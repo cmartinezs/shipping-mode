@@ -1057,5 +1057,23 @@ Bloqueo actual:
 P4-0 — productive host-to-MCP transport bridge is unproven
 ```
 
-Hasta que P4-0 pase, el plan está aprobado como diseño documental, pero no está
-autorizado a declarar Jira productivo ni cerrar Corte 3.
+## 27. Implementacion de cierre
+
+La implementacion de Tasks 1-17 conserva la separacion aprobada por P4-0:
+`WorkSourceTransportPort` define el contrato, `HostWorkSourceTransport` consume
+exclusivamente el envelope del bridge aprobado y `FakeWorkSourceTransport` queda
+confinado a fixtures y CI. El CLI standalone no obtiene bridge state ni
+envelopes desde flags/stdin, por lo que Jira falla cerrado sin contexto host.
+
+La captura permanece en hooks plugin-level (`hooks/hooks.json`), con estado
+persistent en `CLAUDE_PLUGIN_DATA`; esos hooks no se trasladan al frontmatter de
+skills. El refresh solo muta Release Item YAML/README mediante
+`work-source.refresh`, preserva campos local-owned, actualiza sourceRef y
+sourceSync atomically y emite unicamente `work-source.refreshed` despues de un
+apply verificado. `check source-drift` y la query de trazabilidad son
+query-only.
+
+La diferencia material respecto del texto inicial del plan es que el runtime
+legacy conserva `workSourceConfigHash` sin prefijo para no romper Plan 3; los
+transport requests y sourceSync lo expresan como `sha256:<hash>`. El binding
+entre ambos valores se valida en el adapter, el mapping y el baseline.

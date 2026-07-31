@@ -33,6 +33,7 @@ Kind-specific creation arguments:
 ```text
 shipping-mode item create <release-id-or-display-id> --kind <kind> --title <title> --actor <audit-actor>
 shipping-mode item import <release-id-or-display-id> --source <source-id:item-id-or-path> --actor <audit-actor>
+shipping-mode item refresh <release-id-or-display-id> <item-id-or-display-id> --actor <audit-actor>
 shipping-mode item package add <release-id-or-display-id> <item-id-or-display-id> --scope-id <uuid> --commitment required|optional --title <title> --actor <audit-actor>
 shipping-mode item status <release-id-or-display-id> <item-id-or-display-id>
 shipping-mode item package status <release-id-or-display-id> <item-id-or-display-id> <work-package-id-or-display-id>
@@ -40,7 +41,9 @@ shipping-mode item package status <release-id-or-display-id> <item-id-or-display
 
 `item create` creates only a `release-item.create` ChangeSet. `item import`
 creates only a `work-source.import` ChangeSet from a configured Work Source and
-derives source refs server-side. `item package add` creates only a
+derives source refs server-side. `item refresh` creates only a
+`work-source.refresh` ChangeSet after a read-only fetch and managed-field drift
+evaluation. `item package add` creates only a
 `work-package.create` ChangeSet. No stage approves or applies itself. Use the
 normal ChangeSet lifecycle after inspecting the operation:
 
