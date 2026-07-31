@@ -38221,6 +38221,7 @@ var JiraMcpWorkSource = class {
   #execute({ source, operation, params }) {
     if (!this.transport || typeof this.transport.execute != "function") return unavailable();
     let request = buildWorkSourceTransportRequest({
+      ...this.transport.requestId ? { requestId: this.transport.requestId } : {},
       provider: "jira",
       transport: "mcp",
       connectionRef: source.connectionRef,
@@ -38244,8 +38245,8 @@ var JiraMcpWorkSource = class {
 function requestedFieldIds(source) {
   let fields = /* @__PURE__ */ new Set(["summary", "description", "status", "priority", "labels", "parent", "epic", "links", "assignee"]);
   for (let mapping of Object.values(source.options.field_map || {}))
-    for (let selector of Object.values(mapping))
-      selector !== "kind" && fields.add(selector);
+    for (let [field, selector] of Object.entries(mapping))
+      field !== "kind" && fields.add(selector);
   return [...fields].sort();
 }
 
@@ -40824,6 +40825,36 @@ function evaluateManagedFieldDrift({
   return remoteEqualsBaseline && localEqualsBaseline && aggregateEqualsBaseline ? result("UNCHANGED") : remoteEqualsBaseline && localEqualsBaseline && !aggregateEqualsBaseline ? result("LOCAL_UNMANAGED_CHANGED") : !remoteEqualsBaseline && localEqualsBaseline && aggregateEqualsBaseline ? result("REMOTE_CHANGED", [finding5("SYNC_REQUIRED", "remote managed fields changed")]) : !remoteEqualsBaseline && localEqualsBaseline && !aggregateEqualsBaseline ? result("BOTH_CHANGED_COMPATIBLE", [finding5("SYNC_REQUIRED", "remote managed fields changed while local-owned fields changed")]) : !localEqualsBaseline && remoteEqualsBaseline ? result("LOCAL_MANAGED_CHANGED", [finding5("SOURCE_CONFLICT", "local managed fields changed")]) : result("SOURCE_CONFLICT", [finding5("SOURCE_CONFLICT", "local and remote managed fields changed")]);
 }
 
+// runtime/src/lib/sourceSyncRevision.mjs
+var KIND_FIELDS3 = Object.freeze({
+  user_story: ["actor", "need", "value", "acceptanceCriteria"],
+  capability: ["outcome", "behavior", "acceptanceCriteria"],
+  defect: ["observedBehavior", "expectedBehavior", "reproduction", "severity"],
+  enabler: ["technicalOutcome", "unlockedCapabilities"],
+  spike: ["question", "timebox", "expectedDecision"],
+  compliance: ["obligation", "authority", "deadline", "evidence"],
+  migration: ["sourceState", "targetState", "rollback"],
+  operational: ["procedure", "owner", "evidence"]
+});
+function clone(value) {
+  return value === void 0 ? void 0 : structuredClone(value);
+}
+function sourceSyncAggregateRevision(item) {
+  let fields = KIND_FIELDS3[item?.kind];
+  if (!fields) throw new Error(`unsupported Release Item kind for source sync revision: ${item?.kind}`);
+  let snapshot = {
+    kind: item.kind,
+    title: item.title,
+    description: item.description ?? null,
+    slug: item.slug ?? null,
+    dependencies: clone(item.dependencies || []),
+    sourceRefs: clone(item.sourceRefs || []),
+    ...Object.fromEntries(fields.map((field) => [field, clone(item[field])])),
+    sourceSync: null
+  };
+  return `sha256:${revisionHash(snapshot)}`;
+}
+
 // runtime/src/lib/workSourceRefresh.mjs
 function primaryRef(item) {
   let refs = (item.sourceRefs || []).filter((ref) => ref.role === "primary");
@@ -40839,14 +40870,27 @@ function sourceItemRef(ref) {
 function sourceSnapshot2(item, fields) {
   return managedSnapshotFromReleaseSnapshot(item, fields);
 }
-function refreshedItem({ item, source, normalizedItem, actor, operationId, syncedAt }) {
-  let sourceRef = deriveSourceRef({ source, normalizedItem, importedAt: item.sourceRefs.find((ref) => ref.role === "primary")?.importedAt || syncedAt }), mapped = source.provider === "jira" ? { kind: normalizedItem.type, title: normalizedItem.title, description: normalizedItem.description?.text ?? null, ...normalizedItem.fields } : { kind: normalizedItem.type, title: normalizedItem.title, description: normalizedItem.description?.text ?? null, ...normalizedItem.fields }, managedFields = MANAGED_FIELDS_BY_KIND[item.kind];
+function mappedReleaseSnapshot(normalizedItem) {
+  return {
+    kind: normalizedItem.type,
+    title: normalizedItem.title,
+    description: normalizedItem.description?.text ?? null,
+    acceptanceCriteria: (normalizedItem.acceptanceCriteria || []).map((entry) => typeof entry == "string" ? entry : entry.text),
+    ...normalizedItem.fields
+  };
+}
+function refreshedItem({ item, source, normalizedItem, actor, operationId, syncedAt, baselineId = null }) {
+  let sourceRef = deriveSourceRef({ source, normalizedItem, importedAt: item.sourceRefs.find((ref) => ref.role === "primary")?.importedAt || syncedAt }), mapped = mappedReleaseSnapshot(normalizedItem), managedFields = MANAGED_FIELDS_BY_KIND[item.kind];
   if (!managedFields || mapped.kind !== item.kind) {
     let error2 = new Error("MAPPING_OBSOLETE: refresh mapping does not match the canonical item kind");
     throw error2.code = "STALE", error2;
   }
-  let nextWithoutSync = { ...item, ...Object.fromEntries(managedFields.map((pointer) => [pointer.slice(1), mapped[pointer.slice(1)] ?? null])), sourceRefs: [sourceRef, ...(item.sourceRefs || []).filter((ref) => ref.role !== "primary")] }, managedSnapshot = sourceSnapshot2(nextWithoutSync, managedFields), baseline = {
-    baselineId: (item.sourceSync?.baselines?.find((baseline2) => baseline2.role === "primary") || null)?.baselineId || generateUuidV7(),
+  let nextWithoutSync = {
+    ...item,
+    ...Object.fromEntries(managedFields.map((pointer) => [pointer.slice(1), mapped[pointer.slice(1)] ?? null])),
+    sourceRefs: [sourceRef, ...(item.sourceRefs || []).filter((ref) => ref.role !== "primary")]
+  }, managedSnapshot = sourceSnapshot2(nextWithoutSync, managedFields), baseline = {
+    baselineId: (item.sourceSync?.baselines?.find((baseline2) => baseline2.role === "primary") || null)?.baselineId || baselineId || generateUuidV7(),
     sourceRefIdentityHash: `sha256:${revisionHash(sourceRef)}`,
     role: "primary",
     sourceId: source.id,
@@ -40859,29 +40903,33 @@ function refreshedItem({ item, source, normalizedItem, actor, operationId, synce
     managedFields,
     managedSnapshot,
     managedSnapshotHash: `sha256:${revisionHash(managedSnapshot)}`,
-    aggregateRevisionAtSync: "sha256:" + revisionHash({ ...nextWithoutSync, sourceSync: null }),
+    aggregateRevisionAtSync: sourceSyncAggregateRevision(nextWithoutSync),
     syncedAt,
     syncedBy: actor
   };
-  return updateReleaseItemRevision({ ...nextWithoutSync, sourceSync: { schemaVersion: 1, baselines: [baseline] }, audit: { ...item.audit, updatedAt: syncedAt, updatedBy: actor, operationId } });
+  return updateReleaseItemRevision({
+    ...nextWithoutSync,
+    sourceSync: { schemaVersion: 1, baselines: [baseline] },
+    audit: { ...item.audit, updatedAt: syncedAt, updatedBy: actor, operationId }
+  });
 }
-function prepareWorkSourceRefresh({ planningRoot, releaseRef, itemRef: itemRef2, actor, operationId, idempotencyKey, runtimeContext = null, now = (/* @__PURE__ */ new Date()).toISOString() }) {
+function prepareWorkSourceRefresh({ planningRoot, releaseRef, itemRef: itemRef2, actor, operationId, idempotencyKey, runtimeContext = null, now = (/* @__PURE__ */ new Date()).toISOString(), baselineId = null }) {
   let releaseResolution = resolveReleaseReference(planningRoot, releaseRef);
   if (releaseResolution.status !== "FOUND") throw new Error(`release reference failed: ${releaseResolution.status}: ${releaseResolution.findings.join("; ")}`);
   let itemResolution = resolveReleaseItemReference(planningRoot, releaseResolution.release.id, itemRef2);
   if (itemResolution.status !== "FOUND") throw new Error(`release item reference failed: ${itemResolution.status}: ${itemResolution.findings.join("; ")}`);
   let item = readReleaseItemFile2(planningRoot, releaseResolution.release.id, itemResolution.item.id).item, ref = primaryRef(item), registry = defaultWorkSourceRegistry({ planningRoot, runtimeContext }), source = registry.getSource(ref.sourceId), fetched = registry.resolve(source.id, "get").get({ source, itemRef: sourceItemRef(ref) });
   if (fetched.status !== "FOUND") return { status: fetched.status === "NOT_FOUND" ? "SOURCE_NOT_FOUND" : "UNAVAILABLE", findings: fetched.findings || [], item: null };
-  let fields = MANAGED_FIELDS_BY_KIND[item.kind], remoteItem = fetched.item, remoteMapped = { kind: remoteItem.type, title: remoteItem.title, description: remoteItem.description?.text ?? null, ...remoteItem.fields }, remoteManagedSnapshot = sourceSnapshot2(remoteMapped, fields), localManagedSnapshot = sourceSnapshot2(item, fields), baseline = item.sourceSync?.baselines?.find((entry) => entry.role === "primary") || null, drift = evaluateManagedFieldDrift({
+  let fields = MANAGED_FIELDS_BY_KIND[item.kind], remoteItem = fetched.item, remoteManagedSnapshot = sourceSnapshot2(mappedReleaseSnapshot(remoteItem), fields), localManagedSnapshot = sourceSnapshot2(item, fields), baseline = item.sourceSync?.baselines?.find((entry) => entry.role === "primary") || null, drift = evaluateManagedFieldDrift({
     baseline,
     remoteManagedSnapshot,
     localManagedSnapshot,
-    aggregateRevision: item.audit.revision,
+    aggregateRevision: sourceSyncAggregateRevision(item),
     activeMappingProfile: source.mappingProfile || `${source.provider}-v${source.mappingVersion}`,
     activeConfigHash: `sha256:${workSourceConfigHash(source)}`
   });
   if (!["REMOTE_CHANGED", "BOTH_CHANGED_COMPATIBLE", "BASELINE_MISSING_SAFE"].includes(drift.status)) return { status: drift.status, findings: drift.findings, item, drift };
-  let nextItem = refreshedItem({ item, source, normalizedItem: remoteItem, actor, operationId, syncedAt: now }), releaseId = releaseResolution.release.id, idempotency = idempotencyKey || operationId, requestHash = revisionHash({ actor, releaseId, itemId: item.id, sourceId: source.id, provider: source.provider, mappingVersion: source.mappingVersion, configHash: workSourceConfigHash(source), baselineId: baseline?.baselineId || "BASELINE_MISSING", baselineHash: baseline?.managedSnapshotHash || "BASELINE_MISSING", remoteRevision: remoteItem.revision, remoteManagedSnapshot, localManagedSnapshot, aggregateRevision: item.audit.revision, targetPaths: [releaseItemYamlRelativePath(releaseId, item.id), releaseItemReadmeRelativePath(releaseId, item.id)], mode: drift.status === "BASELINE_MISSING_SAFE" ? "capture_baseline" : "refresh" });
+  let nextItem = refreshedItem({ item, source, normalizedItem: remoteItem, actor, operationId, syncedAt: now, baselineId }), releaseId = releaseResolution.release.id, idempotency = idempotencyKey || operationId, requestHash = revisionHash({ actor, releaseId, itemId: item.id, sourceId: source.id, provider: source.provider, mappingVersion: source.mappingVersion, configHash: workSourceConfigHash(source), baselineId: baseline?.baselineId || "BASELINE_MISSING", baselineHash: baseline?.managedSnapshotHash || "BASELINE_MISSING", remoteRevision: remoteItem.revision, remoteManagedSnapshot, localManagedSnapshot, aggregateRevision: sourceSyncAggregateRevision(item), targetPaths: [releaseItemYamlRelativePath(releaseId, item.id), releaseItemReadmeRelativePath(releaseId, item.id)], mode: drift.status === "BASELINE_MISSING_SAFE" ? "capture_baseline" : "refresh" });
   return {
     status: "PROPOSED",
     drift,
@@ -40898,8 +40946,18 @@ function proposeWorkSourceRefresh({ planningRoot, releaseRef, itemRef: itemRef2,
   return { status: readOperation(operationsRoot, operationId).status, operationId, releaseId: prepared.payload.releaseId, itemId: prepared.payload.itemId, drift: prepared.drift, idempotent: operationId !== candidate };
 }
 function renderWorkSourceRefresh(payload, { planningRoot, runtimeContext = null }) {
-  let prepared = prepareWorkSourceRefresh({ planningRoot, releaseRef: payload.releaseId, itemRef: payload.itemId, actor: payload.actor, operationId: payload.operationId, idempotencyKey: payload.idempotencyKey, runtimeContext, now: payload.proposedAt });
-  if (prepared.status !== "PROPOSED" || prepared.payload.idempotencyRequestHash !== payload.idempotencyRequestHash) {
+  let prepared = prepareWorkSourceRefresh({
+    planningRoot,
+    releaseRef: payload.releaseId,
+    itemRef: payload.itemId,
+    actor: payload.actor,
+    operationId: payload.operationId,
+    idempotencyKey: payload.idempotencyKey,
+    runtimeContext,
+    now: payload.proposedAt,
+    baselineId: payload.baselineId
+  });
+  if (!(prepared.status === "PROPOSED" && prepared.payload.idempotencyRequestHash === payload.idempotencyRequestHash && prepared.payload.baselineId === payload.baselineId && prepared.payload.baselineHash === payload.baselineHash && revisionHash(prepared.payload.sourceRef) === revisionHash(payload.sourceRef) && revisionHash(prepared.payload.requestSnapshot) === revisionHash(payload.requestSnapshot) && revisionHash(prepared.payload.targetPaths) === revisionHash(payload.targetPaths))) {
     let error2 = new Error("SOURCE_STALE: refresh request no longer matches current source or local item");
     throw error2.code = "STALE", error2;
   }
@@ -41367,6 +41425,15 @@ function primaryRefs(item) {
 function itemRef(ref) {
   return ref.provider === "local_repository" ? ref.path || ref.itemId : ref.externalId || ref.itemId;
 }
+function mappedReleaseSnapshot2(normalizedItem) {
+  return {
+    kind: normalizedItem.type,
+    title: normalizedItem.title,
+    description: normalizedItem.description?.text ?? null,
+    acceptanceCriteria: (normalizedItem.acceptanceCriteria || []).map((entry) => typeof entry == "string" ? entry : entry.text),
+    ...normalizedItem.fields
+  };
+}
 function querySourceDrift({ planningRoot, releaseId = null, runtimeContext = null }) {
   let registry = defaultWorkSourceRegistry({ planningRoot, runtimeContext }), findings = [], records;
   try {
@@ -41389,12 +41456,12 @@ function querySourceDrift({ planningRoot, releaseId = null, runtimeContext = nul
       if (fetched.status !== "FOUND")
         result2 = evaluateManagedFieldDrift({ sourceStatus: fetched.status === "NOT_FOUND" ? "NOT_FOUND" : "UNAVAILABLE" });
       else {
-        let fields = MANAGED_FIELDS_BY_KIND[item.kind], remote = { kind: fetched.item.type, title: fetched.item.title, description: fetched.item.description?.text ?? null, ...fetched.item.fields };
+        let fields = MANAGED_FIELDS_BY_KIND[item.kind];
         result2 = evaluateManagedFieldDrift({
           baseline: item.sourceSync?.baselines?.find((entry) => entry.role === "primary") || null,
-          remoteManagedSnapshot: managedSnapshotFromReleaseSnapshot(remote, fields),
+          remoteManagedSnapshot: managedSnapshotFromReleaseSnapshot(mappedReleaseSnapshot2(fetched.item), fields),
           localManagedSnapshot: managedSnapshotFromReleaseSnapshot(item, fields),
-          aggregateRevision: item.audit.revision,
+          aggregateRevision: sourceSyncAggregateRevision(item),
           activeMappingProfile: source.mappingProfile || `${source.provider}-v${source.mappingVersion}`,
           activeConfigHash: `sha256:${workSourceConfigHash(source)}`
         });
