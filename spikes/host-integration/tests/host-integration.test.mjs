@@ -14,7 +14,8 @@ const skillNames = ["init", "config", "release", "item", "check"];
 assert.equal(manifest.name, "shipping-mode", "manifest-name");
 assert.equal(manifest.version, "1.0.0", "manifest-version");
 assert.equal(manifest.skills, "./skills/", "skills-root");
-assert.equal(manifest.hooks, "./hooks/hooks.json", "hooks-root");
+assert.equal("hooks" in manifest, false, "default-hooks-must-not-be-declared-twice");
+assert.equal(fs.existsSync(path.join(root, "hooks/hooks.json")), true, "default-hooks-root");
 
 for (const skill of skillNames) {
   const skillPath = path.join(root, "skills", skill, "SKILL.md");
@@ -60,7 +61,7 @@ assert.deepEqual(help.commands, [
   "--help", "--version"
 ]);
 const version = JSON.parse(execFileSync(process.execPath, [launcher, "--version"], { encoding: "utf8" }));
-assert.deepEqual(version, { product: "shipping-mode", version: "1.0.0" });
+assert.deepEqual(version, { product: manifest.name, version: manifest.version });
 
 // prove the launcher actually executes a real subcommand end to end and
 // returns real JSON, against a fresh workspace with no .planning/ yet --

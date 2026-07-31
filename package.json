@@ -18,6 +18,7 @@
     "build:test-bundle": "node scripts/build-runtime.mjs --test-bundle",
     "verify:artifacts": "node scripts/verify-generated-artifacts.mjs",
     "test:host-integration": "node spikes/host-integration/tests/host-integration.test.mjs",
+    "test:host-mcp-bridge": "node --test spikes/host-mcp-bridge/tests/*.test.mjs",
     "test:unit": "node scripts/run-tests.mjs runtime/src/lib/tests runtime/src/commands/tests runtime/src/schemas/tests runtime/src/generated/tests runtime/src/tests",
     "test:cli-e2e": "node runtime/tests/cli-e2e.test.mjs && node runtime/tests/discovery-e2e.test.mjs",
     "test:real-crash-e2e": "node runtime/tests/real-crash-e2e.test.mjs && node runtime/tests/discovery-real-crash-e2e.test.mjs",

@@ -11,6 +11,40 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/spikes/host-mcp-bridge/capture-post-tool-use.mjs",
+              "--plugin-data-dir",
+              "${CLAUDE_PLUGIN_DATA}"
+            ],
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": [
+              "${CLAUDE_PLUGIN_ROOT}/spikes/host-mcp-bridge/capture-post-tool-failure.mjs",
+              "--plugin-data-dir",
+              "${CLAUDE_PLUGIN_DATA}"
+            ],
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }

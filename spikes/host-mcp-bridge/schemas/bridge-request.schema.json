@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://shipping-mode.local/spikes/host-mcp-bridge/bridge-request.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "requestId",
+    "nonce",
+    "nonceHash",
+    "createdAt",
+    "expiresAt",
+    "consumedAt",
+    "status",
+    "projectRootHash",
+    "expectedServer",
+    "expectedTool",
+    "expectedToolName",
+    "expectedToolInputHash",
+    "expectedSessionIdHash",
+    "operation",
+    "maxResponseBytes",
+    "capture",
+    "failure",
+    "consumedEnvelopeHash",
+    "recoveryRequired"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "requestId": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$" },
+    "nonce": { "type": "string", "minLength": 32 },
+    "nonceHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "expiresAt": { "type": "string", "format": "date-time" },
+    "expiredAt": { "type": "string", "format": "date-time" },
+    "consumedAt": { "type": ["string", "null"], "format": "date-time" },
+    "status": { "enum": ["PENDING", "CONSUMED", "EXPIRED"] },
+    "projectRootHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "expectedServer": { "type": "string", "minLength": 1 },
+    "expectedTool": { "type": "string", "minLength": 1 },
+    "expectedToolName": { "type": "string", "pattern": "^mcp__[^_].*__.+$" },
+    "expectedToolInputHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "expectedSessionIdHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "operation": { "enum": ["discover", "search", "get"] },
+    "maxResponseBytes": { "type": "integer", "minimum": 1, "maximum": 1048576 },
+    "capture": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sessionId", "toolUseId", "toolName", "toolInputHash", "toolResponseHash", "envelopePath", "capturedAt"],
+          "properties": {
+            "sessionId": { "type": "string", "minLength": 1 },
+            "toolUseId": { "type": "string", "minLength": 1 },
+            "toolName": { "type": "string", "minLength": 1 },
+            "toolInputHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "toolResponseHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "envelopePath": { "type": "string", "pattern": "^envelopes/[0-9a-f-]+\\.json$" },
+            "capturedAt": { "type": "string", "format": "date-time" }
+          }
+        }
+      ]
+    },
+    "failure": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["code", "sessionId", "toolUseId", "toolName", "toolInputHash", "occurredAt", "errorHash"],
+          "properties": {
+            "code": { "enum": ["BRIDGE_UNAVAILABLE", "BRIDGE_TIMEOUT", "BRIDGE_CANCELLED"] },
+            "sessionId": { "type": "string", "minLength": 1 },
+            "toolUseId": { "type": "string", "minLength": 1 },
+            "toolName": { "type": "string", "minLength": 1 },
+            "toolInputHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "occurredAt": { "type": "string", "format": "date-time" },
+            "errorHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+          }
+        }
+      ]
+    },
+    "consumedEnvelopeHash": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+    "recoveryRequired": { "type": "boolean" }
+  }
+}
