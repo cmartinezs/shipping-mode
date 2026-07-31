@@ -9,6 +9,7 @@ import { readReleaseItemFile, resolveReleaseItemReference, releaseItemReadmeRela
 import { renderReleaseItemReadme } from "./releaseItemProjection.mjs";
 import { defaultWorkSourceRegistry, deriveSourceRef, managedSnapshotFromReleaseSnapshot, MANAGED_FIELDS_BY_KIND, workSourceConfigHash } from "./workSourceImport.mjs";
 import { evaluateManagedFieldDrift } from "./workSourceDrift.mjs";
+import { sourceSyncAggregateRevision } from "./sourceSyncRevision.mjs";
 
 function primaryRef(item) {
   const refs = (item.sourceRefs || []).filter((ref) => ref.role === "primary");
@@ -28,22 +29,34 @@ function sourceSnapshot(item, fields) {
   return managedSnapshotFromReleaseSnapshot(item, fields);
 }
 
-function refreshedItem({ item, source, normalizedItem, actor, operationId, syncedAt }) {
+function mappedReleaseSnapshot(normalizedItem) {
+  return {
+    kind: normalizedItem.type,
+    title: normalizedItem.title,
+    description: normalizedItem.description?.text ?? null,
+    acceptanceCriteria: (normalizedItem.acceptanceCriteria || []).map((entry) => typeof entry === "string" ? entry : entry.text),
+    ...normalizedItem.fields
+  };
+}
+
+export function refreshedItem({ item, source, normalizedItem, actor, operationId, syncedAt, baselineId = null }) {
   const sourceRef = deriveSourceRef({ source, normalizedItem, importedAt: item.sourceRefs.find((ref) => ref.role === "primary")?.importedAt || syncedAt });
-  const mapped = source.provider === "jira"
-    ? { kind: normalizedItem.type, title: normalizedItem.title, description: normalizedItem.description?.text ?? null, ...normalizedItem.fields }
-    : { kind: normalizedItem.type, title: normalizedItem.title, description: normalizedItem.description?.text ?? null, ...normalizedItem.fields };
+  const mapped = mappedReleaseSnapshot(normalizedItem);
   const managedFields = MANAGED_FIELDS_BY_KIND[item.kind];
   if (!managedFields || mapped.kind !== item.kind) {
     const error = new Error("MAPPING_OBSOLETE: refresh mapping does not match the canonical item kind");
     error.code = "STALE";
     throw error;
   }
-  const nextWithoutSync = { ...item, ...Object.fromEntries(managedFields.map((pointer) => [pointer.slice(1), mapped[pointer.slice(1)] ?? null])), sourceRefs: [sourceRef, ...(item.sourceRefs || []).filter((ref) => ref.role !== "primary")] };
+  const nextWithoutSync = {
+    ...item,
+    ...Object.fromEntries(managedFields.map((pointer) => [pointer.slice(1), mapped[pointer.slice(1)] ?? null])),
+    sourceRefs: [sourceRef, ...(item.sourceRefs || []).filter((ref) => ref.role !== "primary")]
+  };
   const managedSnapshot = sourceSnapshot(nextWithoutSync, managedFields);
   const previousBaseline = item.sourceSync?.baselines?.find((baseline) => baseline.role === "primary") || null;
   const baseline = {
-    baselineId: previousBaseline?.baselineId || generateUuidV7(),
+    baselineId: previousBaseline?.baselineId || baselineId || generateUuidV7(),
     sourceRefIdentityHash: `sha256:${revisionHash(sourceRef)}`,
     role: "primary",
     sourceId: source.id,
@@ -56,14 +69,18 @@ function refreshedItem({ item, source, normalizedItem, actor, operationId, synce
     managedFields,
     managedSnapshot,
     managedSnapshotHash: `sha256:${revisionHash(managedSnapshot)}`,
-    aggregateRevisionAtSync: "sha256:" + revisionHash({ ...nextWithoutSync, sourceSync: null }),
+    aggregateRevisionAtSync: sourceSyncAggregateRevision(nextWithoutSync),
     syncedAt,
     syncedBy: actor
   };
-  return updateReleaseItemRevision({ ...nextWithoutSync, sourceSync: { schemaVersion: 1, baselines: [baseline] }, audit: { ...item.audit, updatedAt: syncedAt, updatedBy: actor, operationId } });
+  return updateReleaseItemRevision({
+    ...nextWithoutSync,
+    sourceSync: { schemaVersion: 1, baselines: [baseline] },
+    audit: { ...item.audit, updatedAt: syncedAt, updatedBy: actor, operationId }
+  });
 }
 
-export function prepareWorkSourceRefresh({ planningRoot, releaseRef, itemRef, actor, operationId, idempotencyKey, runtimeContext = null, now = new Date().toISOString() }) {
+export function prepareWorkSourceRefresh({ planningRoot, releaseRef, itemRef, actor, operationId, idempotencyKey, runtimeContext = null, now = new Date().toISOString(), baselineId = null }) {
   const releaseResolution = resolveReleaseReference(planningRoot, releaseRef);
   if (releaseResolution.status !== "FOUND") throw new Error(`release reference failed: ${releaseResolution.status}: ${releaseResolution.findings.join("; ")}`);
   const itemResolution = resolveReleaseItemReference(planningRoot, releaseResolution.release.id, itemRef);
@@ -77,23 +94,22 @@ export function prepareWorkSourceRefresh({ planningRoot, releaseRef, itemRef, ac
   if (fetched.status !== "FOUND") return { status: fetched.status === "NOT_FOUND" ? "SOURCE_NOT_FOUND" : "UNAVAILABLE", findings: fetched.findings || [], item: null };
   const fields = MANAGED_FIELDS_BY_KIND[item.kind];
   const remoteItem = fetched.item;
-  const remoteMapped = { kind: remoteItem.type, title: remoteItem.title, description: remoteItem.description?.text ?? null, ...remoteItem.fields };
-  const remoteManagedSnapshot = sourceSnapshot(remoteMapped, fields);
+  const remoteManagedSnapshot = sourceSnapshot(mappedReleaseSnapshot(remoteItem), fields);
   const localManagedSnapshot = sourceSnapshot(item, fields);
   const baseline = item.sourceSync?.baselines?.find((entry) => entry.role === "primary") || null;
   const drift = evaluateManagedFieldDrift({
     baseline,
     remoteManagedSnapshot,
     localManagedSnapshot,
-    aggregateRevision: item.audit.revision,
+    aggregateRevision: sourceSyncAggregateRevision(item),
     activeMappingProfile: source.mappingProfile || `${source.provider}-v${source.mappingVersion}`,
     activeConfigHash: `sha256:${workSourceConfigHash(source)}`
   });
   if (!["REMOTE_CHANGED", "BOTH_CHANGED_COMPATIBLE", "BASELINE_MISSING_SAFE"].includes(drift.status)) return { status: drift.status, findings: drift.findings, item, drift };
-  const nextItem = refreshedItem({ item, source, normalizedItem: remoteItem, actor, operationId, syncedAt: now });
+  const nextItem = refreshedItem({ item, source, normalizedItem: remoteItem, actor, operationId, syncedAt: now, baselineId });
   const releaseId = releaseResolution.release.id;
   const idempotency = idempotencyKey || operationId;
-  const requestHash = revisionHash({ actor, releaseId, itemId: item.id, sourceId: source.id, provider: source.provider, mappingVersion: source.mappingVersion, configHash: workSourceConfigHash(source), baselineId: baseline?.baselineId || "BASELINE_MISSING", baselineHash: baseline?.managedSnapshotHash || "BASELINE_MISSING", remoteRevision: remoteItem.revision, remoteManagedSnapshot, localManagedSnapshot, aggregateRevision: item.audit.revision, targetPaths: [releaseItemYamlRelativePath(releaseId, item.id), releaseItemReadmeRelativePath(releaseId, item.id)], mode: drift.status === "BASELINE_MISSING_SAFE" ? "capture_baseline" : "refresh" });
+  const requestHash = revisionHash({ actor, releaseId, itemId: item.id, sourceId: source.id, provider: source.provider, mappingVersion: source.mappingVersion, configHash: workSourceConfigHash(source), baselineId: baseline?.baselineId || "BASELINE_MISSING", baselineHash: baseline?.managedSnapshotHash || "BASELINE_MISSING", remoteRevision: remoteItem.revision, remoteManagedSnapshot, localManagedSnapshot, aggregateRevision: sourceSyncAggregateRevision(item), targetPaths: [releaseItemYamlRelativePath(releaseId, item.id), releaseItemReadmeRelativePath(releaseId, item.id)], mode: drift.status === "BASELINE_MISSING_SAFE" ? "capture_baseline" : "refresh" });
   return {
     status: "PROPOSED",
     drift,
@@ -115,8 +131,25 @@ export function proposeWorkSourceRefresh({ planningRoot, releaseRef, itemRef, ac
 }
 
 export function renderWorkSourceRefresh(payload, { planningRoot, runtimeContext = null }) {
-  const prepared = prepareWorkSourceRefresh({ planningRoot, releaseRef: payload.releaseId, itemRef: payload.itemId, actor: payload.actor, operationId: payload.operationId, idempotencyKey: payload.idempotencyKey, runtimeContext, now: payload.proposedAt });
-  if (prepared.status !== "PROPOSED" || prepared.payload.idempotencyRequestHash !== payload.idempotencyRequestHash) {
+  const prepared = prepareWorkSourceRefresh({
+    planningRoot,
+    releaseRef: payload.releaseId,
+    itemRef: payload.itemId,
+    actor: payload.actor,
+    operationId: payload.operationId,
+    idempotencyKey: payload.idempotencyKey,
+    runtimeContext,
+    now: payload.proposedAt,
+    baselineId: payload.baselineId
+  });
+  const payloadMatches = prepared.status === "PROPOSED"
+    && prepared.payload.idempotencyRequestHash === payload.idempotencyRequestHash
+    && prepared.payload.baselineId === payload.baselineId
+    && prepared.payload.baselineHash === payload.baselineHash
+    && revisionHash(prepared.payload.sourceRef) === revisionHash(payload.sourceRef)
+    && revisionHash(prepared.payload.requestSnapshot) === revisionHash(payload.requestSnapshot)
+    && revisionHash(prepared.payload.targetPaths) === revisionHash(payload.targetPaths);
+  if (!payloadMatches) {
     const error = new Error("SOURCE_STALE: refresh request no longer matches current source or local item");
     error.code = "STALE";
     throw error;
