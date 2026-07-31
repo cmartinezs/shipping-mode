@@ -44,9 +44,11 @@ For local providers, invoke the standalone runtime normally. Do not route local
 imports or refreshes through the host runner.
 
 For external Jira providers, require `SHIPPING_MODE_ATLASSIAN_CLOUD_ID` to
-contain the connected Atlassian site UUID or credential-free
-`https://<site>.atlassian.net` origin. Do not call `shipping-mode item import` or
-`shipping-mode item refresh` directly. Use the installed-plugin host runner:
+contain the connected Atlassian site's UUID. Site URLs are rejected. Resolve the
+UUID during Atlassian connection setup before invoking this skill; Shipping Mode
+does not expand its productive allowlist to perform resource discovery. Do not
+call `shipping-mode item import` or `shipping-mode item refresh` directly. Use
+the installed-plugin host runner:
 
 ```text
 node "${CLAUDE_PLUGIN_ROOT}/scripts/work-source-host-runner.mjs" prepare \
