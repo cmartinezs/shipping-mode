@@ -1,157 +1,147 @@
 # P4-0 Manual Evidence
 
-Date: 2026-07-30
-
-## Claude Code Version
-
-```text
-2.1.220 (Claude Code)
-doctor commit: 4073f59596e2
-platform: linux-x64
-```
-
-## Develop Base
-
-```text
-HEAD: 4b73fa17397ec9370b83c8355cbdcb849b6c88a1
-branch: spike/corte-3-p4-0-host-mcp-bridge
-```
-
-## Initial Plugin Load
-
-Command attempted before adversarial review:
-
-```text
-claude --plugin-dir . --mcp-config /tmp/shipping-mode-mcp-config.json --strict-mcp-config --debug hooks,mcp --debug-file /tmp/shipping-mode-bridge-claude-debug-2.log
-```
-
-Sanitized debug evidence:
-
-```text
-Loaded inline plugin from path: shipping-mode
-Loaded 7 skills from plugin shipping-mode default directory
-Registered 3 hooks from 4 plugins
-```
-
-Observed setup issues:
-
-```text
-Hook load failed: Duplicate hooks file detected for ./hooks/hooks.json
-SessionStart hook error: EROFS creating /home/carlos/.claude/session-env/<session>
-Remote Control session creation failed: ECONNREFUSED api.anthropic.com
-```
-
-The duplicate hook registration was corrected after review by removing the
-redundant explicit `hooks` field from `.claude-plugin/plugin.json`; the standard
-`hooks/hooks.json` location remains. That correction still requires a new manual
-plugin-load run on the final head.
-
-## Plugin Reload And Skill Visibility
-
-The interactive TUI opened, but slash commands did not execute reliably in the
-PTY before termination. `/reload-plugins` and `/help` could not be captured as
-successful evidence.
-
-Result: not proven.
-
-## MCP Availability
-
-`claude mcp list` reported no Atlassian server. Configured MCP servers were not
-usable:
-
-```text
-plugin:playwright:playwright -> connection timed out
-pdf-to-markdown -> MCP connection closed
-```
-
-A local read-only stdio MCP fixture was attempted:
-
-```text
-server: shipping-mode-readonly
-tool: mcp__shipping-mode-readonly__shipping_mode_readonly_probe
-```
-
-Claude started the connection but closed it before a tool call:
-
-```text
-MCP server "shipping-mode-readonly": Starting connection
-MCP server "shipping-mode-readonly": Connection failed (-32000): MCP error -32000: Connection closed
-```
-
-Result: no real MCP tool invocation completed.
-
-## Initial Synthetic Hook Harness
-
-The deterministic local harness executed:
-
-```text
-prepare -> synthetic PostToolUse stdin -> signed envelope -> consume -> replay rejection
-```
-
-Sanitized outcomes:
-
-```text
-BRIDGE_PREPARED
-BRIDGE_CAPTURED
-BRIDGE_CONSUMED
-BRIDGE_REPLAYED
-```
-
-The state path was:
-
-```text
-/tmp/shipping-mode-plugin-data/work-source-bridge/
-```
-
-This was synthetic evidence only.
-
-## Post-Review Corrections Requiring A New Manual Run
-
-The final branch behavior differs materially from the initial manual attempt:
-
-- prepare now requires and hashes `CLAUDE_CODE_SESSION_ID`;
-- success and failure hooks require the event session to equal the hook process
-  session;
-- consume must run in the same session;
-- the skill no longer pre-approves all MCP tools;
-- commands resolve through `CLAUDE_PLUGIN_ROOT` and target
-  `CLAUDE_PROJECT_DIR`;
-- `PostToolUseFailure` records bounded failure state;
-- the signed success envelope is immutable;
-- request consumption is one atomic lifecycle update;
-- inspect output is redacted;
-- the duplicate hooks manifest declaration was removed.
-
-None of these corrected productive-path claims has yet been demonstrated through
-a real MCP tool invocation. Automated tests cover them, but manual status remains
-unproven.
-
-## Standalone Fail-Closed
-
-Automated adversarial tests cover:
-
-- missing challenge;
-- unsigned or invalid envelope;
-- replay;
-- expiration;
-- cross-session capture and consume;
-- project/server/tool/input mismatch;
-- ambiguous pending requests;
-- lock-held recovery;
-- oversized or malformed data;
-- credential-like keys;
-- failed tool normalization.
-
-## `.planning` State
-
-No bridge state is intentionally written under `.planning/**`. The bridge uses
-`${CLAUDE_PLUGIN_DATA}/work-source-bridge/` and rejects bridge roots under a
-`.planning` path.
+Date: 2026-07-30 (America/Santiago)
 
 ## Classification
 
-Result: `INCONCLUSIVE`.
+```text
+PASSED
+```
 
-Reason: the initial plugin loaded and deterministic mechanics ran, but no real MCP
-tool invocation or real successful `PostToolUse` capture completed. The corrected
-session-bound implementation also has not yet received a new manual smoke.
+A real installed Claude Code plugin prepared a session-bound challenge, executed
+one explicitly approved read-only MCP tool, captured the real host `PostToolUse`
+event through a plugin-level hook, consumed the signed envelope once, and rejected
+a second consume as replay.
+
+## Environment
+
+```text
+Claude Code: 2.1.220
+Doctor commit: 4073f59596e2
+Platform: linux-x64
+Branch: spike/corte-3-p4-0-host-mcp-bridge
+Plugin under test: shipping-mode-p4-test@shipping-mode-p4-clean
+MCP server: p4fs
+Tool: mcp__p4fs__read_text_file
+Target: /home/carlos/projects/shipping-mode/package.json
+```
+
+The target was a non-sensitive, in-project file allowed by the read-only
+filesystem MCP server.
+
+## Installed Plugin And Hook Model
+
+The plugin was installed through a local marketplace rather than loaded only with
+`--plugin-dir`. The capture handlers were registered as plugin-level hooks in
+`hooks/hooks.json`:
+
+```text
+PostToolUse        matcher: mcp__.*
+PostToolUseFailure matcher: mcp__.*
+```
+
+This placement was required by the tested host. Claude Code 2.1.220 rejected
+`${CLAUDE_PLUGIN_DATA}` in skill-scoped hooks as plugin-only, but accepted it in
+plugin-level hooks. The skill frontmatter therefore contains no capture hooks.
+
+## Real Productive Sequence
+
+The installed skill was invoked as:
+
+```text
+/shipping-mode-p4-test:spike-host-mcp-bridge \
+  --server p4fs \
+  --tool mcp__p4fs__read_text_file \
+  --input-file /tmp/p4-input.json
+```
+
+Observed sequence:
+
+1. `CLAUDE_CODE_SESSION_ID` was available.
+2. The installed plugin data directory resolved successfully.
+3. `cleanup-expired` completed.
+4. `prepare` returned `BRIDGE_PREPARED`.
+5. Claude Code presented the normal MCP permission flow.
+6. The user approved the read-only `mcp__p4fs__read_text_file` call.
+7. The MCP server returned the real contents of `package.json`.
+8. The plugin-level `PostToolUse` hook captured the real input and response.
+9. `consume` returned `BRIDGE_CONSUMED` with result `BRIDGE_CAPTURED`.
+10. Final cleanup completed.
+
+Canonical request:
+
+```text
+019fb5a7-4768-7f9b-8b9f-7e5784c994ea
+```
+
+Sanitized consumed result:
+
+```text
+status: BRIDGE_CONSUMED
+result: BRIDGE_CAPTURED
+tool: mcp__p4fs__read_text_file
+responseBytes: 1828
+response: equal to the real MCP response
+```
+
+No capture script was invoked manually and no envelope was fabricated.
+
+## Replay Evidence
+
+A second `consume` was executed in the same Claude Code session for the exact
+request ID, plugin data directory and project root, without preparing another
+challenge.
+
+Observed result:
+
+```text
+BRIDGE_REPLAYED
+```
+
+The bridge did not return the payload again and did not modify the immutable
+signed envelope. This proves one-time consumption on the real captured request.
+
+## Earlier Failed Attempts And Findings
+
+The manual investigation also identified and corrected host-integration defects:
+
+1. `--plugin-dir` did not provide the installed-plugin data semantics required by
+   the spike.
+2. Arbitrary Bash commands did not reliably inherit `CLAUDE_PLUGIN_DATA`; the
+   skill now passes the substituted installed-plugin path explicitly.
+3. Skill-scoped hooks could use `${CLAUDE_PLUGIN_ROOT}` but the host rejected
+   `${CLAUDE_PLUGIN_DATA}` as plugin-only.
+4. Moving capture handlers to plugin-level `hooks/hooks.json` enabled the real
+   `PostToolUse` capture.
+5. A first p4fs call correctly failed because `/tmp/p4-mcp-readonly/probe.txt`
+   was outside the server allowlist. The successful proof used the in-project
+   `package.json` path.
+
+These failed attempts did not count as productive evidence; they were used only
+to correct the final architecture.
+
+## Security And Persistence
+
+- The selected MCP action was read-only.
+- The tool passed through the normal permission UI.
+- The request was bound to the preparing Claude Code session.
+- Project, server, exact tool and normalized input were bound.
+- The captured response was bounded and signed with the local HMAC key.
+- The signed envelope remained immutable after consume.
+- Bridge state was stored under the installed plugin data directory in
+  `work-source-bridge/`, not under `.planning/**`.
+- The bridge rejects data roots inside `.planning`.
+- No Jira, external mutation or credential-bearing response was involved.
+
+## Boundary Of The Result
+
+P4-0 proves the productive host-to-MCP transport mechanism for an explicitly
+approved read-only MCP operation. It does not by itself implement or validate:
+
+- `JiraMcpWorkSource`;
+- Jira field mappings;
+- refresh or drift behavior;
+- productive Plan 4 domain integration;
+- a sandbox against a malicious local process with access to plugin data.
+
+Those remain later Plan 4 work built on the now-proven transport primitive.
