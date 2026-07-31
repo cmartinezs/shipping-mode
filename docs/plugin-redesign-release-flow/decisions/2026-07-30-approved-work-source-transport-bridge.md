@@ -81,10 +81,13 @@ mcp__atlassian__searchJiraIssuesUsingJql
 
 Every action includes a host-owned `cloudId`, supplied as the connected
 Atlassian site's UUID through `SHIPPING_MODE_ATLASSIAN_CLOUD_ID`. Site URLs are
-rejected rather than forwarded as `cloudId`. The UUID must be resolved during
-connection setup, outside the productive Shipping Mode allowlist. The value is
-bound into the exact MCP input hash and bridge challenge; it is not persisted in
-`.planning/**` and cannot be provided as arbitrary Jira query syntax.
+rejected rather than forwarded as `cloudId`. The adapter applies the same
+UUID-only validation to an environment value and to any source-level `cloudId`,
+so configuration precedence cannot bypass the contract. The UUID must be
+resolved during connection setup, outside the productive Shipping Mode
+allowlist. The value is bound into the exact MCP input hash and bridge challenge;
+it is not persisted in `.planning/**` and cannot be provided as arbitrary Jira
+query syntax.
 
 The host invocation lifecycle is crash-recoverable across bridge consumption:
 all envelopes are verified and normalized before the invocation is persisted as
