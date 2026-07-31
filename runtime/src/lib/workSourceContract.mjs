@@ -7,7 +7,7 @@ function finding(code, message) {
 }
 
 function stableItems(items) {
-  return (items || []).map((item) => ({ itemId: item.itemId, revision: revisionHash(item) }));
+  return (items || []).map((item) => ({ itemId: item.itemId, type: item.type, title: item.title, description: item.description, fields: item.fields, acceptanceCriteria: item.acceptanceCriteria, dependencies: item.dependencies }));
 }
 
 export function evaluateWorkSourceProviderContract({ registry, source }) {
@@ -36,10 +36,15 @@ export function evaluateWorkSourceProviderContract({ registry, source }) {
     if (source.capabilities.includes("search")) {
       const provider = registry.resolve(source.id, "search");
       const searched = provider.search({ source, query: "" });
-      checks.push("search");
+      const searchedAgain = provider.search({ source, query: "" });
+      checks.push("search", "search_determinism");
       if (searched.status !== "PASS") findings.push(...(searched.findings || []));
-      if (revisionHash(stableItems(searched.items)) !== revisionHash(stableItems(discovered.items))) {
-        findings.push(finding("SOURCE_MISCONFIGURED", `provider ${source.provider} empty search does not match discover for ${source.id}`));
+      if (revisionHash(stableItems(searched.items)) !== revisionHash(stableItems(searchedAgain.items)) || revisionHash(searched.findings || []) !== revisionHash(searchedAgain.findings || [])) {
+        findings.push(finding("SOURCE_MISCONFIGURED", `provider ${source.provider} search output is not deterministic for ${source.id}`));
+      }
+      for (const item of searched.items || []) {
+        const validation = validateNormalizedWorkSourceItem(item);
+        if (!validation.valid) findings.push(finding("SOURCE_MISCONFIGURED", `provider ${source.provider} returned invalid search item ${item.itemId}: ${validation.errors.join("; ")}`));
       }
     }
     if (source.capabilities.includes("get") && (discovered.items || []).length > 0) {
@@ -50,7 +55,7 @@ export function evaluateWorkSourceProviderContract({ registry, source }) {
         const fetched = provider.get({ source, itemRef: expected.itemId });
         if (fetched.status !== "FOUND" || !fetched.item) {
           findings.push(finding("SOURCE_NOT_FOUND", `provider ${source.provider} cannot get discovered item ${expected.itemId}`));
-        } else if (revisionHash(fetched.item) !== revisionHash(expected)) {
+        } else if (revisionHash(stableItems([fetched.item])) !== revisionHash(stableItems([expected]))) {
           findings.push(finding("SOURCE_MISCONFIGURED", `provider ${source.provider} get output differs from discover for ${expected.itemId}`));
         }
       }

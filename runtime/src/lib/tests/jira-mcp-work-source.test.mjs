@@ -6,6 +6,7 @@ import { JiraMcpWorkSource } from "../jiraMcpWorkSource.mjs";
 import { buildWorkSourceRegistry } from "../workSourceProvider.mjs";
 import { FakeWorkSourceTransport } from "./fakes/fakeWorkSourceTransport.mjs";
 import { buildWorkSourceTransportRequest } from "../workSourceTransportPort.mjs";
+import { evaluateWorkSourceProviderContract } from "../workSourceContract.mjs";
 
 const config = {
   work_sources: [{
@@ -83,5 +84,9 @@ assert.equal(new JiraMcpWorkSource().get({ source, itemRef: "GRADE-142" }).statu
 const registry = buildWorkSourceRegistry({ providerFactories: [() => provider], sources: [source] });
 assert.equal(registry.resolve("jira-gradeops", "get"), provider);
 assert.throws(() => registry.resolve("jira-gradeops", "comment"), /SOURCE_CAPABILITY_MISSING/);
+const contract = evaluateWorkSourceProviderContract({ registry, source });
+assert.equal(contract.status, "PASS", JSON.stringify(contract.findings));
+assert.ok(contract.checks.includes("discover_determinism"));
+assert.ok(contract.checks.includes("search_determinism"));
 
 console.log("jira-mcp-work-source: closed Jira mapping passes");
